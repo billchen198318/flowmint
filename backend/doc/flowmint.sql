@@ -1,9 +1,9 @@
 /*M!999999\- enable the sandbox mode */ 
--- MariaDB dump 10.19-12.2.2-MariaDB, for Win64 (AMD64)
+-- MariaDB dump 10.19-12.3.2-MariaDB, for Win64 (AMD64)
 --
--- Host: localhost    Database: qifu4
+-- Host: localhost    Database: flowmint
 -- ------------------------------------------------------
--- Server version	12.2.2-MariaDB
+-- Server version	12.3.2-MariaDB
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -17,1724 +17,8 @@
 /*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;
 
 --
--- Table structure for table `tb_account`
+-- Table structure for table `act_evt_log`
 --
-
-DROP TABLE IF EXISTS `tb_account`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_account` (
-  `OID` char(36) NOT NULL,
-  `ACCOUNT` varchar(24) NOT NULL,
-  `PASSWORD` varchar(255) NOT NULL,
-  `ON_JOB` varchar(50) NOT NULL DEFAULT 'Y',
-  `CUSERID` varchar(24) DEFAULT NULL,
-  `CDATE` datetime DEFAULT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`ACCOUNT`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_account`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_account` WRITE;
-/*!40000 ALTER TABLE `tb_account` DISABLE KEYS */;
-INSERT INTO `tb_account` VALUES
-('0','admin','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2012-11-11 10:56:23','admin','2014-04-19 11:32:04'),
-('15822da5-25dc-490c-bdfb-be75f5ff4843','tester','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-04-23 11:26:53','admin','2015-08-29 17:54:08'),
-('52cb274e-388d-419f-a81e-67ca599bfb63','steven','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-09-11 10:33:53',NULL,NULL),
-('9c239d19-3646-41db-b394-d34c5bf34671','tiffany','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-09-11 10:15:29',NULL,NULL);
-/*!40000 ALTER TABLE `tb_account` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_role`
---
-
-DROP TABLE IF EXISTS `tb_role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_role` (
-  `OID` char(36) NOT NULL,
-  `ROLE` varchar(50) NOT NULL,
-  `DESCRIPTION` varchar(500) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(50) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`ROLE`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_role`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_role` WRITE;
-/*!40000 ALTER TABLE `tb_role` DISABLE KEYS */;
-INSERT INTO `tb_role` VALUES
-('19f1523b-5afc-11f1-86b7-bd261cfeb8ff','testrole','test','admin','2026-05-29 09:17:03',NULL,NULL),
-('4b1796ad-0bb7-4a65-b45e-439540ba5dbd','admin','administrator role!','admin','2014-10-09 15:02:24',NULL,NULL),
-('58914623-46ea-4797-bbec-2dadc5d0800e','COMMON01','Common role!','admin','2017-05-09 13:31:42',NULL,NULL),
-('c7c69396-e5e6-48ca-b09c-9445b69e2ad5','*','all role','admin','2014-10-09 15:02:54',NULL,NULL);
-/*!40000 ALTER TABLE `tb_role` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_role_permission`
---
-
-DROP TABLE IF EXISTS `tb_role_permission`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_role_permission` (
-  `OID` char(36) NOT NULL,
-  `ROLE` varchar(50) NOT NULL,
-  `PERMISSION` varchar(255) NOT NULL,
-  `PERM_TYPE` varchar(15) NOT NULL,
-  `DESCRIPTION` varchar(500) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(50) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`ROLE`,`PERMISSION`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_role_permission`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_role_permission` WRITE;
-/*!40000 ALTER TABLE `tb_role_permission` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_role_permission` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys`
---
-
-DROP TABLE IF EXISTS `tb_sys`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys` (
-  `OID` char(36) NOT NULL,
-  `SYS_ID` varchar(10) NOT NULL,
-  `NAME` varchar(100) NOT NULL,
-  `HOST` varchar(200) NOT NULL,
-  `CONTEXT_PATH` varchar(100) NOT NULL,
-  `IS_LOCAL` varchar(1) NOT NULL DEFAULT 'Y',
-  `ICON` varchar(20) NOT NULL DEFAULT ' ',
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`SYS_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys` WRITE;
-/*!40000 ALTER TABLE `tb_sys` DISABLE KEYS */;
-INSERT INTO `tb_sys` VALUES
-('c6643182-85a5-4f91-9e73-10567ebd0dd5','CORE','Core-system','127.0.0.1:8080','core-web','Y','SYSTEM','admin','2017-04-10 20:42:00','admin','2026-06-01 15:35:15');
-/*!40000 ALTER TABLE `tb_sys` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_bean_help`
---
-
-DROP TABLE IF EXISTS `tb_sys_bean_help`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_bean_help` (
-  `OID` char(36) NOT NULL,
-  `BEAN_ID` varchar(255) NOT NULL,
-  `METHOD` varchar(100) NOT NULL,
-  `SYSTEM` varchar(10) NOT NULL,
-  `ENABLE_FLAG` varchar(1) NOT NULL,
-  `DESCRIPTION` varchar(500) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`BEAN_ID`,`METHOD`,`SYSTEM`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_bean_help`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_bean_help` WRITE;
-/*!40000 ALTER TABLE `tb_sys_bean_help` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_bean_help` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_bean_help_expr`
---
-
-DROP TABLE IF EXISTS `tb_sys_bean_help_expr`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_bean_help_expr` (
-  `OID` char(36) NOT NULL,
-  `HELP_OID` char(36) NOT NULL,
-  `EXPR_ID` varchar(20) NOT NULL,
-  `EXPR_SEQ` varchar(10) NOT NULL,
-  `RUN_TYPE` varchar(10) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`EXPR_ID`,`HELP_OID`,`RUN_TYPE`),
-  KEY `IDX_1` (`HELP_OID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_bean_help_expr`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_bean_help_expr` WRITE;
-/*!40000 ALTER TABLE `tb_sys_bean_help_expr` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_bean_help_expr` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_bean_help_expr_map`
---
-
-DROP TABLE IF EXISTS `tb_sys_bean_help_expr_map`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_bean_help_expr_map` (
-  `OID` char(36) NOT NULL,
-  `HELP_EXPR_OID` char(36) NOT NULL,
-  `METHOD_RESULT_FLAG` varchar(1) NOT NULL DEFAULT 'N',
-  `METHOD_PARAM_CLASS` varchar(255) NOT NULL DEFAULT ' ',
-  `METHOD_PARAM_INDEX` int(3) NOT NULL DEFAULT 0,
-  `VAR_NAME` varchar(255) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`VAR_NAME`,`HELP_EXPR_OID`),
-  KEY `IDX_1` (`HELP_EXPR_OID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_bean_help_expr_map`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_bean_help_expr_map` WRITE;
-/*!40000 ALTER TABLE `tb_sys_bean_help_expr_map` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_bean_help_expr_map` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_code`
---
-
-DROP TABLE IF EXISTS `tb_sys_code`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_code` (
-  `OID` char(36) NOT NULL,
-  `CODE` varchar(25) NOT NULL,
-  `TYPE` varchar(10) NOT NULL,
-  `NAME` varchar(100) NOT NULL,
-  `PARAM1` varchar(100) DEFAULT NULL,
-  `PARAM2` varchar(100) DEFAULT NULL,
-  `PARAM3` varchar(100) DEFAULT NULL,
-  `PARAM4` varchar(100) DEFAULT NULL,
-  `PARAM5` varchar(100) DEFAULT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`CODE`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_code`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_code` WRITE;
-/*!40000 ALTER TABLE `tb_sys_code` DISABLE KEYS */;
-INSERT INTO `tb_sys_code` VALUES
-('2d9c84e4-a956-42ac-96cb-1f6292d182a9','CNF_CONF002','CNF','enable mail sender!','Y',NULL,NULL,NULL,NULL,'admin','2014-12-25 09:09:57','admin','2020-09-14 04:36:34'),
-('4df770a6-6a9c-4d25-bdcd-1dee819d2ba6','CNF_CONF001','CNF','default mail from account!','root@localhost',NULL,NULL,NULL,NULL,'admin','2014-12-24 21:51:16','admin','2020-09-14 04:36:34'),
-('57877c4d-4f3e-4679-880a-a262eeba0c3d','TOKEN','AUTH','QiFu3 Client token','9TYM7TRuILqFk9XoR0v6Yx672','COMMON01',NULL,NULL,NULL,'admin','2021-10-30 17:12:04',NULL,NULL),
-('a5f7ee37-f33f-48a6-b448-92ccb8cdf96a','CNF_CONF003','CNF','first load javascript','addTab(\'CORE_PROG999D9999Q\', null);',NULL,NULL,NULL,NULL,'admin','2014-12-25 09:09:57',NULL,NULL),
-('caf00ba5-fe63-4dc4-a1a3-32527f6629b2','CMM_CONF001','CMM','Common role for default user!','COMMON01',NULL,NULL,NULL,NULL,'admin','2017-05-09 12:29:00',NULL,NULL);
-/*!40000 ALTER TABLE `tb_sys_code` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_event_log`
---
-
-DROP TABLE IF EXISTS `tb_sys_event_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_event_log` (
-  `OID` char(36) NOT NULL,
-  `USER` varchar(24) NOT NULL,
-  `SYS_ID` varchar(10) NOT NULL,
-  `EXECUTE_EVENT` varchar(255) NOT NULL,
-  `IS_PERMIT` varchar(1) NOT NULL DEFAULT 'N',
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  KEY `IDX_1` (`USER`),
-  KEY `IDX_2` (`CDATE`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_event_log`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_event_log` WRITE;
-/*!40000 ALTER TABLE `tb_sys_event_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_event_log` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_expr_job`
---
-
-DROP TABLE IF EXISTS `tb_sys_expr_job`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_expr_job` (
-  `OID` char(36) NOT NULL,
-  `SYSTEM` varchar(10) NOT NULL,
-  `ID` varchar(20) NOT NULL,
-  `NAME` varchar(100) NOT NULL,
-  `ACTIVE` varchar(1) NOT NULL DEFAULT 'Y',
-  `DESCRIPTION` varchar(500) DEFAULT NULL,
-  `RUN_STATUS` varchar(1) NOT NULL DEFAULT 'Y',
-  `CHECK_FAULT` varchar(1) NOT NULL DEFAULT 'N',
-  `EXPR_ID` varchar(20) NOT NULL,
-  `RUN_DAY_OF_WEEK` varchar(1) NOT NULL,
-  `RUN_HOUR` varchar(2) NOT NULL,
-  `RUN_MINUTE` varchar(2) NOT NULL,
-  `CONTACT_MODE` varchar(1) NOT NULL DEFAULT '0',
-  `CONTACT` varchar(500) DEFAULT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`ID`),
-  KEY `IDX_1` (`SYSTEM`,`ACTIVE`,`EXPR_ID`,`NAME`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_expr_job`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_expr_job` WRITE;
-/*!40000 ALTER TABLE `tb_sys_expr_job` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_expr_job` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_expr_job_log`
---
-
-DROP TABLE IF EXISTS `tb_sys_expr_job_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_expr_job_log` (
-  `OID` char(36) NOT NULL,
-  `ID` varchar(20) NOT NULL,
-  `LOG_STATUS` varchar(1) NOT NULL DEFAULT 'N',
-  `BEGIN_DATETIME` datetime NOT NULL,
-  `END_DATETIME` datetime NOT NULL,
-  `FAULT_MSG` varchar(2000) DEFAULT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  KEY `IDX_1` (`ID`,`LOG_STATUS`,`BEGIN_DATETIME`),
-  KEY `IDX_2` (`CDATE`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_expr_job_log`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_expr_job_log` WRITE;
-/*!40000 ALTER TABLE `tb_sys_expr_job_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_expr_job_log` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_expression`
---
-
-DROP TABLE IF EXISTS `tb_sys_expression`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_expression` (
-  `OID` char(36) NOT NULL,
-  `EXPR_ID` varchar(20) NOT NULL,
-  `TYPE` varchar(10) NOT NULL,
-  `NAME` varchar(100) NOT NULL,
-  `CONTENT` varchar(8000) NOT NULL,
-  `DESCRIPTION` varchar(500) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`EXPR_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_expression`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_expression` WRITE;
-/*!40000 ALTER TABLE `tb_sys_expression` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_expression` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_icon`
---
-
-DROP TABLE IF EXISTS `tb_sys_icon`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_icon` (
-  `OID` char(36) NOT NULL,
-  `ICON_ID` varchar(20) NOT NULL,
-  `FILE_NAME` varchar(200) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`ICON_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_icon`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_icon` WRITE;
-/*!40000 ALTER TABLE `tb_sys_icon` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_icon` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_jreport`
---
-
-DROP TABLE IF EXISTS `tb_sys_jreport`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_jreport` (
-  `OID` char(36) NOT NULL,
-  `REPORT_ID` varchar(50) NOT NULL,
-  `FILE` varchar(100) NOT NULL,
-  `IS_COMPILE` varchar(50) NOT NULL DEFAULT 'N',
-  `CONTENT` mediumblob NOT NULL,
-  `DESCRIPTION` varchar(500) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`REPORT_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_jreport`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_jreport` WRITE;
-/*!40000 ALTER TABLE `tb_sys_jreport` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_jreport` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_jreport_param`
---
-
-DROP TABLE IF EXISTS `tb_sys_jreport_param`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_jreport_param` (
-  `OID` char(36) NOT NULL,
-  `REPORT_ID` varchar(50) NOT NULL,
-  `URL_PARAM` varchar(100) NOT NULL,
-  `RPT_PARAM` varchar(100) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`REPORT_ID`,`RPT_PARAM`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_jreport_param`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_jreport_param` WRITE;
-/*!40000 ALTER TABLE `tb_sys_jreport_param` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_jreport_param` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_login_log`
---
-
-DROP TABLE IF EXISTS `tb_sys_login_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_login_log` (
-  `OID` char(36) NOT NULL,
-  `USER` varchar(24) NOT NULL,
-  `FAIL_FLAG` char(1) NOT NULL DEFAULT 'N',  
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  KEY `IDX_1` (`USER`),
-  KEY `IDX_2` (`CDATE`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_login_log`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_login_log` WRITE;
-/*!40000 ALTER TABLE `tb_sys_login_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_login_log` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_mail_helper`
---
-
-DROP TABLE IF EXISTS `tb_sys_mail_helper`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_mail_helper` (
-  `OID` char(36) NOT NULL,
-  `MAIL_ID` varchar(17) NOT NULL,
-  `SUBJECT` varchar(200) NOT NULL,
-  `TEXT` blob DEFAULT NULL,
-  `MAIL_FROM` varchar(100) NOT NULL,
-  `MAIL_TO` varchar(100) NOT NULL,
-  `MAIL_CC` varchar(1000) DEFAULT NULL,
-  `MAIL_BCC` varchar(1000) DEFAULT NULL,
-  `SUCCESS_FLAG` varchar(1) NOT NULL DEFAULT 'N',
-  `SUCCESS_TIME` datetime DEFAULT NULL,
-  `RETAIN_FLAG` varchar(1) NOT NULL DEFAULT 'N',
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`MAIL_ID`),
-  KEY `IDX_1` (`MAIL_ID`),
-  KEY `IDX_2` (`SUCCESS_FLAG`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_mail_helper`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_mail_helper` WRITE;
-/*!40000 ALTER TABLE `tb_sys_mail_helper` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_mail_helper` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_menu`
---
-
-DROP TABLE IF EXISTS `tb_sys_menu`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_menu` (
-  `OID` char(36) NOT NULL,
-  `PROG_ID` varchar(50) NOT NULL,
-  `PARENT_OID` char(36) NOT NULL,
-  `ENABLE_FLAG` varchar(1) NOT NULL DEFAULT 'Y',
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`PROG_ID`,`PARENT_OID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_menu`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_menu` WRITE;
-/*!40000 ALTER TABLE `tb_sys_menu` DISABLE KEYS */;
-INSERT INTO `tb_sys_menu` VALUES
-('4bd4d202-5feb-495b-8c8c-ec6b7f5b8041','CORE_PROG002D0002Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
-('5e055f61-bfc5-402c-93b4-f241dc17b00b','CORE_PROG004D','00000000-0000-0000-0000-000000000000','Y','admin','2017-06-03 14:23:17',NULL,NULL),
-('79e1cf24-2522-4cdf-abcc-6455b47d545b','CORE_PROG002D','00000000-0000-0000-0000-000000000000','Y','admin','2017-05-08 21:32:59',NULL,NULL),
-('7aa1208a-5fc2-11f1-afe9-33fb6c1b9ce7','CORE_PROG005D','00000000-0000-0000-0000-000000000000','Y','admin','2026-06-04 11:07:11',NULL,NULL),
-('7aa2590b-5fc2-11f1-afe9-73b1551d818b','CORE_PROG005D0001Q','7aa1208a-5fc2-11f1-afe9-33fb6c1b9ce7','Y','admin','2026-06-04 11:07:11',NULL,NULL),
-('7ea68636-c93a-4669-ac42-dafc3770d20d','CORE_PROG001D','00000000-0000-0000-0000-000000000000','Y','admin','2017-04-20 11:24:53',NULL,NULL),
-('9972c249-2985-49ac-9b8b-f6c25c65fd4e','CORE_PROG002D0003Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
-('c5349a26-6d6e-4d94-b817-82be6d14d5ed','CORE_PROG002D0001Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
-('f0242c17-4487-11ee-b50d-a593cf4a05bf','CORE_PROG001D0001Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
-('f0253d88-4487-11ee-b50d-7f3d9b9812d0','CORE_PROG001D0002Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
-('f0264ef9-4487-11ee-b50d-a55549dc8acf','CORE_PROG001D0003Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
-('f027877a-4487-11ee-b50d-8fe1228e511a','CORE_PROG001D0004Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
-('f02898eb-4487-11ee-b50d-45ee94442a45','CORE_PROG001D0005Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
-('f07acfb8-4612-11ee-9a04-71984fef28fa','CORE_PROG004D0001Q','5e055f61-bfc5-402c-93b4-f241dc17b00b','Y','admin','2023-08-29 10:22:45',NULL,NULL),
-('f07b9309-4612-11ee-9a04-9f3e4fe17b25','CORE_PROG004D0002Q','5e055f61-bfc5-402c-93b4-f241dc17b00b','Y','admin','2023-08-29 10:22:45',NULL,NULL);
-/*!40000 ALTER TABLE `tb_sys_menu` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_menu_role`
---
-
-DROP TABLE IF EXISTS `tb_sys_menu_role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_menu_role` (
-  `OID` char(36) NOT NULL,
-  `PROG_ID` varchar(50) NOT NULL,
-  `ROLE` varchar(50) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`PROG_ID`,`ROLE`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_menu_role`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_menu_role` WRITE;
-/*!40000 ALTER TABLE `tb_sys_menu_role` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_menu_role` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_prog`
---
-
-DROP TABLE IF EXISTS `tb_sys_prog`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_prog` (
-  `OID` char(36) NOT NULL,
-  `PROG_ID` varchar(50) NOT NULL,
-  `NAME` varchar(100) NOT NULL,
-  `URL` varchar(255) NOT NULL,
-  `EDIT_MODE` varchar(1) NOT NULL DEFAULT 'N',
-  `IS_DIALOG` varchar(1) NOT NULL DEFAULT 'N',
-  `DIALOG_W` int(4) NOT NULL DEFAULT 0,
-  `DIALOG_H` int(4) NOT NULL DEFAULT 0,
-  `PROG_SYSTEM` varchar(10) NOT NULL,
-  `ITEM_TYPE` varchar(10) NOT NULL,
-  `ICON` varchar(20) NOT NULL,
-  `FONT_ICON_CLASS_ID` varchar(100) NOT NULL DEFAULT 'circle-o',
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`PROG_ID`),
-  KEY `IDX_1` (`PROG_SYSTEM`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_prog`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_prog` WRITE;
-/*!40000 ALTER TABLE `tb_sys_prog` DISABLE KEYS */;
-INSERT INTO `tb_sys_prog` VALUES
-('186b1fb1-749f-4b6f-97d1-6b7fb8115345','CORE_PROG001D0004E','ZA04 - Freemarker樣板 (Edit)','#/prog001d0004/edit','Y','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:40:10','admin','2023-08-16 21:48:56'),
-('1b11c7eb-6133-48fb-87f0-dfbd098ce914','CORE_PROG001D0001E','ZA01 - System site (Edit)','#/prog001d0001/edit','Y','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:58'),
-('1e393fe3-8bbc-482c-aa23-bbb22a1dbafb','CORE_PROG001D0005A','ZA05 - JasperReport (Create)','#/prog001d0005/create','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:55:46','admin','2023-08-24 20:20:27'),
-('22560527-90fb-4e5a-a89b-353d2aa1d433','CORE_PROG001D0005E','ZA05 - JasperReport (Edit)','#/prog001d0005/edit','Y','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:56:27','admin','2023-08-24 20:20:40'),
-('3630ee1b-6169-452f-821f-5c015dfb84d5','CORE_PROG001D','ZA. Config','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','gear-fill','admin','2014-10-02 00:00:00','admin','2023-08-15 19:16:31'),
-('3862b6d0-0551-45d8-8dd1-cd988a5e8e50','CORE_PROG004D0002Q','ZD02 - Token log','#/prog004d0002','N','N',0,0,'CORE','ITEM','PROPERTIES','clipboard-check','admin','2017-06-03 14:22:29','admin','2023-08-29 10:23:05'),
-('41fa29d8-3a53-4fbd-b2b1-cdbfd0729767','CORE_PROG001D0004Q','ZA04 - Freemarker樣板','#/prog001d0004','N','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:36:41','admin','2023-08-16 21:48:29'),
-('5e082c7c-1730-4176-89c6-93e235707deb','CORE_PROG002D0001A','ZB01 - Role (Create)','#/prog002d0001/create','N','N',0,0,'CORE','ITEM','PEOPLE','person-square','admin','2017-05-09 11:15:50','admin','2023-08-27 16:46:40'),
-('61aea7ff-7a42-4a92-9a0b-4a0dfe60858b','CORE_PROG004D0001Q','ZD01 - Event log','#/prog004d0001','N','N',0,0,'CORE','ITEM','PROPERTIES','clipboard-pulse','admin','2017-06-03 14:22:07','admin','2023-08-29 10:17:34'),
-('6a442973-0e0c-4a7a-d546-464f4ff5f7a9','CORE_PROG001D0003Q','ZA03 - Menu settings','#/prog001d0003','N','N',0,0,'CORE','ITEM','FOLDER','menu-down','admin','2014-10-02 00:00:00','admin','2023-08-15 19:21:23'),
-('6b210525-8975-4fb5-954c-fe349f66d3fe','CORE_PROG002D0001S01Q','ZB01 - Role (permission)','#/prog002d0001/setparam','Y','N',0,0,'CORE','ITEM','IMPORTANT','globe2','admin','2017-05-09 14:32:47','admin','2021-01-20 08:48:52'),
-('72e6e0d1-1818-47d3-99f9-5134fb211b79','CORE_PROG002D','ZB. Role authority','/','N','N',0,0,'CORE','FOLDER','SHARED','person-square','admin','2017-05-08 21:27:52','admin','2023-08-27 16:47:03'),
-('7746f746-961f-44c2-9b66-fa43c0f49838','CORE_PROG001D0004S01Q','ZA04 - Freemarker樣板 (Parameter)','#/prog001d0004/setparam','Y','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:42:04','admin','2023-08-16 21:49:12'),
-('7d9ddc45-3eab-4f61-8c0a-d5505c0cc748','CORE_PROG001D0004A','ZA04 - Freemarker樣板 (Create)','#/prog001d0004/create','N','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:39:20','admin','2023-08-16 21:48:49'),
-('8499957e-6da9-4160-c2ec-dfb7dbc202fe','CORE_PROG001D0002E','ZA02 - Program (Edit)','#/prog001d0002/edit','Y','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:17'),
-('87f9ae6a-1dd2-4585-b31d-9533bdda8fd5','CORE_PROG005D0001Q','ZE01 - MQTT Dashboard','#/prog005d0001','N','N',0,0,'CORE','ITEM','PROPERTIES','speedometer2','admin','2026-06-04 11:00:54',NULL,NULL),
-('ac5bcfd0-4abd-11e4-916c-0800200c9a66','CORE_PROG001D0001A','ZA01 - System site (Create)','#/prog001d0001/create','N','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:45'),
-('b39159ad-0707-4515-b78d-e3fc72c53974','CORE_PROG002D0001E','ZB01 - Role (Edit)','#/prog002d0001/edit','Y','N',0,0,'CORE','ITEM','PEOPLE','person-square','admin','2017-05-09 12:11:53','admin','2023-08-27 16:46:35'),
-('b6b89559-6864-46ab-9ca9-0992dcf238f1','CORE_PROG001D0001Q','ZA01 - System site','#/prog001d0001','N','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:29'),
-('b978f706-4c5f-40f8-83b1-395492f141d4','CORE_PROG002D0001Q','ZB01 - Role','#/prog002d0001','N','N',0,0,'CORE','ITEM','PEOPLE','person-square','admin','2017-05-08 21:32:50','admin','2023-08-27 16:46:27'),
-('bfeb7935-334f-4a94-9666-f77433793a8a','CORE_PROG005D','ZE. MQTT','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','gear-fill','admin','2026-06-04 11:00:54',NULL,NULL),
-('c96ebde8-7044-4b05-a155-68a0c2605619','CORE_PROG002D0003Q','ZB03 - Role for menu','#/prog002d0003','N','N',0,0,'CORE','ITEM','FOLDER','menu-app-fill','admin','2017-05-08 21:37:01','admin','2023-08-28 19:54:34'),
-('da7d969a-5efb-4e84-9eab-4fdae236f28c','CORE_PROG002D0002Q','ZB02 - User role','#/prog002d0002','N','N',0,0,'CORE','ITEM','PERSON','person-check','admin','2017-05-08 21:34:39','admin','2023-08-28 19:54:25'),
-('dda67b1d-e3a2-4534-835a-c62d9e8421f3','CORE_PROG001D0005S01Q','ZA05 - JasperReport (Parameter)','#/prog001d0005/setparam','Y','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:57:26','admin','2023-08-24 20:21:02'),
-('e32b9329-bb38-46d7-8552-2307bac77724','CORE_PROG001D0002A','ZA02 - Program (Create)','#/prog001d0002/create','N','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:42'),
-('e86dbb1b-6870-4827-8039-72f5e15fa4f2','CORE_PROG004D','ZD. Log','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','clipboard-check-fill','admin','2017-06-03 14:21:03','admin','2023-08-29 10:14:04'),
-('eb6e199f-c853-4fbf-acf3-0c9c77ba9953','CORE_PROG001D0002Q','ZA02 - Program','#/prog001d0002','N','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:05'),
-('eb786ffd-c7d1-4631-aed2-4d9d7368eb13','CORE_PROG001D0005Q','ZA05 - JasperReport','#/prog001d0005','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:54:35','admin','2023-08-24 20:20:16');
-/*!40000 ALTER TABLE `tb_sys_prog` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_qfield_log`
---
-
-DROP TABLE IF EXISTS `tb_sys_qfield_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_qfield_log` (
-  `OID` char(36) NOT NULL,
-  `SYSTEM` varchar(10) NOT NULL,
-  `PROG_ID` varchar(50) NOT NULL,
-  `METHOD_NAME` varchar(255) NOT NULL,
-  `FIELD_NAME` varchar(255) NOT NULL,
-  `FIELD_VALUE` varchar(500) DEFAULT NULL,
-  `QUERY_USER_ID` varchar(24) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  KEY `IDX_1` (`SYSTEM`,`PROG_ID`),
-  KEY `IDX_2` (`QUERY_USER_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_qfield_log`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_qfield_log` WRITE;
-/*!40000 ALTER TABLE `tb_sys_qfield_log` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_qfield_log` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_template`
---
-
-DROP TABLE IF EXISTS `tb_sys_template`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_template` (
-  `OID` char(36) NOT NULL,
-  `TEMPLATE_ID` varchar(10) NOT NULL,
-  `TITLE` varchar(200) NOT NULL,
-  `MESSAGE` varchar(4000) NOT NULL,
-  `DESCRIPTION` varchar(200) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`TEMPLATE_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_template`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_template` WRITE;
-/*!40000 ALTER TABLE `tb_sys_template` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_template` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_template_param`
---
-
-DROP TABLE IF EXISTS `tb_sys_template_param`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_template_param` (
-  `OID` char(36) NOT NULL,
-  `TEMPLATE_ID` varchar(10) NOT NULL,
-  `IS_TITLE` varchar(1) NOT NULL DEFAULT 'N',
-  `TEMPLATE_VAR` varchar(100) NOT NULL,
-  `OBJECT_VAR` varchar(100) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`TEMPLATE_ID`,`TEMPLATE_VAR`,`IS_TITLE`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_template_param`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_template_param` WRITE;
-/*!40000 ALTER TABLE `tb_sys_template_param` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_template_param` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_token`
---
-
-DROP TABLE IF EXISTS `tb_sys_token`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_token` (
-  `OID` char(36) NOT NULL,
-  `USER_ID` varchar(24) NOT NULL,
-  `TOKEN` varchar(2048) NOT NULL,
-  `EXPIRES_DATE` datetime NOT NULL,
-  `RF_EXPIRES_DATE` datetime NOT NULL,
-  `CDATE` datetime NOT NULL,
-  PRIMARY KEY (`OID`),
-  KEY `IDX_1` (`USER_ID`),
-  KEY `IDX_2` (`TOKEN`(1024))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_token`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_token` WRITE;
-/*!40000 ALTER TABLE `tb_sys_token` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_token` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_upload`
---
-
-DROP TABLE IF EXISTS `tb_sys_upload`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_upload` (
-  `OID` char(36) NOT NULL,
-  `SYSTEM` varchar(10) NOT NULL,
-  `SUB_DIR` varchar(4) NOT NULL,
-  `TYPE` varchar(10) NOT NULL,
-  `FILE_NAME` varchar(50) NOT NULL,
-  `SHOW_NAME` varchar(255) NOT NULL,
-  `IS_FILE` varchar(1) NOT NULL DEFAULT 'Y',
-  `CONTENT` mediumblob DEFAULT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  KEY `IDX_1` (`SYSTEM`,`TYPE`,`SUB_DIR`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_upload`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_upload` WRITE;
-/*!40000 ALTER TABLE `tb_sys_upload` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_upload` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_sys_usess`
---
-
-DROP TABLE IF EXISTS `tb_sys_usess`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_sys_usess` (
-  `OID` char(36) NOT NULL,
-  `SESSION_ID` varchar(64) NOT NULL,
-  `ACCOUNT` varchar(24) NOT NULL,
-  `CURRENT_ID` varchar(36) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(24) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`,`SESSION_ID`),
-  UNIQUE KEY `UK_1` (`ACCOUNT`,`SESSION_ID`),
-  KEY `IDX_1` (`CURRENT_ID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `tb_sys_usess`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_sys_usess` WRITE;
-/*!40000 ALTER TABLE `tb_sys_usess` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tb_sys_usess` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-
---
--- Table structure for table `tb_user_role`
---
-
-DROP TABLE IF EXISTS `tb_user_role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE `tb_user_role` (
-  `OID` char(36) NOT NULL,
-  `ROLE` varchar(50) NOT NULL,
-  `ACCOUNT` varchar(24) NOT NULL,
-  `DESCRIPTION` varchar(500) NOT NULL,
-  `CUSERID` varchar(24) NOT NULL,
-  `CDATE` datetime NOT NULL,
-  `UUSERID` varchar(50) DEFAULT NULL,
-  `UDATE` datetime DEFAULT NULL,
-  PRIMARY KEY (`OID`),
-  UNIQUE KEY `UK_1` (`ROLE`,`ACCOUNT`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
-
---
--- Dumping data for table `tb_user_role`
---
-
-SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
-LOCK TABLES `tb_user_role` WRITE;
-/*!40000 ALTER TABLE `tb_user_role` DISABLE KEYS */;
-INSERT INTO `tb_user_role` VALUES
-('1c62cf70-ca6b-4243-8aa9-49b555024c45','COMMON01','steven','','admin','2017-05-10 14:19:58',NULL,NULL),
-('9243c7de-43b1-46ef-ac4b-2620697f319e','admin','admin','Administrator','admin','2014-09-23 00:00:00',NULL,NULL),
-('a3d8caa3-45a8-11ee-b979-e9dd94b50b2d','COMMON01','tiffany','','admin','2023-08-28 21:41:50',NULL,NULL),
-('bd7bf78c-d84b-4524-8273-273f883d30b5','COMMON01','tester','','admin','2017-05-10 11:01:50',NULL,NULL);
-/*!40000 ALTER TABLE `tb_user_role` ENABLE KEYS */;
-UNLOCK TABLES;
-COMMIT;
-SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
-
-
-CREATE TABLE IF NOT EXISTS fm_tenant (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  TENANT_CODE varchar(30) NOT NULL,
-  TENANT_NAME varchar(100) NOT NULL,
-  DEFAULT_LOCALE varchar(15) NOT NULL DEFAULT 'zh-TW',
-  DEFAULT_TIMEZONE varchar(50) NOT NULL DEFAULT 'Asia/Taipei',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TENANT_ID (TENANT_ID),
-  UNIQUE KEY UK_FM_TENANT_CODE (TENANT_CODE),
-  CONSTRAINT CK_FM_TENANT_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_tenant_account (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  ACCOUNT varchar(24) NOT NULL,
-  IS_DEFAULT char(1) NOT NULL DEFAULT 'N',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TENANT_ACCOUNT (TENANT_ID,ACCOUNT),
-  KEY IDX_FM_TENANT_ACCOUNT_LOGIN (ACCOUNT,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO),
-  CONSTRAINT CK_FM_TA_DEFAULT CHECK (IS_DEFAULT IN ('Y','N')),
-  CONSTRAINT CK_FM_TA_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_TA_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_employee (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  EMPLOYEE_ID varchar(36) NOT NULL,
-  EMPLOYEE_NO varchar(50) NOT NULL,
-  ACCOUNT varchar(24) NOT NULL,
-  DISPLAY_NAME varchar(100) NOT NULL,
-  EMAIL varchar(255) DEFAULT NULL,
-  MOBILE varchar(30) DEFAULT NULL,
-  LOCALE varchar(15) DEFAULT NULL,
-  TIMEZONE varchar(50) DEFAULT NULL,
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_EMPLOYEE_ID (TENANT_ID,EMPLOYEE_ID),
-  UNIQUE KEY UK_FM_EMPLOYEE_NO (TENANT_ID,EMPLOYEE_NO),
-  UNIQUE KEY UK_FM_EMPLOYEE_ACCOUNT (TENANT_ID,ACCOUNT),
-  KEY IDX_FM_EMPLOYEE_ACTIVE (TENANT_ID,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO),
-  CONSTRAINT CK_FM_EMP_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_EMP_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_org_level_scheme (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  LEVEL_SCHEME_ID varchar(36) NOT NULL,
-  SCHEME_CODE varchar(30) NOT NULL,
-  SCHEME_NAME varchar(100) NOT NULL,
-  IS_DEFAULT char(1) NOT NULL DEFAULT 'N',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_LEVEL_SCHEME_ID (TENANT_ID,LEVEL_SCHEME_ID),
-  UNIQUE KEY UK_FM_LEVEL_SCHEME_CODE (TENANT_ID,SCHEME_CODE),
-  CONSTRAINT CK_FM_LS_DEFAULT CHECK (IS_DEFAULT IN ('Y','N')),
-  CONSTRAINT CK_FM_LS_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_LS_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_org_approval_level (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  APPROVAL_LEVEL_ID varchar(36) NOT NULL,
-  LEVEL_SCHEME_ID varchar(36) NOT NULL,
-  LEVEL_CODE varchar(30) NOT NULL,
-  LEVEL_NAME varchar(100) NOT NULL,
-  LEVEL_ORDER int NOT NULL,
-  IS_HIGHEST_LEVEL char(1) NOT NULL DEFAULT 'N',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_LEVEL_ID (TENANT_ID,APPROVAL_LEVEL_ID),
-  UNIQUE KEY UK_FM_LEVEL_CODE (TENANT_ID,LEVEL_SCHEME_ID,LEVEL_CODE),
-  UNIQUE KEY UK_FM_LEVEL_ORDER (TENANT_ID,LEVEL_SCHEME_ID,LEVEL_ORDER),
-  CONSTRAINT CK_FM_LEVEL_ORDER CHECK (LEVEL_ORDER >= 0),
-  CONSTRAINT CK_FM_LEVEL_HIGHEST CHECK (IS_HIGHEST_LEVEL IN ('Y','N')),
-  CONSTRAINT CK_FM_LEVEL_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_LEVEL_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_org_title (
-  OID char(36) NOT NULL, TENANT_ID varchar(36) NOT NULL, TITLE_ID varchar(36) NOT NULL,
-  ORG_UNIT_ID varchar(36) NOT NULL, TITLE_CODE varchar(30) NOT NULL, TITLE_NAME varchar(100) NOT NULL,
-  APPROVAL_LEVEL_ID varchar(36) NOT NULL, IS_MANAGER_TITLE char(1) NOT NULL DEFAULT 'N',
-  SORT_NO int NOT NULL DEFAULT 0, STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL, EFFECTIVE_TO datetime(3) DEFAULT NULL, DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL, UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID), UNIQUE KEY UK_FM_TITLE_ID (TENANT_ID,TITLE_ID),
-  UNIQUE KEY UK_FM_TITLE_CODE (TENANT_ID,ORG_UNIT_ID,TITLE_CODE),
-  KEY IDX_FM_TITLE_LEVEL (TENANT_ID,ORG_UNIT_ID,APPROVAL_LEVEL_ID,STATUS),
-  CONSTRAINT CK_FM_TITLE_MANAGER CHECK (IS_MANAGER_TITLE IN ('Y','N')),
-  CONSTRAINT CK_FM_TITLE_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_TITLE_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_org_duty (
-  OID char(36) NOT NULL, TENANT_ID varchar(36) NOT NULL, DUTY_ID varchar(36) NOT NULL,
-  ORG_UNIT_ID varchar(36) NOT NULL, DUTY_CODE varchar(30) NOT NULL, DUTY_NAME varchar(100) NOT NULL,
-  DUTY_TYPE varchar(30) NOT NULL DEFAULT 'APPROVAL', STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL, EFFECTIVE_TO datetime(3) DEFAULT NULL, DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL, UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID), UNIQUE KEY UK_FM_DUTY_ID (TENANT_ID,DUTY_ID),
-  UNIQUE KEY UK_FM_DUTY_CODE (TENANT_ID,ORG_UNIT_ID,DUTY_CODE),
-  CONSTRAINT CK_FM_DUTY_TYPE CHECK (DUTY_TYPE IN ('APPROVAL','REVIEW','NOTIFY')),
-  CONSTRAINT CK_FM_DUTY_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_DUTY_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-CREATE TABLE IF NOT EXISTS fm_org_unit (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  ORG_UNIT_ID varchar(36) NOT NULL,
-  UNIT_CODE varchar(30) NOT NULL,
-  CURRENT_VERSION_NO int NOT NULL DEFAULT 1,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_ORG_UNIT_ID (TENANT_ID,ORG_UNIT_ID),
-  UNIQUE KEY UK_FM_ORG_UNIT_CODE (TENANT_ID,UNIT_CODE),
-  CONSTRAINT CK_FM_OU_VERSION CHECK (CURRENT_VERSION_NO > 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_org_unit_version (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  ORG_UNIT_ID varchar(36) NOT NULL,
-  VERSION_NO int NOT NULL,
-  PARENT_ORG_UNIT_ID varchar(36) DEFAULT NULL,
-  UNIT_NAME varchar(150) NOT NULL,
-  SHORT_NAME varchar(80) DEFAULT NULL,
-  UNIT_TYPE varchar(30) NOT NULL DEFAULT 'DEPARTMENT',
-  TREE_DEPTH int NOT NULL,
-  PATH varchar(2000) NOT NULL,
-  SORT_NO int NOT NULL DEFAULT 0,
-  IS_VIRTUAL char(1) NOT NULL DEFAULT 'N',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_OUV_VERSION (TENANT_ID,ORG_UNIT_ID,VERSION_NO),
-  KEY IDX_FM_OUV_TREE (TENANT_ID,PARENT_ORG_UNIT_ID,STATUS,SORT_NO),
-  CONSTRAINT CK_FM_OUV_VERSION CHECK (VERSION_NO > 0),
-  CONSTRAINT CK_FM_OUV_DEPTH CHECK (TREE_DEPTH >= 0),
-  CONSTRAINT CK_FM_OUV_VIRTUAL CHECK (IS_VIRTUAL IN ('Y','N')),
-  CONSTRAINT CK_FM_OUV_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_OUV_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_employee_org_assignment (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  EMPLOYEE_ORG_ASSIGNMENT_ID varchar(36) NOT NULL,
-  EMPLOYEE_ID varchar(36) NOT NULL,
-  ORG_UNIT_ID varchar(36) NOT NULL,
-  TITLE_ID varchar(36) NOT NULL,
-  MANAGER_SOURCE varchar(30) NOT NULL DEFAULT 'ORG_HEAD',
-  DIRECT_MANAGER_ASSIGNMENT_ID varchar(36) DEFAULT NULL,
-  IS_PRIMARY char(1) NOT NULL DEFAULT 'N',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_EOA_ID (TENANT_ID,EMPLOYEE_ORG_ASSIGNMENT_ID),
-  UNIQUE KEY UK_FM_EOA_REL (TENANT_ID,EMPLOYEE_ID,ORG_UNIT_ID,EFFECTIVE_FROM),
-  KEY IDX_FM_EOA_PRIMARY (TENANT_ID,EMPLOYEE_ID,IS_PRIMARY,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO),
-  KEY IDX_FM_EOA_MANAGER (TENANT_ID,DIRECT_MANAGER_ASSIGNMENT_ID,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO),
-  CONSTRAINT CK_FM_EOA_MANAGER CHECK (MANAGER_SOURCE IN ('ORG_HEAD','PARENT_HEAD','EXPLICIT','NONE')),
-  CONSTRAINT CK_FM_EOA_MANAGER_REF CHECK ((MANAGER_SOURCE = 'EXPLICIT' AND DIRECT_MANAGER_ASSIGNMENT_ID IS NOT NULL) OR (MANAGER_SOURCE <> 'EXPLICIT' AND DIRECT_MANAGER_ASSIGNMENT_ID IS NULL)),
-  CONSTRAINT CK_FM_EOA_PRIMARY CHECK (IS_PRIMARY IN ('Y','N')),
-  CONSTRAINT CK_FM_EOA_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_EOA_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_employee_duty (
-  OID char(36) NOT NULL, TENANT_ID varchar(36) NOT NULL, EMPLOYEE_DUTY_ID varchar(36) NOT NULL,
-  EMPLOYEE_ORG_ASSIGNMENT_ID varchar(36) NOT NULL, DUTY_ID varchar(36) NOT NULL,
-  IS_PRIMARY char(1) NOT NULL DEFAULT 'N', STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL, EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL, UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID), UNIQUE KEY UK_FM_ED_ID (TENANT_ID,EMPLOYEE_DUTY_ID),
-  UNIQUE KEY UK_FM_ED_REL (TENANT_ID,EMPLOYEE_ORG_ASSIGNMENT_ID,DUTY_ID,EFFECTIVE_FROM),
-  KEY IDX_FM_ED_RESOLVE (TENANT_ID,DUTY_ID,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO),
-  CONSTRAINT CK_FM_ED_PRIMARY CHECK (IS_PRIMARY IN ('Y','N')),
-  CONSTRAINT CK_FM_ED_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_ED_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-CREATE TABLE IF NOT EXISTS fm_org_unit_head (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  ORG_UNIT_HEAD_ID varchar(36) NOT NULL,
-  ORG_UNIT_ID varchar(36) NOT NULL,
-  EMPLOYEE_ID varchar(36) NOT NULL,
-  HEAD_TYPE varchar(30) NOT NULL,
-  PRIORITY int NOT NULL DEFAULT 100,
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_OUH_ID (TENANT_ID,ORG_UNIT_HEAD_ID),
-  UNIQUE KEY UK_FM_OUH_REL (TENANT_ID,ORG_UNIT_ID,EMPLOYEE_ID,HEAD_TYPE,EFFECTIVE_FROM),
-  KEY IDX_FM_OUH_RESOLVE (TENANT_ID,ORG_UNIT_ID,HEAD_TYPE,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO,PRIORITY),
-  CONSTRAINT CK_FM_OUH_TYPE CHECK (HEAD_TYPE IN ('HEAD','DEPUTY_HEAD','ACTING_HEAD')),
-  CONSTRAINT CK_FM_OUH_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_OUH_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_approval_group (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  APPROVAL_GROUP_ID varchar(36) NOT NULL,
-  GROUP_CODE varchar(30) NOT NULL,
-  GROUP_NAME varchar(100) NOT NULL,
-  ASSIGNMENT_MODE varchar(20) NOT NULL DEFAULT 'CANDIDATE',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_AG_ID (TENANT_ID,APPROVAL_GROUP_ID),
-  UNIQUE KEY UK_FM_AG_CODE (TENANT_ID,GROUP_CODE),
-  CONSTRAINT CK_FM_AG_MODE CHECK (ASSIGNMENT_MODE IN ('CANDIDATE','ALL','SEQUENTIAL')),
-  CONSTRAINT CK_FM_AG_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_approval_group_member (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  APPROVAL_GROUP_MEMBER_ID varchar(36) NOT NULL,
-  APPROVAL_GROUP_ID varchar(36) NOT NULL,
-  EMPLOYEE_ID varchar(36) NOT NULL,
-  PRIORITY int NOT NULL DEFAULT 100,
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_AGM_ID (TENANT_ID,APPROVAL_GROUP_MEMBER_ID),
-  UNIQUE KEY UK_FM_AGM_REL (TENANT_ID,APPROVAL_GROUP_ID,EMPLOYEE_ID,EFFECTIVE_FROM),
-  KEY IDX_FM_AGM_ACTIVE (TENANT_ID,APPROVAL_GROUP_ID,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO),
-  CONSTRAINT CK_FM_AGM_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_AGM_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_workflow_delegation (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  DELEGATION_ID varchar(36) NOT NULL,
-  PRINCIPAL_ACCOUNT varchar(24) NOT NULL,
-  DELEGATE_ACCOUNT varchar(24) NOT NULL,
-  SCOPE_TYPE varchar(30) NOT NULL DEFAULT 'ALL',
-  SCOPE_REF_ID varchar(36) DEFAULT NULL,
-  ALLOW_REDELEGATE char(1) NOT NULL DEFAULT 'N',
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) NOT NULL,
-  REASON varchar(500) NOT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_WD_ID (TENANT_ID,DELEGATION_ID),
-  KEY IDX_FM_WD_RESOLVE (TENANT_ID,PRINCIPAL_ACCOUNT,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO),
-  CONSTRAINT CK_FM_WD_ACCOUNT CHECK (PRINCIPAL_ACCOUNT <> DELEGATE_ACCOUNT),
-  CONSTRAINT CK_FM_WD_SCOPE CHECK (SCOPE_TYPE IN ('ALL','PROCESS','APPROVAL_GROUP')),
-  CONSTRAINT CK_FM_WD_REDELEGATE CHECK (ALLOW_REDELEGATE IN ('Y','N')),
-  CONSTRAINT CK_FM_WD_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_WD_DATE CHECK (EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_process_def (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  PROCESS_DEF_ID varchar(36) NOT NULL,
-  PROCESS_KEY varchar(100) NOT NULL,
-  PROCESS_NAME varchar(150) NOT NULL,
-  CATEGORY varchar(50) DEFAULT NULL,
-  CURRENT_VERSION_NO int NOT NULL DEFAULT 0,
-  STATUS varchar(20) NOT NULL DEFAULT 'DRAFT',
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_PD_ID (TENANT_ID,PROCESS_DEF_ID),
-  UNIQUE KEY UK_FM_PD_KEY (TENANT_ID,PROCESS_KEY),
-  CONSTRAINT CK_FM_PD_STATUS CHECK (STATUS IN ('DRAFT','PUBLISHED','INACTIVE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_process_version (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  PROCESS_DEF_ID varchar(36) NOT NULL,
-  VERSION_NO int NOT NULL,
-  VERSION_STATUS varchar(20) NOT NULL DEFAULT 'DRAFT',
-  BPMN_XML longtext NOT NULL,
-  BPMN_SHA256 char(64) NOT NULL,
-  FLOWABLE_DEPLOYMENT_ID varchar(64) DEFAULT NULL,
-  FLOWABLE_PROCESS_DEF_ID varchar(64) DEFAULT NULL,
-  PUBLISHED_BY varchar(24) DEFAULT NULL,
-  PUBLISHED_DATE datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_PV_VERSION (TENANT_ID,PROCESS_DEF_ID,VERSION_NO),
-  KEY IDX_FM_PV_FLOWABLE (TENANT_ID,FLOWABLE_PROCESS_DEF_ID),
-  CONSTRAINT CK_FM_PV_STATUS CHECK (VERSION_STATUS IN ('DRAFT','PUBLISHED','RETIRED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_process_start_policy (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  PROCESS_DEF_ID varchar(36) NOT NULL,
-  PROCESS_VERSION_NO int NOT NULL,
-  POLICY_SEQ int NOT NULL,
-  SUBJECT_TYPE varchar(30) NOT NULL,
-  SUBJECT_REF_ID varchar(36) DEFAULT NULL,
-  ALLOW_START char(1) NOT NULL DEFAULT 'Y',
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_PSP_SEQ (TENANT_ID,PROCESS_DEF_ID,PROCESS_VERSION_NO,POLICY_SEQ),
-  CONSTRAINT CK_FM_PSP_SUBJECT CHECK (SUBJECT_TYPE IN ('ALL','ACCOUNT','ORG_UNIT','APPROVAL_GROUP')),
-  CONSTRAINT CK_FM_PSP_ALLOW CHECK (ALLOW_START IN ('Y','N'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_task_policy (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  PROCESS_DEF_ID varchar(36) NOT NULL,
-  PROCESS_VERSION_NO int NOT NULL,
-  TASK_DEF_KEY varchar(100) NOT NULL,
-  TASK_NAME varchar(150) NOT NULL,
-  ASSIGNMENT_MODE varchar(20) NOT NULL DEFAULT 'ASSIGNEE',
-  SELF_APPROVAL_POLICY varchar(30) NOT NULL DEFAULT 'SKIP_TO_NEXT',
-  DUPLICATE_POLICY varchar(30) NOT NULL DEFAULT 'MERGE_CONSECUTIVE',
-  ALLOW_REJECT char(1) NOT NULL DEFAULT 'Y',
-  ALLOW_RETURN char(1) NOT NULL DEFAULT 'Y',
-  ALLOW_TRANSFER char(1) NOT NULL DEFAULT 'N',
-  ALLOW_ADD_SIGN char(1) NOT NULL DEFAULT 'N',
-  COMMENT_REQUIRED varchar(30) NOT NULL DEFAULT 'ON_REJECT_RETURN',
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TP_TASK (TENANT_ID,PROCESS_DEF_ID,PROCESS_VERSION_NO,TASK_DEF_KEY),
-  CONSTRAINT CK_FM_TP_MODE CHECK (ASSIGNMENT_MODE IN ('ASSIGNEE','CANDIDATE','ALL','SEQUENTIAL')),
-  CONSTRAINT CK_FM_TP_SELF CHECK (SELF_APPROVAL_POLICY IN ('ALLOW','SKIP_TO_NEXT','REQUIRE_ALTERNATE','INCIDENT')),
-  CONSTRAINT CK_FM_TP_DUP CHECK (DUPLICATE_POLICY IN ('KEEP_EACH_LEVEL','MERGE_CONSECUTIVE','SKIP_ALREADY_APPROVED')),
-  CONSTRAINT CK_FM_TP_YN CHECK (ALLOW_REJECT IN ('Y','N') AND ALLOW_RETURN IN ('Y','N') AND ALLOW_TRANSFER IN ('Y','N') AND ALLOW_ADD_SIGN IN ('Y','N')),
-  CONSTRAINT CK_FM_TP_COMMENT CHECK (COMMENT_REQUIRED IN ('NEVER','ALWAYS','ON_REJECT_RETURN'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_task_assignment_rule (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  PROCESS_DEF_ID varchar(36) NOT NULL,
-  PROCESS_VERSION_NO int NOT NULL,
-  TASK_DEF_KEY varchar(100) NOT NULL,
-  RULE_SEQ int NOT NULL,
-  RESOLVER_TYPE varchar(50) NOT NULL,
-  RESOLVER_CONFIG longtext DEFAULT NULL,
-  FALLBACK_CONFIG longtext DEFAULT NULL,
-  MAX_RESULTS int NOT NULL DEFAULT 100,
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TAR_SEQ (TENANT_ID,PROCESS_DEF_ID,PROCESS_VERSION_NO,TASK_DEF_KEY,RULE_SEQ),
-  CONSTRAINT CK_FM_TAR_RESOLVER CHECK (RESOLVER_TYPE IN ('FIXED_ACCOUNT','APPROVAL_GROUP','INITIATOR_ORG_HEAD','PARENT_ORG_HEAD','NEXT_HIGHER_LEVEL_HEAD','TARGET_LEVEL_HEAD','LEVEL_HEAD_CHAIN','ROOT_ORG_HEAD','DIRECT_MANAGER','MANAGER_CHAIN','ORG_TITLE','ORG_DUTY','APPROVAL_AUTHORITY')),
-  CONSTRAINT CK_FM_TAR_MAX CHECK (MAX_RESULTS BETWEEN 1 AND 1000),
-  CONSTRAINT CK_FM_TAR_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_approval_authority (
-  OID char(36) NOT NULL, TENANT_ID varchar(36) NOT NULL, APPROVAL_AUTHORITY_ID varchar(36) NOT NULL,
-  AUTHORITY_CODE varchar(30) NOT NULL, AUTHORITY_NAME varchar(100) NOT NULL,
-  PROCESS_DEF_ID varchar(36) DEFAULT NULL, FORM_ID varchar(36) DEFAULT NULL,
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE', EFFECTIVE_FROM datetime(3) NOT NULL,
-  EFFECTIVE_TO datetime(3) DEFAULT NULL, DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL, UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID), UNIQUE KEY UK_FM_AA_ID (TENANT_ID,APPROVAL_AUTHORITY_ID),
-  UNIQUE KEY UK_FM_AA_CODE (TENANT_ID,AUTHORITY_CODE),
-  CONSTRAINT CK_FM_AA_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE')),
-  CONSTRAINT CK_FM_AA_DATE CHECK (EFFECTIVE_TO IS NULL OR EFFECTIVE_TO > EFFECTIVE_FROM)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_approval_authority_rule (
-  OID char(36) NOT NULL, TENANT_ID varchar(36) NOT NULL, APPROVAL_AUTHORITY_RULE_ID varchar(36) NOT NULL,
-  APPROVAL_AUTHORITY_ID varchar(36) NOT NULL, RULE_SEQ int NOT NULL, CONDITION_CONFIG longtext NOT NULL,
-  TARGET_TYPE varchar(30) NOT NULL, TARGET_REF_ID varchar(36) DEFAULT NULL, RESOLVER_CONFIG longtext DEFAULT NULL,
-  STOP_AFTER_APPROVAL char(1) NOT NULL DEFAULT 'Y', STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL, UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID), UNIQUE KEY UK_FM_AAR_ID (TENANT_ID,APPROVAL_AUTHORITY_RULE_ID),
-  UNIQUE KEY UK_FM_AAR_SEQ (TENANT_ID,APPROVAL_AUTHORITY_ID,RULE_SEQ),
-  CONSTRAINT CK_FM_AAR_TARGET CHECK (TARGET_TYPE IN ('APPROVAL_LEVEL','ORG_TITLE','ORG_DUTY','APPROVAL_GROUP','FIXED_ACCOUNT')),
-  CONSTRAINT CK_FM_AAR_STOP CHECK (STOP_AFTER_APPROVAL IN ('Y','N')),
-  CONSTRAINT CK_FM_AAR_STATUS CHECK (STATUS IN ('ACTIVE','INACTIVE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-CREATE TABLE IF NOT EXISTS fm_process_instance (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  PROCESS_INSTANCE_ID varchar(64) NOT NULL,
-  PROCESS_DEF_ID varchar(36) NOT NULL,
-  PROCESS_VERSION_NO int NOT NULL,
-  FLOWABLE_PROCESS_DEF_ID varchar(64) NOT NULL,
-  BUSINESS_KEY varchar(100) NOT NULL,
-  FORM_DATA_ID varchar(36) NOT NULL,
-  INITIATOR_ACCOUNT varchar(24) NOT NULL,
-  INITIATOR_ORG_UNIT_ID varchar(36) NOT NULL,
-  INSTANCE_STATUS varchar(20) NOT NULL DEFAULT 'RUNNING',
-  START_DATE datetime(3) NOT NULL,
-  END_DATE datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_PI_FLOWABLE (TENANT_ID,PROCESS_INSTANCE_ID),
-  UNIQUE KEY UK_FM_PI_BUSINESS (TENANT_ID,BUSINESS_KEY),
-  KEY IDX_FM_PI_INITIATOR (TENANT_ID,INITIATOR_ACCOUNT,INSTANCE_STATUS,START_DATE),
-  CONSTRAINT CK_FM_PI_STATUS CHECK (INSTANCE_STATUS IN ('RUNNING','COMPLETED','REJECTED','CANCELLED','TERMINATED','SUSPENDED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_task_assignment_snapshot (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  ASSIGNMENT_SNAPSHOT_ID varchar(36) NOT NULL,
-  PROCESS_INSTANCE_ID varchar(64) NOT NULL,
-  TASK_ID varchar(64) DEFAULT NULL,
-  TASK_DEF_KEY varchar(100) NOT NULL,
-  RESOLUTION_SEQ int NOT NULL,
-  RESOLVER_TYPE varchar(50) NOT NULL,
-  SOURCE_ACCOUNT varchar(24) DEFAULT NULL,
-  SOURCE_ORG_UNIT_ID varchar(36) DEFAULT NULL,
-  RESOLUTION_STATUS varchar(20) NOT NULL,
-  RESOLUTION_CONTEXT longtext DEFAULT NULL,
-  RESOLVED_DATE datetime(3) NOT NULL,
-  SUPERSEDED_DATE datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TAS_ID (TENANT_ID,ASSIGNMENT_SNAPSHOT_ID),
-  UNIQUE KEY UK_FM_TAS_SEQ (TENANT_ID,PROCESS_INSTANCE_ID,TASK_DEF_KEY,RESOLUTION_SEQ),
-  KEY IDX_FM_TAS_TASK (TENANT_ID,TASK_ID,RESOLUTION_STATUS),
-  CONSTRAINT CK_FM_TAS_STATUS CHECK (RESOLUTION_STATUS IN ('RESOLVED','INCIDENT','SUPERSEDED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_task_assignment_snapshot_dtl (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  ASSIGNMENT_SNAPSHOT_ID varchar(36) NOT NULL,
-  RESULT_SEQ int NOT NULL,
-  RESULT_TYPE varchar(20) NOT NULL,
-  RESULT_ACCOUNT varchar(24) NOT NULL,
-  PRINCIPAL_ACCOUNT varchar(24) DEFAULT NULL,
-  ORG_UNIT_ID varchar(36) DEFAULT NULL,
-  ORG_UNIT_NAME varchar(150) DEFAULT NULL,
-  APPROVAL_LEVEL_ID varchar(36) DEFAULT NULL,
-  LEVEL_CODE varchar(30) DEFAULT NULL,
-  LEVEL_NAME varchar(100) DEFAULT NULL,
-  LEVEL_ORDER int DEFAULT NULL,
-  RESOLUTION_PATH longtext DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TASD_SEQ (TENANT_ID,ASSIGNMENT_SNAPSHOT_ID,RESULT_SEQ),
-  KEY IDX_FM_TASD_ACCOUNT (TENANT_ID,RESULT_ACCOUNT),
-  CONSTRAINT CK_FM_TASD_TYPE CHECK (RESULT_TYPE IN ('ASSIGNEE','CANDIDATE','DELEGATE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_assignment_incident (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  INCIDENT_ID varchar(36) NOT NULL,
-  PROCESS_INSTANCE_ID varchar(64) NOT NULL,
-  TASK_ID varchar(64) DEFAULT NULL,
-  TASK_DEF_KEY varchar(100) DEFAULT NULL,
-  INCIDENT_TYPE varchar(50) NOT NULL,
-  ERROR_CODE varchar(50) NOT NULL,
-  ERROR_MESSAGE varchar(2000) NOT NULL,
-  CONTEXT_DATA longtext DEFAULT NULL,
-  INCIDENT_STATUS varchar(20) NOT NULL DEFAULT 'OPEN',
-  RESOLVED_BY varchar(24) DEFAULT NULL,
-  RESOLVED_DATE datetime(3) DEFAULT NULL,
-  RESOLUTION_NOTE varchar(2000) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_AI_ID (TENANT_ID,INCIDENT_ID),
-  KEY IDX_FM_AI_OPEN (TENANT_ID,INCIDENT_STATUS,CDATE),
-  KEY IDX_FM_AI_INSTANCE (TENANT_ID,PROCESS_INSTANCE_ID,TASK_ID),
-  CONSTRAINT CK_FM_AI_STATUS CHECK (INCIDENT_STATUS IN ('OPEN','RESOLVED','IGNORED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_form_def (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  FORM_ID varchar(36) NOT NULL,
-  FORM_CODE varchar(50) NOT NULL,
-  FORM_NAME varchar(150) NOT NULL,
-  CURRENT_VERSION_NO int NOT NULL DEFAULT 0,
-  STATUS varchar(20) NOT NULL DEFAULT 'DRAFT',
-  DESCRIPTION varchar(500) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_FD_ID (TENANT_ID,FORM_ID),
-  UNIQUE KEY UK_FM_FD_CODE (TENANT_ID,FORM_CODE),
-  CONSTRAINT CK_FM_FD_STATUS CHECK (STATUS IN ('DRAFT','PUBLISHED','INACTIVE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_form_version (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  FORM_ID varchar(36) NOT NULL,
-  VERSION_NO int NOT NULL,
-  VERSION_STATUS varchar(20) NOT NULL DEFAULT 'DRAFT',
-  SCHEMA_CONTENT longtext NOT NULL,
-  UI_SCHEMA_CONTENT longtext NOT NULL,
-  CONTENT_SHA256 char(64) NOT NULL,
-  PUBLISHED_BY varchar(24) DEFAULT NULL,
-  PUBLISHED_DATE datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_FV_VERSION (TENANT_ID,FORM_ID,VERSION_NO),
-  CONSTRAINT CK_FM_FV_STATUS CHECK (VERSION_STATUS IN ('DRAFT','PUBLISHED','RETIRED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_form_data (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  FORM_DATA_ID varchar(36) NOT NULL,
-  FORM_ID varchar(36) NOT NULL,
-  FORM_VERSION_NO int NOT NULL,
-  BUSINESS_KEY varchar(100) NOT NULL,
-  OWNER_ACCOUNT varchar(24) NOT NULL,
-  OWNER_ORG_UNIT_ID varchar(36) NOT NULL,
-  DATA_CONTENT longtext NOT NULL,
-  DATA_STATUS varchar(20) NOT NULL DEFAULT 'DRAFT',
-  REVISION_NO int NOT NULL DEFAULT 1,
-  LOCK_VERSION int NOT NULL DEFAULT 0,
-  SUBMITTED_DATE datetime(3) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_FORM_DATA_ID (TENANT_ID,FORM_DATA_ID),
-  UNIQUE KEY UK_FM_FORM_DATA_BK (TENANT_ID,BUSINESS_KEY),
-  KEY IDX_FM_FORM_DATA_OWNER (TENANT_ID,OWNER_ACCOUNT,DATA_STATUS,CDATE),
-  CONSTRAINT CK_FM_FORM_DATA_STATUS CHECK (DATA_STATUS IN ('DRAFT','SUBMITTED','RETURNED','COMPLETED','REJECTED','CANCELLED')),
-  CONSTRAINT CK_FM_FORM_DATA_REV CHECK (REVISION_NO > 0 AND LOCK_VERSION >= 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_form_snapshot (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  FORM_SNAPSHOT_ID varchar(36) NOT NULL,
-  FORM_DATA_ID varchar(36) NOT NULL,
-  PROCESS_INSTANCE_ID varchar(64) NOT NULL,
-  TASK_ID varchar(64) DEFAULT NULL,
-  ACTION_TYPE varchar(30) NOT NULL,
-  FORM_VERSION_NO int NOT NULL,
-  REVISION_NO int NOT NULL,
-  DATA_CONTENT longtext NOT NULL,
-  CONTENT_SHA256 char(64) NOT NULL,
-  SNAPSHOT_DATE datetime(3) NOT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_FS_ID (TENANT_ID,FORM_SNAPSHOT_ID),
-  KEY IDX_FM_FS_INSTANCE (TENANT_ID,PROCESS_INSTANCE_ID,TASK_ID,SNAPSHOT_DATE)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_task_form_rule (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  PROCESS_DEF_ID varchar(36) NOT NULL,
-  PROCESS_VERSION_NO int NOT NULL,
-  TASK_DEF_KEY varchar(100) NOT NULL,
-  FORM_ID varchar(36) NOT NULL,
-  FORM_VERSION_NO int NOT NULL,
-  FIELD_POLICY longtext NOT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TFR_TASK (TENANT_ID,PROCESS_DEF_ID,PROCESS_VERSION_NO,TASK_DEF_KEY,FORM_ID)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_attachment (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  ATTACHMENT_ID varchar(36) NOT NULL,
-  FORM_DATA_ID varchar(36) NOT NULL,
-  FIELD_KEY varchar(100) DEFAULT NULL,
-  FILE_OID char(36) NOT NULL,
-  FILE_NAME varchar(255) NOT NULL,
-  CONTENT_TYPE varchar(100) NOT NULL,
-  FILE_SIZE bigint NOT NULL,
-  CONTENT_SHA256 char(64) NOT NULL,
-  STATUS varchar(20) NOT NULL DEFAULT 'ACTIVE',
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_ATTACHMENT_ID (TENANT_ID,ATTACHMENT_ID),
-  KEY IDX_FM_ATTACHMENT_FORM (TENANT_ID,FORM_DATA_ID,STATUS),
-  CONSTRAINT CK_FM_ATTACHMENT_SIZE CHECK (FILE_SIZE >= 0),
-  CONSTRAINT CK_FM_ATTACHMENT_STATUS CHECK (STATUS IN ('ACTIVE','DELETED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_task_action (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  TASK_ACTION_ID varchar(36) NOT NULL,
-  PROCESS_INSTANCE_ID varchar(64) NOT NULL,
-  TASK_ID varchar(64) DEFAULT NULL,
-  TASK_DEF_KEY varchar(100) DEFAULT NULL,
-  ACTION_TYPE varchar(30) NOT NULL,
-  OUTCOME varchar(30) DEFAULT NULL,
-  ACTOR_ACCOUNT varchar(24) NOT NULL,
-  PRINCIPAL_ACCOUNT varchar(24) DEFAULT NULL,
-  FROM_ACCOUNT varchar(24) DEFAULT NULL,
-  TO_ACCOUNT varchar(24) DEFAULT NULL,
-  FORM_SNAPSHOT_ID varchar(36) DEFAULT NULL,
-  ASSIGNMENT_SNAPSHOT_ID varchar(36) DEFAULT NULL,
-  COMMENT_TEXT varchar(2000) DEFAULT NULL,
-  REASON varchar(2000) DEFAULT NULL,
-  CONTEXT_DATA longtext DEFAULT NULL,
-  ACTION_DATE datetime(3) NOT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_TASK_ACTION_ID (TENANT_ID,TASK_ACTION_ID),
-  KEY IDX_FM_TASK_ACTION_PI (TENANT_ID,PROCESS_INSTANCE_ID,ACTION_DATE),
-  KEY IDX_FM_TASK_ACTION_TASK (TENANT_ID,TASK_ID,ACTION_DATE),
-  CONSTRAINT CK_FM_TASK_ACTION_TYPE CHECK (ACTION_TYPE IN ('SUBMIT','APPROVE','REJECT','RETURN','RESUBMIT','WITHDRAW','CANCEL','TRANSFER','DELEGATE','RESOLVE','ADD_SIGN','COMMENT','ADMIN_REASSIGN','TERMINATE'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS fm_notification (
-  OID char(36) NOT NULL,
-  TENANT_ID varchar(36) NOT NULL,
-  NOTIFICATION_ID varchar(36) NOT NULL,
-  RECIPIENT_ACCOUNT varchar(24) NOT NULL,
-  CHANNEL_TYPE varchar(20) NOT NULL DEFAULT 'IN_APP',
-  EVENT_TYPE varchar(50) NOT NULL,
-  SUBJECT varchar(255) NOT NULL,
-  CONTENT_TEXT longtext NOT NULL,
-  REFERENCE_TYPE varchar(30) DEFAULT NULL,
-  REFERENCE_ID varchar(64) DEFAULT NULL,
-  DELIVERY_STATUS varchar(20) NOT NULL DEFAULT 'PENDING',
-  RETRY_COUNT int NOT NULL DEFAULT 0,
-  NEXT_RETRY_DATE datetime(3) DEFAULT NULL,
-  SENT_DATE datetime(3) DEFAULT NULL,
-  READ_DATE datetime(3) DEFAULT NULL,
-  LAST_ERROR varchar(2000) DEFAULT NULL,
-  CUSERID varchar(24) NOT NULL, CDATE datetime(3) NOT NULL,
-  UUSERID varchar(24) DEFAULT NULL, UDATE datetime(3) DEFAULT NULL,
-  PRIMARY KEY (OID),
-  UNIQUE KEY UK_FM_NOTIFICATION_ID (TENANT_ID,NOTIFICATION_ID),
-  KEY IDX_FM_NOTIFICATION_DELIVERY (DELIVERY_STATUS,NEXT_RETRY_DATE),
-  KEY IDX_FM_NOTIFICATION_USER (TENANT_ID,RECIPIENT_ACCOUNT,READ_DATE,CDATE),
-  CONSTRAINT CK_FM_NOTIFICATION_CHANNEL CHECK (CHANNEL_TYPE IN ('IN_APP','EMAIL')),
-  CONSTRAINT CK_FM_NOTIFICATION_STATUS CHECK (DELIVERY_STATUS IN ('PENDING','SENT','FAILED','READ')),
-  CONSTRAINT CK_FM_NOTIFICATION_RETRY CHECK (RETRY_COUNT >= 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
 
 DROP TABLE IF EXISTS `act_evt_log`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -3639,8 +1923,2515 @@ UNLOCK TABLES;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
+--
+-- Table structure for table `fm_approval_authority`
+--
 
+DROP TABLE IF EXISTS `fm_approval_authority`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_approval_authority` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `APPROVAL_AUTHORITY_ID` varchar(36) NOT NULL,
+  `AUTHORITY_CODE` varchar(30) NOT NULL,
+  `AUTHORITY_NAME` varchar(100) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) DEFAULT NULL,
+  `FORM_ID` varchar(36) DEFAULT NULL,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_AA_ID` (`TENANT_ID`,`APPROVAL_AUTHORITY_ID`),
+  UNIQUE KEY `UK_FM_AA_CODE` (`TENANT_ID`,`AUTHORITY_CODE`),
+  CONSTRAINT `CK_FM_AA_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_AA_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 
+--
+-- Dumping data for table `fm_approval_authority`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_approval_authority` WRITE;
+/*!40000 ALTER TABLE `fm_approval_authority` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_approval_authority` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_approval_authority_rule`
+--
+
+DROP TABLE IF EXISTS `fm_approval_authority_rule`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_approval_authority_rule` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `APPROVAL_AUTHORITY_RULE_ID` varchar(36) NOT NULL,
+  `APPROVAL_AUTHORITY_ID` varchar(36) NOT NULL,
+  `RULE_SEQ` int(11) NOT NULL,
+  `CONDITION_CONFIG` longtext NOT NULL,
+  `TARGET_TYPE` varchar(30) NOT NULL,
+  `TARGET_REF_ID` varchar(36) DEFAULT NULL,
+  `RESOLVER_CONFIG` longtext DEFAULT NULL,
+  `STOP_AFTER_APPROVAL` char(1) NOT NULL DEFAULT 'Y',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_AAR_ID` (`TENANT_ID`,`APPROVAL_AUTHORITY_RULE_ID`),
+  UNIQUE KEY `UK_FM_AAR_SEQ` (`TENANT_ID`,`APPROVAL_AUTHORITY_ID`,`RULE_SEQ`),
+  CONSTRAINT `CK_FM_AAR_TARGET` CHECK (`TARGET_TYPE` in ('APPROVAL_LEVEL','ORG_TITLE','ORG_DUTY','APPROVAL_GROUP','FIXED_ACCOUNT')),
+  CONSTRAINT `CK_FM_AAR_STOP` CHECK (`STOP_AFTER_APPROVAL` in ('Y','N')),
+  CONSTRAINT `CK_FM_AAR_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_approval_authority_rule`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_approval_authority_rule` WRITE;
+/*!40000 ALTER TABLE `fm_approval_authority_rule` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_approval_authority_rule` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_approval_group`
+--
+
+DROP TABLE IF EXISTS `fm_approval_group`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_approval_group` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `APPROVAL_GROUP_ID` varchar(36) NOT NULL,
+  `GROUP_CODE` varchar(30) NOT NULL,
+  `GROUP_NAME` varchar(100) NOT NULL,
+  `ASSIGNMENT_MODE` varchar(20) NOT NULL DEFAULT 'CANDIDATE',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_AG_ID` (`TENANT_ID`,`APPROVAL_GROUP_ID`),
+  UNIQUE KEY `UK_FM_AG_CODE` (`TENANT_ID`,`GROUP_CODE`),
+  CONSTRAINT `CK_FM_AG_MODE` CHECK (`ASSIGNMENT_MODE` in ('CANDIDATE','ALL','SEQUENTIAL')),
+  CONSTRAINT `CK_FM_AG_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_approval_group`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_approval_group` WRITE;
+/*!40000 ALTER TABLE `fm_approval_group` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_approval_group` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_approval_group_member`
+--
+
+DROP TABLE IF EXISTS `fm_approval_group_member`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_approval_group_member` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `APPROVAL_GROUP_MEMBER_ID` varchar(36) NOT NULL,
+  `APPROVAL_GROUP_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_ID` varchar(36) NOT NULL,
+  `PRIORITY` int(11) NOT NULL DEFAULT 100,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_AGM_ID` (`TENANT_ID`,`APPROVAL_GROUP_MEMBER_ID`),
+  UNIQUE KEY `UK_FM_AGM_REL` (`TENANT_ID`,`APPROVAL_GROUP_ID`,`EMPLOYEE_ID`,`EFFECTIVE_FROM`),
+  KEY `IDX_FM_AGM_ACTIVE` (`TENANT_ID`,`APPROVAL_GROUP_ID`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  CONSTRAINT `CK_FM_AGM_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_AGM_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_approval_group_member`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_approval_group_member` WRITE;
+/*!40000 ALTER TABLE `fm_approval_group_member` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_approval_group_member` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_assignment_incident`
+--
+
+DROP TABLE IF EXISTS `fm_assignment_incident`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_assignment_incident` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `INCIDENT_ID` varchar(36) NOT NULL,
+  `PROCESS_INSTANCE_ID` varchar(64) NOT NULL,
+  `TASK_ID` varchar(64) DEFAULT NULL,
+  `TASK_DEF_KEY` varchar(100) DEFAULT NULL,
+  `INCIDENT_TYPE` varchar(50) NOT NULL,
+  `ERROR_CODE` varchar(50) NOT NULL,
+  `ERROR_MESSAGE` varchar(2000) NOT NULL,
+  `CONTEXT_DATA` longtext DEFAULT NULL,
+  `INCIDENT_STATUS` varchar(20) NOT NULL DEFAULT 'OPEN',
+  `RESOLVED_BY` varchar(24) DEFAULT NULL,
+  `RESOLVED_DATE` datetime(3) DEFAULT NULL,
+  `RESOLUTION_NOTE` varchar(2000) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_AI_ID` (`TENANT_ID`,`INCIDENT_ID`),
+  KEY `IDX_FM_AI_OPEN` (`TENANT_ID`,`INCIDENT_STATUS`,`CDATE`),
+  KEY `IDX_FM_AI_INSTANCE` (`TENANT_ID`,`PROCESS_INSTANCE_ID`,`TASK_ID`),
+  CONSTRAINT `CK_FM_AI_STATUS` CHECK (`INCIDENT_STATUS` in ('OPEN','RESOLVED','IGNORED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_assignment_incident`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_assignment_incident` WRITE;
+/*!40000 ALTER TABLE `fm_assignment_incident` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_assignment_incident` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_attachment`
+--
+
+DROP TABLE IF EXISTS `fm_attachment`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_attachment` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `ATTACHMENT_ID` varchar(36) NOT NULL,
+  `FORM_DATA_ID` varchar(36) NOT NULL,
+  `FIELD_KEY` varchar(100) DEFAULT NULL,
+  `FILE_OID` char(36) NOT NULL,
+  `FILE_NAME` varchar(255) NOT NULL,
+  `CONTENT_TYPE` varchar(100) NOT NULL,
+  `FILE_SIZE` bigint(20) NOT NULL,
+  `CONTENT_SHA256` char(64) NOT NULL,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_ATTACHMENT_ID` (`TENANT_ID`,`ATTACHMENT_ID`),
+  KEY `IDX_FM_ATTACHMENT_FORM` (`TENANT_ID`,`FORM_DATA_ID`,`STATUS`),
+  CONSTRAINT `CK_FM_ATTACHMENT_SIZE` CHECK (`FILE_SIZE` >= 0),
+  CONSTRAINT `CK_FM_ATTACHMENT_STATUS` CHECK (`STATUS` in ('ACTIVE','DELETED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_attachment`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_attachment` WRITE;
+/*!40000 ALTER TABLE `fm_attachment` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_attachment` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_employee`
+--
+
+DROP TABLE IF EXISTS `fm_employee`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_employee` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_NO` varchar(50) NOT NULL,
+  `ACCOUNT` varchar(24) NOT NULL,
+  `DISPLAY_NAME` varchar(100) NOT NULL,
+  `EMAIL` varchar(255) DEFAULT NULL,
+  `MOBILE` varchar(30) DEFAULT NULL,
+  `LOCALE` varchar(15) DEFAULT NULL,
+  `TIMEZONE` varchar(50) DEFAULT NULL,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_EMPLOYEE_ID` (`TENANT_ID`,`EMPLOYEE_ID`),
+  UNIQUE KEY `UK_FM_EMPLOYEE_NO` (`TENANT_ID`,`EMPLOYEE_NO`),
+  UNIQUE KEY `UK_FM_EMPLOYEE_ACCOUNT` (`TENANT_ID`,`ACCOUNT`),
+  KEY `IDX_FM_EMPLOYEE_ACTIVE` (`TENANT_ID`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  CONSTRAINT `CK_FM_EMP_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_EMP_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_employee`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_employee` WRITE;
+/*!40000 ALTER TABLE `fm_employee` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_employee` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_employee_duty`
+--
+
+DROP TABLE IF EXISTS `fm_employee_duty`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_employee_duty` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_DUTY_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_ORG_ASSIGNMENT_ID` varchar(36) NOT NULL,
+  `DUTY_ID` varchar(36) NOT NULL,
+  `IS_PRIMARY` char(1) NOT NULL DEFAULT 'N',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_ED_ID` (`TENANT_ID`,`EMPLOYEE_DUTY_ID`),
+  UNIQUE KEY `UK_FM_ED_REL` (`TENANT_ID`,`EMPLOYEE_ORG_ASSIGNMENT_ID`,`DUTY_ID`,`EFFECTIVE_FROM`),
+  KEY `IDX_FM_ED_RESOLVE` (`TENANT_ID`,`DUTY_ID`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  CONSTRAINT `CK_FM_ED_PRIMARY` CHECK (`IS_PRIMARY` in ('Y','N')),
+  CONSTRAINT `CK_FM_ED_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_ED_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_employee_duty`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_employee_duty` WRITE;
+/*!40000 ALTER TABLE `fm_employee_duty` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_employee_duty` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_employee_org_assignment`
+--
+
+DROP TABLE IF EXISTS `fm_employee_org_assignment`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_employee_org_assignment` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_ORG_ASSIGNMENT_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_ID` varchar(36) NOT NULL,
+  `ORG_UNIT_ID` varchar(36) NOT NULL,
+  `TITLE_ID` varchar(36) NOT NULL,
+  `MANAGER_SOURCE` varchar(30) NOT NULL DEFAULT 'ORG_HEAD',
+  `DIRECT_MANAGER_ASSIGNMENT_ID` varchar(36) DEFAULT NULL,
+  `IS_PRIMARY` char(1) NOT NULL DEFAULT 'N',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_EOA_ID` (`TENANT_ID`,`EMPLOYEE_ORG_ASSIGNMENT_ID`),
+  UNIQUE KEY `UK_FM_EOA_REL` (`TENANT_ID`,`EMPLOYEE_ID`,`ORG_UNIT_ID`,`EFFECTIVE_FROM`),
+  KEY `IDX_FM_EOA_PRIMARY` (`TENANT_ID`,`EMPLOYEE_ID`,`IS_PRIMARY`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  KEY `IDX_FM_EOA_MANAGER` (`TENANT_ID`,`DIRECT_MANAGER_ASSIGNMENT_ID`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  CONSTRAINT `CK_FM_EOA_MANAGER` CHECK (`MANAGER_SOURCE` in ('ORG_HEAD','PARENT_HEAD','EXPLICIT','NONE')),
+  CONSTRAINT `CK_FM_EOA_MANAGER_REF` CHECK (`MANAGER_SOURCE` = 'EXPLICIT' and `DIRECT_MANAGER_ASSIGNMENT_ID` is not null or `MANAGER_SOURCE` <> 'EXPLICIT' and `DIRECT_MANAGER_ASSIGNMENT_ID` is null),
+  CONSTRAINT `CK_FM_EOA_PRIMARY` CHECK (`IS_PRIMARY` in ('Y','N')),
+  CONSTRAINT `CK_FM_EOA_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_EOA_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_employee_org_assignment`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_employee_org_assignment` WRITE;
+/*!40000 ALTER TABLE `fm_employee_org_assignment` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_employee_org_assignment` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_form_data`
+--
+
+DROP TABLE IF EXISTS `fm_form_data`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_form_data` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `FORM_DATA_ID` varchar(36) NOT NULL,
+  `FORM_ID` varchar(36) NOT NULL,
+  `FORM_VERSION_NO` int(11) NOT NULL,
+  `BUSINESS_KEY` varchar(100) NOT NULL,
+  `OWNER_ACCOUNT` varchar(24) NOT NULL,
+  `OWNER_ORG_UNIT_ID` varchar(36) NOT NULL,
+  `DATA_CONTENT` longtext NOT NULL,
+  `DATA_STATUS` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `REVISION_NO` int(11) NOT NULL DEFAULT 1,
+  `LOCK_VERSION` int(11) NOT NULL DEFAULT 0,
+  `SUBMITTED_DATE` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_FORM_DATA_ID` (`TENANT_ID`,`FORM_DATA_ID`),
+  UNIQUE KEY `UK_FM_FORM_DATA_BK` (`TENANT_ID`,`BUSINESS_KEY`),
+  KEY `IDX_FM_FORM_DATA_OWNER` (`TENANT_ID`,`OWNER_ACCOUNT`,`DATA_STATUS`,`CDATE`),
+  CONSTRAINT `CK_FM_FORM_DATA_STATUS` CHECK (`DATA_STATUS` in ('DRAFT','SUBMITTED','RETURNED','COMPLETED','REJECTED','CANCELLED')),
+  CONSTRAINT `CK_FM_FORM_DATA_REV` CHECK (`REVISION_NO` > 0 and `LOCK_VERSION` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_form_data`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_form_data` WRITE;
+/*!40000 ALTER TABLE `fm_form_data` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_form_data` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_form_def`
+--
+
+DROP TABLE IF EXISTS `fm_form_def`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_form_def` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `FORM_ID` varchar(36) NOT NULL,
+  `FORM_CODE` varchar(50) NOT NULL,
+  `FORM_NAME` varchar(150) NOT NULL,
+  `CURRENT_VERSION_NO` int(11) NOT NULL DEFAULT 0,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_FD_ID` (`TENANT_ID`,`FORM_ID`),
+  UNIQUE KEY `UK_FM_FD_CODE` (`TENANT_ID`,`FORM_CODE`),
+  CONSTRAINT `CK_FM_FD_STATUS` CHECK (`STATUS` in ('DRAFT','PUBLISHED','INACTIVE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_form_def`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_form_def` WRITE;
+/*!40000 ALTER TABLE `fm_form_def` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_form_def` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_form_snapshot`
+--
+
+DROP TABLE IF EXISTS `fm_form_snapshot`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_form_snapshot` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `FORM_SNAPSHOT_ID` varchar(36) NOT NULL,
+  `FORM_DATA_ID` varchar(36) NOT NULL,
+  `PROCESS_INSTANCE_ID` varchar(64) NOT NULL,
+  `TASK_ID` varchar(64) DEFAULT NULL,
+  `ACTION_TYPE` varchar(30) NOT NULL,
+  `FORM_VERSION_NO` int(11) NOT NULL,
+  `REVISION_NO` int(11) NOT NULL,
+  `DATA_CONTENT` longtext NOT NULL,
+  `CONTENT_SHA256` char(64) NOT NULL,
+  `SNAPSHOT_DATE` datetime(3) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_FS_ID` (`TENANT_ID`,`FORM_SNAPSHOT_ID`),
+  KEY `IDX_FM_FS_INSTANCE` (`TENANT_ID`,`PROCESS_INSTANCE_ID`,`TASK_ID`,`SNAPSHOT_DATE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_form_snapshot`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_form_snapshot` WRITE;
+/*!40000 ALTER TABLE `fm_form_snapshot` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_form_snapshot` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_form_version`
+--
+
+DROP TABLE IF EXISTS `fm_form_version`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_form_version` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `FORM_ID` varchar(36) NOT NULL,
+  `VERSION_NO` int(11) NOT NULL,
+  `VERSION_STATUS` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `SCHEMA_CONTENT` longtext NOT NULL,
+  `UI_SCHEMA_CONTENT` longtext NOT NULL,
+  `CONTENT_SHA256` char(64) NOT NULL,
+  `PUBLISHED_BY` varchar(24) DEFAULT NULL,
+  `PUBLISHED_DATE` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_FV_VERSION` (`TENANT_ID`,`FORM_ID`,`VERSION_NO`),
+  CONSTRAINT `CK_FM_FV_STATUS` CHECK (`VERSION_STATUS` in ('DRAFT','PUBLISHED','RETIRED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_form_version`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_form_version` WRITE;
+/*!40000 ALTER TABLE `fm_form_version` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_form_version` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_notification`
+--
+
+DROP TABLE IF EXISTS `fm_notification`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_notification` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `NOTIFICATION_ID` varchar(36) NOT NULL,
+  `RECIPIENT_ACCOUNT` varchar(24) NOT NULL,
+  `CHANNEL_TYPE` varchar(20) NOT NULL DEFAULT 'IN_APP',
+  `EVENT_TYPE` varchar(50) NOT NULL,
+  `SUBJECT` varchar(255) NOT NULL,
+  `CONTENT_TEXT` longtext NOT NULL,
+  `REFERENCE_TYPE` varchar(30) DEFAULT NULL,
+  `REFERENCE_ID` varchar(64) DEFAULT NULL,
+  `DELIVERY_STATUS` varchar(20) NOT NULL DEFAULT 'PENDING',
+  `RETRY_COUNT` int(11) NOT NULL DEFAULT 0,
+  `NEXT_RETRY_DATE` datetime(3) DEFAULT NULL,
+  `SENT_DATE` datetime(3) DEFAULT NULL,
+  `READ_DATE` datetime(3) DEFAULT NULL,
+  `LAST_ERROR` varchar(2000) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_NOTIFICATION_ID` (`TENANT_ID`,`NOTIFICATION_ID`),
+  KEY `IDX_FM_NOTIFICATION_DELIVERY` (`DELIVERY_STATUS`,`NEXT_RETRY_DATE`),
+  KEY `IDX_FM_NOTIFICATION_USER` (`TENANT_ID`,`RECIPIENT_ACCOUNT`,`READ_DATE`,`CDATE`),
+  CONSTRAINT `CK_FM_NOTIFICATION_CHANNEL` CHECK (`CHANNEL_TYPE` in ('IN_APP','EMAIL')),
+  CONSTRAINT `CK_FM_NOTIFICATION_STATUS` CHECK (`DELIVERY_STATUS` in ('PENDING','SENT','FAILED','READ')),
+  CONSTRAINT `CK_FM_NOTIFICATION_RETRY` CHECK (`RETRY_COUNT` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_notification`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_notification` WRITE;
+/*!40000 ALTER TABLE `fm_notification` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_notification` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_org_approval_level`
+--
+
+DROP TABLE IF EXISTS `fm_org_approval_level`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_org_approval_level` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `APPROVAL_LEVEL_ID` varchar(36) NOT NULL,
+  `LEVEL_SCHEME_ID` varchar(36) NOT NULL,
+  `LEVEL_CODE` varchar(30) NOT NULL,
+  `LEVEL_NAME` varchar(100) NOT NULL,
+  `LEVEL_ORDER` int(11) NOT NULL,
+  `IS_HIGHEST_LEVEL` char(1) NOT NULL DEFAULT 'N',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_LEVEL_ID` (`TENANT_ID`,`APPROVAL_LEVEL_ID`),
+  UNIQUE KEY `UK_FM_LEVEL_CODE` (`TENANT_ID`,`LEVEL_SCHEME_ID`,`LEVEL_CODE`),
+  UNIQUE KEY `UK_FM_LEVEL_ORDER` (`TENANT_ID`,`LEVEL_SCHEME_ID`,`LEVEL_ORDER`),
+  CONSTRAINT `CK_FM_LEVEL_ORDER` CHECK (`LEVEL_ORDER` >= 0),
+  CONSTRAINT `CK_FM_LEVEL_HIGHEST` CHECK (`IS_HIGHEST_LEVEL` in ('Y','N')),
+  CONSTRAINT `CK_FM_LEVEL_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_LEVEL_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_org_approval_level`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_org_approval_level` WRITE;
+/*!40000 ALTER TABLE `fm_org_approval_level` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_org_approval_level` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_org_duty`
+--
+
+DROP TABLE IF EXISTS `fm_org_duty`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_org_duty` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `DUTY_ID` varchar(36) NOT NULL,
+  `ORG_UNIT_ID` varchar(36) NOT NULL,
+  `DUTY_CODE` varchar(30) NOT NULL,
+  `DUTY_NAME` varchar(100) NOT NULL,
+  `DUTY_TYPE` varchar(30) NOT NULL DEFAULT 'APPROVAL',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_DUTY_ID` (`TENANT_ID`,`DUTY_ID`),
+  UNIQUE KEY `UK_FM_DUTY_CODE` (`TENANT_ID`,`ORG_UNIT_ID`,`DUTY_CODE`),
+  CONSTRAINT `CK_FM_DUTY_TYPE` CHECK (`DUTY_TYPE` in ('APPROVAL','REVIEW','NOTIFY')),
+  CONSTRAINT `CK_FM_DUTY_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_DUTY_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_org_duty`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_org_duty` WRITE;
+/*!40000 ALTER TABLE `fm_org_duty` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_org_duty` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_org_level_scheme`
+--
+
+DROP TABLE IF EXISTS `fm_org_level_scheme`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_org_level_scheme` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `LEVEL_SCHEME_ID` varchar(36) NOT NULL,
+  `SCHEME_CODE` varchar(30) NOT NULL,
+  `SCHEME_NAME` varchar(100) NOT NULL,
+  `IS_DEFAULT` char(1) NOT NULL DEFAULT 'N',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_LEVEL_SCHEME_ID` (`TENANT_ID`,`LEVEL_SCHEME_ID`),
+  UNIQUE KEY `UK_FM_LEVEL_SCHEME_CODE` (`TENANT_ID`,`SCHEME_CODE`),
+  CONSTRAINT `CK_FM_LS_DEFAULT` CHECK (`IS_DEFAULT` in ('Y','N')),
+  CONSTRAINT `CK_FM_LS_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_LS_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_org_level_scheme`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_org_level_scheme` WRITE;
+/*!40000 ALTER TABLE `fm_org_level_scheme` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_org_level_scheme` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_org_title`
+--
+
+DROP TABLE IF EXISTS `fm_org_title`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_org_title` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `TITLE_ID` varchar(36) NOT NULL,
+  `ORG_UNIT_ID` varchar(36) NOT NULL,
+  `TITLE_CODE` varchar(30) NOT NULL,
+  `TITLE_NAME` varchar(100) NOT NULL,
+  `APPROVAL_LEVEL_ID` varchar(36) NOT NULL,
+  `IS_MANAGER_TITLE` char(1) NOT NULL DEFAULT 'N',
+  `SORT_NO` int(11) NOT NULL DEFAULT 0,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TITLE_ID` (`TENANT_ID`,`TITLE_ID`),
+  UNIQUE KEY `UK_FM_TITLE_CODE` (`TENANT_ID`,`ORG_UNIT_ID`,`TITLE_CODE`),
+  KEY `IDX_FM_TITLE_LEVEL` (`TENANT_ID`,`ORG_UNIT_ID`,`APPROVAL_LEVEL_ID`,`STATUS`),
+  CONSTRAINT `CK_FM_TITLE_MANAGER` CHECK (`IS_MANAGER_TITLE` in ('Y','N')),
+  CONSTRAINT `CK_FM_TITLE_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_TITLE_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_org_title`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_org_title` WRITE;
+/*!40000 ALTER TABLE `fm_org_title` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_org_title` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_org_unit`
+--
+
+DROP TABLE IF EXISTS `fm_org_unit`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_org_unit` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `ORG_UNIT_ID` varchar(36) NOT NULL,
+  `UNIT_CODE` varchar(30) NOT NULL,
+  `CURRENT_VERSION_NO` int(11) NOT NULL DEFAULT 1,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_ORG_UNIT_ID` (`TENANT_ID`,`ORG_UNIT_ID`),
+  UNIQUE KEY `UK_FM_ORG_UNIT_CODE` (`TENANT_ID`,`UNIT_CODE`),
+  CONSTRAINT `CK_FM_OU_VERSION` CHECK (`CURRENT_VERSION_NO` > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_org_unit`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_org_unit` WRITE;
+/*!40000 ALTER TABLE `fm_org_unit` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_org_unit` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_org_unit_head`
+--
+
+DROP TABLE IF EXISTS `fm_org_unit_head`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_org_unit_head` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `ORG_UNIT_HEAD_ID` varchar(36) NOT NULL,
+  `ORG_UNIT_ID` varchar(36) NOT NULL,
+  `EMPLOYEE_ID` varchar(36) NOT NULL,
+  `HEAD_TYPE` varchar(30) NOT NULL,
+  `PRIORITY` int(11) NOT NULL DEFAULT 100,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_OUH_ID` (`TENANT_ID`,`ORG_UNIT_HEAD_ID`),
+  UNIQUE KEY `UK_FM_OUH_REL` (`TENANT_ID`,`ORG_UNIT_ID`,`EMPLOYEE_ID`,`HEAD_TYPE`,`EFFECTIVE_FROM`),
+  KEY `IDX_FM_OUH_RESOLVE` (`TENANT_ID`,`ORG_UNIT_ID`,`HEAD_TYPE`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`,`PRIORITY`),
+  CONSTRAINT `CK_FM_OUH_TYPE` CHECK (`HEAD_TYPE` in ('HEAD','DEPUTY_HEAD','ACTING_HEAD')),
+  CONSTRAINT `CK_FM_OUH_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_OUH_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_org_unit_head`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_org_unit_head` WRITE;
+/*!40000 ALTER TABLE `fm_org_unit_head` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_org_unit_head` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_org_unit_version`
+--
+
+DROP TABLE IF EXISTS `fm_org_unit_version`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_org_unit_version` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `ORG_UNIT_ID` varchar(36) NOT NULL,
+  `VERSION_NO` int(11) NOT NULL,
+  `PARENT_ORG_UNIT_ID` varchar(36) DEFAULT NULL,
+  `UNIT_NAME` varchar(150) NOT NULL,
+  `SHORT_NAME` varchar(80) DEFAULT NULL,
+  `UNIT_TYPE` varchar(30) NOT NULL DEFAULT 'DEPARTMENT',
+  `TREE_DEPTH` int(11) NOT NULL,
+  `PATH` varchar(2000) NOT NULL,
+  `SORT_NO` int(11) NOT NULL DEFAULT 0,
+  `IS_VIRTUAL` char(1) NOT NULL DEFAULT 'N',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_OUV_VERSION` (`TENANT_ID`,`ORG_UNIT_ID`,`VERSION_NO`),
+  KEY `IDX_FM_OUV_TREE` (`TENANT_ID`,`PARENT_ORG_UNIT_ID`,`STATUS`,`SORT_NO`),
+  CONSTRAINT `CK_FM_OUV_VERSION` CHECK (`VERSION_NO` > 0),
+  CONSTRAINT `CK_FM_OUV_DEPTH` CHECK (`TREE_DEPTH` >= 0),
+  CONSTRAINT `CK_FM_OUV_VIRTUAL` CHECK (`IS_VIRTUAL` in ('Y','N')),
+  CONSTRAINT `CK_FM_OUV_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_OUV_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_org_unit_version`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_org_unit_version` WRITE;
+/*!40000 ALTER TABLE `fm_org_unit_version` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_org_unit_version` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_process_def`
+--
+
+DROP TABLE IF EXISTS `fm_process_def`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_process_def` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) NOT NULL,
+  `PROCESS_KEY` varchar(100) NOT NULL,
+  `PROCESS_NAME` varchar(150) NOT NULL,
+  `CATEGORY` varchar(50) DEFAULT NULL,
+  `CURRENT_VERSION_NO` int(11) NOT NULL DEFAULT 0,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_PD_ID` (`TENANT_ID`,`PROCESS_DEF_ID`),
+  UNIQUE KEY `UK_FM_PD_KEY` (`TENANT_ID`,`PROCESS_KEY`),
+  CONSTRAINT `CK_FM_PD_STATUS` CHECK (`STATUS` in ('DRAFT','PUBLISHED','INACTIVE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_process_def`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_process_def` WRITE;
+/*!40000 ALTER TABLE `fm_process_def` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_process_def` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_process_instance`
+--
+
+DROP TABLE IF EXISTS `fm_process_instance`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_process_instance` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_INSTANCE_ID` varchar(64) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) NOT NULL,
+  `PROCESS_VERSION_NO` int(11) NOT NULL,
+  `FLOWABLE_PROCESS_DEF_ID` varchar(64) NOT NULL,
+  `BUSINESS_KEY` varchar(100) NOT NULL,
+  `FORM_DATA_ID` varchar(36) NOT NULL,
+  `INITIATOR_ACCOUNT` varchar(24) NOT NULL,
+  `INITIATOR_ORG_UNIT_ID` varchar(36) NOT NULL,
+  `INSTANCE_STATUS` varchar(20) NOT NULL DEFAULT 'RUNNING',
+  `START_DATE` datetime(3) NOT NULL,
+  `END_DATE` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_PI_FLOWABLE` (`TENANT_ID`,`PROCESS_INSTANCE_ID`),
+  UNIQUE KEY `UK_FM_PI_BUSINESS` (`TENANT_ID`,`BUSINESS_KEY`),
+  KEY `IDX_FM_PI_INITIATOR` (`TENANT_ID`,`INITIATOR_ACCOUNT`,`INSTANCE_STATUS`,`START_DATE`),
+  CONSTRAINT `CK_FM_PI_STATUS` CHECK (`INSTANCE_STATUS` in ('RUNNING','COMPLETED','REJECTED','CANCELLED','TERMINATED','SUSPENDED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_process_instance`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_process_instance` WRITE;
+/*!40000 ALTER TABLE `fm_process_instance` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_process_instance` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_process_start_policy`
+--
+
+DROP TABLE IF EXISTS `fm_process_start_policy`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_process_start_policy` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) NOT NULL,
+  `PROCESS_VERSION_NO` int(11) NOT NULL,
+  `POLICY_SEQ` int(11) NOT NULL,
+  `SUBJECT_TYPE` varchar(30) NOT NULL,
+  `SUBJECT_REF_ID` varchar(36) DEFAULT NULL,
+  `ALLOW_START` char(1) NOT NULL DEFAULT 'Y',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_PSP_SEQ` (`TENANT_ID`,`PROCESS_DEF_ID`,`PROCESS_VERSION_NO`,`POLICY_SEQ`),
+  CONSTRAINT `CK_FM_PSP_SUBJECT` CHECK (`SUBJECT_TYPE` in ('ALL','ACCOUNT','ORG_UNIT','APPROVAL_GROUP')),
+  CONSTRAINT `CK_FM_PSP_ALLOW` CHECK (`ALLOW_START` in ('Y','N'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_process_start_policy`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_process_start_policy` WRITE;
+/*!40000 ALTER TABLE `fm_process_start_policy` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_process_start_policy` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_process_version`
+--
+
+DROP TABLE IF EXISTS `fm_process_version`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_process_version` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) NOT NULL,
+  `VERSION_NO` int(11) NOT NULL,
+  `VERSION_STATUS` varchar(20) NOT NULL DEFAULT 'DRAFT',
+  `BPMN_XML` longtext NOT NULL,
+  `BPMN_SHA256` char(64) NOT NULL,
+  `FLOWABLE_DEPLOYMENT_ID` varchar(64) DEFAULT NULL,
+  `FLOWABLE_PROCESS_DEF_ID` varchar(64) DEFAULT NULL,
+  `PUBLISHED_BY` varchar(24) DEFAULT NULL,
+  `PUBLISHED_DATE` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_PV_VERSION` (`TENANT_ID`,`PROCESS_DEF_ID`,`VERSION_NO`),
+  KEY `IDX_FM_PV_FLOWABLE` (`TENANT_ID`,`FLOWABLE_PROCESS_DEF_ID`),
+  CONSTRAINT `CK_FM_PV_STATUS` CHECK (`VERSION_STATUS` in ('DRAFT','PUBLISHED','RETIRED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_process_version`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_process_version` WRITE;
+/*!40000 ALTER TABLE `fm_process_version` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_process_version` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_task_action`
+--
+
+DROP TABLE IF EXISTS `fm_task_action`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_action` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `TASK_ACTION_ID` varchar(36) NOT NULL,
+  `PROCESS_INSTANCE_ID` varchar(64) NOT NULL,
+  `TASK_ID` varchar(64) DEFAULT NULL,
+  `TASK_DEF_KEY` varchar(100) DEFAULT NULL,
+  `ACTION_TYPE` varchar(30) NOT NULL,
+  `OUTCOME` varchar(30) DEFAULT NULL,
+  `ACTOR_ACCOUNT` varchar(24) NOT NULL,
+  `PRINCIPAL_ACCOUNT` varchar(24) DEFAULT NULL,
+  `FROM_ACCOUNT` varchar(24) DEFAULT NULL,
+  `TO_ACCOUNT` varchar(24) DEFAULT NULL,
+  `FORM_SNAPSHOT_ID` varchar(36) DEFAULT NULL,
+  `ASSIGNMENT_SNAPSHOT_ID` varchar(36) DEFAULT NULL,
+  `COMMENT_TEXT` varchar(2000) DEFAULT NULL,
+  `REASON` varchar(2000) DEFAULT NULL,
+  `CONTEXT_DATA` longtext DEFAULT NULL,
+  `ACTION_DATE` datetime(3) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TASK_ACTION_ID` (`TENANT_ID`,`TASK_ACTION_ID`),
+  KEY `IDX_FM_TASK_ACTION_PI` (`TENANT_ID`,`PROCESS_INSTANCE_ID`,`ACTION_DATE`),
+  KEY `IDX_FM_TASK_ACTION_TASK` (`TENANT_ID`,`TASK_ID`,`ACTION_DATE`),
+  CONSTRAINT `CK_FM_TASK_ACTION_TYPE` CHECK (`ACTION_TYPE` in ('SUBMIT','APPROVE','REJECT','RETURN','RESUBMIT','WITHDRAW','CANCEL','TRANSFER','DELEGATE','RESOLVE','ADD_SIGN','COMMENT','ADMIN_REASSIGN','TERMINATE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_action`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_action` WRITE;
+/*!40000 ALTER TABLE `fm_task_action` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_action` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_task_assignment_rule`
+--
+
+DROP TABLE IF EXISTS `fm_task_assignment_rule`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_assignment_rule` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) NOT NULL,
+  `PROCESS_VERSION_NO` int(11) NOT NULL,
+  `TASK_DEF_KEY` varchar(100) NOT NULL,
+  `RULE_SEQ` int(11) NOT NULL,
+  `RESOLVER_TYPE` varchar(50) NOT NULL,
+  `RESOLVER_CONFIG` longtext DEFAULT NULL,
+  `FALLBACK_CONFIG` longtext DEFAULT NULL,
+  `MAX_RESULTS` int(11) NOT NULL DEFAULT 100,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TAR_SEQ` (`TENANT_ID`,`PROCESS_DEF_ID`,`PROCESS_VERSION_NO`,`TASK_DEF_KEY`,`RULE_SEQ`),
+  CONSTRAINT `CK_FM_TAR_RESOLVER` CHECK (`RESOLVER_TYPE` in ('FIXED_ACCOUNT','APPROVAL_GROUP','INITIATOR_ORG_HEAD','PARENT_ORG_HEAD','NEXT_HIGHER_LEVEL_HEAD','TARGET_LEVEL_HEAD','LEVEL_HEAD_CHAIN','ROOT_ORG_HEAD','DIRECT_MANAGER','MANAGER_CHAIN','ORG_TITLE','ORG_DUTY','APPROVAL_AUTHORITY')),
+  CONSTRAINT `CK_FM_TAR_MAX` CHECK (`MAX_RESULTS` between 1 and 1000),
+  CONSTRAINT `CK_FM_TAR_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_assignment_rule`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_assignment_rule` WRITE;
+/*!40000 ALTER TABLE `fm_task_assignment_rule` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_assignment_rule` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_task_assignment_snapshot`
+--
+
+DROP TABLE IF EXISTS `fm_task_assignment_snapshot`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_assignment_snapshot` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `ASSIGNMENT_SNAPSHOT_ID` varchar(36) NOT NULL,
+  `PROCESS_INSTANCE_ID` varchar(64) NOT NULL,
+  `TASK_ID` varchar(64) DEFAULT NULL,
+  `TASK_DEF_KEY` varchar(100) NOT NULL,
+  `RESOLUTION_SEQ` int(11) NOT NULL,
+  `RESOLVER_TYPE` varchar(50) NOT NULL,
+  `SOURCE_ACCOUNT` varchar(24) DEFAULT NULL,
+  `SOURCE_ORG_UNIT_ID` varchar(36) DEFAULT NULL,
+  `RESOLUTION_STATUS` varchar(20) NOT NULL,
+  `RESOLUTION_CONTEXT` longtext DEFAULT NULL,
+  `RESOLVED_DATE` datetime(3) NOT NULL,
+  `SUPERSEDED_DATE` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TAS_ID` (`TENANT_ID`,`ASSIGNMENT_SNAPSHOT_ID`),
+  UNIQUE KEY `UK_FM_TAS_SEQ` (`TENANT_ID`,`PROCESS_INSTANCE_ID`,`TASK_DEF_KEY`,`RESOLUTION_SEQ`),
+  KEY `IDX_FM_TAS_TASK` (`TENANT_ID`,`TASK_ID`,`RESOLUTION_STATUS`),
+  CONSTRAINT `CK_FM_TAS_STATUS` CHECK (`RESOLUTION_STATUS` in ('RESOLVED','INCIDENT','SUPERSEDED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_assignment_snapshot`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_assignment_snapshot` WRITE;
+/*!40000 ALTER TABLE `fm_task_assignment_snapshot` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_assignment_snapshot` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_task_assignment_snapshot_dtl`
+--
+
+DROP TABLE IF EXISTS `fm_task_assignment_snapshot_dtl`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_assignment_snapshot_dtl` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `ASSIGNMENT_SNAPSHOT_ID` varchar(36) NOT NULL,
+  `RESULT_SEQ` int(11) NOT NULL,
+  `RESULT_TYPE` varchar(20) NOT NULL,
+  `RESULT_ACCOUNT` varchar(24) NOT NULL,
+  `PRINCIPAL_ACCOUNT` varchar(24) DEFAULT NULL,
+  `ORG_UNIT_ID` varchar(36) DEFAULT NULL,
+  `ORG_UNIT_NAME` varchar(150) DEFAULT NULL,
+  `APPROVAL_LEVEL_ID` varchar(36) DEFAULT NULL,
+  `LEVEL_CODE` varchar(30) DEFAULT NULL,
+  `LEVEL_NAME` varchar(100) DEFAULT NULL,
+  `LEVEL_ORDER` int(11) DEFAULT NULL,
+  `RESOLUTION_PATH` longtext DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TASD_SEQ` (`TENANT_ID`,`ASSIGNMENT_SNAPSHOT_ID`,`RESULT_SEQ`),
+  KEY `IDX_FM_TASD_ACCOUNT` (`TENANT_ID`,`RESULT_ACCOUNT`),
+  CONSTRAINT `CK_FM_TASD_TYPE` CHECK (`RESULT_TYPE` in ('ASSIGNEE','CANDIDATE','DELEGATE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_assignment_snapshot_dtl`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_assignment_snapshot_dtl` WRITE;
+/*!40000 ALTER TABLE `fm_task_assignment_snapshot_dtl` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_assignment_snapshot_dtl` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_task_form_rule`
+--
+
+DROP TABLE IF EXISTS `fm_task_form_rule`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_form_rule` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) NOT NULL,
+  `PROCESS_VERSION_NO` int(11) NOT NULL,
+  `TASK_DEF_KEY` varchar(100) NOT NULL,
+  `FORM_ID` varchar(36) NOT NULL,
+  `FORM_VERSION_NO` int(11) NOT NULL,
+  `FIELD_POLICY` longtext NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TFR_TASK` (`TENANT_ID`,`PROCESS_DEF_ID`,`PROCESS_VERSION_NO`,`TASK_DEF_KEY`,`FORM_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_form_rule`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_form_rule` WRITE;
+/*!40000 ALTER TABLE `fm_task_form_rule` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_form_rule` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_task_policy`
+--
+
+DROP TABLE IF EXISTS `fm_task_policy`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_policy` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_DEF_ID` varchar(36) NOT NULL,
+  `PROCESS_VERSION_NO` int(11) NOT NULL,
+  `TASK_DEF_KEY` varchar(100) NOT NULL,
+  `TASK_NAME` varchar(150) NOT NULL,
+  `ASSIGNMENT_MODE` varchar(20) NOT NULL DEFAULT 'ASSIGNEE',
+  `SELF_APPROVAL_POLICY` varchar(30) NOT NULL DEFAULT 'SKIP_TO_NEXT',
+  `DUPLICATE_POLICY` varchar(30) NOT NULL DEFAULT 'MERGE_CONSECUTIVE',
+  `ALLOW_REJECT` char(1) NOT NULL DEFAULT 'Y',
+  `ALLOW_RETURN` char(1) NOT NULL DEFAULT 'Y',
+  `ALLOW_TRANSFER` char(1) NOT NULL DEFAULT 'N',
+  `ALLOW_ADD_SIGN` char(1) NOT NULL DEFAULT 'N',
+  `COMMENT_REQUIRED` varchar(30) NOT NULL DEFAULT 'ON_REJECT_RETURN',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TP_TASK` (`TENANT_ID`,`PROCESS_DEF_ID`,`PROCESS_VERSION_NO`,`TASK_DEF_KEY`),
+  CONSTRAINT `CK_FM_TP_MODE` CHECK (`ASSIGNMENT_MODE` in ('ASSIGNEE','CANDIDATE','ALL','SEQUENTIAL')),
+  CONSTRAINT `CK_FM_TP_SELF` CHECK (`SELF_APPROVAL_POLICY` in ('ALLOW','SKIP_TO_NEXT','REQUIRE_ALTERNATE','INCIDENT')),
+  CONSTRAINT `CK_FM_TP_DUP` CHECK (`DUPLICATE_POLICY` in ('KEEP_EACH_LEVEL','MERGE_CONSECUTIVE','SKIP_ALREADY_APPROVED')),
+  CONSTRAINT `CK_FM_TP_YN` CHECK (`ALLOW_REJECT` in ('Y','N') and `ALLOW_RETURN` in ('Y','N') and `ALLOW_TRANSFER` in ('Y','N') and `ALLOW_ADD_SIGN` in ('Y','N')),
+  CONSTRAINT `CK_FM_TP_COMMENT` CHECK (`COMMENT_REQUIRED` in ('NEVER','ALWAYS','ON_REJECT_RETURN'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_policy`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_policy` WRITE;
+/*!40000 ALTER TABLE `fm_task_policy` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_policy` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_tenant`
+--
+
+DROP TABLE IF EXISTS `fm_tenant`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_tenant` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `TENANT_CODE` varchar(30) NOT NULL,
+  `TENANT_NAME` varchar(100) NOT NULL,
+  `DEFAULT_LOCALE` varchar(15) NOT NULL DEFAULT 'zh-TW',
+  `DEFAULT_TIMEZONE` varchar(50) NOT NULL DEFAULT 'Asia/Taipei',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TENANT_ID` (`TENANT_ID`),
+  UNIQUE KEY `UK_FM_TENANT_CODE` (`TENANT_CODE`),
+  CONSTRAINT `CK_FM_TENANT_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_tenant`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_tenant` WRITE;
+/*!40000 ALTER TABLE `fm_tenant` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_tenant` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_tenant_account`
+--
+
+DROP TABLE IF EXISTS `fm_tenant_account`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_tenant_account` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `ACCOUNT` varchar(24) NOT NULL,
+  `IS_DEFAULT` char(1) NOT NULL DEFAULT 'N',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TENANT_ACCOUNT` (`TENANT_ID`,`ACCOUNT`),
+  KEY `IDX_FM_TENANT_ACCOUNT_LOGIN` (`ACCOUNT`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  CONSTRAINT `CK_FM_TA_DEFAULT` CHECK (`IS_DEFAULT` in ('Y','N')),
+  CONSTRAINT `CK_FM_TA_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_TA_DATE` CHECK (`EFFECTIVE_TO` is null or `EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_tenant_account`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_tenant_account` WRITE;
+/*!40000 ALTER TABLE `fm_tenant_account` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_tenant_account` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_workflow_delegation`
+--
+
+DROP TABLE IF EXISTS `fm_workflow_delegation`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_workflow_delegation` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `DELEGATION_ID` varchar(36) NOT NULL,
+  `PRINCIPAL_ACCOUNT` varchar(24) NOT NULL,
+  `DELEGATE_ACCOUNT` varchar(24) NOT NULL,
+  `SCOPE_TYPE` varchar(30) NOT NULL DEFAULT 'ALL',
+  `SCOPE_REF_ID` varchar(36) DEFAULT NULL,
+  `ALLOW_REDELEGATE` char(1) NOT NULL DEFAULT 'N',
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) NOT NULL,
+  `REASON` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_WD_ID` (`TENANT_ID`,`DELEGATION_ID`),
+  KEY `IDX_FM_WD_RESOLVE` (`TENANT_ID`,`PRINCIPAL_ACCOUNT`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  CONSTRAINT `CK_FM_WD_ACCOUNT` CHECK (`PRINCIPAL_ACCOUNT` <> `DELEGATE_ACCOUNT`),
+  CONSTRAINT `CK_FM_WD_SCOPE` CHECK (`SCOPE_TYPE` in ('ALL','PROCESS','APPROVAL_GROUP')),
+  CONSTRAINT `CK_FM_WD_REDELEGATE` CHECK (`ALLOW_REDELEGATE` in ('Y','N')),
+  CONSTRAINT `CK_FM_WD_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_WD_DATE` CHECK (`EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_workflow_delegation`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_workflow_delegation` WRITE;
+/*!40000 ALTER TABLE `fm_workflow_delegation` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_workflow_delegation` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_account`
+--
+
+DROP TABLE IF EXISTS `tb_account`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_account` (
+  `OID` char(36) NOT NULL,
+  `ACCOUNT` varchar(24) NOT NULL,
+  `PASSWORD` varchar(255) NOT NULL,
+  `ON_JOB` varchar(50) NOT NULL DEFAULT 'Y',
+  `CUSERID` varchar(24) DEFAULT NULL,
+  `CDATE` datetime DEFAULT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`ACCOUNT`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_account`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_account` WRITE;
+/*!40000 ALTER TABLE `tb_account` DISABLE KEYS */;
+INSERT INTO `tb_account` VALUES
+('0','admin','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2012-11-11 10:56:23','admin','2014-04-19 11:32:04'),
+('15822da5-25dc-490c-bdfb-be75f5ff4843','tester','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-04-23 11:26:53','admin','2015-08-29 17:54:08'),
+('52cb274e-388d-419f-a81e-67ca599bfb63','steven','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-09-11 10:33:53',NULL,NULL),
+('9c239d19-3646-41db-b394-d34c5bf34671','tiffany','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-09-11 10:15:29',NULL,NULL);
+/*!40000 ALTER TABLE `tb_account` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_role`
+--
+
+DROP TABLE IF EXISTS `tb_role`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_role` (
+  `OID` char(36) NOT NULL,
+  `ROLE` varchar(50) NOT NULL,
+  `DESCRIPTION` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(50) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`ROLE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_role`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_role` WRITE;
+/*!40000 ALTER TABLE `tb_role` DISABLE KEYS */;
+INSERT INTO `tb_role` VALUES
+('19f1523b-5afc-11f1-86b7-bd261cfeb8ff','testrole','test','admin','2026-05-29 09:17:03',NULL,NULL),
+('4b1796ad-0bb7-4a65-b45e-439540ba5dbd','admin','administrator role!','admin','2014-10-09 15:02:24',NULL,NULL),
+('58914623-46ea-4797-bbec-2dadc5d0800e','COMMON01','Common role!','admin','2017-05-09 13:31:42',NULL,NULL),
+('c7c69396-e5e6-48ca-b09c-9445b69e2ad5','*','all role','admin','2014-10-09 15:02:54',NULL,NULL);
+/*!40000 ALTER TABLE `tb_role` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_role_permission`
+--
+
+DROP TABLE IF EXISTS `tb_role_permission`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_role_permission` (
+  `OID` char(36) NOT NULL,
+  `ROLE` varchar(50) NOT NULL,
+  `PERMISSION` varchar(255) NOT NULL,
+  `PERM_TYPE` varchar(15) NOT NULL,
+  `DESCRIPTION` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(50) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`ROLE`,`PERMISSION`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_role_permission`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_role_permission` WRITE;
+/*!40000 ALTER TABLE `tb_role_permission` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_role_permission` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys`
+--
+
+DROP TABLE IF EXISTS `tb_sys`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys` (
+  `OID` char(36) NOT NULL,
+  `SYS_ID` varchar(10) NOT NULL,
+  `NAME` varchar(100) NOT NULL,
+  `HOST` varchar(200) NOT NULL,
+  `CONTEXT_PATH` varchar(100) NOT NULL,
+  `IS_LOCAL` varchar(1) NOT NULL DEFAULT 'Y',
+  `ICON` varchar(20) NOT NULL DEFAULT ' ',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`SYS_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys` WRITE;
+/*!40000 ALTER TABLE `tb_sys` DISABLE KEYS */;
+INSERT INTO `tb_sys` VALUES
+('c6643182-85a5-4f91-9e73-10567ebd0dd5','CORE','Core-system','127.0.0.1:8080','core-web','Y','SYSTEM','admin','2017-04-10 20:42:00','admin','2026-06-01 15:35:15');
+/*!40000 ALTER TABLE `tb_sys` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_bean_help`
+--
+
+DROP TABLE IF EXISTS `tb_sys_bean_help`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_bean_help` (
+  `OID` char(36) NOT NULL,
+  `BEAN_ID` varchar(255) NOT NULL,
+  `METHOD` varchar(100) NOT NULL,
+  `SYSTEM` varchar(10) NOT NULL,
+  `ENABLE_FLAG` varchar(1) NOT NULL,
+  `DESCRIPTION` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`BEAN_ID`,`METHOD`,`SYSTEM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_bean_help`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_bean_help` WRITE;
+/*!40000 ALTER TABLE `tb_sys_bean_help` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_bean_help` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_bean_help_expr`
+--
+
+DROP TABLE IF EXISTS `tb_sys_bean_help_expr`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_bean_help_expr` (
+  `OID` char(36) NOT NULL,
+  `HELP_OID` char(36) NOT NULL,
+  `EXPR_ID` varchar(20) NOT NULL,
+  `EXPR_SEQ` varchar(10) NOT NULL,
+  `RUN_TYPE` varchar(10) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`EXPR_ID`,`HELP_OID`,`RUN_TYPE`),
+  KEY `IDX_1` (`HELP_OID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_bean_help_expr`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_bean_help_expr` WRITE;
+/*!40000 ALTER TABLE `tb_sys_bean_help_expr` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_bean_help_expr` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_bean_help_expr_map`
+--
+
+DROP TABLE IF EXISTS `tb_sys_bean_help_expr_map`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_bean_help_expr_map` (
+  `OID` char(36) NOT NULL,
+  `HELP_EXPR_OID` char(36) NOT NULL,
+  `METHOD_RESULT_FLAG` varchar(1) NOT NULL DEFAULT 'N',
+  `METHOD_PARAM_CLASS` varchar(255) NOT NULL DEFAULT ' ',
+  `METHOD_PARAM_INDEX` int(3) NOT NULL DEFAULT 0,
+  `VAR_NAME` varchar(255) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`VAR_NAME`,`HELP_EXPR_OID`),
+  KEY `IDX_1` (`HELP_EXPR_OID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_bean_help_expr_map`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_bean_help_expr_map` WRITE;
+/*!40000 ALTER TABLE `tb_sys_bean_help_expr_map` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_bean_help_expr_map` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_code`
+--
+
+DROP TABLE IF EXISTS `tb_sys_code`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_code` (
+  `OID` char(36) NOT NULL,
+  `CODE` varchar(25) NOT NULL,
+  `TYPE` varchar(10) NOT NULL,
+  `NAME` varchar(100) NOT NULL,
+  `PARAM1` varchar(100) DEFAULT NULL,
+  `PARAM2` varchar(100) DEFAULT NULL,
+  `PARAM3` varchar(100) DEFAULT NULL,
+  `PARAM4` varchar(100) DEFAULT NULL,
+  `PARAM5` varchar(100) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`CODE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_code`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_code` WRITE;
+/*!40000 ALTER TABLE `tb_sys_code` DISABLE KEYS */;
+INSERT INTO `tb_sys_code` VALUES
+('2d9c84e4-a956-42ac-96cb-1f6292d182a9','CNF_CONF002','CNF','enable mail sender!','Y',NULL,NULL,NULL,NULL,'admin','2014-12-25 09:09:57','admin','2020-09-14 04:36:34'),
+('4df770a6-6a9c-4d25-bdcd-1dee819d2ba6','CNF_CONF001','CNF','default mail from account!','root@localhost',NULL,NULL,NULL,NULL,'admin','2014-12-24 21:51:16','admin','2020-09-14 04:36:34'),
+('57877c4d-4f3e-4679-880a-a262eeba0c3d','TOKEN','AUTH','QiFu3 Client token','9TYM7TRuILqFk9XoR0v6Yx672','COMMON01',NULL,NULL,NULL,'admin','2021-10-30 17:12:04',NULL,NULL),
+('a5f7ee37-f33f-48a6-b448-92ccb8cdf96a','CNF_CONF003','CNF','first load javascript','addTab(\'CORE_PROG999D9999Q\', null);',NULL,NULL,NULL,NULL,'admin','2014-12-25 09:09:57',NULL,NULL),
+('caf00ba5-fe63-4dc4-a1a3-32527f6629b2','CMM_CONF001','CMM','Common role for default user!','COMMON01',NULL,NULL,NULL,NULL,'admin','2017-05-09 12:29:00',NULL,NULL);
+/*!40000 ALTER TABLE `tb_sys_code` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_event_log`
+--
+
+DROP TABLE IF EXISTS `tb_sys_event_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_event_log` (
+  `OID` char(36) NOT NULL,
+  `USER` varchar(24) NOT NULL,
+  `SYS_ID` varchar(10) NOT NULL,
+  `EXECUTE_EVENT` varchar(255) NOT NULL,
+  `IS_PERMIT` varchar(1) NOT NULL DEFAULT 'N',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  KEY `IDX_1` (`USER`),
+  KEY `IDX_2` (`CDATE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_event_log`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_event_log` WRITE;
+/*!40000 ALTER TABLE `tb_sys_event_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_event_log` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_expr_job`
+--
+
+DROP TABLE IF EXISTS `tb_sys_expr_job`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_expr_job` (
+  `OID` char(36) NOT NULL,
+  `SYSTEM` varchar(10) NOT NULL,
+  `ID` varchar(20) NOT NULL,
+  `NAME` varchar(100) NOT NULL,
+  `ACTIVE` varchar(1) NOT NULL DEFAULT 'Y',
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `RUN_STATUS` varchar(1) NOT NULL DEFAULT 'Y',
+  `CHECK_FAULT` varchar(1) NOT NULL DEFAULT 'N',
+  `EXPR_ID` varchar(20) NOT NULL,
+  `RUN_DAY_OF_WEEK` varchar(1) NOT NULL,
+  `RUN_HOUR` varchar(2) NOT NULL,
+  `RUN_MINUTE` varchar(2) NOT NULL,
+  `CONTACT_MODE` varchar(1) NOT NULL DEFAULT '0',
+  `CONTACT` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`ID`),
+  KEY `IDX_1` (`SYSTEM`,`ACTIVE`,`EXPR_ID`,`NAME`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_expr_job`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_expr_job` WRITE;
+/*!40000 ALTER TABLE `tb_sys_expr_job` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_expr_job` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_expr_job_log`
+--
+
+DROP TABLE IF EXISTS `tb_sys_expr_job_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_expr_job_log` (
+  `OID` char(36) NOT NULL,
+  `ID` varchar(20) NOT NULL,
+  `LOG_STATUS` varchar(1) NOT NULL DEFAULT 'N',
+  `BEGIN_DATETIME` datetime NOT NULL,
+  `END_DATETIME` datetime NOT NULL,
+  `FAULT_MSG` varchar(2000) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  KEY `IDX_1` (`ID`,`LOG_STATUS`,`BEGIN_DATETIME`),
+  KEY `IDX_2` (`CDATE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_expr_job_log`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_expr_job_log` WRITE;
+/*!40000 ALTER TABLE `tb_sys_expr_job_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_expr_job_log` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_expression`
+--
+
+DROP TABLE IF EXISTS `tb_sys_expression`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_expression` (
+  `OID` char(36) NOT NULL,
+  `EXPR_ID` varchar(20) NOT NULL,
+  `TYPE` varchar(10) NOT NULL,
+  `NAME` varchar(100) NOT NULL,
+  `CONTENT` varchar(8000) NOT NULL,
+  `DESCRIPTION` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`EXPR_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_expression`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_expression` WRITE;
+/*!40000 ALTER TABLE `tb_sys_expression` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_expression` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_icon`
+--
+
+DROP TABLE IF EXISTS `tb_sys_icon`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_icon` (
+  `OID` char(36) NOT NULL,
+  `ICON_ID` varchar(20) NOT NULL,
+  `FILE_NAME` varchar(200) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`ICON_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_icon`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_icon` WRITE;
+/*!40000 ALTER TABLE `tb_sys_icon` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_icon` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_jreport`
+--
+
+DROP TABLE IF EXISTS `tb_sys_jreport`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_jreport` (
+  `OID` char(36) NOT NULL,
+  `REPORT_ID` varchar(50) NOT NULL,
+  `FILE` varchar(100) NOT NULL,
+  `IS_COMPILE` varchar(50) NOT NULL DEFAULT 'N',
+  `CONTENT` mediumblob NOT NULL,
+  `DESCRIPTION` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`REPORT_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_jreport`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_jreport` WRITE;
+/*!40000 ALTER TABLE `tb_sys_jreport` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_jreport` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_jreport_param`
+--
+
+DROP TABLE IF EXISTS `tb_sys_jreport_param`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_jreport_param` (
+  `OID` char(36) NOT NULL,
+  `REPORT_ID` varchar(50) NOT NULL,
+  `URL_PARAM` varchar(100) NOT NULL,
+  `RPT_PARAM` varchar(100) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`REPORT_ID`,`RPT_PARAM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_jreport_param`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_jreport_param` WRITE;
+/*!40000 ALTER TABLE `tb_sys_jreport_param` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_jreport_param` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_login_log`
+--
+
+DROP TABLE IF EXISTS `tb_sys_login_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_login_log` (
+  `OID` char(36) NOT NULL,
+  `USER` varchar(24) NOT NULL,
+  `FAIL_FLAG` char(1) NOT NULL DEFAULT 'N',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  KEY `IDX_1` (`USER`),
+  KEY `IDX_2` (`CDATE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_login_log`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_login_log` WRITE;
+/*!40000 ALTER TABLE `tb_sys_login_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_login_log` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_mail_helper`
+--
+
+DROP TABLE IF EXISTS `tb_sys_mail_helper`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_mail_helper` (
+  `OID` char(36) NOT NULL,
+  `MAIL_ID` varchar(17) NOT NULL,
+  `SUBJECT` varchar(200) NOT NULL,
+  `TEXT` blob DEFAULT NULL,
+  `MAIL_FROM` varchar(100) NOT NULL,
+  `MAIL_TO` varchar(100) NOT NULL,
+  `MAIL_CC` varchar(1000) DEFAULT NULL,
+  `MAIL_BCC` varchar(1000) DEFAULT NULL,
+  `SUCCESS_FLAG` varchar(1) NOT NULL DEFAULT 'N',
+  `SUCCESS_TIME` datetime DEFAULT NULL,
+  `RETAIN_FLAG` varchar(1) NOT NULL DEFAULT 'N',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`MAIL_ID`),
+  KEY `IDX_1` (`MAIL_ID`),
+  KEY `IDX_2` (`SUCCESS_FLAG`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_mail_helper`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_mail_helper` WRITE;
+/*!40000 ALTER TABLE `tb_sys_mail_helper` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_mail_helper` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_menu`
+--
+
+DROP TABLE IF EXISTS `tb_sys_menu`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_menu` (
+  `OID` char(36) NOT NULL,
+  `PROG_ID` varchar(50) NOT NULL,
+  `PARENT_OID` char(36) NOT NULL,
+  `ENABLE_FLAG` varchar(1) NOT NULL DEFAULT 'Y',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`PROG_ID`,`PARENT_OID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_menu`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_menu` WRITE;
+/*!40000 ALTER TABLE `tb_sys_menu` DISABLE KEYS */;
+INSERT INTO `tb_sys_menu` VALUES
+('4bd4d202-5feb-495b-8c8c-ec6b7f5b8041','CORE_PROG002D0002Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
+('5e055f61-bfc5-402c-93b4-f241dc17b00b','CORE_PROG004D','00000000-0000-0000-0000-000000000000','Y','admin','2017-06-03 14:23:17',NULL,NULL),
+('79e1cf24-2522-4cdf-abcc-6455b47d545b','CORE_PROG002D','00000000-0000-0000-0000-000000000000','Y','admin','2017-05-08 21:32:59',NULL,NULL),
+('7aa1208a-5fc2-11f1-afe9-33fb6c1b9ce7','CORE_PROG005D','00000000-0000-0000-0000-000000000000','Y','admin','2026-06-04 11:07:11',NULL,NULL),
+('7aa2590b-5fc2-11f1-afe9-73b1551d818b','CORE_PROG005D0001Q','7aa1208a-5fc2-11f1-afe9-33fb6c1b9ce7','Y','admin','2026-06-04 11:07:11',NULL,NULL),
+('7ea68636-c93a-4669-ac42-dafc3770d20d','CORE_PROG001D','00000000-0000-0000-0000-000000000000','Y','admin','2017-04-20 11:24:53',NULL,NULL),
+('9972c249-2985-49ac-9b8b-f6c25c65fd4e','CORE_PROG002D0003Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
+('c5349a26-6d6e-4d94-b817-82be6d14d5ed','CORE_PROG002D0001Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
+('f0242c17-4487-11ee-b50d-a593cf4a05bf','CORE_PROG001D0001Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
+('f0253d88-4487-11ee-b50d-7f3d9b9812d0','CORE_PROG001D0002Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
+('f0264ef9-4487-11ee-b50d-a55549dc8acf','CORE_PROG001D0003Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
+('f027877a-4487-11ee-b50d-8fe1228e511a','CORE_PROG001D0004Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
+('f02898eb-4487-11ee-b50d-45ee94442a45','CORE_PROG001D0005Q','7ea68636-c93a-4669-ac42-dafc3770d20d','Y','admin','2023-08-27 11:15:13',NULL,NULL),
+('f07acfb8-4612-11ee-9a04-71984fef28fa','CORE_PROG004D0001Q','5e055f61-bfc5-402c-93b4-f241dc17b00b','Y','admin','2023-08-29 10:22:45',NULL,NULL),
+('f07b9309-4612-11ee-9a04-9f3e4fe17b25','CORE_PROG004D0002Q','5e055f61-bfc5-402c-93b4-f241dc17b00b','Y','admin','2023-08-29 10:22:45',NULL,NULL);
+/*!40000 ALTER TABLE `tb_sys_menu` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_menu_role`
+--
+
+DROP TABLE IF EXISTS `tb_sys_menu_role`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_menu_role` (
+  `OID` char(36) NOT NULL,
+  `PROG_ID` varchar(50) NOT NULL,
+  `ROLE` varchar(50) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`PROG_ID`,`ROLE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_menu_role`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_menu_role` WRITE;
+/*!40000 ALTER TABLE `tb_sys_menu_role` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_menu_role` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_prog`
+--
+
+DROP TABLE IF EXISTS `tb_sys_prog`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_prog` (
+  `OID` char(36) NOT NULL,
+  `PROG_ID` varchar(50) NOT NULL,
+  `NAME` varchar(100) NOT NULL,
+  `URL` varchar(255) NOT NULL,
+  `EDIT_MODE` varchar(1) NOT NULL DEFAULT 'N',
+  `IS_DIALOG` varchar(1) NOT NULL DEFAULT 'N',
+  `DIALOG_W` int(4) NOT NULL DEFAULT 0,
+  `DIALOG_H` int(4) NOT NULL DEFAULT 0,
+  `PROG_SYSTEM` varchar(10) NOT NULL,
+  `ITEM_TYPE` varchar(10) NOT NULL,
+  `ICON` varchar(20) NOT NULL,
+  `FONT_ICON_CLASS_ID` varchar(100) NOT NULL DEFAULT 'circle-o',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`PROG_ID`),
+  KEY `IDX_1` (`PROG_SYSTEM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_prog`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_prog` WRITE;
+/*!40000 ALTER TABLE `tb_sys_prog` DISABLE KEYS */;
+INSERT INTO `tb_sys_prog` VALUES
+('186b1fb1-749f-4b6f-97d1-6b7fb8115345','CORE_PROG001D0004E','ZA04 - Freemarker樣板 (Edit)','#/prog001d0004/edit','Y','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:40:10','admin','2023-08-16 21:48:56'),
+('1b11c7eb-6133-48fb-87f0-dfbd098ce914','CORE_PROG001D0001E','ZA01 - System site (Edit)','#/prog001d0001/edit','Y','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:58'),
+('1e393fe3-8bbc-482c-aa23-bbb22a1dbafb','CORE_PROG001D0005A','ZA05 - JasperReport (Create)','#/prog001d0005/create','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:55:46','admin','2023-08-24 20:20:27'),
+('22560527-90fb-4e5a-a89b-353d2aa1d433','CORE_PROG001D0005E','ZA05 - JasperReport (Edit)','#/prog001d0005/edit','Y','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:56:27','admin','2023-08-24 20:20:40'),
+('3630ee1b-6169-452f-821f-5c015dfb84d5','CORE_PROG001D','ZA. Config','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','gear-fill','admin','2014-10-02 00:00:00','admin','2023-08-15 19:16:31'),
+('3862b6d0-0551-45d8-8dd1-cd988a5e8e50','CORE_PROG004D0002Q','ZD02 - Token log','#/prog004d0002','N','N',0,0,'CORE','ITEM','PROPERTIES','clipboard-check','admin','2017-06-03 14:22:29','admin','2023-08-29 10:23:05'),
+('41fa29d8-3a53-4fbd-b2b1-cdbfd0729767','CORE_PROG001D0004Q','ZA04 - Freemarker樣板','#/prog001d0004','N','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:36:41','admin','2023-08-16 21:48:29'),
+('5e082c7c-1730-4176-89c6-93e235707deb','CORE_PROG002D0001A','ZB01 - Role (Create)','#/prog002d0001/create','N','N',0,0,'CORE','ITEM','PEOPLE','person-square','admin','2017-05-09 11:15:50','admin','2023-08-27 16:46:40'),
+('61aea7ff-7a42-4a92-9a0b-4a0dfe60858b','CORE_PROG004D0001Q','ZD01 - Event log','#/prog004d0001','N','N',0,0,'CORE','ITEM','PROPERTIES','clipboard-pulse','admin','2017-06-03 14:22:07','admin','2023-08-29 10:17:34'),
+('6a442973-0e0c-4a7a-d546-464f4ff5f7a9','CORE_PROG001D0003Q','ZA03 - Menu settings','#/prog001d0003','N','N',0,0,'CORE','ITEM','FOLDER','menu-down','admin','2014-10-02 00:00:00','admin','2023-08-15 19:21:23'),
+('6b210525-8975-4fb5-954c-fe349f66d3fe','CORE_PROG002D0001S01Q','ZB01 - Role (permission)','#/prog002d0001/setparam','Y','N',0,0,'CORE','ITEM','IMPORTANT','globe2','admin','2017-05-09 14:32:47','admin','2021-01-20 08:48:52'),
+('72e6e0d1-1818-47d3-99f9-5134fb211b79','CORE_PROG002D','ZB. Role authority','/','N','N',0,0,'CORE','FOLDER','SHARED','person-square','admin','2017-05-08 21:27:52','admin','2023-08-27 16:47:03'),
+('7746f746-961f-44c2-9b66-fa43c0f49838','CORE_PROG001D0004S01Q','ZA04 - Freemarker樣板 (Parameter)','#/prog001d0004/setparam','Y','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:42:04','admin','2023-08-16 21:49:12'),
+('7d9ddc45-3eab-4f61-8c0a-d5505c0cc748','CORE_PROG001D0004A','ZA04 - Freemarker樣板 (Create)','#/prog001d0004/create','N','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:39:20','admin','2023-08-16 21:48:49'),
+('8499957e-6da9-4160-c2ec-dfb7dbc202fe','CORE_PROG001D0002E','ZA02 - Program (Edit)','#/prog001d0002/edit','Y','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:17'),
+('87f9ae6a-1dd2-4585-b31d-9533bdda8fd5','CORE_PROG005D0001Q','ZE01 - MQTT Dashboard','#/prog005d0001','N','N',0,0,'CORE','ITEM','PROPERTIES','speedometer2','admin','2026-06-04 11:00:54',NULL,NULL),
+('ac5bcfd0-4abd-11e4-916c-0800200c9a66','CORE_PROG001D0001A','ZA01 - System site (Create)','#/prog001d0001/create','N','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:45'),
+('b39159ad-0707-4515-b78d-e3fc72c53974','CORE_PROG002D0001E','ZB01 - Role (Edit)','#/prog002d0001/edit','Y','N',0,0,'CORE','ITEM','PEOPLE','person-square','admin','2017-05-09 12:11:53','admin','2023-08-27 16:46:35'),
+('b6b89559-6864-46ab-9ca9-0992dcf238f1','CORE_PROG001D0001Q','ZA01 - System site','#/prog001d0001','N','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:29'),
+('b978f706-4c5f-40f8-83b1-395492f141d4','CORE_PROG002D0001Q','ZB01 - Role','#/prog002d0001','N','N',0,0,'CORE','ITEM','PEOPLE','person-square','admin','2017-05-08 21:32:50','admin','2023-08-27 16:46:27'),
+('bfeb7935-334f-4a94-9666-f77433793a8a','CORE_PROG005D','ZE. MQTT','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','gear-fill','admin','2026-06-04 11:00:54',NULL,NULL),
+('c96ebde8-7044-4b05-a155-68a0c2605619','CORE_PROG002D0003Q','ZB03 - Role for menu','#/prog002d0003','N','N',0,0,'CORE','ITEM','FOLDER','menu-app-fill','admin','2017-05-08 21:37:01','admin','2023-08-28 19:54:34'),
+('da7d969a-5efb-4e84-9eab-4fdae236f28c','CORE_PROG002D0002Q','ZB02 - User role','#/prog002d0002','N','N',0,0,'CORE','ITEM','PERSON','person-check','admin','2017-05-08 21:34:39','admin','2023-08-28 19:54:25'),
+('dda67b1d-e3a2-4534-835a-c62d9e8421f3','CORE_PROG001D0005S01Q','ZA05 - JasperReport (Parameter)','#/prog001d0005/setparam','Y','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:57:26','admin','2023-08-24 20:21:02'),
+('e32b9329-bb38-46d7-8552-2307bac77724','CORE_PROG001D0002A','ZA02 - Program (Create)','#/prog001d0002/create','N','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:42'),
+('e86dbb1b-6870-4827-8039-72f5e15fa4f2','CORE_PROG004D','ZD. Log','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','clipboard-check-fill','admin','2017-06-03 14:21:03','admin','2023-08-29 10:14:04'),
+('eb6e199f-c853-4fbf-acf3-0c9c77ba9953','CORE_PROG001D0002Q','ZA02 - Program','#/prog001d0002','N','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:05'),
+('eb786ffd-c7d1-4631-aed2-4d9d7368eb13','CORE_PROG001D0005Q','ZA05 - JasperReport','#/prog001d0005','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:54:35','admin','2023-08-24 20:20:16');
+/*!40000 ALTER TABLE `tb_sys_prog` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_qfield_log`
+--
+
+DROP TABLE IF EXISTS `tb_sys_qfield_log`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_qfield_log` (
+  `OID` char(36) NOT NULL,
+  `SYSTEM` varchar(10) NOT NULL,
+  `PROG_ID` varchar(50) NOT NULL,
+  `METHOD_NAME` varchar(255) NOT NULL,
+  `FIELD_NAME` varchar(255) NOT NULL,
+  `FIELD_VALUE` varchar(500) DEFAULT NULL,
+  `QUERY_USER_ID` varchar(24) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  KEY `IDX_1` (`SYSTEM`,`PROG_ID`),
+  KEY `IDX_2` (`QUERY_USER_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_qfield_log`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_qfield_log` WRITE;
+/*!40000 ALTER TABLE `tb_sys_qfield_log` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_qfield_log` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_template`
+--
+
+DROP TABLE IF EXISTS `tb_sys_template`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_template` (
+  `OID` char(36) NOT NULL,
+  `TEMPLATE_ID` varchar(10) NOT NULL,
+  `TITLE` varchar(200) NOT NULL,
+  `MESSAGE` varchar(4000) NOT NULL,
+  `DESCRIPTION` varchar(200) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`TEMPLATE_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_template`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_template` WRITE;
+/*!40000 ALTER TABLE `tb_sys_template` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_template` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_template_param`
+--
+
+DROP TABLE IF EXISTS `tb_sys_template_param`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_template_param` (
+  `OID` char(36) NOT NULL,
+  `TEMPLATE_ID` varchar(10) NOT NULL,
+  `IS_TITLE` varchar(1) NOT NULL DEFAULT 'N',
+  `TEMPLATE_VAR` varchar(100) NOT NULL,
+  `OBJECT_VAR` varchar(100) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`TEMPLATE_ID`,`TEMPLATE_VAR`,`IS_TITLE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_template_param`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_template_param` WRITE;
+/*!40000 ALTER TABLE `tb_sys_template_param` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_template_param` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_token`
+--
+
+DROP TABLE IF EXISTS `tb_sys_token`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_token` (
+  `OID` char(36) NOT NULL,
+  `USER_ID` varchar(24) NOT NULL,
+  `TOKEN` varchar(2048) NOT NULL,
+  `EXPIRES_DATE` datetime NOT NULL,
+  `RF_EXPIRES_DATE` datetime NOT NULL,
+  `CDATE` datetime NOT NULL,
+  PRIMARY KEY (`OID`),
+  KEY `IDX_1` (`USER_ID`),
+  KEY `IDX_2` (`TOKEN`(1024))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_token`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_token` WRITE;
+/*!40000 ALTER TABLE `tb_sys_token` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_token` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_upload`
+--
+
+DROP TABLE IF EXISTS `tb_sys_upload`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_upload` (
+  `OID` char(36) NOT NULL,
+  `SYSTEM` varchar(10) NOT NULL,
+  `SUB_DIR` varchar(4) NOT NULL,
+  `TYPE` varchar(10) NOT NULL,
+  `FILE_NAME` varchar(50) NOT NULL,
+  `SHOW_NAME` varchar(255) NOT NULL,
+  `IS_FILE` varchar(1) NOT NULL DEFAULT 'Y',
+  `CONTENT` mediumblob DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  KEY `IDX_1` (`SYSTEM`,`TYPE`,`SUB_DIR`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_upload`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_upload` WRITE;
+/*!40000 ALTER TABLE `tb_sys_upload` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_upload` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_sys_usess`
+--
+
+DROP TABLE IF EXISTS `tb_sys_usess`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_sys_usess` (
+  `OID` char(36) NOT NULL,
+  `SESSION_ID` varchar(64) NOT NULL,
+  `ACCOUNT` varchar(24) NOT NULL,
+  `CURRENT_ID` varchar(36) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`,`SESSION_ID`),
+  UNIQUE KEY `UK_1` (`ACCOUNT`,`SESSION_ID`),
+  KEY `IDX_1` (`CURRENT_ID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_sys_usess`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_sys_usess` WRITE;
+/*!40000 ALTER TABLE `tb_sys_usess` DISABLE KEYS */;
+/*!40000 ALTER TABLE `tb_sys_usess` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `tb_user_role`
+--
+
+DROP TABLE IF EXISTS `tb_user_role`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `tb_user_role` (
+  `OID` char(36) NOT NULL,
+  `ROLE` varchar(50) NOT NULL,
+  `ACCOUNT` varchar(24) NOT NULL,
+  `DESCRIPTION` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime NOT NULL,
+  `UUSERID` varchar(50) DEFAULT NULL,
+  `UDATE` datetime DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_1` (`ROLE`,`ACCOUNT`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `tb_user_role`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `tb_user_role` WRITE;
+/*!40000 ALTER TABLE `tb_user_role` DISABLE KEYS */;
+INSERT INTO `tb_user_role` VALUES
+('1c62cf70-ca6b-4243-8aa9-49b555024c45','COMMON01','steven','','admin','2017-05-10 14:19:58',NULL,NULL),
+('9243c7de-43b1-46ef-ac4b-2620697f319e','admin','admin','Administrator','admin','2014-09-23 00:00:00',NULL,NULL),
+('a3d8caa3-45a8-11ee-b979-e9dd94b50b2d','COMMON01','tiffany','','admin','2023-08-28 21:41:50',NULL,NULL),
+('bd7bf78c-d84b-4524-8273-273f883d30b5','COMMON01','tester','','admin','2017-05-10 11:01:50',NULL,NULL);
+/*!40000 ALTER TABLE `tb_user_role` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
@@ -3650,4 +4441,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-06-08 11:47:44
+-- Dump completed on 2026-07-30 20:58:52

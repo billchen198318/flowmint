@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTenantAccountMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmTenantAccount">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="ACCOUNT" jdbcType="VARCHAR" property="account" />
+    <result column="IS_DEFAULT" jdbcType="CHAR" property="isDefault" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="EFFECTIVE_FROM" jdbcType="TIMESTAMP" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" jdbcType="TIMESTAMP" property="effectiveTo" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''.toString()">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="account != null and account != ''.toString()">
+      AND ACCOUNT = #{account,jdbcType=VARCHAR}
+    </if>
+    <if test="accountLike != null and accountLike != ''.toString()">
+      AND ACCOUNT LIKE #{accountLike,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''.toString()">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != ''.toString() and sortType != null and sortType != ''.toString()">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1"/>
+    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2"/>
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*) FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTenantAccount">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account
+      (OID, TENANT_ID, ACCOUNT, IS_DEFAULT, STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, CUSERID, CDATE)
+    VALUES
+      (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{account,jdbcType=VARCHAR}, #{isDefault,jdbcType=CHAR},
+       #{status,jdbcType=VARCHAR}, #{effectiveFrom,jdbcType=TIMESTAMP}, #{effectiveTo,jdbcType=TIMESTAMP},
+       #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmTenantAccount">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account
+       SET IS_DEFAULT = #{isDefault,jdbcType=CHAR},
+           STATUS = #{status,jdbcType=VARCHAR},
+           EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+           EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+           UUSERID = #{uuserid,jdbcType=VARCHAR},
+           UDATE = #{udate,jdbcType=TIMESTAMP}
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmTenantAccount">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+</mapper>

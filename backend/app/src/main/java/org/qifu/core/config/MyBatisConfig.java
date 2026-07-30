@@ -46,7 +46,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import jakarta.annotation.Resource;
 
-@MapperScan(basePackages = "org.qifu.core.mapper", sqlSessionFactoryRef = "sqlSessionFactory")
+@MapperScan(basePackages = {"org.qifu.core.mapper", "org.qifu.fm.mapper"}, sqlSessionFactoryRef = "sqlSessionFactory")
 @Configuration
 @EnableAutoConfiguration
 @EnableTransactionManagement
