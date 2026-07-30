@@ -46,8 +46,9 @@ store.gridConfig = getGridConfig(
 );
 const query = async () => {
   showLoading();
+  rows.value = [];
   try {
-    const r = await getAxiosInstance().post(
+    const response = await getAxiosInstance().post(
       import.meta.env.VITE_API_URL + PageConstants.eventNamespace + "/findPage",
       {
         field: {
@@ -61,13 +62,28 @@ const query = async () => {
         },
       },
     );
-    if (r.data.success === import.meta.env.VITE_SUCCESS_FLAG) {
-      rows.value = r.data.value;
-      setConfigTotal(store.gridConfig, r.data.pageOf.countSize);
-    } else toast.warning(r.data.message);
+    if (response.data) {
+      if (import.meta.env.VITE_SUCCESS_FLAG != response.data.success) {
+        setConfigTotal(store.gridConfig, 0);
+        toast.warning(response.data.message);
+        return;
+      }
+      rows.value = response.data.value || [];
+      setConfigTotal(store.gridConfig, response.data.pageOf?.countSize || 0);
+    } else {
+      setConfigTotal(store.gridConfig, 0);
+      toast.error("error, null");
+    }
+  } catch (error: any) {
+    setConfigTotal(store.gridConfig, 0);
+    toast.error(error?.message || "查詢 Tenant 資料失敗");
   } finally {
     hideLoading();
   }
+};
+const btnQuery = () => {
+  setConfigPage(store.gridConfig, 1);
+  query();
 };
 const clear = () => {
   store.queryParam = { tenantCode: "", tenantName: "", status: "" };
@@ -120,7 +136,7 @@ onMounted(query);
         </select>
       </div>
       <div class="col-md-2">
-        <button class="btn btn-primary me-2" @click="query">查詢</button
+        <button class="btn btn-primary me-2" @click="btnQuery">查詢</button
         ><button class="btn btn-outline-secondary" @click="clear">清除</button>
       </div>
     </div>

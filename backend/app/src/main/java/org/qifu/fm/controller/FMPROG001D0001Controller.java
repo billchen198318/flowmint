@@ -47,11 +47,12 @@ public class FMPROG001D0001Controller extends CoreApiSupport {
 					this.queryParameter(searchBody).fullEquals("status").fullLink("tenantCodeLike")
 							.fullLink("tenantNameLike").value(),
 					searchBody.getPageOf().orderBy("TENANT_CODE").sortTypeAsc());
-			result.setSuccess(query.getSuccess());
-			result.setMessage(query.getMessage());
-			result.setIsAuth(query.getIsAuth());
-			result.setPageOf(query.getPageOf());
-			result.setValue(query.getValue().stream().map(v -> FmTenantView.from(v, List.of())).toList());
+
+			QueryResult<List<FmTenantView>> viewResult = new QueryResult<>();
+			viewResult.setValue(query.getValue() == null ? List.of()
+					: query.getValue().stream().map(v -> FmTenantView.from(v, List.of())).toList());
+			viewResult.setMessage(query.getMessage());
+			this.setQueryResponseJsonResult(viewResult, result, searchBody.getPageOf());
 		} catch (ServiceException | ControllerException e) {
 			this.noSuccessResult(result, e);
 		}
