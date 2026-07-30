@@ -1,0 +1,19 @@
+{
+	"restAddress"	:	"/rest",
+	"endpoints" : [
+		{
+			"name"		:	"testService",
+			"beanId"	:	"testService",
+			"publish"	:	"/testService",
+			"hasRest"	:	true,
+			"inInterceptors"	:	[
+				"loggingInInterceptor",
+				"soapForceDoclitBareInInterceptor"
+			],
+			"outInterceptors"	:	[
+				"loggingOutInterceptor"
+			],
+			"enable"	:	true
+		}
+	]
+}

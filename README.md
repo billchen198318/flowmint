@@ -1,0 +1,106 @@
+# qífū-4
+一個簡單的 springboot 後端, 與 Nuxt 3 (Vue) 前端的範例. A simple Admin WEB, based on Java with springboot backend, and Nuxt 3 frontend example.
+
+<img src="https://raw.githubusercontent.com/billchen198318/qifu4/main/backend/doc/0001.png">
+<br>
+<img src="https://raw.githubusercontent.com/billchen198318/qifu4/main/backend/doc/0002.png">
+
+## 📚 系統文件 (Documentation)
+
+本專案已根據功能與層次拆分為多份詳細手冊，請點擊連結查看詳細內容：
+
+*   [**後端開發手冊 (Backend Guide)**](./README-backend.md): 包含 Spring Boot 4.0.6 架構、MyBatis 配置、JWT/Cookie 安全性機制及 API 規範。
+*   [**前端開發手冊 (Frontend Guide)**](./README-frontend.md): 包含 Nuxt 3 專案結構、Pinia 狀態管理、Axios 自動續期攔截器及權限控制。
+*   [**K3s 部署手冊 (K3s Deployment Keepalived-VIP)**](./README-k3s.md): 包含 K3s HA 集群建立、Keepalived VIP 配置、Traefik Ingress 路由及私有倉庫設定。
+*   [**K3s 部署手冊 (K3s Deployment Kube-VIP 推薦)**](./README-k3s-kube-vip.md): 使用 kube-vip 內嵌管理 VIP，安裝更簡單、與 K8s 整合度更高。
+*   [**MQTT Broker 整合說明 (MQTT Broker Integration)**](./README-mqtt.md): 包含內嵌式 Moquette Broker 配置、RocksDB 持久化及帳密驗證機制。
+
+---
+
+## 🛠️ 安裝與初始化 (Installation)
+
+### 1. 數據庫匯入 (MariaDB Import)
+
+<br>mariadb import
+```bash
+mysql> create database qifu4;
+
+cd backend/doc
+mysql qifu4 -u root -p < qifu4.sql
+```
+
+<br>database connection config file modify , `backend/app/src/main/resources/db1-config.properties`
+```text
+db1.datasource.jdbcUrl=jdbc:mariadb://localhost/qifu4?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+db1.datasource.username=mariadb-account
+db1.datasource.password=mariadb-password
+```
+
+The database password can also be stored as a Jasypt `ENC(...)` value. Use
+`backend/app/src/test/java/org/qifu/test/DatabasePasswordJasyptTest.java` to
+generate it:
+
+1. In `testEncryptAndDecryptDatabasePassword()`, change `rawPassword` to the
+   actual database password.
+2. Change `encryptorPassword` to the Jasypt key used by the application. For a
+   local environment using the default configuration, use
+   `qifu4-dev-jasypt-key`.
+3. Set a breakpoint after `encryptedPropertyValue` is assigned, then run the
+   method as a JUnit test in Debug mode.
+4. Copy `encryptedPropertyValue` from the Eclipse Variables view into
+   `backend/app/src/main/resources/db1-config.properties`:
+
+```text
+db1.datasource.password=ENC(...)
+```
+
+Alternatively, generate the encrypted password directly with the Jasypt 1.9.3
+CLI. Put `jasypt-1.9.3.jar` in the current directory, then run the following
+command in PowerShell and replace the database password and Jasypt key as needed:
+
+```powershell
+java -cp "jasypt-1.9.3.jar" `
+  org.jasypt.intf.cli.JasyptPBEStringEncryptionCLI `
+  input="mariadb-password" `
+  password="qifu4-dev-jasypt-key" `
+  algorithm="PBEWithMD5AndDES" `
+  ivGeneratorClassName="org.jasypt.iv.NoIvGenerator" `
+  verbose=false
+```
+
+The CLI prints only the encrypted value. Wrap the output with `ENC(...)` before
+putting it in `db1-config.properties`:
+
+```text
+db1.datasource.password=ENC(the-encrypted-value-printed-by-the-cli)
+```
+
+The `encryptorPassword` value must exactly match `JASYPT_ENCRYPTOR_PASSWORD`.
+If that environment variable is not set, the local default in
+`application.properties` is `qifu4-dev-jasypt-key`. Production should set its
+own `JASYPT_ENCRYPTOR_PASSWORD` and generate the `ENC(...)` value with the same
+key. Otherwise, application startup will fail while binding
+`db1.datasource.password`.
+
+### 2. 後端開發環境
+請使用 Eclipse 或 IntelliJ IDEA 匯入 `backend/app`、`backend/base` 與 `backend/core` 模組。
+*   **JDK 版本**: 17+
+*   **核心配置**: 詳見 [後端開發手冊](./README-backend.md)。
+
+### 3. 前端開發環境
+```bash
+cd frontend-v-nx
+npm install
+npm run dev
+```
+*   **Node.js 版本**: 18+
+*   **詳細說明**: 詳見 [前端開發手冊](./README-frontend.md)。
+*   **登入測試帳號密碼**: admin / admin99。
+
+---
+
+## 🚀 生產環境部署參考 (Production Deployment Reference)
+本專案提供基於 K3s 高可用架構的部署參考（包含 VIP `192.168.10.200`、Traefik Ingress 等範例），詳情請參閱相關手冊：
+*   [**K3s + kube-vip 部署範例 (推薦)**](./README-k3s-kube-vip.md)
+*   [**K3s + Keepalived 部署範例**](./README-k3s.md)
+

@@ -1,0 +1,271 @@
+<script setup lang="ts">
+import { ref, watch, onMounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import Swal from 'sweetalert2';
+import { toast } from 'vue3-toastify';
+import { useSwalLoading } from '@/composables/useSwalLoading';
+import 'vue3-toastify/dist/index.css';
+
+import Toolbar from '@/components/Toolbar.vue';
+import { PageConstants } from '../config';
+import { 
+	getAxiosInstance, 
+	invalidFeedback,
+	checkInvalid,
+	escapeQifuHtmlMsg,
+	getProgItem, 
+	getUrlPrefixFromProgItem 		
+} from '../../../components/BaseHelper';
+
+definePageMeta({ middleware: ['auth'] });
+
+const router = useRouter();
+const route = useRoute();
+
+const { showLoading, hideLoading } = useSwalLoading();
+
+const pageProgramId = ref(PageConstants.SetParamId);
+const checkFields = ref<any>({});
+const masterParam = ref({
+	templateOid : route.params.id as string,
+	templateId : '',
+	title : ''
+});
+const formParam = ref({
+	templateId : '',
+	isTitle : 'N',
+	isTitleVar : false,
+	templateVar : '',
+	objectVar : ''
+});
+const paramList = ref<any[]>([]);
+
+const btnBack = () => router.back();
+
+const btnClear = () => {
+	checkFields.value = {};
+	formParam.value.isTitle = 'N';
+	formParam.value.isTitleVar = false;
+	formParam.value.templateVar = '';
+	formParam.value.objectVar = '';
+};
+
+watch(() => formParam.value.isTitleVar, (newVal) => {
+	formParam.value.isTitle = newVal ? 'Y' : 'N';
+});
+
+const loadData = async () => {
+    showLoading() 
+    try {
+        const axiosInstance = getAxiosInstance();
+        const response = await axiosInstance.post(import.meta.env.VITE_API_URL + PageConstants.eventNamespace + '/load', { 'oid' : masterParam.value.templateOid });
+        hideLoading()
+        if (response.data) {
+            if (import.meta.env.VITE_SUCCESS_FLAG != response.data.success) {
+                toast.warning(response.data.message);
+                router.push(getUrlPrefixFromProgItem(getProgItem(PageConstants.QueryId)));
+                return;
+            }
+            masterParam.value = response.data.value;
+			masterParam.value.templateOid = route.params.id as string;
+            formParam.value.templateId = masterParam.value.templateId;
+            queryParamList();
+        } else {
+            toast.error('error, null');
+            router.push(getUrlPrefixFromProgItem(getProgItem(PageConstants.QueryId)));
+        }
+    } catch (e: any) {
+        hideLoading()        
+        alert(e);
+        router.push(getUrlPrefixFromProgItem(getProgItem(PageConstants.QueryId)));
+    }         
+};
+
+const queryParamList = async () => {
+    paramList.value = [];
+	try {
+		const axiosInstance = getAxiosInstance();
+		const response = await axiosInstance.post(import.meta.env.VITE_API_URL + PageConstants.eventNamespace + '/findSetParamPage', {
+			"field": {
+				"templateId"	: masterParam.value.templateId
+			},
+			"pageOf": {
+				"select"  : 1,
+				"showRow" : 100
+			}
+		});
+		if (response.data) {
+			if (import.meta.env.VITE_SUCCESS_FLAG != response.data.success) {
+				return;
+			}
+			paramList.value = response.data.value;   
+		} else {
+			toast.error('error, null');
+		}
+	} catch (e: any) {
+		alert(e);
+	}
+};
+
+const btnSave = async () => {
+    checkFields.value = {};
+    showLoading()      
+    try {
+        const axiosInstance = getAxiosInstance();
+        const response = await axiosInstance.post(import.meta.env.VITE_API_URL + PageConstants.eventNamespace + '/saveSetParam', formParam.value);
+        hideLoading()
+        if (response.data) {
+            checkFields.value = response.data.checkFields || {};
+            if (import.meta.env.VITE_SUCCESS_FLAG != response.data.success) {
+                toast.warning(escapeQifuHtmlMsg(response.data.message));
+            } else {
+                toast.success(response.data.message);
+                btnClear();
+            }            
+        } else {
+            toast.error('error, null');
+        }
+        queryParamList();
+    } catch (e: any) {
+        hideLoading()        
+        alert(e);
+    }
+};
+
+const delParam = async (oid: string) => {
+	showLoading()  
+	try {
+		const axiosInstance = getAxiosInstance();  
+		const response = await axiosInstance.post(import.meta.env.VITE_API_URL + PageConstants.eventNamespace + '/deleteSetParam', { "oid": oid });
+		hideLoading()
+		if (response.data) {
+			if (import.meta.env.VITE_SUCCESS_FLAG == response.data.success) {
+				toast.success(response.data.message);
+			} else {        
+				toast.warning(response.data.message);
+			}      
+			queryParamList();
+		} else {
+			toast.error('error, null');
+			queryParamList();
+		}
+	} catch (e: any) {
+		hideLoading()    
+		queryParamList();
+		alert(e);
+	} 
+};
+
+const delParamConfirm = (oid: string) => {
+	Swal.fire({
+		title: '刪除?',
+		icon: 'question',
+		confirmButtonText: 'Yes',
+		cancelButtonText: 'No',
+		showCancelButton: true,
+		showCloseButton: true
+	}).then((result) => {
+		if (result.isConfirmed) {
+			delParam(oid);
+		}
+	});  
+};
+
+onMounted(() => {
+	loadData();
+});
+</script>
+
+<template>
+<div class="row">
+	<div class="col-12">
+		<Toolbar 
+			:progId="pageProgramId" 
+        	description="Freemarker 樣板管理，配置參數作業." 
+        	refreshFlag="Y"
+        	@refreshMethod="loadData"
+        	backFlag="Y"
+        	@backMethod="btnBack"
+        	saveFlag="Y"
+        	@saveMethod="btnSave"
+    	/>		
+	</div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <h6 class="text-muted mb-0">樣板編號: <span class="text-dark">{{masterParam.templateId}}</span></h6>
+        </div>
+        <div class="col-md-6">
+            <h6 class="text-muted mb-0">樣板標題: <span class="text-dark">{{masterParam.title}}</span></h6>
+        </div>
+    </div>
+    
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label for="templateVar" class="form-label">樣板變數</label>
+        <input 
+          type="text" 
+          :class="['form-control', checkInvalid('templateVar', checkFields) ? 'is-invalid' : '']" 
+          id="templateVar" 
+          placeholder="輸入樣板變數" 
+          v-model="formParam.templateVar"
+        >
+        <div v-if="checkInvalid('templateVar', checkFields)" class="invalid-feedback">{{ invalidFeedback('templateVar', checkFields) }}</div>
+      </div>
+      <div class="col-md-6">
+        <label for="objectVar" class="form-label">物件變數</label>
+        <input 
+          type="text" 
+          :class="['form-control', checkInvalid('objectVar', checkFields) ? 'is-invalid' : '']" 
+          id="objectVar" 
+          placeholder="輸入物件變數" 
+          v-model="formParam.objectVar"
+        >
+        <div v-if="checkInvalid('objectVar', checkFields)" class="invalid-feedback">{{ invalidFeedback('objectVar', checkFields) }}</div>
+      </div>
+      
+      <div class="col-12">
+        <div class="form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="isTitle" v-model="formParam.isTitleVar">
+          <label class="form-check-label" for="isTitle">是否標題用</label>
+        </div>
+      </div>
+    </div>
+    
+    <div class="mt-4 d-flex gap-2">
+      <button type="button" class="btn btn-primary" @click="btnSave"><i class="bi bi-save"></i> 儲存</button>
+      <button type="button" class="btn btn-outline-secondary" @click="btnClear"><i class="bi bi-eraser"></i> 清除</button>		
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+        <table class="table table-hover table-bordered mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width: 50px;"><i class="bi bi-hand-index-thumb"></i></th>
+                    <th>樣板變數</th>
+                    <th>物件變數</th>
+                    <th>是否標題用</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="item in paramList" :key="item.oid">
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" @click="delParamConfirm(item.oid)"><i class="bi bi-trash"></i></button>
+                    </td>
+                    <td>{{item.templateVar}}</td>
+                    <td>{{item.objectVar}}</td>
+                    <td>{{item.isTitle}}</td>
+                </tr>	
+            </tbody>
+        </table>
+    </div>
+  </div>
+</div>
+</template>
