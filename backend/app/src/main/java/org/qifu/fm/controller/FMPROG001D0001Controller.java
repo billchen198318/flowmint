@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.qifu.base.exception.ControllerException;
 import org.qifu.base.exception.ServiceException;
+import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.CheckControllerFieldHandler;
 import org.qifu.base.model.ControllerMethodAuthority;
 import org.qifu.base.model.DefaultControllerJsonResultObj;
@@ -77,7 +78,7 @@ public class FMPROG001D0001Controller extends CoreApiSupport {
 	public ResponseEntity<DefaultControllerJsonResultObj<FmTenantView>> load(@RequestBody Map<String, String> body) {
 		DefaultControllerJsonResultObj<FmTenantView> result = this.initDefaultJsonResult();
 		try {
-			this.setDefaultResponseJsonResult(tenantLogicService.load(body.get("oid")), result);
+			this.setDefaultResponseJsonResult(tenantLogicService.load(body.get("oid"), BaseSystemMessage.dataIsExist()), result);
 		} catch (ServiceException | ControllerException e) {
 			this.exceptionResult(result, e);
 		}

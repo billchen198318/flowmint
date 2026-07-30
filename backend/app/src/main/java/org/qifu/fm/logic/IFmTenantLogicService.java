@@ -9,7 +9,7 @@ import org.qifu.fm.dto.view.FmTenantView;
 public interface IFmTenantLogicService {
 	DefaultResult<FmTenantView> create(FmTenantCommand command) throws ServiceException;
 
-	DefaultResult<FmTenantView> load(String oid) throws ServiceException;
+	DefaultResult<FmTenantView> load(String oid, String message) throws ServiceException;
 
 	DefaultResult<FmTenantView> update(FmTenantCommand command) throws ServiceException;
 

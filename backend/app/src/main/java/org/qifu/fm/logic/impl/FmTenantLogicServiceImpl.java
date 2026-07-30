@@ -45,11 +45,11 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 	public DefaultResult<FmTenantView> create(FmTenantCommand command) throws ServiceException {
 		FmTenant tenant = toNewEntity(command);
 		DefaultResult<FmTenant> result = tenantService.insert(tenant);
-		return load(result.getValueEmptyThrowMessage().getOid());
+		return load(result.getValueEmptyThrowMessage().getOid(), BaseSystemMessage.insertSuccess());
 	}
 
 	@Override
-	public DefaultResult<FmTenantView> load(String oid) throws ServiceException {
+	public DefaultResult<FmTenantView> load(String oid, String message) throws ServiceException {
 		FmTenant tenant = requiredTenant(oid);
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenant.getTenantId());
@@ -58,6 +58,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		DefaultResult<FmTenantView> result = new DefaultResult<>();
 		result.setSuccess(YesNoKeyProvide.YES);
 		result.setValue(FmTenantView.from(tenant, accounts));
+		result.setMessage( message );
 		return result;
 	}
 
@@ -72,7 +73,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		tenant.setStatus(defaultValue(command.status(), "ACTIVE"));
 		tenant.setDescription(command.description());
 		tenantService.update(tenant);
-		return load(tenant.getOid());
+		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
 
 	@Override
@@ -81,7 +82,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		FmTenant tenant = requiredTenant(oid);
 		tenant.setStatus("INACTIVE");
 		tenantService.update(tenant);
-		return load(oid);
+		return load(oid, BaseSystemMessage.updateSuccess());
 	}
 
 	@Override
@@ -110,7 +111,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		link.setEffectiveFrom(command.effectiveFrom());
 		link.setEffectiveTo(command.effectiveTo());
 		tenantAccountService.insert(link);
-		return load(tenant.getOid());
+		return load(tenant.getOid(), BaseSystemMessage.insertSuccess());
 	}
 
 	@Override
@@ -126,7 +127,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		link.setEffectiveFrom(command.effectiveFrom());
 		link.setEffectiveTo(command.effectiveTo());
 		tenantAccountService.update(link);
-		return load(tenant.getOid());
+		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
 
 	private FmTenant requiredTenant(String oid) throws ServiceException {
