@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmOrgLevelSchemeMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmOrgLevelScheme">
+    <id column="OID" property="oid" />
+    <result column="TENANT_ID" property="tenantId" />
+    <result column="LEVEL_SCHEME_ID" property="levelSchemeId" />
+    <result column="SCHEME_CODE" property="schemeCode" />
+    <result column="SCHEME_NAME" property="schemeName" />
+    <result column="IS_DEFAULT" property="isDefault" />
+    <result column="STATUS" property="status" />
+    <result column="EFFECTIVE_FROM" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" property="effectiveTo" />
+    <result column="DESCRIPTION" property="description" />
+    <result column="CUSERID" property="cuserid" />
+    <result column="CDATE" property="cdate" />
+    <result column="UUSERID" property="uuserid" />
+    <result column="UDATE" property="udate" />
+  </resultMap>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap">
+    SELECT * FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme WHERE OID = #{oid}
+  </select>
+  <sql id="conditions">
+    <if test="tenantId!=null and tenantId!=''">AND TENANT_ID=#{tenantId}</if>
+    <if test="levelSchemeId!=null and levelSchemeId!=''">AND LEVEL_SCHEME_ID=#{levelSchemeId}</if>
+    <if test="schemeCodeLike!=null and schemeCodeLike!=''">AND SCHEME_CODE LIKE #{schemeCodeLike}</if>
+    <if test="schemeNameLike!=null and schemeNameLike!=''">AND SCHEME_NAME LIKE #{schemeNameLike}</if>
+    <if test="status!=null and status!=''">AND STATUS=#{status}</if>
+  </sql>
+  <select id="selectListByParams" resultMap="BaseResultMap">
+    SELECT * FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme WHERE 1 = 1
+    <include refid="conditions" />
+    <if test="orderBy!=null and orderBy!=''">ORDER BY ${orderBy} ${sortType}</if>
+  </select>
+  <select id="findPage" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT * FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme WHERE 1 = 1
+    <include refid="conditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+  <select id="count" resultType="java.lang.Long">
+    SELECT COUNT(*) FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme WHERE 1 = 1
+    <include refid="conditions" />
+  </select>
+  <insert id="insert">
+    INSERT INTO
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme
+      (OID, TENANT_ID, LEVEL_SCHEME_ID, SCHEME_CODE, SCHEME_NAME, IS_DEFAULT, STATUS,
+       EFFECTIVE_FROM, EFFECTIVE_TO, DESCRIPTION, CUSERID, CDATE)
+    VALUES
+      (#{oid}, #{tenantId}, #{levelSchemeId}, #{schemeCode}, #{schemeName}, #{isDefault},
+       #{status}, #{effectiveFrom}, #{effectiveTo}, #{description}, #{cuserid}, #{cdate})
+  </insert>
+  <update id="update">
+    UPDATE
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme
+       SET SCHEME_CODE = #{schemeCode},
+           SCHEME_NAME = #{schemeName},
+           IS_DEFAULT = #{isDefault},
+           STATUS = #{status},
+           EFFECTIVE_FROM = #{effectiveFrom},
+           EFFECTIVE_TO = #{effectiveTo},
+           DESCRIPTION = #{description},
+           UUSERID = #{uuserid},
+           UDATE = #{udate}
+     WHERE OID = #{oid}
+  </update>
+  <delete id="delete">
+    DELETE FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme WHERE OID = #{oid}
+  </delete>
+</mapper>

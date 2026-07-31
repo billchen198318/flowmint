@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmOrgApprovalLevelMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmOrgApprovalLevel">
+    <id column="OID" property="oid" />
+    <result column="TENANT_ID" property="tenantId" />
+    <result column="APPROVAL_LEVEL_ID" property="approvalLevelId" />
+    <result column="LEVEL_SCHEME_ID" property="levelSchemeId" />
+    <result column="LEVEL_CODE" property="levelCode" />
+    <result column="LEVEL_NAME" property="levelName" />
+    <result column="LEVEL_ORDER" property="levelOrder" />
+    <result column="IS_HIGHEST_LEVEL" property="isHighestLevel" />
+    <result column="STATUS" property="status" />
+    <result column="EFFECTIVE_FROM" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" property="effectiveTo" />
+    <result column="DESCRIPTION" property="description" />
+    <result column="CUSERID" property="cuserid" />
+    <result column="CDATE" property="cdate" />
+    <result column="UUSERID" property="uuserid" />
+    <result column="UDATE" property="udate" />
+  </resultMap>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap">
+    SELECT * FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE OID = #{oid}
+  </select>
+  <sql id="conditions">
+    <if test="tenantId!=null and tenantId!=''">AND TENANT_ID=#{tenantId}</if>
+    <if test="levelSchemeId!=null and levelSchemeId!=''">AND LEVEL_SCHEME_ID=#{levelSchemeId}</if>
+    <if test="status!=null and status!=''">AND STATUS=#{status}</if>
+  </sql>
+  <select id="selectListByParams" resultMap="BaseResultMap">
+    SELECT * FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE 1 = 1
+    <include refid="conditions" />
+    <if test="orderBy!=null and orderBy!=''">ORDER BY ${orderBy} ${sortType}</if>
+  </select>
+  <select id="findPage" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT * FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE 1 = 1
+    <include refid="conditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+  <select id="count" resultType="java.lang.Long">
+    SELECT COUNT(*) FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE 1 = 1
+    <include refid="conditions" />
+  </select>
+  <insert id="insert">
+    INSERT INTO
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level
+      (OID, TENANT_ID, APPROVAL_LEVEL_ID, LEVEL_SCHEME_ID, LEVEL_CODE, LEVEL_NAME, LEVEL_ORDER,
+       IS_HIGHEST_LEVEL, STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, DESCRIPTION, CUSERID, CDATE)
+    VALUES
+      (#{oid}, #{tenantId}, #{approvalLevelId}, #{levelSchemeId}, #{levelCode}, #{levelName},
+       #{levelOrder}, #{isHighestLevel}, #{status}, #{effectiveFrom}, #{effectiveTo}, #{description},
+       #{cuserid}, #{cdate})
+  </insert>
+  <update id="update">
+    UPDATE
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level
+       SET LEVEL_CODE = #{levelCode},
+           LEVEL_NAME = #{levelName},
+           LEVEL_ORDER = #{levelOrder},
+           IS_HIGHEST_LEVEL = #{isHighestLevel},
+           STATUS = #{status},
+           EFFECTIVE_FROM = #{effectiveFrom},
+           EFFECTIVE_TO = #{effectiveTo},
+           DESCRIPTION = #{description},
+           UUSERID = #{uuserid},
+           UDATE = #{udate}
+     WHERE OID = #{oid}
+  </update>
+  <delete id="delete">
+    DELETE FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE OID = #{oid}
+  </delete>
+</mapper>
