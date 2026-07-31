@@ -118,5 +118,6 @@ export const popularIcons = [
   { name: 'patch-check-fill', label: 'Patch Check Fill' }, { name: 'patch-exclamation', label: 'Patch Exclamation' },
   { name: 'patch-question', label: 'Patch Question' }, { name: 'layers', label: 'Layers' },
   { name: 'layers-fill', label: 'Layers Fill' }, { name: 'stack', label: 'Stack' }, { name: 'box', label: 'Box' },
-  { name: 'box-seam', label: 'Box Seam' }, { name: 'cup-hot', label: 'Cup Hot' }, { name: 'puzzle', label: 'Puzzle' }
+  { name: 'box-seam', label: 'Box Seam' }, { name: 'cup-hot', label: 'Cup Hot' }, { name: 'puzzle', label: 'Puzzle' },
+  { name: 'diagram-3', label: 'Diagram 3'}, { name: 'person-add', label: 'Person add'}, { name: 'person-gear', label: 'Person gear'}
 ];

@@ -2224,6 +2224,11 @@ CREATE TABLE `fm_employee` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_employee` WRITE;
 /*!40000 ALTER TABLE `fm_employee` DISABLE KEYS */;
+INSERT INTO `fm_employee` VALUES
+('2250e92c-8cab-11f1-bf0e-4b61e379b27b','A01','a3bb53cb-fbb1-4c9d-870b-9d2e39d17cba','A0004','tester','林永山','aaa@aaa.org','0800888222','zh-TW','Asia/Taipei','ACTIVE','2026-01-01 00:00:00.000','2099-12-30 00:00:00.000','','admin','2026-07-31 14:43:26.823',NULL,NULL),
+('925cf380-8caa-11f1-bf0e-3b1efcd0c2a7','A01','b5a80859-2382-44ee-967c-5969ed3457d4','A0001','admin','Administrator','chen.xin.nien@gmail.com','0800956956','zh-TW','Asia/Taipei','ACTIVE','2026-01-01 00:00:00.000','2199-12-31 23:59:00.000','','admin','2026-07-31 14:39:25.310',NULL,NULL),
+('c657aefb-8caa-11f1-bf0e-e7465f4ccf97','A01','8bf5c5c3-809c-45c4-9a43-9e97696a3845','A0002','tiffany','王美女','aaa@aaa.org','0800999444','zh-TW','Asia/Taipei','ACTIVE','2026-01-01 00:00:00.000','2099-12-30 00:00:00.000','','admin','2026-07-31 14:40:52.516',NULL,NULL),
+('f3594a46-8caa-11f1-bf0e-91b42c41b1a5','A01','a770ca51-0137-409f-af3a-af895f22ee50','A0003','steven','張大山','aaa@aaa.org','0800999111','zh-TW','Asia/Taipei','ACTIVE','2026-01-01 00:00:00.000','2099-12-30 00:00:00.000','','admin','2026-07-31 14:42:08.024',NULL,NULL);
 /*!40000 ALTER TABLE `fm_employee` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -3362,6 +3367,11 @@ CREATE TABLE `fm_tenant_account` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_tenant_account` WRITE;
 /*!40000 ALTER TABLE `fm_tenant_account` DISABLE KEYS */;
+INSERT INTO `fm_tenant_account` VALUES
+('b7f39e3d-8ca3-11f1-98fb-892691cae8be','A01','admin','Y','ACTIVE','2026-01-01 00:00:00.000',NULL,'admin','2026-07-31 13:50:21.896',NULL,NULL),
+('c96fc8af-8ca3-11f1-98fb-57f5db0212b2','A01','tester','Y','ACTIVE','2026-01-01 00:00:00.000',NULL,'admin','2026-07-31 13:50:51.230','admin','2026-07-31 14:14:18.542'),
+('e4596eb1-8ca3-11f1-98fb-c181205235bd','A01','steven','Y','ACTIVE','2026-01-01 00:00:00.000',NULL,'admin','2026-07-31 13:51:36.382',NULL,NULL),
+('ec94abd3-8ca3-11f1-98fb-371f71dbf5cc','A01','tiffany','Y','ACTIVE','2026-01-01 00:00:00.000',NULL,'admin','2026-07-31 13:51:50.192',NULL,NULL);
 /*!40000 ALTER TABLE `fm_tenant_account` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -3444,7 +3454,7 @@ LOCK TABLES `tb_account` WRITE;
 /*!40000 ALTER TABLE `tb_account` DISABLE KEYS */;
 INSERT INTO `tb_account` VALUES
 ('0','admin','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2012-11-11 10:56:23','admin','2014-04-19 11:32:04'),
-('15822da5-25dc-490c-bdfb-be75f5ff4843','tester','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-04-23 11:26:53','admin','2015-08-29 17:54:08'),
+('15822da5-25dc-490c-bdfb-be75f5ff4843','tester','$2a$10$0NLveCNWsNQ7BWQgNQQiIuIFjQxq1fVH1LzfncNth3k7Jdc701Or2','Y','admin','2015-04-23 11:26:53','admin','2026-07-31 14:14:18'),
 ('52cb274e-388d-419f-a81e-67ca599bfb63','steven','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-09-11 10:33:53',NULL,NULL),
 ('9c239d19-3646-41db-b394-d34c5bf34671','tiffany','$2y$12$Q4x02Q0WKHWXAQ.NoGCs8ObX4sac890xeRnaNUxNnz/VEiHWazIp.','Y','admin','2015-09-11 10:15:29',NULL,NULL);
 /*!40000 ALTER TABLE `tb_account` ENABLE KEYS */;
@@ -4067,6 +4077,8 @@ LOCK TABLES `tb_sys_menu` WRITE;
 INSERT INTO `tb_sys_menu` VALUES
 ('4bd4d202-5feb-495b-8c8c-ec6b7f5b8041','CORE_PROG002D0002Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
 ('4d85e70f-8c1c-11f1-b7bb-df01fa5d82a7','FM_PROG001D','00000000-0000-0000-0000-000000000000','Y','admin','2026-07-30 21:41:01',NULL,NULL),
+('571133d5-8caa-11f1-bf0e-b7fd3076ce3e','FM_PROG002D','00000000-0000-0000-0000-000000000000','Y','admin','2026-07-31 14:37:45',NULL,NULL),
+('5712ba76-8caa-11f1-bf0e-575b27e662ec','FM_PROG002D0001Q','571133d5-8caa-11f1-bf0e-b7fd3076ce3e','Y','admin','2026-07-31 14:37:45',NULL,NULL),
 ('5e055f61-bfc5-402c-93b4-f241dc17b00b','CORE_PROG004D','00000000-0000-0000-0000-000000000000','Y','admin','2017-06-03 14:23:17',NULL,NULL),
 ('79e1cf24-2522-4cdf-abcc-6455b47d545b','CORE_PROG002D','00000000-0000-0000-0000-000000000000','Y','admin','2017-05-08 21:32:59',NULL,NULL),
 ('7aa1208a-5fc2-11f1-afe9-33fb6c1b9ce7','CORE_PROG005D','00000000-0000-0000-0000-000000000000','Y','admin','2026-06-04 11:07:11',NULL,NULL),
@@ -4161,6 +4173,10 @@ INSERT INTO `tb_sys_prog` VALUES
 ('1b11c7eb-6133-48fb-87f0-dfbd098ce914','CORE_PROG001D0001E','ZA01 - System site (Edit)','#/prog001d0001/edit','Y','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:58'),
 ('1e393fe3-8bbc-482c-aa23-bbb22a1dbafb','CORE_PROG001D0005A','ZA05 - JasperReport (Create)','#/prog001d0005/create','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:55:46','admin','2023-08-24 20:20:27'),
 ('22560527-90fb-4e5a-a89b-353d2aa1d433','CORE_PROG001D0005E','ZA05 - JasperReport (Edit)','#/prog001d0005/edit','Y','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:56:27','admin','2023-08-24 20:20:40'),
+('29e19038-8ca9-11f1-a791-005056c00001','FM_PROG002D','FB. FlowMint 組織管理','/','N','N',0,0,'CORE','FOLDER','ORGANIZATION','diagram-3','admin','2026-07-31 14:29:01',NULL,NULL),
+('29e3bfc4-8ca9-11f1-a791-005056c00001','FM_PROG002D0001Q','FB01 - 員工資料管理','#/fm_prog002d0001','N','N',0,0,'CORE','ITEM','PEOPLE','people','admin','2026-07-31 14:29:01',NULL,NULL),
+('29e57f23-8ca9-11f1-a791-005056c00001','FM_PROG002D0001A','FB01 - 員工資料管理（新增）','#/fm_prog002d0001/create','N','N',0,0,'CORE','ITEM','PEOPLE','people','admin','2026-07-31 14:29:01','admin','2026-07-31 14:36:07'),
+('29e6d728-8ca9-11f1-a791-005056c00001','FM_PROG002D0001E','FB01 - 員工資料管理（編輯）','#/fm_prog002d0001/edit','Y','N',0,0,'CORE','ITEM','PEOPLE','people','admin','2026-07-31 14:29:01','admin','2026-07-31 14:35:54'),
 ('3630ee1b-6169-452f-821f-5c015dfb84d5','CORE_PROG001D','ZA. Config','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','gear-fill','admin','2014-10-02 00:00:00','admin','2023-08-15 19:16:31'),
 ('3862b6d0-0551-45d8-8dd1-cd988a5e8e50','CORE_PROG004D0002Q','ZD02 - Token log','#/prog004d0002','N','N',0,0,'CORE','ITEM','PROPERTIES','clipboard-check','admin','2017-06-03 14:22:29','admin','2023-08-29 10:23:05'),
 ('4103c625-8c1c-11f1-a791-005056c00001','FM_PROG001D','FA. FlowMint 基本設定','/','N','N',0,0,'CORE','FOLDER','PROPERTIES','gear-fill','admin','2026-07-30 21:40:25',NULL,NULL),
@@ -4449,4 +4465,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-07-30 22:31:42
+-- Dump completed on 2026-07-31 14:45:16
