@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmOrgUnitVersionMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmOrgUnitVersion">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="ORG_UNIT_ID" jdbcType="VARCHAR" property="orgUnitId" />
+    <result column="VERSION_NO" jdbcType="INTEGER" property="versionNo" />
+    <result column="PARENT_ORG_UNIT_ID" jdbcType="VARCHAR" property="parentOrgUnitId" />
+    <result column="UNIT_NAME" jdbcType="VARCHAR" property="unitName" />
+    <result column="SHORT_NAME" jdbcType="VARCHAR" property="shortName" />
+    <result column="UNIT_TYPE" jdbcType="VARCHAR" property="unitType" />
+    <result column="TREE_DEPTH" jdbcType="INTEGER" property="treeDepth" />
+    <result column="PATH" jdbcType="VARCHAR" property="path" />
+    <result column="SORT_NO" jdbcType="INTEGER" property="sortNo" />
+    <result column="IS_VIRTUAL" jdbcType="CHAR" property="isVirtual" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="EFFECTIVE_FROM" jdbcType="TIMESTAMP" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" jdbcType="TIMESTAMP" property="effectiveTo" />
+    <result column="DESCRIPTION" jdbcType="VARCHAR" property="description" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <resultMap id="CurrentViewResultMap" type="org.qifu.fm.dto.view.FmOrgUnitView">
+    <id column="UNIT_OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="ORG_UNIT_ID" jdbcType="VARCHAR" property="orgUnitId" />
+    <result column="UNIT_CODE" jdbcType="VARCHAR" property="unitCode" />
+    <result column="CURRENT_VERSION_NO" jdbcType="INTEGER" property="currentVersionNo" />
+    <result column="VERSION_OID" jdbcType="CHAR" property="versionOid" />
+    <result column="PARENT_ORG_UNIT_ID" jdbcType="VARCHAR" property="parentOrgUnitId" />
+    <result column="UNIT_NAME" jdbcType="VARCHAR" property="unitName" />
+    <result column="SHORT_NAME" jdbcType="VARCHAR" property="shortName" />
+    <result column="UNIT_TYPE" jdbcType="VARCHAR" property="unitType" />
+    <result column="TREE_DEPTH" jdbcType="INTEGER" property="treeDepth" />
+    <result column="PATH" jdbcType="VARCHAR" property="path" />
+    <result column="SORT_NO" jdbcType="INTEGER" property="sortNo" />
+    <result column="IS_VIRTUAL" jdbcType="CHAR" property="isVirtual" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="EFFECTIVE_FROM" jdbcType="TIMESTAMP" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" jdbcType="TIMESTAMP" property="effectiveTo" />
+    <result column="DESCRIPTION" jdbcType="VARCHAR" property="description" />
+  </resultMap>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT *
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''.toString()">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="orgUnitId != null and orgUnitId != ''.toString()">
+      AND ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}
+    </if>
+    <if test="versionNo != null">
+      AND VERSION_NO = #{versionNo,jdbcType=INTEGER}
+    </if>
+    <if test="parentOrgUnitId != null and parentOrgUnitId != ''.toString()">
+      AND PARENT_ORG_UNIT_ID = #{parentOrgUnitId,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''.toString()">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT *
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != ''.toString() and sortType != null and sortType != ''.toString()">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1"/>
+    SELECT *
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2"/>
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmOrgUnitVersion">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version
+      (OID, TENANT_ID, ORG_UNIT_ID, VERSION_NO, PARENT_ORG_UNIT_ID, UNIT_NAME, SHORT_NAME,
+       UNIT_TYPE, TREE_DEPTH, PATH, SORT_NO, IS_VIRTUAL, STATUS, EFFECTIVE_FROM, EFFECTIVE_TO,
+       DESCRIPTION, CUSERID, CDATE)
+    VALUES
+      (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{orgUnitId,jdbcType=VARCHAR},
+       #{versionNo,jdbcType=INTEGER}, #{parentOrgUnitId,jdbcType=VARCHAR}, #{unitName,jdbcType=VARCHAR},
+       #{shortName,jdbcType=VARCHAR}, #{unitType,jdbcType=VARCHAR}, #{treeDepth,jdbcType=INTEGER},
+       #{path,jdbcType=VARCHAR}, #{sortNo,jdbcType=INTEGER}, #{isVirtual,jdbcType=CHAR},
+       #{status,jdbcType=VARCHAR}, #{effectiveFrom,jdbcType=TIMESTAMP},
+       #{effectiveTo,jdbcType=TIMESTAMP}, #{description,jdbcType=VARCHAR},
+       #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmOrgUnitVersion">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version
+       SET PARENT_ORG_UNIT_ID = #{parentOrgUnitId,jdbcType=VARCHAR},
+           UNIT_NAME = #{unitName,jdbcType=VARCHAR},
+           SHORT_NAME = #{shortName,jdbcType=VARCHAR},
+           UNIT_TYPE = #{unitType,jdbcType=VARCHAR},
+           TREE_DEPTH = #{treeDepth,jdbcType=INTEGER},
+           PATH = #{path,jdbcType=VARCHAR},
+           SORT_NO = #{sortNo,jdbcType=INTEGER},
+           IS_VIRTUAL = #{isVirtual,jdbcType=CHAR},
+           STATUS = #{status,jdbcType=VARCHAR},
+           EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+           EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+           DESCRIPTION = #{description,jdbcType=VARCHAR},
+           UUSERID = #{uuserid,jdbcType=VARCHAR},
+           UDATE = #{udate,jdbcType=TIMESTAMP}
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="java.lang.String">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <sql id="currentSelect">
+    SELECT u.OID AS UNIT_OID,
+           u.TENANT_ID,
+           u.ORG_UNIT_ID,
+           u.UNIT_CODE,
+           u.CURRENT_VERSION_NO,
+           v.OID AS VERSION_OID,
+           v.PARENT_ORG_UNIT_ID,
+           v.UNIT_NAME,
+           v.SHORT_NAME,
+           v.UNIT_TYPE,
+           v.TREE_DEPTH,
+           v.PATH,
+           v.SORT_NO,
+           v.IS_VIRTUAL,
+           v.STATUS,
+           v.EFFECTIVE_FROM,
+           v.EFFECTIVE_TO,
+           v.DESCRIPTION
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit u
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version v
+        ON v.TENANT_ID = u.TENANT_ID
+       AND v.ORG_UNIT_ID = u.ORG_UNIT_ID
+       AND v.VERSION_NO = u.CURRENT_VERSION_NO
+  </sql>
+
+  <sql id="currentConditions">
+    <if test="tenantId != null and tenantId != ''.toString()">
+      AND u.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="orgUnitId != null and orgUnitId != ''.toString()">
+      AND u.ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}
+    </if>
+    <if test="unitCodeLike != null and unitCodeLike != ''.toString()">
+      AND u.UNIT_CODE LIKE #{unitCodeLike,jdbcType=VARCHAR}
+    </if>
+    <if test="unitNameLike != null and unitNameLike != ''.toString()">
+      AND v.UNIT_NAME LIKE #{unitNameLike,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''.toString()">
+      AND v.STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectCurrentTree" parameterType="java.util.HashMap" resultMap="CurrentViewResultMap">
+    <include refid="currentSelect" />
+     WHERE 1 = 1
+    <include refid="currentConditions" />
+     ORDER BY v.PATH ASC, v.SORT_NO ASC, u.UNIT_CODE ASC
+  </select>
+
+  <select id="findCurrentPage" parameterType="java.util.HashMap" resultMap="CurrentViewResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1"/>
+    <include refid="currentSelect" />
+     WHERE 1 = 1
+    <include refid="currentConditions" />
+     ORDER BY v.PATH ASC, v.SORT_NO ASC, u.UNIT_CODE ASC
+    <include refid="org.qifu.core.mapper.DB1Config.sql2"/>
+  </select>
+
+  <select id="countCurrent" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit u
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version v
+        ON v.TENANT_ID = u.TENANT_ID
+       AND v.ORG_UNIT_ID = u.ORG_UNIT_ID
+       AND v.VERSION_NO = u.CURRENT_VERSION_NO
+     WHERE 1 = 1
+    <include refid="currentConditions" />
+  </select>
+</mapper>

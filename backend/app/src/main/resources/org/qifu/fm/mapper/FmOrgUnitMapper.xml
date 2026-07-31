@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmOrgUnitMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmOrgUnit">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="ORG_UNIT_ID" jdbcType="VARCHAR" property="orgUnitId" />
+    <result column="UNIT_CODE" jdbcType="VARCHAR" property="unitCode" />
+    <result column="CURRENT_VERSION_NO" jdbcType="INTEGER" property="currentVersionNo" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT *
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''.toString()">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="orgUnitId != null and orgUnitId != ''.toString()">
+      AND ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}
+    </if>
+    <if test="unitCode != null and unitCode != ''.toString()">
+      AND UNIT_CODE = #{unitCode,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT *
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != ''.toString() and sortType != null and sortType != ''.toString()">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1"/>
+    SELECT *
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2"/>
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmOrgUnit">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+      (OID, TENANT_ID, ORG_UNIT_ID, UNIT_CODE, CURRENT_VERSION_NO, CUSERID, CDATE)
+    VALUES
+      (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{orgUnitId,jdbcType=VARCHAR},
+       #{unitCode,jdbcType=VARCHAR}, #{currentVersionNo,jdbcType=INTEGER},
+       #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmOrgUnit">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+       SET UNIT_CODE = #{unitCode,jdbcType=VARCHAR},
+           CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},
+           UUSERID = #{uuserid,jdbcType=VARCHAR},
+           UDATE = #{udate,jdbcType=TIMESTAMP}
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="java.lang.String">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+</mapper>
