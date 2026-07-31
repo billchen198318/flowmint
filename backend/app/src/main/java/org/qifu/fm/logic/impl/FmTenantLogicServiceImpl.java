@@ -196,6 +196,34 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		}
 		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
+	@Override
+	@Transactional(readOnly = false, rollbackFor = Exception.class)
+	public DefaultResult<FmTenantView> activateAccount(String tenantOid, String accountId) throws ServiceException {
+		FmTenant tenant = requiredTenant(tenantOid);
+		Map<String, Object> tenantLinkParams = new HashMap<>();
+		tenantLinkParams.put("tenantId", tenant.getTenantId());
+		tenantLinkParams.put("account", accountId);
+		if (tenantAccountService.selectListByParams(tenantLinkParams, "ACCOUNT", "ASC").getValue().isEmpty()) {
+			throw new ServiceException(BaseSystemMessage.dataNoExist());
+		}
+
+		TbAccount accountKey = new TbAccount();
+		accountKey.setAccount(accountId);
+		TbAccount account = accountService.selectByUniqueKey(accountKey).getValueEmptyThrowMessage();
+		account.setOnJob(YesNoKeyProvide.YES);
+		accountService.update(account);
+
+		Map<String, Object> inactiveLinkParams = new HashMap<>();
+		inactiveLinkParams.put("account", accountId);
+		inactiveLinkParams.put("status", "INACTIVE");
+		for (FmTenantAccount link : tenantAccountService
+				.selectListByParams(inactiveLinkParams, "TENANT_ID", "ASC").getValue()) {
+			link.setStatus("ACTIVE");
+			link.setEffectiveTo(null);
+			tenantAccountService.update(link);
+		}
+		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
+	}
 	private FmTenant requiredTenant(String oid) throws ServiceException {
 		if (StringUtils.isBlank(oid)) {
 			throw new ServiceException(BaseSystemMessage.parameterBlank());

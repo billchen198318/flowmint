@@ -268,6 +268,37 @@ const btnDeactivateAccount = (account: string) => {
     account,
   );
 };
+const doActivateAccount = async (account: string) => {
+  showLoading();
+  try {
+    const response = await getAxiosInstance().post(
+      import.meta.env.VITE_API_URL +
+        PageConstants.eventNamespace +
+        "/account/activate",
+      { tenantOid: form.value.oid, account },
+    );
+    if (response.data?.success === import.meta.env.VITE_SUCCESS_FLAG) {
+      applyTenant(response.data.value);
+      toast.success("帳號已全域啟用。");
+    } else {
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "啟用帳號失敗。"),
+      );
+    }
+  } catch (error: any) {
+    toast.error(error?.message || "啟用帳號失敗。");
+  } finally {
+    hideLoading();
+  }
+};
+
+const btnActivateAccount = (account: string) => {
+  confirmFire(
+    `確定全域啟用帳號 ${account}？此帳號的所有 Tenant 權限都會恢復為有效。`,
+    doActivateAccount,
+    account,
+  );
+};
 const doDeactivate = async () => {
   showLoading();
   try {
@@ -445,6 +476,13 @@ onMounted(loadData);
                   @click="btnDeactivateAccount(item.account)"
                 >
                   <i class="bi bi-person-x"></i> 全域停用
+                </button>                <button
+                  v-if="item.status === 'INACTIVE'"
+                  type="button"
+                  class="btn btn-sm btn-outline-success ms-1"
+                  @click="btnActivateAccount(item.account)"
+                >
+                  <i class="bi bi-person-check"></i> 全域啟用
                 </button>
               </td>
             </tr>

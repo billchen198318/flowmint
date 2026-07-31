@@ -23,4 +23,6 @@ public interface IFmTenantLogicService {
 	DefaultResult<FmTenantView> resetPassword(FmResetPasswordCommand command) throws ServiceException;
 
 	DefaultResult<FmTenantView> deactivateAccount(String tenantOid, String account) throws ServiceException;
+
+	DefaultResult<FmTenantView> activateAccount(String tenantOid, String account) throws ServiceException;
 }

@@ -166,6 +166,19 @@ public class FMPROG001D0001Controller extends CoreApiSupport {
 		}
 		return ResponseEntity.ok(result);
 	}
+	@ControllerMethodAuthority(programId = "FM_PROG001D0001U", check = true)
+	@PostMapping(value = "/account/activate", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTenantView>> activateAccount(
+			@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<FmTenantView> result = this.initDefaultJsonResult();
+		try {
+			this.setDefaultResponseJsonResult(
+					tenantLogicService.activateAccount(body.get("tenantOid"), body.get("account")), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
 	private void validateTenant(DefaultControllerJsonResultObj<FmTenantView> result, FmTenantCommand command,
 			boolean create) throws ControllerException, ServiceException {
 		@SuppressWarnings("rawtypes")
