@@ -4,6 +4,7 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.fm.dto.command.FmTenantAccountCommand;
 import org.qifu.fm.dto.command.FmTenantCommand;
+import org.qifu.fm.dto.command.FmResetPasswordCommand;
 import org.qifu.fm.dto.view.FmTenantView;
 
 public interface IFmTenantLogicService {
@@ -18,4 +19,8 @@ public interface IFmTenantLogicService {
 	DefaultResult<FmTenantView> addAccount(FmTenantAccountCommand command) throws ServiceException;
 
 	DefaultResult<FmTenantView> updateAccount(FmTenantAccountCommand command) throws ServiceException;
+
+	DefaultResult<FmTenantView> resetPassword(FmResetPasswordCommand command) throws ServiceException;
+
+	DefaultResult<FmTenantView> deactivateAccount(String tenantOid, String account) throws ServiceException;
 }

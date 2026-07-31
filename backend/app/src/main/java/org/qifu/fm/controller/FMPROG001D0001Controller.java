@@ -14,6 +14,7 @@ import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmTenantAccountCommand;
 import org.qifu.fm.dto.command.FmTenantCommand;
+import org.qifu.fm.dto.command.FmResetPasswordCommand;
 import org.qifu.fm.dto.view.FmTenantView;
 import org.qifu.fm.entity.FmTenant;
 import org.qifu.fm.logic.IFmTenantLogicService;
@@ -139,6 +140,32 @@ public class FMPROG001D0001Controller extends CoreApiSupport {
 		return ResponseEntity.ok(result);
 	}
 
+	@ControllerMethodAuthority(programId = "FM_PROG001D0001U", check = true)
+	@PostMapping(value = "/account/reset-password", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTenantView>> resetPassword(
+			@RequestBody FmResetPasswordCommand command) {
+		DefaultControllerJsonResultObj<FmTenantView> result = this.initDefaultJsonResult();
+		try {
+			validateResetPassword(result, command);
+			this.setDefaultResponseJsonResult(tenantLogicService.resetPassword(command), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
+	@ControllerMethodAuthority(programId = "FM_PROG001D0001U", check = true)
+	@PostMapping(value = "/account/deactivate", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTenantView>> deactivateAccount(
+			@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<FmTenantView> result = this.initDefaultJsonResult();
+		try {
+			this.setDefaultResponseJsonResult(
+					tenantLogicService.deactivateAccount(body.get("tenantOid"), body.get("account")), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
 	private void validateTenant(DefaultControllerJsonResultObj<FmTenantView> result, FmTenantCommand command,
 			boolean create) throws ControllerException, ServiceException {
 		@SuppressWarnings("rawtypes")
@@ -160,5 +187,18 @@ public class FMPROG001D0001Controller extends CoreApiSupport {
 						"缺少 Tenant")
 				.testField("account", command, "@org.apache.commons.lang3.StringUtils@isBlank(account)", "請輸入帳號")
 				.testField("effectiveFrom", command, "effectiveFrom == null", "請輸入生效時間").throwHtmlMessage();
+	}
+	private void validateResetPassword(DefaultControllerJsonResultObj<FmTenantView> result,
+			FmResetPasswordCommand command) throws ControllerException, ServiceException {
+		this.getCheckControllerFieldHandler(result)
+				.testField("tenantOid", command, "@org.apache.commons.lang3.StringUtils@isBlank(tenantOid)",
+						"缺少 Tenant")
+				.testField("account", command, "@org.apache.commons.lang3.StringUtils@isBlank(account)", "缺少帳號")
+				.testField("password", command, "@org.apache.commons.lang3.StringUtils@isBlank(password)",
+						"請輸入新密碼")
+				.testField("confirmPassword", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(confirmPassword)", "請再次輸入新密碼")
+				.testField("confirmPassword", command, "password != confirmPassword", "密碼與確認密碼不一致")
+				.throwHtmlMessage();
 	}
 }

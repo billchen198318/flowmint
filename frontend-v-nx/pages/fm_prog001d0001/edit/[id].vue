@@ -40,6 +40,12 @@ const accountForm = ref<any>({
   effectiveTo: null,
 });
 
+const resetPasswordForm = ref({
+  account: "",
+  password: "",
+  confirmPassword: "",
+});
+const showResetPassword = ref(false);
 const applyTenant = (value: any) => {
   form.value = { ...value };
   accounts.value = value.accounts || [];
@@ -182,6 +188,86 @@ const btnAddAccount = async () => {
   }
 };
 
+const openResetPassword = (account: string) => {
+  resetPasswordForm.value = { account, password: "", confirmPassword: "" };
+  showResetPassword.value = true;
+};
+
+const closeResetPassword = () => {
+  showResetPassword.value = false;
+  resetPasswordForm.value.password = "";
+  resetPasswordForm.value.confirmPassword = "";
+};
+
+const btnResetPassword = async () => {
+  if (!resetPasswordForm.value.password) {
+    toast.warning("請輸入新密碼。");
+    return;
+  }
+  if (
+    resetPasswordForm.value.password !==
+    resetPasswordForm.value.confirmPassword
+  ) {
+    toast.warning("密碼與確認密碼不一致。");
+    return;
+  }
+
+  showLoading();
+  try {
+    const response = await getAxiosInstance().post(
+      import.meta.env.VITE_API_URL +
+        PageConstants.eventNamespace +
+        "/account/reset-password",
+      { tenantOid: form.value.oid, ...resetPasswordForm.value },
+    );
+    if (!response.data) {
+      toast.error("後端未回傳資料。");
+      return;
+    }
+    if (response.data.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+      toast.warning(escapeQifuHtmlMsg(response.data.message));
+      return;
+    }
+    applyTenant(response.data.value);
+    closeResetPassword();
+    toast.success("密碼重設成功。");
+  } catch (error: any) {
+    toast.error(error?.message || "重設密碼失敗。");
+  } finally {
+    hideLoading();
+  }
+};
+const doDeactivateAccount = async (account: string) => {
+  showLoading();
+  try {
+    const response = await getAxiosInstance().post(
+      import.meta.env.VITE_API_URL +
+        PageConstants.eventNamespace +
+        "/account/deactivate",
+      { tenantOid: form.value.oid, account },
+    );
+    if (response.data?.success === import.meta.env.VITE_SUCCESS_FLAG) {
+      applyTenant(response.data.value);
+      toast.success("帳號已全域停用。");
+    } else {
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "停用帳號失敗。"),
+      );
+    }
+  } catch (error: any) {
+    toast.error(error?.message || "停用帳號失敗。");
+  } finally {
+    hideLoading();
+  }
+};
+
+const btnDeactivateAccount = (account: string) => {
+  confirmFire(
+    `確定全域停用帳號 ${account}？此帳號將無法登入，所有 Tenant 權限也會立即失效。`,
+    doDeactivateAccount,
+    account,
+  );
+};
 const doDeactivate = async () => {
   showLoading();
   try {
@@ -335,6 +421,7 @@ onMounted(loadData);
               <th>狀態</th>
               <th>生效時間</th>
               <th>失效時間</th>
+              <th>操作</th>
             </tr>
           </thead>
           <tbody>
@@ -344,13 +431,90 @@ onMounted(loadData);
               <td>{{ item.status }}</td>
               <td>{{ item.effectiveFrom }}</td>
               <td>{{ item.effectiveTo || "-" }}</td>
+              <td>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-warning"
+                  @click="openResetPassword(item.account)"
+                >
+                  <i class="bi bi-key"></i> 重設密碼
+                </button>                <button
+                  v-if="item.status === 'ACTIVE'"
+                  type="button"
+                  class="btn btn-sm btn-outline-danger ms-1"
+                  @click="btnDeactivateAccount(item.account)"
+                >
+                  <i class="bi bi-person-x"></i> 全域停用
+                </button>
+              </td>
             </tr>
             <tr v-if="accounts.length === 0">
-              <td colspan="5" class="text-muted text-center">尚無帳號</td>
+              <td colspan="6" class="text-muted text-center">尚無帳號</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
   </div>
+  <div
+    v-if="showResetPassword"
+    class="modal d-block"
+    tabindex="-1"
+    role="dialog"
+    aria-modal="true"
+  >
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">重設密碼：{{ resetPasswordForm.account }}</h5>
+          <button
+            type="button"
+            class="btn-close"
+            aria-label="關閉"
+            @click="closeResetPassword"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="resetPassword" class="form-label">新密碼</label>
+            <input
+              id="resetPassword"
+              v-model="resetPasswordForm.password"
+              type="password"
+              class="form-control"
+              autocomplete="new-password"
+            />
+          </div>
+          <div>
+            <label for="resetConfirmPassword" class="form-label">確認新密碼</label>
+            <input
+              id="resetConfirmPassword"
+              v-model="resetPasswordForm.confirmPassword"
+              type="password"
+              class="form-control"
+              autocomplete="new-password"
+              @keyup.enter="btnResetPassword"
+            />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            @click="closeResetPassword"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="btn btn-warning"
+            @click="btnResetPassword"
+          >
+            <i class="bi bi-key"></i> 確認重設
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div v-if="showResetPassword" class="modal-backdrop show"></div>
 </template>

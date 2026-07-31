@@ -1,5 +1,6 @@
 package org.qifu.fm.logic.impl;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,9 +11,12 @@ import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.entity.TbAccount;
+import org.qifu.core.entity.TbUserRole;
 import org.qifu.core.service.IAccountService;
+import org.qifu.core.service.IUserRoleService;
 import org.qifu.fm.dto.command.FmTenantAccountCommand;
 import org.qifu.fm.dto.command.FmTenantCommand;
+import org.qifu.fm.dto.command.FmResetPasswordCommand;
 import org.qifu.fm.dto.view.FmTenantAccountView;
 import org.qifu.fm.dto.view.FmTenantView;
 import org.qifu.fm.entity.FmTenant;
@@ -30,13 +34,16 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 	private final IFmTenantService tenantService;
 	private final IFmTenantAccountService tenantAccountService;
 	private final IAccountService<TbAccount, String> accountService;
+	private final IUserRoleService<TbUserRole, String> userRoleService;
 	private final PasswordEncoder passwordEncoder;
 
 	public FmTenantLogicServiceImpl(IFmTenantService tenantService, IFmTenantAccountService tenantAccountService,
-			IAccountService<TbAccount, String> accountService, PasswordEncoder passwordEncoder) {
+			IAccountService<TbAccount, String> accountService, IUserRoleService<TbUserRole, String> userRoleService,
+			PasswordEncoder passwordEncoder) {
 		this.tenantService = tenantService;
 		this.tenantAccountService = tenantAccountService;
 		this.accountService = accountService;
+		this.userRoleService = userRoleService;
 		this.passwordEncoder = passwordEncoder;
 	}
 
@@ -130,6 +137,65 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
 
+	@Override
+	@Transactional(readOnly = false, rollbackFor = Exception.class)
+	public DefaultResult<FmTenantView> resetPassword(FmResetPasswordCommand command) throws ServiceException {
+		FmTenant tenant = requiredTenant(command.tenantOid());
+		Map<String, Object> linkParams = new HashMap<>();
+		linkParams.put("tenantId", tenant.getTenantId());
+		linkParams.put("account", command.account());
+		if (tenantAccountService.selectListByParams(linkParams, "ACCOUNT", "ASC").getValue().isEmpty()) {
+			throw new ServiceException(BaseSystemMessage.dataNoExist());
+		}
+		if (StringUtils.isBlank(command.password()) || !command.password().equals(command.confirmPassword())) {
+			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+		}
+
+		TbAccount accountKey = new TbAccount();
+		accountKey.setAccount(command.account());
+		TbAccount account = accountService.selectByUniqueKey(accountKey).getValueEmptyThrowMessage();
+		account.setPassword(passwordEncoder.encode(command.password()));
+		accountService.update(account);
+		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
+	}
+	@Override
+	@Transactional(readOnly = false, rollbackFor = Exception.class)
+	public DefaultResult<FmTenantView> deactivateAccount(String tenantOid, String accountId) throws ServiceException {
+		FmTenant tenant = requiredTenant(tenantOid);
+		Map<String, Object> tenantLinkParams = new HashMap<>();
+		tenantLinkParams.put("tenantId", tenant.getTenantId());
+		tenantLinkParams.put("account", accountId);
+		if (tenantAccountService.selectListByParams(tenantLinkParams, "ACCOUNT", "ASC").getValue().isEmpty()) {
+			throw new ServiceException(BaseSystemMessage.dataNoExist());
+		}
+
+		Map<String, Object> roleParams = new HashMap<>();
+		roleParams.put("account", accountId);
+		roleParams.put("role", "admin");
+		if (!userRoleService.selectListByParams(roleParams).getValue().isEmpty()) {
+			throw new ServiceException("admin 角色帳號不允許停用");
+		}
+
+		TbAccount accountKey = new TbAccount();
+		accountKey.setAccount(accountId);
+		TbAccount account = accountService.selectByUniqueKey(accountKey).getValueEmptyThrowMessage();
+		account.setOnJob(YesNoKeyProvide.NO);
+		accountService.update(account);
+
+		Date disabledAt = new Date();
+		Map<String, Object> activeLinkParams = new HashMap<>();
+		activeLinkParams.put("account", accountId);
+		activeLinkParams.put("status", "ACTIVE");
+		for (FmTenantAccount link : tenantAccountService
+				.selectListByParams(activeLinkParams, "TENANT_ID", "ASC").getValue()) {
+			link.setStatus("INACTIVE");
+			if (link.getEffectiveTo() == null || link.getEffectiveTo().after(disabledAt)) {
+				link.setEffectiveTo(disabledAt);
+			}
+			tenantAccountService.update(link);
+		}
+		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
+	}
 	private FmTenant requiredTenant(String oid) throws ServiceException {
 		if (StringUtils.isBlank(oid)) {
 			throw new ServiceException(BaseSystemMessage.parameterBlank());
