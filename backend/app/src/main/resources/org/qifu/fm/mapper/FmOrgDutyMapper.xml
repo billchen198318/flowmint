@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmOrgDutyMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmOrgDuty">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="DUTY_ID" jdbcType="VARCHAR" property="dutyId" />
+    <result column="ORG_UNIT_ID" jdbcType="VARCHAR" property="orgUnitId" />
+    <result column="DUTY_CODE" jdbcType="VARCHAR" property="dutyCode" />
+    <result column="DUTY_NAME" jdbcType="VARCHAR" property="dutyName" />
+    <result column="DUTY_TYPE" jdbcType="VARCHAR" property="dutyType" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="EFFECTIVE_FROM" jdbcType="TIMESTAMP" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" jdbcType="TIMESTAMP" property="effectiveTo" />
+    <result column="DESCRIPTION" jdbcType="VARCHAR" property="description" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, DUTY_ID, ORG_UNIT_ID, DUTY_CODE, DUTY_NAME, DUTY_TYPE,
+    STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, DESCRIPTION, CUSERID, CDATE,
+    UUSERID, UDATE
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_duty
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="orgUnitId != null and orgUnitId != ''">
+      AND ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}
+    </if>
+    <if test="dutyType != null and dutyType != ''">
+      AND DUTY_TYPE = #{dutyType,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+    <if test="dutyCodeLike != null and dutyCodeLike != ''">
+      AND DUTY_CODE LIKE #{dutyCodeLike,jdbcType=VARCHAR}
+    </if>
+    <if test="dutyNameLike != null and dutyNameLike != ''">
+      AND DUTY_NAME LIKE #{dutyNameLike,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_duty
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_duty
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_duty
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmOrgDuty">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_duty
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="dutyId != null">
+        DUTY_ID,
+      </if>
+      <if test="orgUnitId != null">
+        ORG_UNIT_ID,
+      </if>
+      <if test="dutyCode != null">
+        DUTY_CODE,
+      </if>
+      <if test="dutyName != null">
+        DUTY_NAME,
+      </if>
+      <if test="dutyType != null">
+        DUTY_TYPE,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM,
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO,
+      </if>
+      <if test="description != null">
+        DESCRIPTION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="dutyId != null">
+        #{dutyId,jdbcType=VARCHAR},
+      </if>
+      <if test="orgUnitId != null">
+        #{orgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="dutyCode != null">
+        #{dutyCode,jdbcType=VARCHAR},
+      </if>
+      <if test="dutyName != null">
+        #{dutyName,jdbcType=VARCHAR},
+      </if>
+      <if test="dutyType != null">
+        #{dutyType,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmOrgDuty">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_duty
+    <set>
+      <if test="orgUnitId != null">
+        ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="dutyCode != null">
+        DUTY_CODE = #{dutyCode,jdbcType=VARCHAR},
+      </if>
+      <if test="dutyName != null">
+        DUTY_NAME = #{dutyName,jdbcType=VARCHAR},
+      </if>
+      <if test="dutyType != null">
+        DUTY_TYPE = #{dutyType,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmOrgDuty">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_duty
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+</mapper>
