@@ -60,24 +60,101 @@
 
   <insert id="insert" parameterType="org.qifu.fm.entity.FmTenant">
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant
-      (OID, TENANT_ID, TENANT_CODE, TENANT_NAME, DEFAULT_LOCALE, DEFAULT_TIMEZONE, STATUS, DESCRIPTION, CUSERID, CDATE)
-    VALUES
-      (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{tenantCode,jdbcType=VARCHAR}, #{tenantName,jdbcType=VARCHAR},
-       #{defaultLocale,jdbcType=VARCHAR}, #{defaultTimezone,jdbcType=VARCHAR}, #{status,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR},
-       #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="tenantCode != null">
+        TENANT_CODE,
+      </if>
+      <if test="tenantName != null">
+        TENANT_NAME,
+      </if>
+      <if test="defaultLocale != null">
+        DEFAULT_LOCALE,
+      </if>
+      <if test="defaultTimezone != null">
+        DEFAULT_TIMEZONE,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="description != null">
+        DESCRIPTION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="tenantCode != null">
+        #{tenantCode,jdbcType=VARCHAR},
+      </if>
+      <if test="tenantName != null">
+        #{tenantName,jdbcType=VARCHAR},
+      </if>
+      <if test="defaultLocale != null">
+        #{defaultLocale,jdbcType=VARCHAR},
+      </if>
+      <if test="defaultTimezone != null">
+        #{defaultTimezone,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
 
   <update id="update" parameterType="org.qifu.fm.entity.FmTenant">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant
-       SET TENANT_CODE = #{tenantCode,jdbcType=VARCHAR},
-           TENANT_NAME = #{tenantName,jdbcType=VARCHAR},
-           DEFAULT_LOCALE = #{defaultLocale,jdbcType=VARCHAR},
-           DEFAULT_TIMEZONE = #{defaultTimezone,jdbcType=VARCHAR},
-           STATUS = #{status,jdbcType=VARCHAR},
-           DESCRIPTION = #{description,jdbcType=VARCHAR},
-           UUSERID = #{uuserid,jdbcType=VARCHAR},
-           UDATE = #{udate,jdbcType=TIMESTAMP}
-     WHERE OID = #{oid,jdbcType=CHAR}
+    <set>
+      <if test="tenantCode != null">
+        TENANT_CODE = #{tenantCode,jdbcType=VARCHAR},
+      </if>
+      <if test="tenantName != null">
+        TENANT_NAME = #{tenantName,jdbcType=VARCHAR},
+      </if>
+      <if test="defaultLocale != null">
+        DEFAULT_LOCALE = #{defaultLocale,jdbcType=VARCHAR},
+      </if>
+      <if test="defaultTimezone != null">
+        DEFAULT_TIMEZONE = #{defaultTimezone,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null">
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 
   <delete id="delete" parameterType="org.qifu.fm.entity.FmTenant">

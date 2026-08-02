@@ -21,18 +21,26 @@
   </resultMap>
   <select id="selectByPrimaryKey" resultMap="BaseResultMap">
     SELECT * FROM
-    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE OID = #{oid}
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE OID = #{oid,jdbcType=CHAR}
   </select>
   <sql id="conditions">
-    <if test="tenantId!=null and tenantId!=''">AND TENANT_ID=#{tenantId}</if>
-    <if test="levelSchemeId!=null and levelSchemeId!=''">AND LEVEL_SCHEME_ID=#{levelSchemeId}</if>
-    <if test="status!=null and status!=''">AND STATUS=#{status}</if>
+    <if test="tenantId!=null and tenantId!=''">
+      AND TENANT_ID=#{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="levelSchemeId!=null and levelSchemeId!=''">
+      AND LEVEL_SCHEME_ID=#{levelSchemeId,jdbcType=VARCHAR}
+    </if>
+    <if test="status!=null and status!=''">
+      AND STATUS=#{status,jdbcType=VARCHAR}
+    </if>
   </sql>
   <select id="selectListByParams" resultMap="BaseResultMap">
     SELECT * FROM
     <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE 1 = 1
     <include refid="conditions" />
-    <if test="orderBy!=null and orderBy!=''">ORDER BY ${orderBy} ${sortType}</if>
+    <if test="orderBy!=null and orderBy!=''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
   </select>
   <select id="findPage" resultMap="BaseResultMap">
     <include refid="org.qifu.core.mapper.DB1Config.sql1" />
@@ -47,32 +55,134 @@
     <include refid="conditions" />
   </select>
   <insert id="insert">
-    INSERT INTO
-    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level
-      (OID, TENANT_ID, APPROVAL_LEVEL_ID, LEVEL_SCHEME_ID, LEVEL_CODE, LEVEL_NAME, LEVEL_ORDER,
-       IS_HIGHEST_LEVEL, STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, DESCRIPTION, CUSERID, CDATE)
-    VALUES
-      (#{oid}, #{tenantId}, #{approvalLevelId}, #{levelSchemeId}, #{levelCode}, #{levelName},
-       #{levelOrder}, #{isHighestLevel}, #{status}, #{effectiveFrom}, #{effectiveTo}, #{description},
-       #{cuserid}, #{cdate})
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="approvalLevelId != null">
+        APPROVAL_LEVEL_ID,
+      </if>
+      <if test="levelSchemeId != null">
+        LEVEL_SCHEME_ID,
+      </if>
+      <if test="levelCode != null">
+        LEVEL_CODE,
+      </if>
+      <if test="levelName != null">
+        LEVEL_NAME,
+      </if>
+      <if test="levelOrder != null">
+        LEVEL_ORDER,
+      </if>
+      <if test="isHighestLevel != null">
+        IS_HIGHEST_LEVEL,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM,
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO,
+      </if>
+      <if test="description != null">
+        DESCRIPTION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="approvalLevelId != null">
+        #{approvalLevelId,jdbcType=VARCHAR},
+      </if>
+      <if test="levelSchemeId != null">
+        #{levelSchemeId,jdbcType=VARCHAR},
+      </if>
+      <if test="levelCode != null">
+        #{levelCode,jdbcType=VARCHAR},
+      </if>
+      <if test="levelName != null">
+        #{levelName,jdbcType=VARCHAR},
+      </if>
+      <if test="levelOrder != null">
+        #{levelOrder,jdbcType=INTEGER},
+      </if>
+      <if test="isHighestLevel != null">
+        #{isHighestLevel,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
   <update id="update">
-    UPDATE
-    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level
-       SET LEVEL_CODE = #{levelCode},
-           LEVEL_NAME = #{levelName},
-           LEVEL_ORDER = #{levelOrder},
-           IS_HIGHEST_LEVEL = #{isHighestLevel},
-           STATUS = #{status},
-           EFFECTIVE_FROM = #{effectiveFrom},
-           EFFECTIVE_TO = #{effectiveTo},
-           DESCRIPTION = #{description},
-           UUSERID = #{uuserid},
-           UDATE = #{udate}
-     WHERE OID = #{oid}
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level
+    <set>
+      <if test="levelCode != null">
+        LEVEL_CODE = #{levelCode,jdbcType=VARCHAR},
+      </if>
+      <if test="levelName != null">
+        LEVEL_NAME = #{levelName,jdbcType=VARCHAR},
+      </if>
+      <if test="levelOrder != null">
+        LEVEL_ORDER = #{levelOrder,jdbcType=INTEGER},
+      </if>
+      <if test="isHighestLevel != null">
+        IS_HIGHEST_LEVEL = #{isHighestLevel,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
   </update>
   <delete id="delete">
     DELETE FROM
-    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE OID = #{oid}
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE OID = #{oid,jdbcType=CHAR}
   </delete>
 </mapper>

@@ -59,20 +59,71 @@
 
   <insert id="insert" parameterType="org.qifu.fm.entity.FmOrgUnit">
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
-      (OID, TENANT_ID, ORG_UNIT_ID, UNIT_CODE, CURRENT_VERSION_NO, CUSERID, CDATE)
-    VALUES
-      (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{orgUnitId,jdbcType=VARCHAR},
-       #{unitCode,jdbcType=VARCHAR}, #{currentVersionNo,jdbcType=INTEGER},
-       #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="orgUnitId != null">
+        ORG_UNIT_ID,
+      </if>
+      <if test="unitCode != null">
+        UNIT_CODE,
+      </if>
+      <if test="currentVersionNo != null">
+        CURRENT_VERSION_NO,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="orgUnitId != null">
+        #{orgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="unitCode != null">
+        #{unitCode,jdbcType=VARCHAR},
+      </if>
+      <if test="currentVersionNo != null">
+        #{currentVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
 
   <update id="update" parameterType="org.qifu.fm.entity.FmOrgUnit">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
-       SET UNIT_CODE = #{unitCode,jdbcType=VARCHAR},
-           CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},
-           UUSERID = #{uuserid,jdbcType=VARCHAR},
-           UDATE = #{udate,jdbcType=TIMESTAMP}
-     WHERE OID = #{oid,jdbcType=CHAR}
+    <set>
+      <if test="unitCode != null">
+        UNIT_CODE = #{unitCode,jdbcType=VARCHAR},
+      </if>
+      <if test="currentVersionNo != null">
+        CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 
   <delete id="delete" parameterType="java.lang.String">

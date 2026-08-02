@@ -56,22 +56,89 @@
 
   <insert id="insert" parameterType="org.qifu.fm.entity.FmTenantAccount">
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account
-      (OID, TENANT_ID, ACCOUNT, IS_DEFAULT, STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, CUSERID, CDATE)
-    VALUES
-      (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{account,jdbcType=VARCHAR}, #{isDefault,jdbcType=CHAR},
-       #{status,jdbcType=VARCHAR}, #{effectiveFrom,jdbcType=TIMESTAMP}, #{effectiveTo,jdbcType=TIMESTAMP},
-       #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="account != null">
+        ACCOUNT,
+      </if>
+      <if test="isDefault != null">
+        IS_DEFAULT,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM,
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="account != null">
+        #{account,jdbcType=VARCHAR},
+      </if>
+      <if test="isDefault != null">
+        #{isDefault,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
 
   <update id="update" parameterType="org.qifu.fm.entity.FmTenantAccount">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant_account
-       SET IS_DEFAULT = #{isDefault,jdbcType=CHAR},
-           STATUS = #{status,jdbcType=VARCHAR},
-           EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
-           EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
-           UUSERID = #{uuserid,jdbcType=VARCHAR},
-           UDATE = #{udate,jdbcType=TIMESTAMP}
-     WHERE OID = #{oid,jdbcType=CHAR}
+    <set>
+      <if test="isDefault != null">
+        IS_DEFAULT = #{isDefault,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 
   <delete id="delete" parameterType="org.qifu.fm.entity.FmTenantAccount">

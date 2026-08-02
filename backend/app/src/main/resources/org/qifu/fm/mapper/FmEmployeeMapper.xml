@@ -75,33 +75,152 @@
 
   <insert id="insert" parameterType="org.qifu.fm.entity.FmEmployee">
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_employee
-      (OID, TENANT_ID, EMPLOYEE_ID, EMPLOYEE_NO, ACCOUNT, DISPLAY_NAME, EMAIL, MOBILE, LOCALE, TIMEZONE,
-       STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, DESCRIPTION, CUSERID, CDATE)
-    VALUES
-      (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{employeeId,jdbcType=VARCHAR},
-       #{employeeNo,jdbcType=VARCHAR}, #{account,jdbcType=VARCHAR}, #{displayName,jdbcType=VARCHAR},
-       #{email,jdbcType=VARCHAR}, #{mobile,jdbcType=VARCHAR}, #{locale,jdbcType=VARCHAR},
-       #{timezone,jdbcType=VARCHAR}, #{status,jdbcType=VARCHAR}, #{effectiveFrom,jdbcType=TIMESTAMP},
-       #{effectiveTo,jdbcType=TIMESTAMP}, #{description,jdbcType=VARCHAR}, #{cuserid,jdbcType=VARCHAR},
-       #{cdate,jdbcType=TIMESTAMP})
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="employeeId != null">
+        EMPLOYEE_ID,
+      </if>
+      <if test="employeeNo != null">
+        EMPLOYEE_NO,
+      </if>
+      <if test="account != null">
+        ACCOUNT,
+      </if>
+      <if test="displayName != null">
+        DISPLAY_NAME,
+      </if>
+      <if test="email != null">
+        EMAIL,
+      </if>
+      <if test="mobile != null">
+        MOBILE,
+      </if>
+      <if test="locale != null">
+        LOCALE,
+      </if>
+      <if test="timezone != null">
+        TIMEZONE,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM,
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO,
+      </if>
+      <if test="description != null">
+        DESCRIPTION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="employeeId != null">
+        #{employeeId,jdbcType=VARCHAR},
+      </if>
+      <if test="employeeNo != null">
+        #{employeeNo,jdbcType=VARCHAR},
+      </if>
+      <if test="account != null">
+        #{account,jdbcType=VARCHAR},
+      </if>
+      <if test="displayName != null">
+        #{displayName,jdbcType=VARCHAR},
+      </if>
+      <if test="email != null">
+        #{email,jdbcType=VARCHAR},
+      </if>
+      <if test="mobile != null">
+        #{mobile,jdbcType=VARCHAR},
+      </if>
+      <if test="locale != null">
+        #{locale,jdbcType=VARCHAR},
+      </if>
+      <if test="timezone != null">
+        #{timezone,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
 
   <update id="update" parameterType="org.qifu.fm.entity.FmEmployee">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_employee
-       SET EMPLOYEE_NO = #{employeeNo,jdbcType=VARCHAR},
-           ACCOUNT = #{account,jdbcType=VARCHAR},
-           DISPLAY_NAME = #{displayName,jdbcType=VARCHAR},
-           EMAIL = #{email,jdbcType=VARCHAR},
-           MOBILE = #{mobile,jdbcType=VARCHAR},
-           LOCALE = #{locale,jdbcType=VARCHAR},
-           TIMEZONE = #{timezone,jdbcType=VARCHAR},
-           STATUS = #{status,jdbcType=VARCHAR},
-           EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
-           EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
-           DESCRIPTION = #{description,jdbcType=VARCHAR},
-           UUSERID = #{uuserid,jdbcType=VARCHAR},
-           UDATE = #{udate,jdbcType=TIMESTAMP}
-     WHERE OID = #{oid,jdbcType=CHAR}
+    <set>
+      <if test="employeeNo != null">
+        EMPLOYEE_NO = #{employeeNo,jdbcType=VARCHAR},
+      </if>
+      <if test="account != null">
+        ACCOUNT = #{account,jdbcType=VARCHAR},
+      </if>
+      <if test="displayName != null">
+        DISPLAY_NAME = #{displayName,jdbcType=VARCHAR},
+      </if>
+      <if test="email != null">
+        EMAIL = #{email,jdbcType=VARCHAR},
+      </if>
+      <if test="mobile != null">
+        MOBILE = #{mobile,jdbcType=VARCHAR},
+      </if>
+      <if test="locale != null">
+        LOCALE = #{locale,jdbcType=VARCHAR},
+      </if>
+      <if test="timezone != null">
+        TIMEZONE = #{timezone,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 
   <delete id="delete" parameterType="org.qifu.fm.entity.FmEmployee">

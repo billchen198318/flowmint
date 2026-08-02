@@ -20,18 +20,31 @@
     <result column="UDATE" property="udate" />
   </resultMap>
   <select id="selectByPrimaryKey" resultMap="BaseResultMap">
-    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE OID = #{oid}
+    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE OID = #{oid,jdbcType=CHAR}
   </select>
   <sql id="conditions">
-    <if test="tenantId!=null and tenantId!=''">AND TENANT_ID=#{tenantId}</if>
-    <if test="approvalLevelId!=null and approvalLevelId!=''">AND APPROVAL_LEVEL_ID=#{approvalLevelId}</if>
-    <if test="titleCodeLike!=null and titleCodeLike!=''">AND TITLE_CODE LIKE CONCAT('%',#{titleCodeLike},'%')</if>
-    <if test="titleNameLike!=null and titleNameLike!=''">AND TITLE_NAME LIKE CONCAT('%',#{titleNameLike},'%')</if>
-    <if test="status!=null and status!=''">AND STATUS=#{status}</if>
+    <if test="tenantId!=null and tenantId!=''">
+      AND TENANT_ID=#{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="approvalLevelId!=null and approvalLevelId!=''">
+      AND APPROVAL_LEVEL_ID=#{approvalLevelId,jdbcType=VARCHAR}
+    </if>
+    <if test="titleCodeLike!=null and titleCodeLike!=''">
+      AND TITLE_CODE LIKE CONCAT('%',#{titleCodeLike,jdbcType=VARCHAR},'%')
+    </if>
+    <if test="titleNameLike!=null and titleNameLike!=''">
+      AND TITLE_NAME LIKE CONCAT('%',#{titleNameLike,jdbcType=VARCHAR},'%')
+    </if>
+    <if test="status!=null and status!=''">
+      AND STATUS=#{status,jdbcType=VARCHAR}
+    </if>
   </sql>
   <select id="selectListByParams" resultMap="BaseResultMap">
     SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE 1=1
-    <include refid="conditions"/><if test="orderBy!=null and orderBy!=''"> ORDER BY ${orderBy} ${sortType}</if>
+    <include refid="conditions"/>
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
   </select>
   <select id="findPage" resultMap="BaseResultMap">
     <include refid="org.qifu.core.mapper.DB1Config.sql1"/> SELECT * FROM
@@ -44,17 +57,136 @@
   </select>
   <insert id="insert">
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title
-      (OID,TENANT_ID,TITLE_ID,TITLE_CODE,TITLE_NAME,APPROVAL_LEVEL_ID,
-       IS_MANAGER_TITLE,SORT_NO,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO,DESCRIPTION,CUSERID,CDATE)
-    VALUES (#{oid},#{tenantId},#{titleId},#{titleCode},#{titleName},#{approvalLevelId},
-       #{isManagerTitle},#{sortNo},#{status},#{effectiveFrom},#{effectiveTo},#{description},#{cuserid},#{cdate})
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="titleId != null">
+        TITLE_ID,
+      </if>
+      <if test="titleCode != null">
+        TITLE_CODE,
+      </if>
+      <if test="titleName != null">
+        TITLE_NAME,
+      </if>
+      <if test="approvalLevelId != null">
+        APPROVAL_LEVEL_ID,
+      </if>
+      <if test="isManagerTitle != null">
+        IS_MANAGER_TITLE,
+      </if>
+      <if test="sortNo != null">
+        SORT_NO,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM,
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO,
+      </if>
+      <if test="description != null">
+        DESCRIPTION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="titleId != null">
+        #{titleId,jdbcType=VARCHAR},
+      </if>
+      <if test="titleCode != null">
+        #{titleCode,jdbcType=VARCHAR},
+      </if>
+      <if test="titleName != null">
+        #{titleName,jdbcType=VARCHAR},
+      </if>
+      <if test="approvalLevelId != null">
+        #{approvalLevelId,jdbcType=VARCHAR},
+      </if>
+      <if test="isManagerTitle != null">
+        #{isManagerTitle,jdbcType=CHAR},
+      </if>
+      <if test="sortNo != null">
+        #{sortNo,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
   <update id="update">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title
-    SET TITLE_CODE=#{titleCode},TITLE_NAME=#{titleName},APPROVAL_LEVEL_ID=#{approvalLevelId},
-        IS_MANAGER_TITLE=#{isManagerTitle},SORT_NO=#{sortNo},STATUS=#{status},EFFECTIVE_FROM=#{effectiveFrom},
-        EFFECTIVE_TO=#{effectiveTo},DESCRIPTION=#{description},UUSERID=#{uuserid},UDATE=#{udate}
-    WHERE OID=#{oid}
+    <set>
+      <if test="titleCode != null">
+        TITLE_CODE = #{titleCode,jdbcType=VARCHAR},
+      </if>
+      <if test="titleName != null">
+        TITLE_NAME = #{titleName,jdbcType=VARCHAR},
+      </if>
+      <if test="approvalLevelId != null">
+        APPROVAL_LEVEL_ID = #{approvalLevelId,jdbcType=VARCHAR},
+      </if>
+      <if test="isManagerTitle != null">
+        IS_MANAGER_TITLE = #{isManagerTitle,jdbcType=CHAR},
+      </if>
+      <if test="sortNo != null">
+        SORT_NO = #{sortNo,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="description != null">
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID=#{oid,jdbcType=CHAR}
   </update>
-  <delete id="delete">DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE OID=#{oid}</delete>
+  <delete id="delete">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
 </mapper>
