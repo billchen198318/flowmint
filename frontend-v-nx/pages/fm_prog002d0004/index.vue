@@ -17,8 +17,7 @@ definePageMeta({ middleware: ["auth"] });
 const router = useRouter(),
   store = useStore(),
   rows = ref<any[]>([]),
-  tenants = ref<any[]>([]),
-  units = ref<any[]>([]);
+  tenants = ref<any[]>([]);
 const post = (p: string, b: any = {}) =>
   getAxiosInstance().post(
     import.meta.env.VITE_API_URL + PageConstants.eventNamespace + p,
@@ -39,7 +38,6 @@ store.gridConfig = getGridConfig(
   [
     { label: "", field: "oid" },
     { label: "Tenant", field: "tenantId" },
-    { label: "部門", field: "orgUnitId" },
     { label: "職稱代碼", field: "titleCode" },
     { label: "職稱名稱", field: "titleName" },
     { label: "主管職稱", field: "isManagerTitle" },
@@ -56,7 +54,6 @@ const query = async () => {
   const x = await post("/findPage", {
     field: {
       tenantId: store.queryParam.tenantId,
-      orgUnitId: store.queryParam.orgUnitId,
       titleCodeLike: store.queryParam.titleCode,
       titleNameLike: store.queryParam.titleName,
       status: store.queryParam.status,
@@ -66,14 +63,9 @@ const query = async () => {
   rows.value = x.data?.value || [];
   setConfigTotal(store.gridConfig, x.data?.pageOf?.countSize || 0);
 };
-const tenantChanged = async () => {
-  store.queryParam.orgUnitId = "";
-  await loadUnits();
-};
 const clear = () => {
   store.queryParam = {
     tenantId: "",
-    orgUnitId: "",
     titleCode: "",
     titleName: "",
     status: "",
@@ -82,14 +74,13 @@ const clear = () => {
 };
 onMounted(async () => {
   tenants.value = (await post("/tenant-options")).data?.value || [];
-  await loadUnits();
   await query();
 });
 </script>
 <template>
   <Toolbar
     :progId="PageConstants.QueryId"
-    description="部門職稱與簽核 Level"
+    description="職稱與簽核 Level"
     createFlag="Y"
     refreshFlag="Y"
     @createMethod="router.push(PageConstants.frontendNamespace + '/create')"
@@ -98,21 +89,9 @@ onMounted(async () => {
   <div class="card mb-3">
     <div class="card-body row g-2">
       <div class="col">
-        <select
-          v-model="store.queryParam.tenantId"
-          class="form-select"
-          @change="tenantChanged"
-        >
+        <select v-model="store.queryParam.tenantId" class="form-select">
           <option value="">全部 Tenant</option>
           <option v-for="x in tenants" :key="x.value" :value="x.value">
-            {{ x.label }}
-          </option>
-        </select>
-      </div>
-      <div class="col">
-        <select v-model="store.queryParam.orgUnitId" class="form-select">
-          <option value="">全部部門</option>
-          <option v-for="x in units" :key="x.value" :value="x.value">
             {{ x.label }}
           </option>
         </select>
@@ -147,6 +126,13 @@ onMounted(async () => {
           "
         >
           查詢
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary ms-2"
+          @click="clear"
+        >
+          清除
         </button>
       </div>
     </div>

@@ -18,8 +18,6 @@ import org.qifu.fm.entity.FmOrgTitle;
 import org.qifu.fm.logic.IFmOrgTitleLogicService;
 import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmOrgTitleService;
-import org.qifu.fm.service.IFmOrgUnitService;
-import org.qifu.fm.service.IFmOrgUnitVersionService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,19 +35,14 @@ public class FMPROG002D0004Controller extends CoreApiSupport {
   private final transient IFmOrgTitleService titleService;
   private final transient IFmOrgTitleLogicService titleLogicService;
   private final transient IFmTenantService tenantService;
-  private final transient IFmOrgUnitService unitService;
-  private final transient IFmOrgUnitVersionService unitVersionService;
   private final transient IFmOrgApprovalLevelService levelService;
 
   public FMPROG002D0004Controller(IFmOrgTitleService titleService,
       IFmOrgTitleLogicService titleLogicService, IFmTenantService tenantService,
-      IFmOrgUnitService unitService, IFmOrgUnitVersionService unitVersionService,
       IFmOrgApprovalLevelService levelService) {
     this.titleService = titleService;
     this.titleLogicService = titleLogicService;
     this.tenantService = tenantService;
-    this.unitService = unitService;
-    this.unitVersionService = unitVersionService;
     this.levelService = levelService;
   }
 
@@ -59,9 +52,9 @@ public class FMPROG002D0004Controller extends CoreApiSupport {
     QueryResult<List<FmOrgTitleView>> result = initResult();
     try {
       QueryResult<List<FmOrgTitle>> query = titleService.findPage(queryParameter(body)
-          .fullEquals("tenantId").fullEquals("orgUnitId").fullEquals("approvalLevelId")
+          .fullEquals("tenantId").fullEquals("approvalLevelId")
           .fullEquals("status").fullLink("titleCodeLike").fullLink("titleNameLike").value(),
-          body.getPageOf().orderBy("TENANT_ID,ORG_UNIT_ID,SORT_NO,TITLE_CODE").sortTypeAsc());
+          body.getPageOf().orderBy("TENANT_ID,SORT_NO,TITLE_CODE").sortTypeAsc());
       QueryResult<List<FmOrgTitleView>> view = new QueryResult<>();
       view.setValue(query.getValue() == null ? List.of()
           : query.getValue().stream().map(FmOrgTitleView::from).toList());
@@ -89,7 +82,6 @@ public class FMPROG002D0004Controller extends CoreApiSupport {
     try {
       getCheckControllerFieldHandler(result)
           .testField("tenantId", command, "@org.apache.commons.lang3.StringUtils@isBlank(tenantId)", "請選擇 Tenant")
-          .testField("orgUnitId", command, "@org.apache.commons.lang3.StringUtils@isBlank(orgUnitId)", "請選擇部門")
           .testField("titleCode", command, "@org.apache.commons.lang3.StringUtils@isBlank(titleCode)", "請輸入職稱代碼")
           .testField("titleName", command, "@org.apache.commons.lang3.StringUtils@isBlank(titleName)", "請輸入職稱名稱")
           .testField("approvalLevelId", command, "@org.apache.commons.lang3.StringUtils@isBlank(approvalLevelId)", "請選擇簽核 Level")
@@ -127,19 +119,6 @@ public class FMPROG002D0004Controller extends CoreApiSupport {
     params.put("status", "ACTIVE");
     return options(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue().stream()
         .map(value -> new FmOptionView(value.getTenantId(), value.getTenantCode() + "／" + value.getTenantName())).toList());
-  }
-
-  @ControllerMethodAuthority(programId = "FM_PROG002D0004Q", check = true)
-  @PostMapping("/org-unit-options")
-  public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> unitOptions(
-      @RequestBody Map<String, String> body) {
-    Map<String, Object> params = new HashMap<>();
-    params.put("tenantId", body.get("tenantId"));
-    params.put("status", "ACTIVE");
-    return options(unitVersionService.selectCurrentTree(params).getValue().stream()
-        .map(value -> new FmOptionView(value.getOrgUnitId(),
-            value.getUnitCode() + "／" + value.getUnitName()))
-        .toList());
   }
 
   @ControllerMethodAuthority(programId = "FM_PROG002D0004Q", check = true)

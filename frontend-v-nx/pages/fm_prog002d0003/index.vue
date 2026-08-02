@@ -137,6 +137,13 @@ onMounted(async () => {
         >
           查詢
         </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary ms-2"
+          @click="clear"
+        >
+          清除
+        </button>
       </div>
     </div>
   </div>

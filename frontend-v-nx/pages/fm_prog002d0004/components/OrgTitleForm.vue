@@ -15,7 +15,6 @@ const props = defineProps<{ edit: boolean }>(),
   route = useRoute(),
   router = useRouter(),
   tenants = ref<any[]>([]),
-  units = ref<any[]>([]),
   levels = ref<any[]>([]),
   checkFields = ref<any>({});
 const now = () => {
@@ -26,7 +25,6 @@ const now = () => {
 };
 const blank = () => ({
   tenantId: "",
-  orgUnitId: "",
   titleCode: "",
   titleName: "",
   approvalLevelId: "",
@@ -46,19 +44,15 @@ const post = (p: string, b: any = {}) =>
   );
 const refs = async () => {
   if (!form.value.tenantId) {
-    units.value = [];
     levels.value = [];
     return;
   }
-  const [u, l] = await Promise.all([
-    post("/org-unit-options", { tenantId: form.value.tenantId }),
-    post("/level-options", { tenantId: form.value.tenantId }),
-  ]);
-  units.value = u.data?.value || [];
-  levels.value = l.data?.value || [];
+  const response = await post("/level-options", {
+    tenantId: form.value.tenantId,
+  });
+  levels.value = response.data?.value || [];
 };
 const tenantChanged = async () => {
-  form.value.orgUnitId = "";
   form.value.approvalLevelId = "";
   await refs();
 };
@@ -124,7 +118,7 @@ const deactivate = async () => {
     hideLoading();
   }
 };
-const confirmDeactivate = () => confirmFire("確定停用此部門職稱？", deactivate);
+const confirmDeactivate = () => confirmFire("確定停用此職稱？", deactivate);
 onMounted(async () => {
   tenants.value = (await post("/tenant-options")).data?.value || [];
   await load();
@@ -133,7 +127,7 @@ onMounted(async () => {
 <template>
   <Toolbar
     :progId="edit ? PageConstants.EditId : PageConstants.CreateId"
-    description="部門職稱與簽核 Level"
+    description="職稱與簽核 Level"
     backFlag="Y"
     saveFlag="Y"
     refreshFlag="Y"
@@ -169,33 +163,6 @@ onMounted(async () => {
           class="invalid-feedback"
         >
           {{ invalidFeedback("tenantId", checkFields) }}
-        </div>
-      </div>
-      <div class="col-md-4">
-        <label for="orgUnitId" class="form-label">部門</label>
-        <select
-          id="orgUnitId"
-          v-model="form.orgUnitId"
-          :disabled="edit"
-          :class="[
-            'form-select',
-            checkInvalid('orgUnitId', checkFields) ? 'is-invalid' : '',
-          ]"
-        >
-          <option value="">請選擇</option>
-          <option
-            v-for="option in units"
-            :key="option.value"
-            :value="option.value"
-          >
-            {{ option.label }}
-          </option>
-        </select>
-        <div
-          v-if="checkInvalid('orgUnitId', checkFields)"
-          class="invalid-feedback"
-        >
-          {{ invalidFeedback("orgUnitId", checkFields) }}
         </div>
       </div>
       <div class="col-md-4">

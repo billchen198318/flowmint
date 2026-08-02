@@ -14,7 +14,6 @@ import org.qifu.fm.entity.FmOrgTitle;
 import org.qifu.fm.logic.IFmOrgTitleLogicService;
 import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmOrgTitleService;
-import org.qifu.fm.service.IFmOrgUnitService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,13 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   private final IFmOrgTitleService titles;
-  private final IFmOrgUnitService units;
   private final IFmOrgApprovalLevelService levels;
 
-  public FmOrgTitleLogicServiceImpl(IFmOrgTitleService titles, IFmOrgUnitService units,
+  public FmOrgTitleLogicServiceImpl(IFmOrgTitleService titles,
       IFmOrgApprovalLevelService levels) {
     this.titles = titles;
-    this.units = units;
     this.levels = levels;
   }
 
@@ -39,7 +36,6 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
     FmOrgTitle value = new FmOrgTitle();
     value.setTenantId(command.tenantId());
     value.setTitleId(UUID.randomUUID().toString());
-    value.setOrgUnitId(command.orgUnitId());
     apply(value, command);
     titles.insert(value);
     return load(value.getOid(), BaseSystemMessage.insertSuccess());
@@ -58,7 +54,7 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   public DefaultResult<FmOrgTitleView> update(FmOrgTitleCommand command) throws ServiceException {
     validate(command);
     FmOrgTitle value = titles.selectByPrimaryKey(command.oid()).getValueEmptyThrowMessage();
-    if (!value.getTenantId().equals(command.tenantId()) || !value.getOrgUnitId().equals(command.orgUnitId())) {
+    if (!value.getTenantId().equals(command.tenantId())) {
       throw new ServiceException(BaseSystemMessage.parameterIncorrect());
     }
     requireReferences(command);
@@ -76,7 +72,7 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   }
 
   private void validate(FmOrgTitleCommand command) throws ServiceException {
-    if (StringUtils.isAnyBlank(command.tenantId(), command.orgUnitId(), command.titleCode(),
+    if (StringUtils.isAnyBlank(command.tenantId(), command.titleCode(),
         command.titleName(), command.approvalLevelId())) {
       throw new ServiceException(BaseSystemMessage.parameterIncorrect());
     }
@@ -89,11 +85,6 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   private void requireReferences(FmOrgTitleCommand command) throws ServiceException {
     Map<String, Object> params = new HashMap<>();
     params.put("tenantId", command.tenantId());
-    params.put("orgUnitId", command.orgUnitId());
-    if (units.selectListByParams(params, "ORG_UNIT_ID", "ASC").getValue().isEmpty()) {
-      throw new ServiceException("部門不存在或不屬於所選 Tenant");
-    }
-    params.clear();
     params.put("tenantId", command.tenantId());
     params.put("status", "ACTIVE");
     if (levels.selectListByParams(params, "LEVEL_ORDER", "ASC").getValue().stream()

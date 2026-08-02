@@ -13,7 +13,6 @@ public class FmOrgTitle implements Serializable {
   private String oid;
   private String tenantId;
   private String titleId;
-  private String orgUnitId;
   private String titleCode;
   private String titleName;
   private String approvalLevelId;
@@ -35,8 +34,6 @@ public class FmOrgTitle implements Serializable {
   public void setTenantId(String value) { tenantId = value; }
   public String getTitleId() { return titleId; }
   public void setTitleId(String value) { titleId = value; }
-  public String getOrgUnitId() { return orgUnitId; }
-  public void setOrgUnitId(String value) { orgUnitId = value; }
   public String getTitleCode() { return titleCode; }
   public void setTitleCode(String value) { titleCode = value; }
   public String getTitleName() { return titleName; }
