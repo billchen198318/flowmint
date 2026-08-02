@@ -244,6 +244,7 @@ onMounted(async () => {
           <label class="form-label">群組代碼</label>
           <input
             v-model="form.groupCode"
+            :disabled="props.edit"
             :class="[
               'form-control',
               checkInvalid('groupCode', checkFields) ? 'is-invalid' : '',

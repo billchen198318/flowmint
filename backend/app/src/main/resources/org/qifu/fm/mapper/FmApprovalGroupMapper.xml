@@ -158,9 +158,6 @@
   <update id="update" parameterType="org.qifu.fm.entity.FmApprovalGroup">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_group
     <set>
-      <if test="groupCode != null">
-        GROUP_CODE = #{groupCode,jdbcType=VARCHAR},
-      </if>
       <if test="groupName != null">
         GROUP_NAME = #{groupName,jdbcType=VARCHAR},
       </if>

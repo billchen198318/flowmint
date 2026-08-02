@@ -60,6 +60,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 		FmApprovalGroup group = new FmApprovalGroup();
 		group.setTenantId(command.tenantId());
 		group.setApprovalGroupId(UUID.randomUUID().toString());
+		group.setGroupCode(command.groupCode());
 		applyGroup(group, command);
 		groupService.insert(group);
 		return load(group.getOid(), BaseSystemMessage.insertSuccess());
@@ -249,7 +250,6 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 	}
 
 	private void applyGroup(FmApprovalGroup group, FmApprovalGroupCommand command) {
-		group.setGroupCode(command.groupCode());
 		group.setGroupName(command.groupName());
 		group.setAssignmentMode(command.assignmentMode());
 		group.setStatus(StringUtils.defaultIfBlank(command.status(), "ACTIVE"));
