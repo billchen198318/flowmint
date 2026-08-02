@@ -24,6 +24,7 @@
     "axios": "^1.16.1",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.11.3",
+    "bpmn-js": "^18.8.0",
     "bytemd": "^1.21.0",
     "echarts": "^6.1.0",
     "pinia": "^2.1.7",

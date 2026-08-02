@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmProcessVersionMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmProcessVersion">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="PROCESS_DEF_ID" jdbcType="VARCHAR" property="processDefId" />
+    <result column="VERSION_NO" jdbcType="INTEGER" property="versionNo" />
+    <result column="VERSION_STATUS" jdbcType="VARCHAR" property="versionStatus" />
+    <result column="BPMN_XML" jdbcType="LONGVARCHAR" property="bpmnXml" />
+    <result column="BPMN_SHA256" jdbcType="CHAR" property="bpmnSha256" />
+    <result column="FLOWABLE_DEPLOYMENT_ID" jdbcType="VARCHAR" property="flowableDeploymentId" />
+    <result column="FLOWABLE_PROCESS_DEF_ID" jdbcType="VARCHAR" property="flowableProcessDefId" />
+    <result column="PUBLISHED_BY" jdbcType="VARCHAR" property="publishedBy" />
+    <result column="PUBLISHED_DATE" jdbcType="TIMESTAMP" property="publishedDate" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, PROCESS_DEF_ID, VERSION_NO, VERSION_STATUS, BPMN_XML,
+    BPMN_SHA256, FLOWABLE_DEPLOYMENT_ID, FLOWABLE_PROCESS_DEF_ID, PUBLISHED_BY,
+    PUBLISHED_DATE, CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="processDefId != null and processDefId != ''">
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+    </if>
+    <if test="versionNo != null">
+      AND VERSION_NO = #{versionNo,jdbcType=INTEGER}
+    </if>
+    <if test="versionStatus != null and versionStatus != ''">
+      AND VERSION_STATUS = #{versionStatus,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmProcessVersion">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">OID,</if>
+      <if test="tenantId != null">TENANT_ID,</if>
+      <if test="processDefId != null">PROCESS_DEF_ID,</if>
+      <if test="versionNo != null">VERSION_NO,</if>
+      <if test="versionStatus != null">VERSION_STATUS,</if>
+      <if test="bpmnXml != null">BPMN_XML,</if>
+      <if test="bpmnSha256 != null">BPMN_SHA256,</if>
+      <if test="flowableDeploymentId != null">FLOWABLE_DEPLOYMENT_ID,</if>
+      <if test="flowableProcessDefId != null">FLOWABLE_PROCESS_DEF_ID,</if>
+      <if test="publishedBy != null">PUBLISHED_BY,</if>
+      <if test="publishedDate != null">PUBLISHED_DATE,</if>
+      <if test="cuserid != null">CUSERID,</if>
+      <if test="cdate != null">CDATE,</if>
+      <if test="uuserid != null">UUSERID,</if>
+      <if test="udate != null">UDATE,</if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">#{oid,jdbcType=CHAR},</if>
+      <if test="tenantId != null">#{tenantId,jdbcType=VARCHAR},</if>
+      <if test="processDefId != null">#{processDefId,jdbcType=VARCHAR},</if>
+      <if test="versionNo != null">#{versionNo,jdbcType=INTEGER},</if>
+      <if test="versionStatus != null">#{versionStatus,jdbcType=VARCHAR},</if>
+      <if test="bpmnXml != null">#{bpmnXml,jdbcType=LONGVARCHAR},</if>
+      <if test="bpmnSha256 != null">#{bpmnSha256,jdbcType=CHAR},</if>
+      <if test="flowableDeploymentId != null">#{flowableDeploymentId,jdbcType=VARCHAR},</if>
+      <if test="flowableProcessDefId != null">#{flowableProcessDefId,jdbcType=VARCHAR},</if>
+      <if test="publishedBy != null">#{publishedBy,jdbcType=VARCHAR},</if>
+      <if test="publishedDate != null">#{publishedDate,jdbcType=TIMESTAMP},</if>
+      <if test="cuserid != null">#{cuserid,jdbcType=VARCHAR},</if>
+      <if test="cdate != null">#{cdate,jdbcType=TIMESTAMP},</if>
+      <if test="uuserid != null">#{uuserid,jdbcType=VARCHAR},</if>
+      <if test="udate != null">#{udate,jdbcType=TIMESTAMP},</if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmProcessVersion">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    <set>
+      <if test="versionStatus != null">VERSION_STATUS = #{versionStatus,jdbcType=VARCHAR},</if>
+      <if test="bpmnXml != null">BPMN_XML = #{bpmnXml,jdbcType=LONGVARCHAR},</if>
+      <if test="bpmnSha256 != null">BPMN_SHA256 = #{bpmnSha256,jdbcType=CHAR},</if>
+      <if test="flowableDeploymentId != null">FLOWABLE_DEPLOYMENT_ID = #{flowableDeploymentId,jdbcType=VARCHAR},</if>
+      <if test="flowableProcessDefId != null">FLOWABLE_PROCESS_DEF_ID = #{flowableProcessDefId,jdbcType=VARCHAR},</if>
+      <if test="publishedBy != null">PUBLISHED_BY = #{publishedBy,jdbcType=VARCHAR},</if>
+      <if test="publishedDate != null">PUBLISHED_DATE = #{publishedDate,jdbcType=TIMESTAMP},</if>
+      <if test="uuserid != null">UUSERID = #{uuserid,jdbcType=VARCHAR},</if>
+      <if test="udate != null">UDATE = #{udate,jdbcType=TIMESTAMP},</if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmProcessVersion">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+</mapper>

@@ -1,0 +1,159 @@
+package org.qifu.fm.controller;
+
+import java.util.List;
+import java.util.Map;
+
+import org.qifu.base.message.BaseSystemMessage;
+import org.qifu.base.model.ControllerMethodAuthority;
+import org.qifu.base.model.DefaultControllerJsonResultObj;
+import org.qifu.base.model.QueryResult;
+import org.qifu.base.model.SearchBody;
+import org.qifu.core.util.CoreApiSupport;
+import org.qifu.fm.dto.command.FmProcessDefCommand;
+import org.qifu.fm.dto.command.FmProcessVersionCommand;
+import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.dto.view.FmProcessDefView;
+import org.qifu.fm.entity.FmProcessDef;
+import org.qifu.fm.logic.IFmProcessDefLogicService;
+import org.qifu.fm.service.IFmProcessDefService;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@ResponseBody
+@RequestMapping("/api/FM_PROG004D0001")
+public class FMPROG004D0001Controller extends CoreApiSupport {
+
+    private static final long serialVersionUID = 1L;
+
+    private final transient IFmProcessDefService processDefService;
+    private final transient IFmProcessDefLogicService processDefLogicService;
+
+    public FMPROG004D0001Controller(
+            IFmProcessDefService processDefService,
+            IFmProcessDefLogicService processDefLogicService) {
+        this.processDefService = processDefService;
+        this.processDefLogicService = processDefLogicService;
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/findPage")
+    public ResponseEntity<QueryResult<List<FmProcessDef>>> findPage(@RequestBody SearchBody body) {
+        QueryResult<List<FmProcessDef>> result = initResult();
+        try {
+            setQueryResponseJsonResult(processDefService.findPage(
+                    queryParameter(body).fullEquals("tenantId").fullEquals("status")
+                            .fullLink("processKey").fullLink("processName").value(),
+                    body.getPageOf().orderBy("TENANT_ID,PROCESS_KEY").sortTypeAsc()),
+                    result, body.getPageOf());
+        } catch (Exception exception) {
+            noSuccessResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001C", check = true)
+    @PostMapping("/save")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> save(
+            @RequestBody FmProcessDefCommand command) {
+        return command(command, true);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/update")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> update(
+            @RequestBody FmProcessDefCommand command) {
+        return command(command, false);
+    }
+
+    private ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> command(
+            FmProcessDefCommand command, boolean create) {
+        DefaultControllerJsonResultObj<FmProcessDefView> result = initDefaultJsonResult();
+        try {
+            getCheckControllerFieldHandler(result)
+                    .testField("tenantId", command,
+                            "@org.apache.commons.lang3.StringUtils@isBlank(tenantId)",
+                            "請選擇 Tenant")
+                    .testField("processKey", command,
+                            "@org.apache.commons.lang3.StringUtils@isBlank(processKey)",
+                            "請輸入流程代碼")
+                    .testField("processName", command,
+                            "@org.apache.commons.lang3.StringUtils@isBlank(processName)",
+                            "請輸入流程名稱")
+                    .throwHtmlMessage();
+            setDefaultResponseJsonResult(create ? processDefLogicService.create(command)
+                    : processDefLogicService.update(command), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001E", check = true)
+    @PostMapping("/load")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> load(
+            @RequestBody Map<String, String> body) {
+        return result(() -> processDefLogicService.load(
+                body.get("oid"), BaseSystemMessage.dataIsExist()));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001D", check = true)
+    @PostMapping("/deactivate")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> deactivate(
+            @RequestBody Map<String, String> body) {
+        return result(() -> processDefLogicService.deactivate(body.get("oid")));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/version/save-draft")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> saveDraft(
+            @RequestBody FmProcessVersionCommand command) {
+        return result(() -> processDefLogicService.saveDraft(command));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/version/create")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> createVersion(
+            @RequestBody Map<String, String> body) {
+        return result(() -> processDefLogicService.createVersion(body.get("oid")));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001X", check = true)
+    @PostMapping("/version/publish")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> publish(
+            @RequestBody Map<String, String> body) {
+        return result(() -> processDefLogicService.publish(body.get("oid")));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/tenant-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> tenantOptions() {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(processDefLogicService.tenantOptions(), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    private ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> result(
+            ResultSupplier supplier) {
+        DefaultControllerJsonResultObj<FmProcessDefView> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(supplier.get(), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @FunctionalInterface
+    private interface ResultSupplier {
+        org.qifu.base.model.DefaultResult<FmProcessDefView> get() throws Exception;
+    }
+}
