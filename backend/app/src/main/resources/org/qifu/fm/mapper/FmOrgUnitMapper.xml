@@ -110,9 +110,6 @@
   <update id="update" parameterType="org.qifu.fm.entity.FmOrgUnit">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
     <set>
-      <if test="unitCode != null">
-        UNIT_CODE = #{unitCode,jdbcType=VARCHAR},
-      </if>
       <if test="currentVersionNo != null">
         CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},
       </if>

@@ -233,6 +233,7 @@ onMounted(async () => {
         :tenantOptions="tenantOptions"
         :parentOptions="parentOptions"
         :tenantReadonly="props.edit"
+        :unitCodeReadonly="props.edit"
         :parentReadonly="props.edit"
       />
 

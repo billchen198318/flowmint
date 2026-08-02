@@ -66,12 +66,13 @@ const loadAccountOptions = async (tenantId: string) => {
 
 const loadAssignmentData = async () => {
   const employeeOid = String(route.params.id);
-  const [listResponse, unitResponse, titleResponse, managerResponse] = await Promise.all([
-    apiPost("/assignment/list", { employeeOid }),
-    apiPost("/assignment/org-unit-options", { employeeOid }),
-    apiPost("/assignment/title-options", { employeeOid }),
-    apiPost("/assignment/manager-options", { employeeOid }),
-  ]);
+  const [listResponse, unitResponse, titleResponse, managerResponse] =
+    await Promise.all([
+      apiPost("/assignment/list", { employeeOid }),
+      apiPost("/assignment/org-unit-options", { employeeOid }),
+      apiPost("/assignment/title-options", { employeeOid }),
+      apiPost("/assignment/manager-options", { employeeOid }),
+    ]);
   assignments.value = listResponse.data?.value || [];
   orgUnitOptions.value = unitResponse.data?.value || [];
   titleOptions.value = titleResponse.data?.value || [];
@@ -91,8 +92,13 @@ const loadData = async () => {
   showLoading();
   try {
     const response = await apiPost("/load", { oid: route.params.id });
-    if (!response.data || response.data.success !== import.meta.env.VITE_SUCCESS_FLAG) {
-      toast.warning(escapeQifuHtmlMsg(response.data?.message || "讀取員工失敗。"));
+    if (
+      !response.data ||
+      response.data.success !== import.meta.env.VITE_SUCCESS_FLAG
+    ) {
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "讀取員工失敗。"),
+      );
       router.push(PageConstants.frontendNamespace);
       return;
     }
@@ -121,8 +127,13 @@ const btnSave = async () => {
     };
     const response = await apiPost("/update", payload);
     checkFields.value = response.data?.checkFields || {};
-    if (!response.data || response.data.success !== import.meta.env.VITE_SUCCESS_FLAG) {
-      toast.warning(escapeQifuHtmlMsg(response.data?.message || "更新員工失敗。"));
+    if (
+      !response.data ||
+      response.data.success !== import.meta.env.VITE_SUCCESS_FLAG
+    ) {
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "更新員工失敗。"),
+      );
       return;
     }
     await applyEmployee(response.data.value);
@@ -169,8 +180,13 @@ const saveAssignment = async () => {
     };
     const response = await apiPost("/assignment/save", payload);
     assignmentCheckFields.value = response.data?.checkFields || {};
-    if (!response.data || response.data.success !== import.meta.env.VITE_SUCCESS_FLAG) {
-      toast.warning(escapeQifuHtmlMsg(response.data?.message || "儲存任職失敗。"));
+    if (
+      !response.data ||
+      response.data.success !== import.meta.env.VITE_SUCCESS_FLAG
+    ) {
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "儲存任職失敗。"),
+      );
       return;
     }
     assignments.value = response.data.value || [];
@@ -196,7 +212,9 @@ const doDeactivateAssignment = async (value: any) => {
       resetAssignment();
       toast.success(response.data.message || "任職資料已停用。");
     } else {
-      toast.warning(escapeQifuHtmlMsg(response.data?.message || "停用任職失敗。"));
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "停用任職失敗。"),
+      );
     }
   } catch (error: any) {
     toast.error(error?.message || "停用任職失敗。");
@@ -220,7 +238,9 @@ const doDeactivate = async () => {
       await applyEmployee(response.data.value);
       toast.success(response.data.message);
     } else {
-      toast.warning(escapeQifuHtmlMsg(response.data?.message || "停用員工失敗。"));
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "停用員工失敗。"),
+      );
     }
   } catch (error: any) {
     toast.error(error?.message || "停用員工失敗。");
@@ -258,13 +278,18 @@ onMounted(async () => {
         :tenantOptions="tenantOptions"
         :accountOptions="accountOptions"
         tenantReadonly
+        employeeNoReadonly
       />
       <div class="row mt-4">
         <div class="col-12 d-flex gap-2">
           <button type="button" class="btn btn-primary" @click="btnSave">
             <i class="bi bi-save"></i> 儲存
           </button>
-          <button type="button" class="btn btn-outline-secondary" @click="loadData">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            @click="loadData"
+          >
             <i class="bi bi-repeat"></i> 重新載入
           </button>
           <button

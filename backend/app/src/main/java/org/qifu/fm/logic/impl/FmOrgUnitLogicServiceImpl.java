@@ -94,13 +94,10 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 		if (!Objects.equals(current.getParentOrgUnitId(), normalizeId(command.parentOrgUnitId()))) {
 			throw new ServiceException("父部門異動請使用組織樹移動功能");
 		}
-		validateUnitCode(orgUnit.getTenantId(), command.unitCode(), orgUnit.getOrgUnitId());
-
 		FmOrgUnitVersion oldVersion = requiredVersion(current.getVersionOid());
 		Date versionTime = nextVersionTime(oldVersion);
 		closeVersion(oldVersion, versionTime);
 
-		orgUnit.setUnitCode(command.unitCode());
 		orgUnit.setCurrentVersionNo(orgUnit.getCurrentVersionNo() + 1);
 		orgUnitService.update(orgUnit);
 

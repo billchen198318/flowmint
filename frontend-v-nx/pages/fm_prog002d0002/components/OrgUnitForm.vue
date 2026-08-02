@@ -8,6 +8,7 @@ defineProps<{
   tenantOptions: any[];
   parentOptions: any[];
   tenantReadonly?: boolean;
+  unitCodeReadonly?: boolean;
   parentReadonly?: boolean;
 }>();
 </script>
@@ -47,6 +48,7 @@ defineProps<{
       <input
         id="unitCode"
         v-model="model.unitCode"
+        :readonly="unitCodeReadonly"
         :class="[
           'form-control',
           checkInvalid('unitCode', checkFields) ? 'is-invalid' : '',

@@ -8,6 +8,7 @@ defineProps<{
   tenantOptions: any[];
   accountOptions: any[];
   tenantReadonly?: boolean;
+  employeeNoReadonly?: boolean;
 }>();
 </script>
 
@@ -25,11 +26,18 @@ defineProps<{
         ]"
       >
         <option value="">請選擇 Tenant</option>
-        <option v-for="item in tenantOptions" :key="item.value" :value="item.value">
+        <option
+          v-for="item in tenantOptions"
+          :key="item.value"
+          :value="item.value"
+        >
           {{ item.label }}
         </option>
       </select>
-      <div v-if="checkInvalid('tenantId', checkFields)" class="invalid-feedback">
+      <div
+        v-if="checkInvalid('tenantId', checkFields)"
+        class="invalid-feedback"
+      >
         {{ invalidFeedback("tenantId", checkFields) }}
       </div>
     </div>
@@ -39,12 +47,16 @@ defineProps<{
       <input
         id="employeeNo"
         v-model="model.employeeNo"
+        :readonly="employeeNoReadonly"
         :class="[
           'form-control',
           checkInvalid('employeeNo', checkFields) ? 'is-invalid' : '',
         ]"
       />
-      <div v-if="checkInvalid('employeeNo', checkFields)" class="invalid-feedback">
+      <div
+        v-if="checkInvalid('employeeNo', checkFields)"
+        class="invalid-feedback"
+      >
         {{ invalidFeedback("employeeNo", checkFields) }}
       </div>
     </div>
@@ -60,7 +72,11 @@ defineProps<{
         ]"
       >
         <option value="">請選擇帳號</option>
-        <option v-for="item in accountOptions" :key="item.value" :value="item.value">
+        <option
+          v-for="item in accountOptions"
+          :key="item.value"
+          :value="item.value"
+        >
           {{ item.label }}
         </option>
       </select>
@@ -79,14 +95,22 @@ defineProps<{
           checkInvalid('displayName', checkFields) ? 'is-invalid' : '',
         ]"
       />
-      <div v-if="checkInvalid('displayName', checkFields)" class="invalid-feedback">
+      <div
+        v-if="checkInvalid('displayName', checkFields)"
+        class="invalid-feedback"
+      >
         {{ invalidFeedback("displayName", checkFields) }}
       </div>
     </div>
 
     <div class="col-md-4">
       <label for="email" class="form-label">Email</label>
-      <input id="email" v-model="model.email" type="email" class="form-control" />
+      <input
+        id="email"
+        v-model="model.email"
+        type="email"
+        class="form-control"
+      />
     </div>
     <div class="col-md-4">
       <label for="mobile" class="form-label">手機</label>
@@ -118,17 +142,30 @@ defineProps<{
           checkInvalid('effectiveFrom', checkFields) ? 'is-invalid' : '',
         ]"
       />
-      <div v-if="checkInvalid('effectiveFrom', checkFields)" class="invalid-feedback">
+      <div
+        v-if="checkInvalid('effectiveFrom', checkFields)"
+        class="invalid-feedback"
+      >
         {{ invalidFeedback("effectiveFrom", checkFields) }}
       </div>
     </div>
     <div class="col-md-3">
       <label for="effectiveTo" class="form-label">失效時間</label>
-      <input id="effectiveTo" v-model="model.effectiveTo" type="datetime-local" class="form-control" />
+      <input
+        id="effectiveTo"
+        v-model="model.effectiveTo"
+        type="datetime-local"
+        class="form-control"
+      />
     </div>
     <div class="col-12">
       <label for="description" class="form-label">說明</label>
-      <textarea id="description" v-model="model.description" class="form-control" maxlength="500"></textarea>
+      <textarea
+        id="description"
+        v-model="model.description"
+        class="form-control"
+        maxlength="500"
+      ></textarea>
     </div>
   </div>
 </template>

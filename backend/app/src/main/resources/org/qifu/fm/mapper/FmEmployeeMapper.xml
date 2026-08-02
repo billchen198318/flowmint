@@ -180,9 +180,6 @@
   <update id="update" parameterType="org.qifu.fm.entity.FmEmployee">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_employee
     <set>
-      <if test="employeeNo != null">
-        EMPLOYEE_NO = #{employeeNo,jdbcType=VARCHAR},
-      </if>
       <if test="account != null">
         ACCOUNT = #{account,jdbcType=VARCHAR},
       </if>

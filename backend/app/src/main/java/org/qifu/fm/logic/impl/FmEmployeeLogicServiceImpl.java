@@ -48,6 +48,7 @@ public class FmEmployeeLogicServiceImpl implements IFmEmployeeLogicService {
 		FmEmployee employee = new FmEmployee();
 		employee.setTenantId(command.tenantId());
 		employee.setEmployeeId(UUID.randomUUID().toString());
+		employee.setEmployeeNo(command.employeeNo());
 		apply(employee, command);
 		DefaultResult<FmEmployee> inserted = employeeService.insert(employee);
 		return load(inserted.getValueEmptyThrowMessage().getOid(), BaseSystemMessage.insertSuccess());
@@ -135,7 +136,6 @@ public class FmEmployeeLogicServiceImpl implements IFmEmployeeLogicService {
 	}
 
 	private void apply(FmEmployee employee, FmEmployeeCommand command) {
-		employee.setEmployeeNo(command.employeeNo());
 		employee.setAccount(command.account());
 		employee.setDisplayName(command.displayName());
 		employee.setEmail(command.email());
