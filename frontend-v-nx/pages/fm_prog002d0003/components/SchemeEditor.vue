@@ -104,6 +104,31 @@ const save = async () => {
     hideLoading();
   }
 };
+const clear = () => {
+  checkFields.value = {};
+  form.value = blank();
+};
+const deactivate = async () => {
+  showLoading();
+  try {
+    const response = await getAxiosInstance().post(
+      import.meta.env.VITE_API_URL +
+        PageConstants.eventNamespace +
+        "/deactivate",
+      { oid: form.value.oid },
+    );
+    if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+      toast.warning(escapeQifuHtmlMsg(response.data?.message));
+      return;
+    }
+    toast.success(response.data.message);
+    local(response.data.value);
+  } finally {
+    hideLoading();
+  }
+};
+const confirmDeactivate = () =>
+  confirmFire("確定停用此組織簽核層級方案？", deactivate);
 const add = () =>
   form.value.levels.push({
     levelCode: "",
@@ -135,7 +160,7 @@ onMounted(async () => {
     refreshFlag="Y"
     @backMethod="router.back()"
     @saveMethod="save"
-    @refreshMethod="edit ? load() : (form = blank())"
+    @refreshMethod="edit ? load() : clear()"
   />
   <div class="card mb-3">
     <div class="card-body row g-3">
@@ -252,7 +277,35 @@ onMounted(async () => {
           </tr>
         </tbody>
       </table>
-      <button class="btn btn-primary" @click="save">儲存</button>
+      <div class="d-flex gap-2 mt-4">
+        <button type="button" class="btn btn-primary" @click="save">
+          <i class="bi bi-save"></i> 儲存
+        </button>
+        <button
+          v-if="!edit"
+          type="button"
+          class="btn btn-outline-secondary"
+          @click="clear"
+        >
+          <i class="bi bi-eraser"></i> 清除
+        </button>
+        <button
+          v-if="edit"
+          type="button"
+          class="btn btn-outline-secondary"
+          @click="load"
+        >
+          <i class="bi bi-repeat"></i> 重新載入
+        </button>
+        <button
+          v-if="edit && form.status === 'ACTIVE'"
+          type="button"
+          class="btn btn-outline-danger"
+          @click="confirmDeactivate"
+        >
+          <i class="bi bi-slash-circle"></i> 停用方案
+        </button>
+      </div>
     </div>
   </div>
 </template>

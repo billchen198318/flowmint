@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmOrgTitleMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmOrgTitle">
+    <id column="OID" property="oid" />
+    <result column="TENANT_ID" property="tenantId" />
+    <result column="TITLE_ID" property="titleId" />
+    <result column="ORG_UNIT_ID" property="orgUnitId" />
+    <result column="TITLE_CODE" property="titleCode" />
+    <result column="TITLE_NAME" property="titleName" />
+    <result column="APPROVAL_LEVEL_ID" property="approvalLevelId" />
+    <result column="IS_MANAGER_TITLE" property="isManagerTitle" />
+    <result column="SORT_NO" property="sortNo" />
+    <result column="STATUS" property="status" />
+    <result column="EFFECTIVE_FROM" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" property="effectiveTo" />
+    <result column="DESCRIPTION" property="description" />
+    <result column="CUSERID" property="cuserid" />
+    <result column="CDATE" property="cdate" />
+    <result column="UUSERID" property="uuserid" />
+    <result column="UDATE" property="udate" />
+  </resultMap>
+  <select id="selectByPrimaryKey" resultMap="BaseResultMap">
+    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE OID = #{oid}
+  </select>
+  <sql id="conditions">
+    <if test="tenantId!=null and tenantId!=''">AND TENANT_ID=#{tenantId}</if>
+    <if test="orgUnitId!=null and orgUnitId!=''">AND ORG_UNIT_ID=#{orgUnitId}</if>
+    <if test="approvalLevelId!=null and approvalLevelId!=''">AND APPROVAL_LEVEL_ID=#{approvalLevelId}</if>
+    <if test="titleCodeLike!=null and titleCodeLike!=''">AND TITLE_CODE LIKE CONCAT('%',#{titleCodeLike},'%')</if>
+    <if test="titleNameLike!=null and titleNameLike!=''">AND TITLE_NAME LIKE CONCAT('%',#{titleNameLike},'%')</if>
+    <if test="status!=null and status!=''">AND STATUS=#{status}</if>
+  </sql>
+  <select id="selectListByParams" resultMap="BaseResultMap">
+    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE 1=1
+    <include refid="conditions"/><if test="orderBy!=null and orderBy!=''"> ORDER BY ${orderBy} ${sortType}</if>
+  </select>
+  <select id="findPage" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1"/> SELECT * FROM
+    <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE 1=1
+    <include refid="conditions"/><include refid="org.qifu.core.mapper.DB1Config.sql2"/>
+  </select>
+  <select id="count" resultType="java.lang.Long">
+    SELECT COUNT(*) FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE 1=1
+    <include refid="conditions"/>
+  </select>
+  <insert id="insert">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title
+      (OID,TENANT_ID,TITLE_ID,ORG_UNIT_ID,TITLE_CODE,TITLE_NAME,APPROVAL_LEVEL_ID,
+       IS_MANAGER_TITLE,SORT_NO,STATUS,EFFECTIVE_FROM,EFFECTIVE_TO,DESCRIPTION,CUSERID,CDATE)
+    VALUES (#{oid},#{tenantId},#{titleId},#{orgUnitId},#{titleCode},#{titleName},#{approvalLevelId},
+       #{isManagerTitle},#{sortNo},#{status},#{effectiveFrom},#{effectiveTo},#{description},#{cuserid},#{cdate})
+  </insert>
+  <update id="update">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title
+    SET TITLE_CODE=#{titleCode},TITLE_NAME=#{titleName},APPROVAL_LEVEL_ID=#{approvalLevelId},
+        IS_MANAGER_TITLE=#{isManagerTitle},SORT_NO=#{sortNo},STATUS=#{status},EFFECTIVE_FROM=#{effectiveFrom},
+        EFFECTIVE_TO=#{effectiveTo},DESCRIPTION=#{description},UUSERID=#{uuserid},UDATE=#{udate}
+    WHERE OID=#{oid}
+  </update>
+  <delete id="delete">DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE OID=#{oid}</delete>
+</mapper>
