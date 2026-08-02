@@ -129,9 +129,6 @@
   <update id="update" parameterType="org.qifu.fm.entity.FmTenant">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant
     <set>
-      <if test="tenantCode != null">
-        TENANT_CODE = #{tenantCode,jdbcType=VARCHAR},
-      </if>
       <if test="tenantName != null">
         TENANT_NAME = #{tenantName,jdbcType=VARCHAR},
       </if>

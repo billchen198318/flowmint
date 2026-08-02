@@ -73,7 +73,6 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmTenantView> update(FmTenantCommand command) throws ServiceException {
 		FmTenant tenant = requiredTenant(command.oid());
-		tenant.setTenantCode(command.tenantCode());
 		tenant.setTenantName(command.tenantName());
 		tenant.setDefaultLocale(defaultValue(command.defaultLocale(), "zh-TW"));
 		tenant.setDefaultTimezone(defaultValue(command.defaultTimezone(), "Asia/Taipei"));

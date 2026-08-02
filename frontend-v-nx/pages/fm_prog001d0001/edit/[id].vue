@@ -205,8 +205,7 @@ const btnResetPassword = async () => {
     return;
   }
   if (
-    resetPasswordForm.value.password !==
-    resetPasswordForm.value.confirmPassword
+    resetPasswordForm.value.password !== resetPasswordForm.value.confirmPassword
   ) {
     toast.warning("密碼與確認密碼不一致。");
     return;
@@ -343,7 +342,12 @@ onMounted(loadData);
 
   <div class="card mb-3">
     <div class="card-body">
-      <TenantForm v-model="form" :checkFields="checkFields" tenantIdReadonly />
+      <TenantForm
+        v-model="form"
+        :checkFields="checkFields"
+        tenantIdReadonly
+        tenantCodeReadonly
+      />
 
       <div class="row mt-4">
         <div class="col-12 d-flex gap-2">
@@ -469,14 +473,16 @@ onMounted(loadData);
                   @click="openResetPassword(item.account)"
                 >
                   <i class="bi bi-key"></i> 重設密碼
-                </button>                <button
+                </button>
+                <button
                   v-if="item.status === 'ACTIVE'"
                   type="button"
                   class="btn btn-sm btn-outline-danger ms-1"
                   @click="btnDeactivateAccount(item.account)"
                 >
                   <i class="bi bi-person-x"></i> 全域停用
-                </button>                <button
+                </button>
+                <button
                   v-if="item.status === 'INACTIVE'"
                   type="button"
                   class="btn btn-sm btn-outline-success ms-1"
@@ -524,7 +530,9 @@ onMounted(loadData);
             />
           </div>
           <div>
-            <label for="resetConfirmPassword" class="form-label">確認新密碼</label>
+            <label for="resetConfirmPassword" class="form-label"
+              >確認新密碼</label
+            >
             <input
               id="resetConfirmPassword"
               v-model="resetPasswordForm.confirmPassword"

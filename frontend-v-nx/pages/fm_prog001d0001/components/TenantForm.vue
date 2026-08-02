@@ -6,6 +6,7 @@ const model = defineModel<any>({ required: true });
 defineProps<{
   checkFields: Record<string, string>;
   tenantIdReadonly?: boolean;
+  tenantCodeReadonly?: boolean;
 }>();
 </script>
 
@@ -35,6 +36,7 @@ defineProps<{
       <input
         id="tenantCode"
         v-model="model.tenantCode"
+        :readonly="tenantCodeReadonly"
         :class="[
           'form-control',
           checkInvalid('tenantCode', checkFields) ? 'is-invalid' : '',
