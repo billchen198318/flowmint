@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmWorkflowDelegationMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmWorkflowDelegation">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="DELEGATION_ID" jdbcType="VARCHAR" property="delegationId" />
+    <result column="PRINCIPAL_ACCOUNT" jdbcType="VARCHAR" property="principalAccount" />
+    <result column="DELEGATE_ACCOUNT" jdbcType="VARCHAR" property="delegateAccount" />
+    <result column="SCOPE_TYPE" jdbcType="VARCHAR" property="scopeType" />
+    <result column="SCOPE_REF_ID" jdbcType="VARCHAR" property="scopeRefId" />
+    <result column="ALLOW_REDELEGATE" jdbcType="CHAR" property="allowRedelegate" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="EFFECTIVE_FROM" jdbcType="TIMESTAMP" property="effectiveFrom" />
+    <result column="EFFECTIVE_TO" jdbcType="TIMESTAMP" property="effectiveTo" />
+    <result column="REASON" jdbcType="VARCHAR" property="reason" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, DELEGATION_ID, PRINCIPAL_ACCOUNT, DELEGATE_ACCOUNT,
+    SCOPE_TYPE, SCOPE_REF_ID, ALLOW_REDELEGATE, STATUS, EFFECTIVE_FROM,
+    EFFECTIVE_TO, REASON, CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="principalAccount != null and principalAccount != ''">
+      AND PRINCIPAL_ACCOUNT = #{principalAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="delegateAccount != null and delegateAccount != ''">
+      AND DELEGATE_ACCOUNT = #{delegateAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="scopeType != null and scopeType != ''">
+      AND SCOPE_TYPE = #{scopeType,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmWorkflowDelegation">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="delegationId != null">
+        DELEGATION_ID,
+      </if>
+      <if test="principalAccount != null">
+        PRINCIPAL_ACCOUNT,
+      </if>
+      <if test="delegateAccount != null">
+        DELEGATE_ACCOUNT,
+      </if>
+      <if test="scopeType != null">
+        SCOPE_TYPE,
+      </if>
+      <if test="scopeRefId != null">
+        SCOPE_REF_ID,
+      </if>
+      <if test="allowRedelegate != null">
+        ALLOW_REDELEGATE,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM,
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO,
+      </if>
+      <if test="reason != null">
+        REASON,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="delegationId != null">
+        #{delegationId,jdbcType=VARCHAR},
+      </if>
+      <if test="principalAccount != null">
+        #{principalAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="delegateAccount != null">
+        #{delegateAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="scopeType != null">
+        #{scopeType,jdbcType=VARCHAR},
+      </if>
+      <if test="scopeRefId != null">
+        #{scopeRefId,jdbcType=VARCHAR},
+      </if>
+      <if test="allowRedelegate != null">
+        #{allowRedelegate,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="reason != null">
+        #{reason,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmWorkflowDelegation">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    <set>
+      <if test="delegateAccount != null">
+        DELEGATE_ACCOUNT = #{delegateAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="scopeType != null">
+        SCOPE_TYPE = #{scopeType,jdbcType=VARCHAR},
+      </if>
+      SCOPE_REF_ID = #{scopeRefId,jdbcType=VARCHAR},
+      <if test="allowRedelegate != null">
+        ALLOW_REDELEGATE = #{allowRedelegate,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="effectiveFrom != null">
+        EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+      </if>
+      <if test="effectiveTo != null">
+        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
+      </if>
+      <if test="reason != null">
+        REASON = #{reason,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmWorkflowDelegation">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+</mapper>
