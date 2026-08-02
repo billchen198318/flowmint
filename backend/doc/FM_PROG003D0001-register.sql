@@ -1,0 +1,62 @@
+-- FlowMint FM_PROG003D0001 - 簽核群組程式註冊
+-- 僅註冊程式，不配置角色權限；請透過正式部署／資料庫變更程序執行。
+
+START TRANSACTION;
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG003D', 'FC. FlowMint 簽核資源',
+       '/', 'N', 'N', 0, 0,
+       'CORE', 'FOLDER', 'ORGANIZATION', 'people',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tb_sys_prog
+    WHERE PROG_ID = 'FM_PROG003D'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG003D0001Q', 'FC01 - 簽核群組',
+       '#/fm_prog003d0001', 'N', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'people',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tb_sys_prog
+    WHERE PROG_ID = 'FM_PROG003D0001Q'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG003D0001A', 'FC01 - 簽核群組（新增）',
+       '#/fm_prog003d0001/create', 'N', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'people',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tb_sys_prog
+    WHERE PROG_ID = 'FM_PROG003D0001A'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG003D0001E', 'FC01 - 簽核群組（編輯）',
+       '#/fm_prog003d0001/edit', 'Y', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'people',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM tb_sys_prog
+    WHERE PROG_ID = 'FM_PROG003D0001E'
+);
+
+COMMIT;
