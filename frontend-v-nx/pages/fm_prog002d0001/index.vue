@@ -31,7 +31,8 @@ store.gridConfig = getGridConfig(
   "oid",
   [
     {
-      method: (id: any) => router.push(PageConstants.frontendNamespace + "/edit/" + id),
+      method: (id: any) =>
+        router.push(PageConstants.frontendNamespace + "/edit/" + id),
       icon: "pen",
       type: "edit",
       memo: "編輯",
@@ -51,7 +52,9 @@ store.gridConfig = getGridConfig(
 
 const loadTenantOptions = async () => {
   const response = await getAxiosInstance().post(
-    import.meta.env.VITE_API_URL + PageConstants.eventNamespace + "/tenant-options",
+    import.meta.env.VITE_API_URL +
+      PageConstants.eventNamespace +
+      "/tenant-options",
   );
   tenantOptions.value = response.data?.value || [];
 };
@@ -70,10 +73,16 @@ const query = async () => {
           displayNameLike: store.queryParam.displayName,
           status: store.queryParam.status,
         },
-        pageOf: { select: store.gridConfig.page, showRow: store.gridConfig.row },
+        pageOf: {
+          select: store.gridConfig.page,
+          showRow: store.gridConfig.row,
+        },
       },
     );
-    if (!response.data || response.data.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+    if (
+      !response.data ||
+      response.data.success !== import.meta.env.VITE_SUCCESS_FLAG
+    ) {
       setConfigTotal(store.gridConfig, 0);
       toast.warning(response.data?.message || "查詢員工失敗。");
       return;
@@ -88,20 +97,35 @@ const query = async () => {
   }
 };
 
-const btnQuery = () => { setConfigPage(store.gridConfig, 1); query(); };
+const btnQuery = () => {
+  setConfigPage(store.gridConfig, 1);
+  query();
+};
 const clear = () => {
-  store.queryParam = { tenantId: "", employeeNo: "", account: "", displayName: "", status: "" };
+  store.queryParam = {
+    tenantId: "",
+    employeeNo: "",
+    account: "",
+    displayName: "",
+    status: "",
+  };
   rows.value = [];
   setConfigTotal(store.gridConfig, 0);
 };
-const page = (value: number) => { setConfigPage(store.gridConfig, value); query(); };
+const page = (value: number) => {
+  setConfigPage(store.gridConfig, value);
+  query();
+};
 const size = (value: number) => {
   setConfigRow(store.gridConfig, value);
   setConfigPage(store.gridConfig, 1);
   query();
 };
 
-onMounted(async () => { await loadTenantOptions(); await query(); });
+onMounted(async () => {
+  await loadTenantOptions();
+  await query();
+});
 </script>
 
 <template>
@@ -121,15 +145,41 @@ onMounted(async () => { await loadTenantOptions(); await query(); });
       <div class="col-md-3">
         <select v-model="store.queryParam.tenantId" class="form-select">
           <option value="">全部 Tenant</option>
-          <option v-for="item in tenantOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+          <option
+            v-for="item in tenantOptions"
+            :key="item.value"
+            :value="item.value"
+          >
+            {{ item.label }}
+          </option>
         </select>
       </div>
-      <div class="col-md-2"><input v-model="store.queryParam.employeeNo" class="form-control" placeholder="員工編號" /></div>
-      <div class="col-md-2"><input v-model="store.queryParam.account" class="form-control" placeholder="帳號" /></div>
-      <div class="col-md-2"><input v-model="store.queryParam.displayName" class="form-control" placeholder="姓名" /></div>
+      <div class="col-md-2">
+        <input
+          v-model="store.queryParam.employeeNo"
+          class="form-control"
+          placeholder="員工編號"
+        />
+      </div>
+      <div class="col-md-2">
+        <input
+          v-model="store.queryParam.account"
+          class="form-control"
+          placeholder="帳號"
+        />
+      </div>
+      <div class="col-md-2">
+        <input
+          v-model="store.queryParam.displayName"
+          class="form-control"
+          placeholder="姓名"
+        />
+      </div>
       <div class="col-md-1">
         <select v-model="store.queryParam.status" class="form-select">
-          <option value="">全部</option><option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option>
+          <option value="">全部</option>
+          <option value="ACTIVE">啟用</option>
+          <option value="INACTIVE">停用</option>
         </select>
       </div>
       <div class="col-md-2">
@@ -144,5 +194,9 @@ onMounted(async () => { await loadTenantOptions(); await query(); });
     :changePageSelectMethod="page"
     :changeGridConfigRowMethod="size"
   />
-  <Grid :progId="PageConstants.QueryId" :dataSource="rows" :config="store.gridConfig" />
+  <Grid
+    :progId="PageConstants.QueryId"
+    :dataSource="rows"
+    :config="store.gridConfig"
+  />
 </template>

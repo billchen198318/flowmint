@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 
 import Grid from "@/components/Grid.vue";
 import GridPagination from "@/components/GridPagination.vue";
+import HiddenQueryFieldAlertInfo from "@/components/HiddenQueryFieldAlertInfo.vue";
 import Toolbar from "@/components/Toolbar.vue";
 import { getAxiosInstance } from "@/components/BaseHelper";
 import {
@@ -16,6 +17,7 @@ import { PageConstants } from "./config";
 import { useStore } from "./QueryPageStore";
 
 definePageMeta({ middleware: ["auth"] });
+const show = ref(true);
 
 const router = useRouter();
 const store = useStore();
@@ -101,8 +103,11 @@ onMounted(async () => {
     refreshFlag="Y"
     @createMethod="router.push(PageConstants.frontendNamespace + '/create')"
     @refreshMethod="clear"
+    queryFieldShowSwitchFlag="Y"
+    @queryFieldShowSwitcMethod="show = !show"
   />
-  <div class="card mb-3">
+  <HiddenQueryFieldAlertInfo :dataSource="rows" :queryFieldShowFlag="show" />
+  <div v-show="show" class="card mb-3">
     <div class="card-body row g-2">
       <div class="col-md-2">
         <select v-model="store.queryParam.tenantId" class="form-select">
