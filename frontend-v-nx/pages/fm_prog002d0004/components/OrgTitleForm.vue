@@ -196,6 +196,7 @@ onMounted(async () => {
         <input
           id="titleCode"
           v-model="form.titleCode"
+          :readonly="edit"
           :class="[
             'form-control',
             checkInvalid('titleCode', checkFields) ? 'is-invalid' : '',

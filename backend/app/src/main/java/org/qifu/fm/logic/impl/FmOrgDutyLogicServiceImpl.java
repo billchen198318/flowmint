@@ -67,6 +67,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 		FmOrgDuty duty = new FmOrgDuty();
 		duty.setTenantId(command.tenantId());
 		duty.setDutyId(UUID.randomUUID().toString());
+		duty.setDutyCode(command.dutyCode());
 		applyDuty(duty, command);
 		dutyService.insert(duty);
 		return load(duty.getOid(), BaseSystemMessage.insertSuccess());
@@ -295,7 +296,6 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 
 	private void applyDuty(FmOrgDuty duty, FmOrgDutyCommand command) {
 		duty.setOrgUnitId(command.orgUnitId());
-		duty.setDutyCode(command.dutyCode());
 		duty.setDutyName(command.dutyName());
 		duty.setDutyType(command.dutyType());
 		duty.setStatus(StringUtils.defaultIfBlank(command.status(), "ACTIVE"));

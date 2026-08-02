@@ -36,6 +36,7 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
     FmOrgTitle value = new FmOrgTitle();
     value.setTenantId(command.tenantId());
     value.setTitleId(UUID.randomUUID().toString());
+    value.setTitleCode(command.titleCode());
     apply(value, command);
     titles.insert(value);
     return load(value.getOid(), BaseSystemMessage.insertSuccess());
@@ -94,7 +95,6 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   }
 
   private void apply(FmOrgTitle value, FmOrgTitleCommand command) {
-    value.setTitleCode(command.titleCode());
     value.setTitleName(command.titleName());
     value.setApprovalLevelId(command.approvalLevelId());
     value.setIsManagerTitle(StringUtils.defaultIfBlank(command.isManagerTitle(), "N"));

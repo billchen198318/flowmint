@@ -312,6 +312,7 @@ onMounted(async () => {
           <label class="form-label">職務代碼</label>
           <input
             v-model="form.dutyCode"
+            :readonly="props.edit"
             :class="[
               'form-control',
               checkInvalid('dutyCode', checkFields) ? 'is-invalid' : '',

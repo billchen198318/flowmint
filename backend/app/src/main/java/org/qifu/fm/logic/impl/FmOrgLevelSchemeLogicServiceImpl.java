@@ -47,6 +47,7 @@ public class FmOrgLevelSchemeLogicServiceImpl implements IFmOrgLevelSchemeLogicS
 		FmOrgLevelScheme s = new FmOrgLevelScheme();
 		s.setTenantId(c.tenantId());
 		s.setLevelSchemeId(UUID.randomUUID().toString());
+		s.setSchemeCode(c.schemeCode());
 		apply(s, c);
 		schemes.insert(s);
 		for (FmOrgLevelCommand x : c.levels())
@@ -141,7 +142,6 @@ public class FmOrgLevelSchemeLogicServiceImpl implements IFmOrgLevelSchemeLogicS
 	}
 
 	private void apply(FmOrgLevelScheme s, FmOrgLevelSchemeCommand c) {
-		s.setSchemeCode(c.schemeCode());
 		s.setSchemeName(c.schemeName());
 		s.setIsDefault(StringUtils.defaultIfBlank(c.isDefault(), "N"));
 		s.setStatus(StringUtils.defaultIfBlank(c.status(), "ACTIVE"));

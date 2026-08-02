@@ -140,9 +140,6 @@
   <update id="update">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_level_scheme
     <set>
-      <if test="schemeCode != null">
-        SCHEME_CODE = #{schemeCode,jdbcType=VARCHAR},
-      </if>
       <if test="schemeName != null">
         SCHEME_NAME = #{schemeName,jdbcType=VARCHAR},
       </if>

@@ -183,9 +183,6 @@
       <if test="orgUnitId != null">
         ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR},
       </if>
-      <if test="dutyCode != null">
-        DUTY_CODE = #{dutyCode,jdbcType=VARCHAR},
-      </if>
       <if test="dutyName != null">
         DUTY_NAME = #{dutyName,jdbcType=VARCHAR},
       </if>

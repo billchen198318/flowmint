@@ -149,9 +149,6 @@
   <update id="update">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title
     <set>
-      <if test="titleCode != null">
-        TITLE_CODE = #{titleCode,jdbcType=VARCHAR},
-      </if>
       <if test="titleName != null">
         TITLE_NAME = #{titleName,jdbcType=VARCHAR},
       </if>

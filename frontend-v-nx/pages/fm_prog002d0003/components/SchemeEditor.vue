@@ -173,7 +173,11 @@ onMounted(async () => {
       </div>
       <div class="col-md-4">
         <label>方案代碼</label
-        ><input v-model="form.schemeCode" class="form-control" />
+        ><input
+          v-model="form.schemeCode"
+          :readonly="edit"
+          class="form-control"
+        />
       </div>
       <div class="col-md-4">
         <label>方案名稱</label
