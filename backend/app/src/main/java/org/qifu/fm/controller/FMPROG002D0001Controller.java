@@ -13,10 +13,13 @@ import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmEmployeeCommand;
+import org.qifu.fm.dto.command.FmEmployeeOrgAssignmentCommand;
+import org.qifu.fm.dto.view.FmEmployeeOrgAssignmentView;
 import org.qifu.fm.dto.view.FmEmployeeView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.logic.IFmEmployeeLogicService;
+import org.qifu.fm.logic.IFmEmployeeOrgAssignmentLogicService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,11 +36,14 @@ public class FMPROG002D0001Controller extends CoreApiSupport {
 	private static final long serialVersionUID = 1L;
 	private final transient IFmEmployeeService employeeService;
 	private final transient IFmEmployeeLogicService employeeLogicService;
+	private final transient IFmEmployeeOrgAssignmentLogicService assignmentLogicService;
 
 	public FMPROG002D0001Controller(IFmEmployeeService employeeService,
-			IFmEmployeeLogicService employeeLogicService) {
+			IFmEmployeeLogicService employeeLogicService,
+			IFmEmployeeOrgAssignmentLogicService assignmentLogicService) {
 		this.employeeService = employeeService;
 		this.employeeLogicService = employeeLogicService;
+		this.assignmentLogicService = assignmentLogicService;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG002D0001Q", check = true)
@@ -138,6 +144,104 @@ public class FMPROG002D0001Controller extends CoreApiSupport {
 		return ResponseEntity.ok(result);
 	}
 
+	@ControllerMethodAuthority(programId = "FM_PROG002D0001E", check = true)
+	@PostMapping(value = "/assignment/list", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmEmployeeOrgAssignmentView>>> assignmentList(
+			@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<List<FmEmployeeOrgAssignmentView>> result = this.initDefaultJsonResult();
+		try {
+			this.setDefaultResponseJsonResult(assignmentLogicService.list(body.get("employeeOid")), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG002D0001U", check = true)
+	@PostMapping(value = "/assignment/save", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmEmployeeOrgAssignmentView>>> assignmentSave(
+			@RequestBody FmEmployeeOrgAssignmentCommand command) {
+		DefaultControllerJsonResultObj<List<FmEmployeeOrgAssignmentView>> result = this.initDefaultJsonResult();
+		try {
+			validateAssignment(result, command);
+			this.setDefaultResponseJsonResult(assignmentLogicService.save(command), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG002D0001U", check = true)
+	@PostMapping(value = "/assignment/deactivate", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmEmployeeOrgAssignmentView>>> assignmentDeactivate(
+			@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<List<FmEmployeeOrgAssignmentView>> result = this.initDefaultJsonResult();
+		try {
+			this.setDefaultResponseJsonResult(
+					assignmentLogicService.deactivate(body.get("employeeOid"), body.get("oid")), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG002D0001E", check = true)
+	@PostMapping(value = "/assignment/org-unit-options", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> assignmentOrgUnitOptions(
+			@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<List<FmOptionView>> result = this.initDefaultJsonResult();
+		try {
+			this.setDefaultResponseJsonResult(assignmentLogicService.orgUnitOptions(body.get("employeeOid")), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG002D0001E", check = true)
+	@PostMapping(value = "/assignment/title-options", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> assignmentTitleOptions(
+			@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<List<FmOptionView>> result = this.initDefaultJsonResult();
+		try {
+			this.setDefaultResponseJsonResult(assignmentLogicService.titleOptions(body.get("employeeOid")), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG002D0001E", check = true)
+	@PostMapping(value = "/assignment/manager-options", produces = MediaType.APPLICATION_JSON_VALUE)
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> assignmentManagerOptions(
+			@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<List<FmOptionView>> result = this.initDefaultJsonResult();
+		try {
+			this.setDefaultResponseJsonResult(
+					assignmentLogicService.managerOptions(body.get("employeeOid")), result);
+		} catch (ServiceException | ControllerException e) {
+			this.exceptionResult(result, e);
+		}
+		return ResponseEntity.ok(result);
+	}
+	private void validateAssignment(
+			DefaultControllerJsonResultObj<List<FmEmployeeOrgAssignmentView>> result,
+			FmEmployeeOrgAssignmentCommand command) throws ControllerException, ServiceException {
+		@SuppressWarnings("rawtypes")
+		CheckControllerFieldHandler check = this.getCheckControllerFieldHandler(result);
+		check.testField("orgUnitId", command,
+				"@org.apache.commons.lang3.StringUtils@isBlank(orgUnitId)", "請選擇部門")
+				.testField("titleId", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(titleId)", "請選擇職稱")
+				.testField("managerSource", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(managerSource)", "請選擇直屬主管來源")
+				.testField("effectiveFrom", command, "effectiveFrom == null", "請輸入任職生效時間")
+				.throwHtmlMessage();
+		if ("EXPLICIT".equals(command.managerSource())
+				&& org.apache.commons.lang3.StringUtils.isBlank(command.directManagerAssignmentId())) {
+			throw new ServiceException("指定直屬主管時，請選擇主管員工任職");
+		}
+	}
 	private void validate(DefaultControllerJsonResultObj<FmEmployeeView> result, FmEmployeeCommand command)
 			throws ControllerException, ServiceException {
 		@SuppressWarnings("rawtypes")
@@ -149,11 +253,11 @@ public class FMPROG002D0001Controller extends CoreApiSupport {
 				.testField("account", command, "@org.apache.commons.lang3.StringUtils@isBlank(account)", "請選擇帳號")
 				.testField("displayName", command, "@org.apache.commons.lang3.StringUtils@isBlank(displayName)",
 						"請輸入顯示名稱")
-				.testField("effectiveFrom", command, "effectiveFrom == null", "請輸入生效時間")
+				.testField("effectiveFrom", command, "effectiveFrom == null", "請輸入生效日期")
 				.throwHtmlMessage();
 		if (command.effectiveFrom() != null && command.effectiveTo() != null
 				&& !command.effectiveTo().after(command.effectiveFrom())) {
-			throw new ServiceException("失效時間必須晚於生效時間");
+			throw new ServiceException("失效日期必須晚於生效日期");
 		}
 	}
 }
