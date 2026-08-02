@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmOrgUnitHeadMapper">
+	<resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmOrgUnitHead">
+		<id column="OID" jdbcType="CHAR" property="oid" />
+		<result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+		<result column="ORG_UNIT_HEAD_ID" jdbcType="VARCHAR" property="orgUnitHeadId" />
+		<result column="ORG_UNIT_ID" jdbcType="VARCHAR" property="orgUnitId" />
+		<result column="EMPLOYEE_ID" jdbcType="VARCHAR" property="employeeId" />
+		<result column="HEAD_TYPE" jdbcType="VARCHAR" property="headType" />
+		<result column="PRIORITY" jdbcType="INTEGER" property="priority" />
+		<result column="STATUS" jdbcType="VARCHAR" property="status" />
+		<result column="EFFECTIVE_FROM" jdbcType="TIMESTAMP" property="effectiveFrom" />
+		<result column="EFFECTIVE_TO" jdbcType="TIMESTAMP" property="effectiveTo" />
+		<result column="DESCRIPTION" jdbcType="VARCHAR" property="description" />
+		<result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+		<result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+		<result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+		<result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+	</resultMap>
+	<sql id="BaseColumnList">
+		OID, TENANT_ID, ORG_UNIT_HEAD_ID, ORG_UNIT_ID, EMPLOYEE_ID, HEAD_TYPE,
+		PRIORITY, STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, DESCRIPTION,
+		CUSERID, CDATE, UUSERID, UDATE
+	</sql>
+	<select id="selectByPrimaryKey" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_head
+		WHERE OID = #{oid,jdbcType=CHAR}
+	</select>
+	<sql id="baseConditions">
+		<if test="tenantId != null and tenantId != ''">AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}</if>
+		<if test="orgUnitId != null and orgUnitId != ''">AND ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}</if>
+		<if test="employeeId != null and employeeId != ''">AND EMPLOYEE_ID = #{employeeId,jdbcType=VARCHAR}</if>
+		<if test="headType != null and headType != ''">AND HEAD_TYPE = #{headType,jdbcType=VARCHAR}</if>
+		<if test="status != null and status != ''">AND STATUS = #{status,jdbcType=VARCHAR}</if>
+	</sql>
+	<select id="selectListByParams" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_head
+		WHERE 1 = 1 <include refid="baseConditions" />
+		<if test="orderBy != null and orderBy != ''">ORDER BY ${orderBy} ${sortType}</if>
+	</select>
+	<select id="findPage" resultMap="BaseResultMap">
+		<include refid="org.qifu.core.mapper.DB1Config.sql1" />
+		SELECT <include refid="BaseColumnList" />
+		FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_head
+		WHERE 1 = 1 <include refid="baseConditions" />
+		<include refid="org.qifu.core.mapper.DB1Config.sql2" />
+	</select>
+	<select id="count" resultType="java.lang.Long">
+		SELECT COUNT(*) FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_head
+		WHERE 1 = 1 <include refid="baseConditions" />
+	</select>
+	<insert id="insert">
+		INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_head
+			(OID, TENANT_ID, ORG_UNIT_HEAD_ID, ORG_UNIT_ID, EMPLOYEE_ID, HEAD_TYPE,
+			 PRIORITY, STATUS, EFFECTIVE_FROM, EFFECTIVE_TO, DESCRIPTION, CUSERID, CDATE)
+		VALUES
+			(#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{orgUnitHeadId,jdbcType=VARCHAR},
+			 #{orgUnitId,jdbcType=VARCHAR}, #{employeeId,jdbcType=VARCHAR}, #{headType,jdbcType=VARCHAR},
+			 #{priority,jdbcType=INTEGER}, #{status,jdbcType=VARCHAR}, #{effectiveFrom,jdbcType=TIMESTAMP},
+			 #{effectiveTo,jdbcType=TIMESTAMP}, #{description,jdbcType=VARCHAR},
+			 #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+	</insert>
+	<update id="update">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_head
+		SET ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}, EMPLOYEE_ID = #{employeeId,jdbcType=VARCHAR},
+			HEAD_TYPE = #{headType,jdbcType=VARCHAR}, PRIORITY = #{priority,jdbcType=INTEGER},
+			STATUS = #{status,jdbcType=VARCHAR}, EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
+			EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP}, DESCRIPTION = #{description,jdbcType=VARCHAR},
+			UUSERID = #{uuserid,jdbcType=VARCHAR}, UDATE = #{udate,jdbcType=TIMESTAMP}
+		WHERE OID = #{oid,jdbcType=CHAR} AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+	</update>
+	<delete id="delete">
+		DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_head
+		WHERE OID = #{oid,jdbcType=CHAR}
+	</delete>
+</mapper>
