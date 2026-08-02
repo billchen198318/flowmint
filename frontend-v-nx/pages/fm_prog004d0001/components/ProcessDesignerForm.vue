@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import BpmnModeler from "bpmn-js/lib/Modeler";
 import "bpmn-js/dist/assets/diagram-js.css";
@@ -24,6 +24,8 @@ const tenants = ref<any[]>([]);
 const checkFields = ref<Record<string, string>>({});
 const canvas = ref<HTMLElement | null>(null);
 const selectedVersion = ref<any>(null);
+const publishedForms = ref<any[]>([]);
+const selectedTask = ref<any>(null);
 let modeler: any = null;
 const newForm = () => ({
   oid: "",
@@ -51,11 +53,69 @@ const showResponse = (response: any) => {
   toast.success(response.data.message);
   return true;
 };
+const selectedTaskRule = computed(() =>
+  selectedVersion.value?.taskForms?.find(
+    (item: any) => item.taskDefKey === selectedTask.value?.id,
+  ),
+);
+const selectedFormValue = computed(() => {
+  const rule = selectedTaskRule.value;
+  return rule ? `${rule.formId}::${rule.formVersionNo}` : "";
+});
+const loadPublishedForms = async () => {
+  if (!form.value.tenantId) return;
+  const response = await post("/published-form-options", {
+    tenantId: form.value.tenantId,
+  });
+  publishedForms.value = response.data?.value || [];
+};
+const bindModelerEvents = () => {
+  modeler.get("eventBus").on("selection.changed", (event: any) => {
+    const element = event.newSelection?.[0];
+    selectedTask.value = element?.type === "bpmn:UserTask" ? element : null;
+  });
+  modeler.get("eventBus").on("element.changed", (event: any) => {
+    if (selectedTask.value?.id === event.element?.id)
+      selectedTask.value = event.element;
+  });
+};
+const changeSelectedForm = (event: Event) => {
+  if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT")
+    return;
+  const value = (event.target as HTMLSelectElement).value;
+  const remaining = (selectedVersion.value.taskForms || []).filter(
+    (item: any) => item.taskDefKey !== selectedTask.value.id,
+  );
+  if (value) {
+    const [formId, formVersionNo] = value.split("::");
+    remaining.push({
+      taskDefKey: selectedTask.value.id,
+      formId,
+      formVersionNo: Number(formVersionNo),
+    });
+  }
+  selectedVersion.value.taskForms = remaining;
+};
+const currentTaskForms = () => {
+  if (!modeler || !selectedVersion.value) return [];
+  const taskKeys = new Set(
+    modeler
+      .get("elementRegistry")
+      .filter((item: any) => item.type === "bpmn:UserTask")
+      .map((item: any) => item.id),
+  );
+  return (selectedVersion.value.taskForms || []).filter((item: any) =>
+    taskKeys.has(item.taskDefKey),
+  );
+};
 const openVersion = async (version: any) => {
   selectedVersion.value = version;
+  selectedTask.value = null;
   await nextTick();
-  if (!modeler && canvas.value)
+  if (!modeler && canvas.value) {
     modeler = new BpmnModeler({ container: canvas.value });
+    bindModelerEvents();
+  }
   if (modeler && version?.bpmnXml) {
     await modeler.importXML(version.bpmnXml);
     modeler.get("canvas").zoom("fit-viewport");
@@ -63,6 +123,7 @@ const openVersion = async (version: any) => {
 };
 const apply = async (value: any) => {
   form.value = value;
+  await loadPublishedForms();
   const draft = value.versions?.find(
     (item: any) => item.versionStatus === "DRAFT",
   );
@@ -116,6 +177,7 @@ const save = async () => {
         : "";
     const draftXml =
       draftOid && modeler ? (await modeler.saveXML({ format: true })).xml : "";
+    const draftTaskForms = draftOid ? currentTaskForms() : [];
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
     if (!showResponse(response)) return;
@@ -130,6 +192,7 @@ const save = async () => {
       response = await post("/version/save-draft", {
         oid: draftOid,
         bpmnXml: draftXml,
+        taskForms: draftTaskForms,
       });
       if (showResponse(response)) await apply(response.data.value);
     }
@@ -157,6 +220,7 @@ const publish = async () => {
     let response = await post("/version/save-draft", {
       oid: selectedVersion.value.oid,
       bpmnXml: xml,
+      taskForms: currentTaskForms(),
     });
     if (!responseOk(response)) {
       showResponse(response);
@@ -207,7 +271,8 @@ onBeforeUnmount(() => modeler?.destroy());
     <div class="card-body">
       <div class="alert alert-info">
         草稿可反覆儲存；「發布草稿」會先保存畫布、由 Flowable 驗證
-        XML，再建立正式部署。已發布版本只能檢視，請按「建立新版本」複製最新版後再修改。
+        XML，再建立正式部署。請點選 UserTask，於右側選擇該節點要顯示的表單；一個
+        UserTask 只能選一張同 Tenant 已發布的表單。已發布版本只能檢視，請按「建立新版本」複製最新版後再修改。
       </div>
       <div class="row g-3">
         <div class="col-md-3">
@@ -336,13 +401,65 @@ onBeforeUnmount(() => modeler?.destroy());
           v{{ version.versionNo }}・{{ version.versionStatus }}
         </button>
       </div>
-      <div class="position-relative border rounded">
-        <div ref="canvas" class="bpmn-canvas"></div>
-        <div
-          v-if="selectedVersion?.versionStatus !== 'DRAFT'"
-          class="readonly-cover"
-        >
-          <span class="badge text-bg-secondary">已發布版本：僅供檢視</span>
+      <div class="row g-3">
+        <div class="col-lg-9">
+          <div class="position-relative border rounded">
+            <div ref="canvas" class="bpmn-canvas"></div>
+            <div
+              v-if="selectedVersion?.versionStatus !== 'DRAFT'"
+              class="readonly-cover"
+            >
+              <span class="badge text-bg-secondary">已發布版本：僅供檢視</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3">
+          <div class="card h-100 task-property-panel">
+            <div class="card-header">UserTask 節點屬性</div>
+            <div class="card-body">
+              <div v-if="!selectedTask" class="text-muted">
+                請在左側流程圖點選一個 UserTask，再設定該簽核節點要顯示的表單。
+              </div>
+              <template v-else>
+                <div class="mb-3">
+                  <label class="form-label">節點代碼</label>
+                  <input :value="selectedTask.id" disabled class="form-control" />
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">節點名稱</label>
+                  <input
+                    :value="selectedTask.businessObject?.name || '未命名節點'"
+                    disabled
+                    class="form-control"
+                  />
+                </div>
+                <div class="mb-2">
+                  <label class="form-label">顯示表單</label>
+                  <select
+                    :value="selectedFormValue"
+                    :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                    class="form-select"
+                    @change="changeSelectedForm"
+                  >
+                    <option value="">請選擇已發布表單</option>
+                    <option
+                      v-for="item in publishedForms"
+                      :key="`${item.formId}-${item.formVersionNo}`"
+                      :value="`${item.formId}::${item.formVersionNo}`"
+                    >
+                      {{ item.label }}
+                    </option>
+                  </select>
+                </div>
+                <div class="form-text">
+                  此表單會在使用者處理本節點時顯示。改選會取代原表單，不會新增第二張表單。
+                </div>
+                <div v-if="!publishedForms.length" class="alert alert-warning mt-3 mb-0">
+                  此 Tenant 尚無已發布表單，請先至 FM_PROG005D0001 建立並發布 Form。
+                </div>
+              </template>
+            </div>
+          </div>
         </div>
       </div>
       <div v-if="selectedVersion" class="mt-3 d-flex gap-2 align-items-center">
@@ -388,5 +505,8 @@ onBeforeUnmount(() => modeler?.destroy());
   position: absolute;
   right: 1rem;
   top: 1rem;
+}
+.task-property-panel {
+  min-height: 620px;
 }
 </style>

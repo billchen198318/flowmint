@@ -1,6 +1,7 @@
 package org.qifu.fm.dto.view;
 
 import java.util.Date;
+import java.util.List;
 
 public record FmProcessVersionView(
         String oid,
@@ -11,5 +12,6 @@ public record FmProcessVersionView(
         String flowableDeploymentId,
         String flowableProcessDefId,
         String publishedBy,
-        Date publishedDate) {
+        Date publishedDate,
+        List<FmTaskFormRuleView> taskForms) {
 }

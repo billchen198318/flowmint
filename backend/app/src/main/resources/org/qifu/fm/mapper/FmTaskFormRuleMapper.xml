@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTaskFormRuleMapper">
+  <resultMap id="rule" type="org.qifu.fm.entity.FmTaskFormRule">
+    <id column="OID" property="oid"/><result column="TENANT_ID" property="tenantId"/>
+    <result column="PROCESS_DEF_ID" property="processDefId"/><result column="PROCESS_VERSION_NO" property="processVersionNo"/>
+    <result column="TASK_DEF_KEY" property="taskDefKey"/><result column="FORM_ID" property="formId"/>
+    <result column="FORM_VERSION_NO" property="formVersionNo"/><result column="FIELD_POLICY" property="fieldPolicy"/>
+    <result column="CUSERID" property="cuserid"/><result column="CDATE" property="cdate"/>
+    <result column="UUSERID" property="uuserid"/><result column="UDATE" property="udate"/>
+  </resultMap>
+  <select id="selectByVersion" resultMap="rule">
+    SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_form_rule
+    WHERE TENANT_ID=#{tenantId} AND PROCESS_DEF_ID=#{processDefId} AND PROCESS_VERSION_NO=#{processVersionNo}
+    ORDER BY TASK_DEF_KEY
+  </select>
+  <delete id="deleteByVersion">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_form_rule
+    WHERE TENANT_ID=#{tenantId} AND PROCESS_DEF_ID=#{processDefId} AND PROCESS_VERSION_NO=#{processVersionNo}
+  </delete>
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTaskFormRule">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_form_rule
+    (OID,TENANT_ID,PROCESS_DEF_ID,PROCESS_VERSION_NO,TASK_DEF_KEY,FORM_ID,FORM_VERSION_NO,FIELD_POLICY,CUSERID,CDATE)
+    VALUES (#{oid},#{tenantId},#{processDefId},#{processVersionNo},#{taskDefKey},#{formId},#{formVersionNo},#{fieldPolicy},#{cuserid},#{cdate})
+  </insert>
+  <select id="selectPublishedFormOptions" resultType="org.qifu.fm.dto.view.FmPublishedFormOptionView">
+    SELECT d.FORM_ID formId,v.VERSION_NO formVersionNo,
+           CONCAT(d.FORM_CODE,' - ',d.FORM_NAME,' (v',v.VERSION_NO,')') label
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def d
+    JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_version v
+      ON v.TENANT_ID=d.TENANT_ID AND v.FORM_ID=d.FORM_ID
+    WHERE d.TENANT_ID=#{tenantId} AND d.STATUS&lt;&gt;'INACTIVE' AND v.VERSION_STATUS='PUBLISHED'
+    ORDER BY d.FORM_CODE,v.VERSION_NO DESC
+  </select>
+  <select id="countPublishedFormVersion" resultType="int">
+    SELECT COUNT(*) FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def d
+    JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_version v
+      ON v.TENANT_ID=d.TENANT_ID AND v.FORM_ID=d.FORM_ID
+    WHERE d.TENANT_ID=#{tenantId} AND d.FORM_ID=#{formId} AND v.VERSION_NO=#{formVersionNo}
+      AND d.STATUS&lt;&gt;'INACTIVE' AND v.VERSION_STATUS='PUBLISHED'
+  </select>
+</mapper>
