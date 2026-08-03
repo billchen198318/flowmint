@@ -32,6 +32,7 @@ FlowMint 只做簽核。新模型移除集團、法人、據點、完整 HR 職�
 18. [QIFU4 帳號與 Role 邊界](17-QIFU4帳號與Role邊界.md)
 19. [目前開發進度](18-開發進度.md)
 20. [原始碼排版與交付規範](19-原始碼排版與交付規範.md)（強制）
+21. [動態資料服務規格](20-動態資料服務規格.md)
 
 ## SQL
 
@@ -51,4 +52,3 @@ Enterprise Group、Legal Entity、Location、Employment、Job、Grade、Position
 ## 實作規則
 
 後續不得先改舊 `flowmint.sql` 再回頭補文件。必須先核准本規格，從 `flowmint-core-schema.sql` 建立隔離資料庫並通過驗證，再開始 Entity／Mapper／Service／API／UI 與 migration。
-
