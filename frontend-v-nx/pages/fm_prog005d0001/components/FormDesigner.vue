@@ -527,4 +527,26 @@ onBeforeUnmount(destroyDesigner);
 .formio-designer {
   min-height: 420px;
 }
+
+:global(.formio-dialog.component-settings .nav-tabs) {
+  height: auto;
+  margin-top: 0;
+  margin-left: 0;
+  overflow: visible;
+  flex-wrap: wrap;
+}
+
+:global(.formio-dialog.component-settings .nav-tabs .nav-link.active) {
+  background-color: var(--bs-body-bg);
+  background-image: none;
+}
+
+:global(.formio-dialog.component-settings .tab-content) {
+  height: auto;
+  margin-right: 0;
+  margin-left: 0;
+  padding: 0;
+  overflow: visible;
+  background: transparent;
+}
 </style>
