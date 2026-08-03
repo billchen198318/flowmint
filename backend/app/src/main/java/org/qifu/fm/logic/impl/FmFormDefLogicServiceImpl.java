@@ -40,16 +40,15 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
 
     private static final String DEFAULT_SCHEMA = """
             {
-              "$schema": "https://json-schema.org/draft/2020-12/schema",
-              "type": "object",
-              "properties": {}
+              "display": "form",
+              "components": []
             }
             """;
 
     private static final String DEFAULT_UI_SCHEMA = """
             {
-              "type": "VerticalLayout",
-              "elements": []
+              "engine": "FORMIO",
+              "version": 1
             }
             """;
 
@@ -327,14 +326,23 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         try {
             JsonNode schema = objectMapper.readTree(schemaContent);
             JsonNode uiSchema = objectMapper.readTree(uiSchemaContent);
-            if (!schema.isObject()
-                    || !"object".equals(schema.path("type").asString())
-                    || (schema.has("properties") && !schema.path("properties").isObject())) {
-                throw new ServiceException(
-                        "JSON Schema 根節點必須是 type=object，properties 必須是物件");
+            boolean jsonSchema = schema.isObject()
+                    && "object".equals(schema.path("type").asString())
+                    && (!schema.has("properties") || schema.path("properties").isObject());
+            boolean formioSchema = schema.isObject()
+                    && "form".equals(schema.path("display").asString())
+                    && schema.path("components").isArray();
+            if (!jsonSchema && !formioSchema) {
+                throw new ServiceException("表單內容必須是有效的 Form.io 或 JSON Schema 格式");
             }
             if (!uiSchema.isObject()) {
                 throw new ServiceException("UI Schema 根節點必須是 JSON 物件");
+            }
+            if (formioSchema) {
+                if (!"FORMIO".equals(uiSchema.path("engine").asString())) {
+                    throw new ServiceException("Form.io 表單缺少正確的引擎識別");
+                }
+                rejectExecutableFormioContent(schema);
             }
             String normalizedSchema = objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValueAsString(schema);
@@ -343,6 +351,23 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             return new JsonContent(normalizedSchema, normalizedUiSchema);
         } catch (JacksonException exception) {
             throw new ServiceException("表單 JSON 格式錯誤：" + exception.getMessage());
+        }
+    }
+
+    private void rejectExecutableFormioContent(JsonNode schema) throws ServiceException {
+        String[] executableFields = {
+                "custom",
+                "calculateValue",
+                "customConditional",
+                "logic"
+        };
+        for (String field : executableFields) {
+            for (JsonNode value : schema.findValues(field)) {
+                if ((!value.isString() || StringUtils.isNotBlank(value.asString()))
+                        && (!value.isArray() || !value.isEmpty())) {
+                    throw new ServiceException("Form.io 表單不可包含自訂 JavaScript 或 Logic");
+                }
+            }
         }
     }
 

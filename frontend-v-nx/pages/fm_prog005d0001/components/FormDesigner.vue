@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
+import "@formio/js/dist/formio.full.min.css";
 import Toolbar from "@/components/Toolbar.vue";
 import {
   checkInvalid,
@@ -20,6 +21,10 @@ const { showLoading, hideLoading, confirmFire } = useSwalLoading();
 const tenants = ref<any[]>([]);
 const checkFields = ref<Record<string, string>>({});
 const selectedVersion = ref<any>(null);
+const designerHost = ref<HTMLElement | null>(null);
+const designerLoading = ref(false);
+let designerInstance: any = null;
+let designerSequence = 0;
 const newForm = () => ({
   oid: "",
   tenantId: "",
@@ -47,27 +52,121 @@ const showResponse = (response: any) => {
   toast.success(response.data.message);
   return true;
 };
-const schemaFields = computed(() => {
+const emptyFormioSchema = () => ({ display: "form", components: [] as any[] });
+const legacyComponent = (key: string, definition: any, required: string[]) => {
+  let type = "textfield";
+  if (definition?.type === "boolean") type = "checkbox";
+  else if (["number", "integer"].includes(definition?.type)) type = "number";
+  else if (["date", "date-time"].includes(definition?.format))
+    type = "datetime";
+  else if (definition?.["x-control"] === "TEXTAREA") type = "textarea";
+  return {
+    type,
+    key,
+    label: definition?.title || key,
+    input: true,
+    validate: { required: required.includes(key) },
+  };
+};
+const parseFormioSchema = (content: string) => {
   try {
-    const schema = JSON.parse(selectedVersion.value?.schemaContent || "{}");
-    return Object.entries(schema.properties || {}).map(
-      ([name, definition]: [string, any]) => ({
-        name,
-        type: definition?.type || "未指定",
-        title: definition?.title || "",
-        required: (schema.required || []).includes(name),
-      }),
-    );
+    const schema = JSON.parse(content || "{}");
+    if (Array.isArray(schema.components)) return schema;
+    if (schema.type === "object" && schema.properties) {
+      const required = Array.isArray(schema.required) ? schema.required : [];
+      return {
+        display: "form",
+        components: Object.entries(schema.properties).map(([key, definition]) =>
+          legacyComponent(key, definition, required),
+        ),
+      };
+    }
   } catch {
-    return [];
+    // The backend provides the detailed validation error when saving the draft.
   }
-});
+  return emptyFormioSchema();
+};
+const destroyDesigner = () => {
+  designerSequence += 1;
+  designerInstance?.destroy?.(true);
+  designerInstance = null;
+  if (designerHost.value) designerHost.value.innerHTML = "";
+};
+const renderDesigner = async () => {
+  const sequence = ++designerSequence;
+  designerLoading.value = true;
+  await nextTick();
+  if (!designerHost.value || !selectedVersion.value) {
+    designerLoading.value = false;
+    return;
+  }
+  designerInstance?.destroy?.(true);
+  designerHost.value.innerHTML = "";
+  try {
+    const { Formio } = await import("@formio/js");
+    if (sequence !== designerSequence || !designerHost.value) return;
+    const schema = parseFormioSchema(selectedVersion.value.schemaContent);
+    if (selectedVersion.value.versionStatus === "DRAFT") {
+      designerInstance = await Formio.builder(designerHost.value, schema, {
+        noDefaultSubmitButton: true,
+        alwaysConfirmComponentRemoval: true,
+        builder: {
+          basic: { title: "基本欄位", weight: 0, default: true },
+          advanced: false,
+          data: false,
+          premium: false,
+          layout: { title: "版面配置", weight: 10 },
+        },
+      });
+      designerInstance.on("change", (changedSchema: any) => {
+        if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+        selectedVersion.value.schemaContent = JSON.stringify(
+          changedSchema,
+          null,
+          2,
+        );
+        selectedVersion.value.uiSchemaContent = JSON.stringify(
+          { engine: "FORMIO", version: 1 },
+          null,
+          2,
+        );
+      });
+    } else {
+      designerInstance = await Formio.createForm(designerHost.value, schema, {
+        readOnly: true,
+        noAlerts: true,
+      });
+    }
+  } catch (error: any) {
+    toast.error(error?.message || "載入 Form.io 設計器失敗");
+  } finally {
+    if (sequence === designerSequence) designerLoading.value = false;
+  }
+};
+const selectVersion = (version: any) => {
+  selectedVersion.value = version;
+  void renderDesigner();
+};
+const syncSchemaFromDesigner = () => {
+  if (selectedVersion.value?.versionStatus !== "DRAFT") return true;
+  const schema =
+    designerInstance?.form ||
+    parseFormioSchema(selectedVersion.value.schemaContent);
+  selectedVersion.value.schemaContent = JSON.stringify(schema, null, 2);
+  selectedVersion.value.uiSchemaContent = JSON.stringify(
+    { engine: "FORMIO", version: 1 },
+    null,
+    2,
+  );
+  return true;
+};
 const apply = (value: any) => {
   form.value = value;
-  selectedVersion.value =
+  selectVersion(
     value.versions?.find((item: any) => item.versionStatus === "DRAFT") ||
-    value.versions?.[0] ||
-    null;
+      value.versions?.[0] ||
+      null,
+  );
 };
 const load = async () => {
   if (!props.edit) return;
@@ -108,21 +207,9 @@ const validateMaster = () => {
   }
   return true;
 };
-const formatJson = (field: "schemaContent" | "uiSchemaContent") => {
-  if (!selectedVersion.value) return;
-  try {
-    selectedVersion.value[field] = JSON.stringify(
-      JSON.parse(selectedVersion.value[field]),
-      null,
-      2,
-    );
-    toast.success("JSON 格式正確並已重新排版");
-  } catch (error: any) {
-    toast.warning("JSON 格式錯誤：" + error.message);
-  }
-};
 const save = async () => {
   if (!validateMaster()) return;
+  if (!syncSchemaFromDesigner()) return;
   showLoading();
   try {
     const draft =
@@ -164,6 +251,7 @@ const createVersion = async () => {
 };
 const publish = async () => {
   if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+  if (!syncSchemaFromDesigner()) return;
   showLoading();
   try {
     let response = await post("/version/save-draft", {
@@ -198,6 +286,7 @@ onMounted(async () => {
     form.value.tenantId = tenants.value[0].value;
   await load();
 });
+onBeforeUnmount(destroyDesigner);
 </script>
 
 <template>
@@ -205,7 +294,7 @@ onMounted(async () => {
     :progId="props.edit ? PageConstants.EditId : PageConstants.CreateId"
     :description="
       props.edit
-        ? '維護表單主檔與版本。只有草稿版本可以修改 JSON Schema 與 UI Schema；發布後必須建立新版本。'
+        ? '使用 Form.io 拖拉設計器維護表單；草稿可編輯，發布後若要調整必須建立新版本。'
         : '建立表單穩定主檔。儲存後會自動建立第 1 版草稿；表單代碼與 Tenant 建立後不可修改。'
     "
     refreshFlag="Y"
@@ -218,8 +307,8 @@ onMounted(async () => {
   <div class="card">
     <div class="card-body">
       <div class="alert alert-info">
-        JSON Schema 定義資料欄位、型別與必填；UI Schema
-        定義畫面排列。發布時後端會重新解析、正規化並計算 SHA-256。
+        請從 Form.io 工具箱拖拉欄位並設定屬性，不需要自行撰寫
+        JSON。發布時後端會重新驗證內容並鎖定版本。
       </div>
       <div class="row g-3">
         <div class="col-md-3">
@@ -342,79 +431,52 @@ onMounted(async () => {
               ? 'btn-primary'
               : 'btn-outline-secondary',
           ]"
-          @click="selectedVersion = version"
+          @click="selectVersion(version)"
         >
           v{{ version.versionNo }}・{{ version.versionStatus }}
         </button>
       </div>
       <div v-if="selectedVersion" class="row g-3">
-        <div class="col-lg-6">
+        <div class="col-12">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <label class="form-label mb-0">JSON Schema</label>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary"
-              :disabled="selectedVersion.versionStatus !== 'DRAFT'"
-              @click="formatJson('schemaContent')"
-            >
-              格式化／檢查
-            </button>
+            <div>
+              <h5 class="mb-1">Form.io 拖拉式表單設計</h5>
+              <div class="text-muted small">
+                從左側工具箱將欄位拖到畫布，點選欄位即可設定標題、代碼與驗證規則。
+              </div>
+            </div>
+            <span class="badge text-bg-secondary">Form.io</span>
           </div>
-          <textarea
-            v-model="selectedVersion.schemaContent"
-            :readonly="selectedVersion.versionStatus !== 'DRAFT'"
-            class="form-control code-editor"
-            spellcheck="false"
-          ></textarea>
-        </div>
-        <div class="col-lg-6">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <label class="form-label mb-0">UI Schema</label>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary"
-              :disabled="selectedVersion.versionStatus !== 'DRAFT'"
-              @click="formatJson('uiSchemaContent')"
-            >
-              格式化／檢查
-            </button>
+          <div v-if="designerLoading" class="designer-loading text-muted">
+            <span class="spinner-border spinner-border-sm me-2"></span>
+            載入表單設計器…
           </div>
-          <textarea
-            v-model="selectedVersion.uiSchemaContent"
-            :readonly="selectedVersion.versionStatus !== 'DRAFT'"
-            class="form-control code-editor"
-            spellcheck="false"
-          ></textarea>
+          <div ref="designerHost" class="formio-designer"></div>
         </div>
         <div class="col-12">
-          <div class="card bg-light">
-            <div class="card-header">Schema 欄位預覽</div>
-            <div class="card-body p-0">
-              <table class="table table-sm mb-0">
-                <thead>
-                  <tr>
-                    <th>欄位</th>
-                    <th>標題</th>
-                    <th>型別</th>
-                    <th>必填</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="field in schemaFields" :key="field.name">
-                    <td>{{ field.name }}</td>
-                    <td>{{ field.title }}</td>
-                    <td>{{ field.type }}</td>
-                    <td>{{ field.required ? "是" : "否" }}</td>
-                  </tr>
-                  <tr v-if="!schemaFields.length">
-                    <td colspan="4" class="text-muted">
-                      尚無欄位或 JSON 格式尚未完成
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+          <details class="border rounded p-3 bg-light">
+            <summary class="fw-semibold">進階檢視：Form.io 系統資料</summary>
+            <div class="row g-3 mt-1">
+              <div class="col-lg-6">
+                <label class="form-label">Form.io Schema（唯讀）</label>
+                <textarea
+                  :value="selectedVersion.schemaContent"
+                  readonly
+                  class="form-control code-preview"
+                  spellcheck="false"
+                ></textarea>
+              </div>
+              <div class="col-lg-6">
+                <label class="form-label">設計器識別資料（唯讀）</label>
+                <textarea
+                  :value="selectedVersion.uiSchemaContent"
+                  readonly
+                  class="form-control code-preview"
+                  spellcheck="false"
+                ></textarea>
+              </div>
             </div>
-          </div>
+          </details>
         </div>
         <div class="col-12 d-flex gap-2 align-items-center">
           <button
@@ -449,11 +511,20 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.code-editor {
-  min-height: 430px;
+.code-preview {
+  min-height: 260px;
   font-family: Consolas, "Courier New", monospace;
   font-size: 0.875rem;
   line-height: 1.5;
   white-space: pre;
+}
+
+.designer-loading {
+  padding: 2rem;
+  text-align: center;
+}
+
+.formio-designer {
+  min-height: 420px;
 }
 </style>
