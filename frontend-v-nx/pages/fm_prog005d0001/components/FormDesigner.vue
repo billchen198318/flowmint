@@ -112,10 +112,10 @@ const renderDesigner = async () => {
         alwaysConfirmComponentRemoval: true,
         builder: {
           basic: { title: "基本欄位", weight: 0, default: true },
-          advanced: false,
-          data: false,
+          advanced: { title: "進階欄位", weight: 10 },
+          data: { title: "資料與 API", weight: 20 },
           premium: false,
-          layout: { title: "版面配置", weight: 10 },
+          layout: { title: "版面配置", weight: 30 },
         },
       });
       designerInstance.on("change", (changedSchema: any) => {

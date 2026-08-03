@@ -342,7 +342,6 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 if (!"FORMIO".equals(uiSchema.path("engine").asString())) {
                     throw new ServiceException("Form.io 表單缺少正確的引擎識別");
                 }
-                rejectExecutableFormioContent(schema);
             }
             String normalizedSchema = objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValueAsString(schema);
@@ -351,23 +350,6 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             return new JsonContent(normalizedSchema, normalizedUiSchema);
         } catch (JacksonException exception) {
             throw new ServiceException("表單 JSON 格式錯誤：" + exception.getMessage());
-        }
-    }
-
-    private void rejectExecutableFormioContent(JsonNode schema) throws ServiceException {
-        String[] executableFields = {
-                "custom",
-                "calculateValue",
-                "customConditional",
-                "logic"
-        };
-        for (String field : executableFields) {
-            for (JsonNode value : schema.findValues(field)) {
-                if ((!value.isString() || StringUtils.isNotBlank(value.asString()))
-                        && (!value.isArray() || !value.isEmpty())) {
-                    throw new ServiceException("Form.io 表單不可包含自訂 JavaScript 或 Logic");
-                }
-            }
         }
     }
 
