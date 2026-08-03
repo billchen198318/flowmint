@@ -13,5 +13,6 @@ public record FmProcessVersionView(
         String flowableProcessDefId,
         String publishedBy,
         Date publishedDate,
-        List<FmTaskFormRuleView> taskForms) {
+        List<FmTaskFormRuleView> taskForms,
+        List<FmTaskPolicyView> taskPolicies) {
 }

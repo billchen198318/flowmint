@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTaskPolicyMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmTaskPolicy">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="PROCESS_DEF_ID" jdbcType="VARCHAR" property="processDefId" />
+    <result column="PROCESS_VERSION_NO" jdbcType="INTEGER" property="processVersionNo" />
+    <result column="TASK_DEF_KEY" jdbcType="VARCHAR" property="taskDefKey" />
+    <result column="TASK_NAME" jdbcType="VARCHAR" property="taskName" />
+    <result column="ASSIGNMENT_MODE" jdbcType="VARCHAR" property="assignmentMode" />
+    <result column="SELF_APPROVAL_POLICY" jdbcType="VARCHAR" property="selfApprovalPolicy" />
+    <result column="DUPLICATE_POLICY" jdbcType="VARCHAR" property="duplicatePolicy" />
+    <result column="ALLOW_REJECT" jdbcType="CHAR" property="allowReject" />
+    <result column="ALLOW_RETURN" jdbcType="CHAR" property="allowReturn" />
+    <result column="ALLOW_TRANSFER" jdbcType="CHAR" property="allowTransfer" />
+    <result column="ALLOW_ADD_SIGN" jdbcType="CHAR" property="allowAddSign" />
+    <result column="COMMENT_REQUIRED" jdbcType="VARCHAR" property="commentRequired" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    PROCESS_DEF_ID,
+    PROCESS_VERSION_NO,
+    TASK_DEF_KEY,
+    TASK_NAME,
+    ASSIGNMENT_MODE,
+    SELF_APPROVAL_POLICY,
+    DUPLICATE_POLICY,
+    ALLOW_REJECT,
+    ALLOW_RETURN,
+    ALLOW_TRANSFER,
+    ALLOW_ADD_SIGN,
+    COMMENT_REQUIRED,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="processDefId != null and processDefId != ''">
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+    </if>
+    <if test="processVersionNo != null">
+      AND PROCESS_VERSION_NO = #{processVersionNo,jdbcType=INTEGER}
+    </if>
+    <if test="taskDefKey != null and taskDefKey != ''">
+      AND TASK_DEF_KEY = #{taskDefKey,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTaskPolicy">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID,
+      </if>
+      <if test="processVersionNo != null">
+        PROCESS_VERSION_NO,
+      </if>
+      <if test="taskDefKey != null">
+        TASK_DEF_KEY,
+      </if>
+      <if test="taskName != null">
+        TASK_NAME,
+      </if>
+      <if test="assignmentMode != null">
+        ASSIGNMENT_MODE,
+      </if>
+      <if test="selfApprovalPolicy != null">
+        SELF_APPROVAL_POLICY,
+      </if>
+      <if test="duplicatePolicy != null">
+        DUPLICATE_POLICY,
+      </if>
+      <if test="allowReject != null">
+        ALLOW_REJECT,
+      </if>
+      <if test="allowReturn != null">
+        ALLOW_RETURN,
+      </if>
+      <if test="allowTransfer != null">
+        ALLOW_TRANSFER,
+      </if>
+      <if test="allowAddSign != null">
+        ALLOW_ADD_SIGN,
+      </if>
+      <if test="commentRequired != null">
+        COMMENT_REQUIRED,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="processVersionNo != null">
+        #{processVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="taskDefKey != null">
+        #{taskDefKey,jdbcType=VARCHAR},
+      </if>
+      <if test="taskName != null">
+        #{taskName,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentMode != null">
+        #{assignmentMode,jdbcType=VARCHAR},
+      </if>
+      <if test="selfApprovalPolicy != null">
+        #{selfApprovalPolicy,jdbcType=VARCHAR},
+      </if>
+      <if test="duplicatePolicy != null">
+        #{duplicatePolicy,jdbcType=VARCHAR},
+      </if>
+      <if test="allowReject != null">
+        #{allowReject,jdbcType=CHAR},
+      </if>
+      <if test="allowReturn != null">
+        #{allowReturn,jdbcType=CHAR},
+      </if>
+      <if test="allowTransfer != null">
+        #{allowTransfer,jdbcType=CHAR},
+      </if>
+      <if test="allowAddSign != null">
+        #{allowAddSign,jdbcType=CHAR},
+      </if>
+      <if test="commentRequired != null">
+        #{commentRequired,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmTaskPolicy">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    <set>
+      <if test="taskName != null">
+        TASK_NAME = #{taskName,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentMode != null">
+        ASSIGNMENT_MODE = #{assignmentMode,jdbcType=VARCHAR},
+      </if>
+      <if test="selfApprovalPolicy != null">
+        SELF_APPROVAL_POLICY = #{selfApprovalPolicy,jdbcType=VARCHAR},
+      </if>
+      <if test="duplicatePolicy != null">
+        DUPLICATE_POLICY = #{duplicatePolicy,jdbcType=VARCHAR},
+      </if>
+      <if test="allowReject != null">
+        ALLOW_REJECT = #{allowReject,jdbcType=CHAR},
+      </if>
+      <if test="allowReturn != null">
+        ALLOW_RETURN = #{allowReturn,jdbcType=CHAR},
+      </if>
+      <if test="allowTransfer != null">
+        ALLOW_TRANSFER = #{allowTransfer,jdbcType=CHAR},
+      </if>
+      <if test="allowAddSign != null">
+        ALLOW_ADD_SIGN = #{allowAddSign,jdbcType=CHAR},
+      </if>
+      <if test="commentRequired != null">
+        COMMENT_REQUIRED = #{commentRequired,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmTaskPolicy">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <select id="selectByVersion" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+      AND PROCESS_VERSION_NO = #{processVersionNo,jdbcType=INTEGER}
+    ORDER BY TASK_DEF_KEY
+  </select>
+
+  <delete id="deleteByVersion" parameterType="java.util.HashMap">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+      AND PROCESS_VERSION_NO = #{processVersionNo,jdbcType=INTEGER}
+  </delete>
+</mapper>

@@ -4,5 +4,6 @@ import java.util.List;
 public record FmProcessVersionCommand(
         String oid,
         String bpmnXml,
-        List<FmTaskFormRuleCommand> taskForms) {
+        List<FmTaskFormRuleCommand> taskForms,
+        List<FmTaskPolicyCommand> taskPolicies) {
 }

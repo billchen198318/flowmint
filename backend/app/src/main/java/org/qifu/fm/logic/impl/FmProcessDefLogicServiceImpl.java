@@ -25,18 +25,22 @@ import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
 import org.qifu.fm.dto.command.FmTaskFormRuleCommand;
+import org.qifu.fm.dto.command.FmTaskPolicyCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmProcessDefView;
 import org.qifu.fm.dto.view.FmProcessVersionView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
 import org.qifu.fm.dto.view.FmTaskFormRuleView;
+import org.qifu.fm.dto.view.FmTaskPolicyView;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskFormRule;
+import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessVersionService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
+import org.qifu.fm.service.IFmTaskPolicyService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,6 +53,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmProcessVersionService processVersionService;
     private final IFmTenantService tenantService;
     private final IFmTaskFormRuleService taskFormRuleService;
+    private final IFmTaskPolicyService taskPolicyService;
     private final RepositoryService repositoryService;
 
     public FmProcessDefLogicServiceImpl(
@@ -56,11 +61,13 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmProcessVersionService processVersionService,
             IFmTenantService tenantService,
             IFmTaskFormRuleService taskFormRuleService,
+            IFmTaskPolicyService taskPolicyService,
             RepositoryService repositoryService) {
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
         this.tenantService = tenantService;
         this.taskFormRuleService = taskFormRuleService;
+        this.taskPolicyService = taskPolicyService;
         this.repositoryService = repositoryService;
     }
 
@@ -136,7 +143,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         }
         validateBpmn(command.bpmnXml(), findDef(version.getTenantId(),
                 version.getProcessDefId()).getProcessKey());
-        saveTaskForms(version, command.taskForms(), userTaskKeys(command.bpmnXml()));
+        Set<String> taskKeys = userTaskKeys(command.bpmnXml());
+        saveTaskForms(version, command.taskForms(), taskKeys);
+        saveTaskPolicies(version, command.taskPolicies(), taskKeys);
         version.setBpmnXml(command.bpmnXml());
         version.setBpmnSha256(sha256(command.bpmnXml()));
         processVersionService.update(version);
@@ -174,6 +183,14 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         }).toList();
         taskFormRuleService.replaceVersion(version.getTenantId(), version.getProcessDefId(),
                 version.getVersionNo(), copiedRules);
+        List<FmTaskPolicy> copiedPolicies = taskPolicies(source).stream()
+                .map(sourcePolicy -> copyTaskPolicy(version, sourcePolicy))
+                .toList();
+        taskPolicyService.replaceVersion(
+                version.getTenantId(),
+                version.getProcessDefId(),
+                version.getVersionNo(),
+                copiedPolicies);
         processDef.setCurrentVersionNo(nextVersion);
         processDef.setStatus("DRAFT");
         processDefService.update(processDef);
@@ -186,7 +203,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         FmProcessVersion version = draft(versionOid);
         FmProcessDef processDef = findDef(version.getTenantId(), version.getProcessDefId());
         validateBpmn(version.getBpmnXml(), processDef.getProcessKey());
-        validateTaskFormsForPublish(version, userTaskKeys(version.getBpmnXml()));
+        Set<String> taskKeys = userTaskKeys(version.getBpmnXml());
+        validateTaskFormsForPublish(version, taskKeys);
+        validateTaskPoliciesForPublish(version, taskKeys);
         String resourceName = processDef.getProcessKey() + "-v" + version.getVersionNo()
                 + ".bpmn20.xml";
         try {
@@ -245,7 +264,18 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         value.getPublishedBy(), value.getPublishedDate(),
                         taskFormRules(value).stream().map(rule -> new FmTaskFormRuleView(
                                 rule.getTaskDefKey(), rule.getFormId(),
-                                rule.getFormVersionNo())).toList())).toList();
+                                rule.getFormVersionNo())).toList(),
+                        taskPolicies(value).stream().map(policy -> new FmTaskPolicyView(
+                                policy.getTaskDefKey(),
+                                policy.getTaskName(),
+                                policy.getAssignmentMode(),
+                                policy.getSelfApprovalPolicy(),
+                                policy.getDuplicatePolicy(),
+                                policy.getAllowReject(),
+                                policy.getAllowReturn(),
+                                policy.getAllowTransfer(),
+                                policy.getAllowAddSign(),
+                                policy.getCommentRequired())).toList())).toList();
         return new FmProcessDefView(processDef.getOid(), processDef.getTenantId(),
                 processDef.getProcessDefId(), processDef.getProcessKey(),
                 processDef.getProcessName(), processDef.getCategory(),
@@ -312,7 +342,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     || !expectedProcessKey.equals(model.getMainProcess().getId())) {
                 throw new ServiceException("BPMN 必須只有一個 Process，且 Process ID 必須等於流程代碼 "
                         + expectedProcessKey);
-            }            if (!model.getMainProcess().findFlowElementsOfType(
+            }
+            if (!model.getMainProcess().findFlowElementsOfType(
                     org.flowable.bpmn.model.ScriptTask.class).isEmpty()) {
                 throw new ServiceException("首版流程禁止使用 Script Task");
             }
@@ -322,6 +353,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throw new ServiceException("BPMN XML 驗證失敗：" + exception.getMessage());
         }
     }
+
     private Set<String> userTaskKeys(String xml) throws ServiceException {
         try {
             javax.xml.stream.XMLStreamReader reader = javax.xml.stream.XMLInputFactory
@@ -340,6 +372,102 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throws ServiceException {
         return taskFormRuleService.findByVersion(version.getTenantId(),
                 version.getProcessDefId(), version.getVersionNo());
+    }
+
+    private List<FmTaskPolicy> taskPolicies(FmProcessVersion version)
+            throws ServiceException {
+        return taskPolicyService.findByVersion(
+                version.getTenantId(),
+                version.getProcessDefId(),
+                version.getVersionNo());
+    }
+
+    private void saveTaskPolicies(
+            FmProcessVersion version,
+            List<FmTaskPolicyCommand> commands,
+            Set<String> taskKeys) throws ServiceException {
+        if (commands == null) {
+            return;
+        }
+        Set<String> submittedKeys = new java.util.HashSet<>();
+        List<FmTaskPolicy> policies = new java.util.ArrayList<>();
+        for (FmTaskPolicyCommand command : commands) {
+            validateTaskPolicyCommand(command, taskKeys, submittedKeys);
+            policies.add(newTaskPolicy(version, command));
+        }
+        taskPolicyService.replaceVersion(
+                version.getTenantId(),
+                version.getProcessDefId(),
+                version.getVersionNo(),
+                policies);
+    }
+
+    private void validateTaskPolicyCommand(
+            FmTaskPolicyCommand command,
+            Set<String> taskKeys,
+            Set<String> submittedKeys) throws ServiceException {
+        if (command == null
+                || StringUtils.isAnyBlank(command.taskDefKey(), command.taskName())
+                || !taskKeys.contains(command.taskDefKey())
+                || !submittedKeys.add(command.taskDefKey())
+                || !Set.of("ASSIGNEE", "CANDIDATE", "ALL", "SEQUENTIAL")
+                        .contains(command.assignmentMode())
+                || !Set.of("ALLOW", "SKIP_TO_NEXT", "REQUIRE_ALTERNATE", "INCIDENT")
+                        .contains(command.selfApprovalPolicy())
+                || !Set.of("KEEP_EACH_LEVEL", "MERGE_CONSECUTIVE", "SKIP_ALREADY_APPROVED")
+                        .contains(command.duplicatePolicy())
+                || !Set.of("NEVER", "ALWAYS", "ON_REJECT_RETURN")
+                        .contains(command.commentRequired())
+                || !isYesNo(command.allowReject())
+                || !isYesNo(command.allowReturn())
+                || !isYesNo(command.allowTransfer())
+                || !isYesNo(command.allowAddSign())) {
+            throw new ServiceException("User Task 政策設定不正確或同一節點重複設定");
+        }
+    }
+
+    private boolean isYesNo(String value) {
+        return "Y".equals(value) || "N".equals(value);
+    }
+
+    private FmTaskPolicy newTaskPolicy(
+            FmProcessVersion version,
+            FmTaskPolicyCommand command) {
+        FmTaskPolicy policy = new FmTaskPolicy();
+        policy.setOid(UUID.randomUUID().toString());
+        policy.setTenantId(version.getTenantId());
+        policy.setProcessDefId(version.getProcessDefId());
+        policy.setProcessVersionNo(version.getVersionNo());
+        policy.setTaskDefKey(command.taskDefKey());
+        policy.setTaskName(command.taskName());
+        policy.setAssignmentMode(command.assignmentMode());
+        policy.setSelfApprovalPolicy(command.selfApprovalPolicy());
+        policy.setDuplicatePolicy(command.duplicatePolicy());
+        policy.setAllowReject(command.allowReject());
+        policy.setAllowReturn(command.allowReturn());
+        policy.setAllowTransfer(command.allowTransfer());
+        policy.setAllowAddSign(command.allowAddSign());
+        policy.setCommentRequired(command.commentRequired());
+        policy.setCuserid(UserUtils.getCurrentUser().getUserId());
+        policy.setCdate(new Date());
+        return policy;
+    }
+
+    private FmTaskPolicy copyTaskPolicy(
+            FmProcessVersion version,
+            FmTaskPolicy source) {
+        FmTaskPolicyCommand command = new FmTaskPolicyCommand(
+                source.getTaskDefKey(),
+                source.getTaskName(),
+                source.getAssignmentMode(),
+                source.getSelfApprovalPolicy(),
+                source.getDuplicatePolicy(),
+                source.getAllowReject(),
+                source.getAllowReturn(),
+                source.getAllowTransfer(),
+                source.getAllowAddSign(),
+                source.getCommentRequired());
+        return newTaskPolicy(version, command);
     }
 
     private void saveTaskForms(FmProcessVersion version,
@@ -407,8 +535,23 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 throw new ServiceException("User Task「" + taskKey + "」引用的表單版本已失效");
             }
         }
+    }
+
+    private void validateTaskPoliciesForPublish(
+            FmProcessVersion version,
+            Set<String> taskKeys) throws ServiceException {
+        Set<String> policyKeys = taskPolicies(version).stream()
+                .map(FmTaskPolicy::getTaskDefKey)
+                .collect(Collectors.toSet());
+        for (String taskKey : taskKeys) {
+            if (!policyKeys.contains(taskKey)) {
+                throw new ServiceException(
+                        "User Task「" + taskKey + "」尚未設定 Task Policy");
+            }
+        }
         if (!taskKeys.isEmpty()) {
-            throw new ServiceException("User Task 表單設定已通過；請先由 FM_PROG004D0002 完成 Task Policy 與簽核人設定後再發布");
+            throw new ServiceException(
+                    "Task Policy 已通過；請先完成每個 User Task 的簽核人 Resolver 設定");
         }
     }
 

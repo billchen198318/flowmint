@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import BpmnModeler from "bpmn-js/lib/Modeler";
+import { is } from "bpmn-js/lib/util/ModelUtil";
 import "bpmn-js/dist/assets/diagram-js.css";
 import "bpmn-js/dist/assets/bpmn-font/css/bpmn.css";
 import { toast } from "vue3-toastify";
@@ -25,6 +26,7 @@ const checkFields = ref<Record<string, string>>({});
 const canvas = ref<HTMLElement | null>(null);
 const selectedVersion = ref<any>(null);
 const publishedForms = ref<any[]>([]);
+const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
 let modeler: any = null;
 const newForm = () => ({
@@ -58,6 +60,37 @@ const selectedTaskRule = computed(() =>
     (item: any) => item.taskDefKey === selectedTask.value?.id,
   ),
 );
+const selectedTaskPolicy = computed(() =>
+  selectedVersion.value?.taskPolicies?.find(
+    (item: any) => item.taskDefKey === selectedTask.value?.id,
+  ),
+);
+const ensureSelectedTaskPolicy = () => {
+  if (
+    !selectedTask.value ||
+    !selectedVersion.value ||
+    selectedVersion.value.versionStatus !== "DRAFT"
+  )
+    return;
+  selectedVersion.value.taskPolicies ||= [];
+  if (selectedTaskPolicy.value) {
+    selectedTaskPolicy.value.taskName =
+      selectedTask.value.businessObject?.name || selectedTask.value.id;
+    return;
+  }
+  selectedVersion.value.taskPolicies.push({
+    taskDefKey: selectedTask.value.id,
+    taskName: selectedTask.value.businessObject?.name || selectedTask.value.id,
+    assignmentMode: "ASSIGNEE",
+    selfApprovalPolicy: "SKIP_TO_NEXT",
+    duplicatePolicy: "MERGE_CONSECUTIVE",
+    allowReject: "Y",
+    allowReturn: "Y",
+    allowTransfer: "N",
+    allowAddSign: "N",
+    commentRequired: "ON_REJECT_RETURN",
+  });
+};
 const selectedFormValue = computed(() => {
   const rule = selectedTaskRule.value;
   return rule ? `${rule.formId}::${rule.formVersionNo}` : "";
@@ -70,9 +103,16 @@ const loadPublishedForms = async () => {
   publishedForms.value = response.data?.value || [];
 };
 const bindModelerEvents = () => {
+  const selectElement = (element: any) => {
+    selectedElement.value = element || null;
+    selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
+    ensureSelectedTaskPolicy();
+  };
   modeler.get("eventBus").on("selection.changed", (event: any) => {
-    const element = event.newSelection?.[0];
-    selectedTask.value = element?.type === "bpmn:UserTask" ? element : null;
+    selectElement(event.newSelection?.[0]);
+  });
+  modeler.get("eventBus").on("element.click", (event: any) => {
+    selectElement(event.element);
   });
   modeler.get("eventBus").on("element.changed", (event: any) => {
     if (selectedTask.value?.id === event.element?.id)
@@ -101,15 +141,28 @@ const currentTaskForms = () => {
   const taskKeys = new Set(
     modeler
       .get("elementRegistry")
-      .filter((item: any) => item.type === "bpmn:UserTask")
+      .filter((item: any) => is(item, "bpmn:UserTask"))
       .map((item: any) => item.id),
   );
   return (selectedVersion.value.taskForms || []).filter((item: any) =>
     taskKeys.has(item.taskDefKey),
   );
 };
+const currentTaskPolicies = () => {
+  if (!modeler || !selectedVersion.value) return [];
+  const taskKeys = new Set(
+    modeler
+      .get("elementRegistry")
+      .filter((item: any) => is(item, "bpmn:UserTask"))
+      .map((item: any) => item.id),
+  );
+  return (selectedVersion.value.taskPolicies || []).filter((item: any) =>
+    taskKeys.has(item.taskDefKey),
+  );
+};
 const openVersion = async (version: any) => {
   selectedVersion.value = version;
+  selectedElement.value = null;
   selectedTask.value = null;
   await nextTick();
   if (!modeler && canvas.value) {
@@ -178,6 +231,7 @@ const save = async () => {
     const draftXml =
       draftOid && modeler ? (await modeler.saveXML({ format: true })).xml : "";
     const draftTaskForms = draftOid ? currentTaskForms() : [];
+    const draftTaskPolicies = draftOid ? currentTaskPolicies() : [];
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
     if (!showResponse(response)) return;
@@ -193,6 +247,7 @@ const save = async () => {
         oid: draftOid,
         bpmnXml: draftXml,
         taskForms: draftTaskForms,
+        taskPolicies: draftTaskPolicies,
       });
       if (showResponse(response)) await apply(response.data.value);
     }
@@ -221,6 +276,7 @@ const publish = async () => {
       oid: selectedVersion.value.oid,
       bpmnXml: xml,
       taskForms: currentTaskForms(),
+      taskPolicies: currentTaskPolicies(),
     });
     if (!responseOk(response)) {
       showResponse(response);
@@ -271,8 +327,9 @@ onBeforeUnmount(() => modeler?.destroy());
     <div class="card-body">
       <div class="alert alert-info">
         草稿可反覆儲存；「發布草稿」會先保存畫布、由 Flowable 驗證
-        XML，再建立正式部署。請點選 UserTask，於右側選擇該節點要顯示的表單；一個
-        UserTask 只能選一張同 Tenant 已發布的表單。已發布版本只能檢視，請按「建立新版本」複製最新版後再修改。
+        XML，再建立正式部署。請點選 UserTask，於右側設定顯示表單及 Task
+        Policy；一個 UserTask 只能選一張同 Tenant
+        已發布的表單。已發布版本只能檢視，請按「建立新版本」複製最新版後再修改。
       </div>
       <div class="row g-3">
         <div class="col-md-3">
@@ -418,12 +475,27 @@ onBeforeUnmount(() => modeler?.destroy());
             <div class="card-header">UserTask 節點屬性</div>
             <div class="card-body">
               <div v-if="!selectedTask" class="text-muted">
-                請在左側流程圖點選一個 UserTask，再設定該簽核節點要顯示的表單。
+                <template v-if="selectedElement">
+                  目前選取「{{
+                    selectedElement.businessObject?.$type ||
+                    selectedElement.type ||
+                    "未知節點"
+                  }}」，此處只接受 UserTask。請使用扳手將一般 Task 轉換成
+                  UserTask 後再設定。
+                </template>
+                <template v-else>
+                  請在左側流程圖點選一個
+                  UserTask，再設定該簽核節點要顯示的表單。
+                </template>
               </div>
               <template v-else>
                 <div class="mb-3">
                   <label class="form-label">節點代碼</label>
-                  <input :value="selectedTask.id" disabled class="form-control" />
+                  <input
+                    :value="selectedTask.id"
+                    disabled
+                    class="form-control"
+                  />
                 </div>
                 <div class="mb-3">
                   <label class="form-label">節點名稱</label>
@@ -454,8 +526,95 @@ onBeforeUnmount(() => modeler?.destroy());
                 <div class="form-text">
                   此表單會在使用者處理本節點時顯示。改選會取代原表單，不會新增第二張表單。
                 </div>
-                <div v-if="!publishedForms.length" class="alert alert-warning mt-3 mb-0">
-                  此 Tenant 尚無已發布表單，請先至 FM_PROG005D0001 建立並發布 Form。
+                <template v-if="selectedTaskPolicy">
+                  <hr />
+                  <div class="mb-3">
+                    <label class="form-label">派送方式</label>
+                    <select
+                      v-model="selectedTaskPolicy.assignmentMode"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select"
+                    >
+                      <option value="ASSIGNEE">單一簽核人</option>
+                      <option value="CANDIDATE">候選人承接</option>
+                      <option value="ALL">全員會簽</option>
+                      <option value="SEQUENTIAL">依序簽核</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">自簽政策</label>
+                    <select
+                      v-model="selectedTaskPolicy.selfApprovalPolicy"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select"
+                    >
+                      <option value="ALLOW">允許自簽</option>
+                      <option value="SKIP_TO_NEXT">跳至下一位</option>
+                      <option value="REQUIRE_ALTERNATE">必須找到替代人</option>
+                      <option value="INCIDENT">建立指派異常</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">重複簽核政策</label>
+                    <select
+                      v-model="selectedTaskPolicy.duplicatePolicy"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select"
+                    >
+                      <option value="KEEP_EACH_LEVEL">每一層都保留</option>
+                      <option value="MERGE_CONSECUTIVE">合併連續重複</option>
+                      <option value="SKIP_ALREADY_APPROVED">
+                        略過已簽核人
+                      </option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">意見必填</label>
+                    <select
+                      v-model="selectedTaskPolicy.commentRequired"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select"
+                    >
+                      <option value="NEVER">不要求</option>
+                      <option value="ALWAYS">每次操作必填</option>
+                      <option value="ON_REJECT_RETURN">駁回／退回時必填</option>
+                    </select>
+                  </div>
+                  <div class="row g-2">
+                    <div
+                      v-for="action in [
+                        ['allowReject', '允許駁回'],
+                        ['allowReturn', '允許退回'],
+                        ['allowTransfer', '允許轉派'],
+                        ['allowAddSign', '允許加簽'],
+                      ]"
+                      :key="action[0]"
+                      class="col-6 form-check"
+                    >
+                      <input
+                        :id="`${selectedTask.id}-${action[0]}`"
+                        v-model="selectedTaskPolicy[action[0]]"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        true-value="Y"
+                        false-value="N"
+                        type="checkbox"
+                        class="form-check-input"
+                      />
+                      <label
+                        :for="`${selectedTask.id}-${action[0]}`"
+                        class="form-check-label"
+                      >
+                        {{ action[1] }}
+                      </label>
+                    </div>
+                  </div>
+                </template>
+                <div
+                  v-if="!publishedForms.length"
+                  class="alert alert-warning mt-3 mb-0"
+                >
+                  此 Tenant 尚無已發布表單，請先至 FM_PROG005D0001 建立並發布
+                  Form。
                 </div>
               </template>
             </div>
