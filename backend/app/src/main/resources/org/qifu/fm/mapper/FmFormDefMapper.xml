@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmFormDefMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmFormDef">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="FORM_ID" jdbcType="VARCHAR" property="formId" />
+    <result column="FORM_CODE" jdbcType="VARCHAR" property="formCode" />
+    <result column="FORM_NAME" jdbcType="VARCHAR" property="formName" />
+    <result column="CURRENT_VERSION_NO" jdbcType="INTEGER" property="currentVersionNo" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="DESCRIPTION" jdbcType="VARCHAR" property="description" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    FORM_ID,
+    FORM_CODE,
+    FORM_NAME,
+    CURRENT_VERSION_NO,
+    STATUS,
+    DESCRIPTION,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="formId != null and formId != ''">
+      AND FORM_ID = #{formId,jdbcType=VARCHAR}
+    </if>
+    <if test="formCode != null and formCode != ''">
+      AND FORM_CODE LIKE #{formCode,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+    <if test="formCodeLike != null and formCodeLike != ''">
+      AND FORM_CODE LIKE #{formCodeLike,jdbcType=VARCHAR}
+    </if>
+    <if test="formName != null and formName != ''">
+      AND FORM_NAME LIKE #{formName,jdbcType=VARCHAR}
+    </if>
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmFormDef">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="formId != null">
+        FORM_ID,
+      </if>
+      <if test="formCode != null">
+        FORM_CODE,
+      </if>
+      <if test="formName != null">
+        FORM_NAME,
+      </if>
+      <if test="currentVersionNo != null">
+        CURRENT_VERSION_NO,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="description != null">
+        DESCRIPTION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="formId != null">
+        #{formId,jdbcType=VARCHAR},
+      </if>
+      <if test="formCode != null">
+        #{formCode,jdbcType=VARCHAR},
+      </if>
+      <if test="formName != null">
+        #{formName,jdbcType=VARCHAR},
+      </if>
+      <if test="currentVersionNo != null">
+        #{currentVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+  <update id="update" parameterType="org.qifu.fm.entity.FmFormDef">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def
+    <set>
+      <if test="formName != null">
+        FORM_NAME = #{formName,jdbcType=VARCHAR},
+      </if>
+      <if test="currentVersionNo != null">
+        CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="description != null">
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmFormDef">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+</mapper>

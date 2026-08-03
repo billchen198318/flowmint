@@ -2414,6 +2414,8 @@ CREATE TABLE `fm_form_def` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_form_def` WRITE;
 /*!40000 ALTER TABLE `fm_form_def` DISABLE KEYS */;
+INSERT INTO `fm_form_def` VALUES
+('38d6ce2a-8ef1-11f1-84eb-456241e7c7ef','A01','9016f926-700c-403d-b89b-381ec2e29b11','TESTFORM01','測試表單',1,'DRAFT','','admin','2026-08-03 12:10:11.706',NULL,NULL);
 /*!40000 ALTER TABLE `fm_form_def` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -2496,6 +2498,8 @@ CREATE TABLE `fm_form_version` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_form_version` WRITE;
 /*!40000 ALTER TABLE `fm_form_version` DISABLE KEYS */;
+INSERT INTO `fm_form_version` VALUES
+('38d87bdb-8ef1-11f1-84eb-65f36aeb03d2','A01','9016f926-700c-403d-b89b-381ec2e29b11',1,'DRAFT','{\r\n  \"$schema\" : \"https://json-schema.org/draft/2020-12/schema\",\r\n  \"type\" : \"object\",\r\n  \"properties\" : { }\r\n}','{\r\n  \"type\" : \"VerticalLayout\",\r\n  \"elements\" : [ ]\r\n}','2b94910e4bbb6018e562fd2223ed7e4fd6d440d9c89497af2a01cd8d7cc01cee',NULL,NULL,'admin','2026-08-03 12:10:11.718',NULL,NULL);
 /*!40000 ALTER TABLE `fm_form_version` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -2994,6 +2998,8 @@ CREATE TABLE `fm_process_def` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_process_def` WRITE;
 /*!40000 ALTER TABLE `fm_process_def` DISABLE KEYS */;
+INSERT INTO `fm_process_def` VALUES
+('1b34cd84-8eeb-11f1-b571-5ba6ac7b8acc','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599','TEST01','測試流程01','測試類',1,'DRAFT','','admin','2026-08-03 11:26:25.012','admin','2026-08-03 11:37:55.851');
 /*!40000 ALTER TABLE `fm_process_def` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -3120,6 +3126,8 @@ CREATE TABLE `fm_process_version` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_process_version` WRITE;
 /*!40000 ALTER TABLE `fm_process_version` DISABLE KEYS */;
+INSERT INTO `fm_process_version` VALUES
+('1b3801d5-8eeb-11f1-b571-47808f67b06d','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599',1,'DRAFT','<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<definitions xmlns=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" xmlns:omgdc=\"http://www.omg.org/spec/DD/20100524/DC\" xmlns:omgdi=\"http://www.omg.org/spec/DD/20100524/DI\" targetNamespace=\"FlowMint\">\n  <process id=\"TEST01\" name=\"測試流程01\" isExecutable=\"true\">\n    <startEvent id=\"start\" name=\"開始\">\n      <outgoing>Flow_075dlnd</outgoing>\n    </startEvent>\n    <endEvent id=\"end\" name=\"結束\">\n      <incoming>Flow_1njn1ga</incoming>\n    </endEvent>\n    <sequenceFlow id=\"Flow_075dlnd\" sourceRef=\"start\" targetRef=\"Activity_1vyy7nj\" />\n    <sequenceFlow id=\"Flow_0xotd9x\" sourceRef=\"Activity_1vyy7nj\" targetRef=\"Activity_0hmr9ef\" />\n    <sequenceFlow id=\"Flow_1njn1ga\" sourceRef=\"Activity_0hmr9ef\" targetRef=\"end\" />\n    <userTask id=\"Activity_1vyy7nj\" name=\"直屬主管\">\n      <incoming>Flow_075dlnd</incoming>\n      <outgoing>Flow_0xotd9x</outgoing>\n    </userTask>\n    <userTask id=\"Activity_0hmr9ef\" name=\"單位主官\">\n      <incoming>Flow_0xotd9x</incoming>\n      <outgoing>Flow_1njn1ga</outgoing>\n    </userTask>\n  </process>\n  <bpmndi:BPMNDiagram id=\"diagram\">\n    <bpmndi:BPMNPlane id=\"plane\" bpmnElement=\"TEST01\">\n      <bpmndi:BPMNShape id=\"start_di\" bpmnElement=\"start\">\n        <omgdc:Bounds x=\"180\" y=\"160\" width=\"36\" height=\"36\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"end_di\" bpmnElement=\"end\">\n        <omgdc:Bounds x=\"732\" y=\"160\" width=\"36\" height=\"36\" />\n        <bpmndi:BPMNLabel>\n          <omgdc:Bounds x=\"739\" y=\"196\" width=\"22\" height=\"14\" />\n        </bpmndi:BPMNLabel>\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Activity_0xzoqlv_di\" bpmnElement=\"Activity_1vyy7nj\">\n        <omgdc:Bounds x=\"290\" y=\"138\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNShape id=\"Activity_13ze7tc_di\" bpmnElement=\"Activity_0hmr9ef\">\n        <omgdc:Bounds x=\"520\" y=\"138\" width=\"100\" height=\"80\" />\n      </bpmndi:BPMNShape>\n      <bpmndi:BPMNEdge id=\"Flow_075dlnd_di\" bpmnElement=\"Flow_075dlnd\">\n        <omgdi:waypoint x=\"216\" y=\"178\" />\n        <omgdi:waypoint x=\"290\" y=\"178\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_0xotd9x_di\" bpmnElement=\"Flow_0xotd9x\">\n        <omgdi:waypoint x=\"390\" y=\"178\" />\n        <omgdi:waypoint x=\"520\" y=\"178\" />\n      </bpmndi:BPMNEdge>\n      <bpmndi:BPMNEdge id=\"Flow_1njn1ga_di\" bpmnElement=\"Flow_1njn1ga\">\n        <omgdi:waypoint x=\"620\" y=\"178\" />\n        <omgdi:waypoint x=\"732\" y=\"178\" />\n      </bpmndi:BPMNEdge>\n    </bpmndi:BPMNPlane>\n  </bpmndi:BPMNDiagram>\n</definitions>\n','54b9d07323f58dacd8cfa531aa69f27d5ff20d17ae7f425f4872d8c3d2f7bd43',NULL,NULL,NULL,NULL,'admin','2026-08-03 11:26:25.032','admin','2026-08-03 11:37:55.948');
 /*!40000 ALTER TABLE `fm_process_version` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -3389,6 +3397,9 @@ CREATE TABLE `fm_task_policy` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_task_policy` WRITE;
 /*!40000 ALTER TABLE `fm_task_policy` DISABLE KEYS */;
+INSERT INTO `fm_task_policy` VALUES
+('b7085a8e-8eec-11f1-b60a-57063a30b007','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599',1,'Activity_0hmr9ef','單位主官','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','Y','Y','ON_REJECT_RETURN','admin','2026-08-03 11:37:55.941',NULL,NULL),
+('b708f6cf-8eec-11f1-b60a-f1f023582e58','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599',1,'Activity_1vyy7nj','直屬主管','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','Y','Y','ON_REJECT_RETURN','admin','2026-08-03 11:37:55.944',NULL,NULL);
 /*!40000 ALTER TABLE `fm_task_policy` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -4181,6 +4192,8 @@ INSERT INTO `tb_sys_menu` VALUES
 ('19aa0707-8e5a-11f1-952d-8b02dbdce924','FM_PROG004D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-02 18:08:25',NULL,NULL),
 ('19ab3f88-8e5a-11f1-952d-67a6bce6b52a','FM_PROG004D0001Q','19aa0707-8e5a-11f1-952d-8b02dbdce924','Y','admin','2026-08-02 18:08:25',NULL,NULL),
 ('288800ef-8e47-11f1-8601-75f6d2252822','FM_PROG003D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-02 15:52:49',NULL,NULL),
+('2bd1d3f0-8ef1-11f1-84eb-25df749b5ea1','FM_PROG005D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-03 12:09:49',NULL,NULL),
+('2bd33381-8ef1-11f1-84eb-710e91c27197','FM_PROG005D0001Q','2bd1d3f0-8ef1-11f1-84eb-25df749b5ea1','Y','admin','2026-08-03 12:09:49',NULL,NULL),
 ('329d4cf9-8e55-11f1-aaf8-2fb682b5b8ed','FM_PROG003D0001Q','288800ef-8e47-11f1-8601-75f6d2252822','Y','admin','2026-08-02 17:33:19',NULL,NULL),
 ('329e375a-8e55-11f1-aaf8-7b7075c81664','FM_PROG003D0002Q','288800ef-8e47-11f1-8601-75f6d2252822','Y','admin','2026-08-02 17:33:19',NULL,NULL),
 ('4bd4d202-5feb-495b-8c8c-ec6b7f5b8041','CORE_PROG002D0002Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
@@ -4291,6 +4304,10 @@ INSERT INTO `tb_sys_prog` VALUES
 ('14d41871-8e47-11f1-a861-005056c00001','FM_PROG003D0001A','FC01 - 簽核群組（新增）','#/fm_prog003d0001/create','N','N',0,0,'CORE','ITEM','ORGANIZATION','people','admin','2026-08-02 15:52:09',NULL,NULL),
 ('14d50885-8e47-11f1-a861-005056c00001','FM_PROG003D0001E','FC01 - 簽核群組（編輯）','#/fm_prog003d0001/edit','Y','N',0,0,'CORE','ITEM','ORGANIZATION','people','admin','2026-08-02 15:52:09',NULL,NULL),
 ('186b1fb1-749f-4b6f-97d1-6b7fb8115345','CORE_PROG001D0004E','ZA04 - Freemarker樣板 (Edit)','#/prog001d0004/edit','Y','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:40:10','admin','2023-08-16 21:48:56'),
+('19834f86-8ef1-11f1-a861-005056c00001','FM_PROG005D','FE. FlowMint 表單設計','/','N','N',0,0,'CORE','FOLDER','ORGANIZATION','file-earmark-text','admin','2026-08-03 12:09:07',NULL,NULL),
+('1985a871-8ef1-11f1-a861-005056c00001','FM_PROG005D0001Q','FE01 - 表單設計與版本','#/fm_prog005d0001','N','N',0,0,'CORE','ITEM','ORGANIZATION','file-earmark-text','admin','2026-08-03 12:09:07',NULL,NULL),
+('19870260-8ef1-11f1-a861-005056c00001','FM_PROG005D0001A','FE01 - 表單設計與版本（新增）','#/fm_prog005d0001/create','N','N',0,0,'CORE','ITEM','ORGANIZATION','file-earmark-text','admin','2026-08-03 12:09:07',NULL,NULL),
+('1988535e-8ef1-11f1-a861-005056c00001','FM_PROG005D0001E','FE01 - 表單設計與版本（編輯）','#/fm_prog005d0001/edit','Y','N',0,0,'CORE','ITEM','ORGANIZATION','file-earmark-text','admin','2026-08-03 12:09:07',NULL,NULL),
 ('1b11c7eb-6133-48fb-87f0-dfbd098ce914','CORE_PROG001D0001E','ZA01 - System site (Edit)','#/prog001d0001/edit','Y','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:58'),
 ('1e393fe3-8bbc-482c-aa23-bbb22a1dbafb','CORE_PROG001D0005A','ZA05 - JasperReport (Create)','#/prog001d0005/create','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:55:46','admin','2023-08-24 20:20:27'),
 ('22560527-90fb-4e5a-a89b-353d2aa1d433','CORE_PROG001D0005E','ZA05 - JasperReport (Edit)','#/prog001d0005/edit','Y','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:56:27','admin','2023-08-24 20:20:40'),
@@ -4605,4 +4622,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-02 18:37:47
+-- Dump completed on 2026-08-03 12:12:07

@@ -1,0 +1,61 @@
+-- FlowMint FM_PROG005D0001 - 表單設計與版本程式註冊
+-- 僅註冊程式資料；目前階段不配置角色權限，可重複執行。
+START TRANSACTION;
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG005D', 'FE. FlowMint 表單設計',
+       '/', 'N', 'N', 0, 0,
+       'CORE', 'FOLDER', 'ORGANIZATION', 'file-earmark-text',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+      FROM tb_sys_prog
+     WHERE PROG_ID = 'FM_PROG005D'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG005D0001Q', 'FE01 - 表單設計與版本',
+       '#/fm_prog005d0001', 'N', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'file-earmark-text',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+      FROM tb_sys_prog
+     WHERE PROG_ID = 'FM_PROG005D0001Q'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG005D0001A', 'FE01 - 表單設計與版本（新增）',
+       '#/fm_prog005d0001/create', 'N', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'file-earmark-text',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+      FROM tb_sys_prog
+     WHERE PROG_ID = 'FM_PROG005D0001A'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG005D0001E', 'FE01 - 表單設計與版本（編輯）',
+       '#/fm_prog005d0001/edit', 'Y', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'file-earmark-text',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1
+      FROM tb_sys_prog
+     WHERE PROG_ID = 'FM_PROG005D0001E'
+);
+
+COMMIT;
