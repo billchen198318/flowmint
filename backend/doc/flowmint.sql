@@ -2187,6 +2187,59 @@ COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
 --
+-- Table structure for table `fm_data_source_pool`
+--
+
+DROP TABLE IF EXISTS `fm_data_source_pool`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_data_source_pool` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `POOL_ID` varchar(36) NOT NULL,
+  `POOL_CODE` varchar(50) NOT NULL,
+  `POOL_NAME` varchar(100) NOT NULL,
+  `DB_TYPE` varchar(20) NOT NULL,
+  `DRIVER_CLASS` varchar(200) NOT NULL,
+  `JDBC_URL` varchar(1000) NOT NULL,
+  `USERNAME` varchar(200) NOT NULL,
+  `PASSWORD_CONTENT` longtext NOT NULL,
+  `MAXIMUM_POOL_SIZE` int(11) NOT NULL DEFAULT 10,
+  `MINIMUM_IDLE` int(11) NOT NULL DEFAULT 1,
+  `CONNECTION_TIMEOUT_MS` bigint(20) NOT NULL DEFAULT 10000,
+  `IDLE_TIMEOUT_MS` bigint(20) NOT NULL DEFAULT 600000,
+  `MAX_LIFETIME_MS` bigint(20) NOT NULL DEFAULT 1800000,
+  `VALIDATION_QUERY` varchar(500) DEFAULT NULL,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `LOCK_VERSION` int(11) NOT NULL DEFAULT 0,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_DS_POOL_ID` (`TENANT_ID`,`POOL_ID`),
+  UNIQUE KEY `UK_FM_DS_POOL_CODE` (`TENANT_ID`,`POOL_CODE`),
+  KEY `IDX_FM_DS_POOL_STATUS` (`TENANT_ID`,`STATUS`,`DB_TYPE`),
+  CONSTRAINT `CK_FM_DS_POOL_DB_TYPE` CHECK (`DB_TYPE` in ('MARIADB','ORACLE','MSSQL')),
+  CONSTRAINT `CK_FM_DS_POOL_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_DS_POOL_LIMIT` CHECK (`MAXIMUM_POOL_SIZE` between 1 and 100 and `MINIMUM_IDLE` between 0 and `MAXIMUM_POOL_SIZE`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_data_source_pool`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_data_source_pool` WRITE;
+/*!40000 ALTER TABLE `fm_data_source_pool` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_data_source_pool` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
 -- Table structure for table `fm_employee`
 --
 
@@ -4191,6 +4244,8 @@ LOCK TABLES `tb_sys_menu` WRITE;
 INSERT INTO `tb_sys_menu` VALUES
 ('19aa0707-8e5a-11f1-952d-8b02dbdce924','FM_PROG004D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-02 18:08:25',NULL,NULL),
 ('19ab3f88-8e5a-11f1-952d-67a6bce6b52a','FM_PROG004D0001Q','19aa0707-8e5a-11f1-952d-8b02dbdce924','Y','admin','2026-08-02 18:08:25',NULL,NULL),
+('1f1a7071-8ff2-11f1-9e94-2bf67523a857','FM_PROG006D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-04 18:49:09',NULL,NULL),
+('1f1bd002-8ff2-11f1-9e94-13a5c0ec6bf0','FM_PROG006D0001Q','1f1a7071-8ff2-11f1-9e94-2bf67523a857','Y','admin','2026-08-04 18:49:09',NULL,NULL),
 ('288800ef-8e47-11f1-8601-75f6d2252822','FM_PROG003D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-02 15:52:49',NULL,NULL),
 ('2bd1d3f0-8ef1-11f1-84eb-25df749b5ea1','FM_PROG005D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-03 12:09:49',NULL,NULL),
 ('2bd33381-8ef1-11f1-84eb-710e91c27197','FM_PROG005D0001Q','2bd1d3f0-8ef1-11f1-84eb-25df749b5ea1','Y','admin','2026-08-03 12:09:49',NULL,NULL),
@@ -4361,7 +4416,11 @@ INSERT INTO `tb_sys_prog` VALUES
 ('eb565b12-8e54-11f1-a861-005056c00001','FM_PROG003D0002A','FC02 - 工作代理（新增）','#/fm_prog003d0002/create','N','N',0,0,'CORE','ITEM','ORGANIZATION','people','admin','2026-08-02 17:31:12',NULL,NULL),
 ('eb572938-8e54-11f1-a861-005056c00001','FM_PROG003D0002E','FC02 - 工作代理（編輯）','#/fm_prog003d0002/edit','Y','N',0,0,'CORE','ITEM','ORGANIZATION','people','admin','2026-08-02 17:31:12',NULL,NULL),
 ('eb6e199f-c853-4fbf-acf3-0c9c77ba9953','CORE_PROG001D0002Q','ZA02 - Program','#/prog001d0002','N','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:05'),
-('eb786ffd-c7d1-4631-aed2-4d9d7368eb13','CORE_PROG001D0005Q','ZA05 - JasperReport','#/prog001d0005','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:54:35','admin','2023-08-24 20:20:16');
+('eb786ffd-c7d1-4631-aed2-4d9d7368eb13','CORE_PROG001D0005Q','ZA05 - JasperReport','#/prog001d0005','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:54:35','admin','2023-08-24 20:20:16'),
+('ef5c35e7-8fef-11f1-a98b-005056c00001','FM_PROG006D','FF. FlowMint 動態資料服務','/','N','N',0,0,'CORE','FOLDER','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL),
+('ef5c3962-8fef-11f1-a98b-005056c00001','FM_PROG006D0001Q','FF01 - DataSource Pool 管理','#/fm_prog006d0001','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL),
+('ef5c39bb-8fef-11f1-a98b-005056c00001','FM_PROG006D0001A','FF01 - DataSource Pool 管理（新增）','#/fm_prog006d0001/create','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL),
+('ef5c3a05-8fef-11f1-a98b-005056c00001','FM_PROG006D0001E','FF01 - DataSource Pool 管理（編輯）','#/fm_prog006d0001/edit','Y','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL);
 /*!40000 ALTER TABLE `tb_sys_prog` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -4622,4 +4681,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-03 14:09:07
+-- Dump completed on 2026-08-04 18:56:34

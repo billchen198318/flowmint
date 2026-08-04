@@ -120,6 +120,6 @@ export const popularIcons = [
   { name: 'layers-fill', label: 'Layers Fill' }, { name: 'stack', label: 'Stack' }, { name: 'box', label: 'Box' },
   { name: 'box-seam', label: 'Box Seam' }, { name: 'cup-hot', label: 'Cup Hot' }, { name: 'puzzle', label: 'Puzzle' },
   { name: 'diagram-3', label: 'Diagram 3'}, { name: 'person-add', label: 'Person add'}, { name: 'person-gear', label: 'Person gear'},
-  { name: 'diagram-2', label: 'Diagram 2'}, { name: 'person-workspace', label: 'Person workspace'}
+  { name: 'diagram-2', label: 'Diagram 2'}, { name: 'person-workspace', label: 'Person workspace'}, { name: 'database', label: 'Database'}
   
 ];

@@ -1,0 +1,106 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace='org.qifu.fm.mapper.FmDataSourcePoolMapper'>
+  <resultMap id='BaseResultMap' type='org.qifu.fm.entity.FmDataSourcePool'>
+    <id column='OID' jdbcType='CHAR' property='oid' />
+    <result column='TENANT_ID' jdbcType='VARCHAR' property='tenantId' />
+    <result column='POOL_ID' jdbcType='VARCHAR' property='poolId' />
+    <result column='POOL_CODE' jdbcType='VARCHAR' property='poolCode' />
+    <result column='POOL_NAME' jdbcType='VARCHAR' property='poolName' />
+    <result column='DB_TYPE' jdbcType='VARCHAR' property='dbType' />
+    <result column='DRIVER_CLASS' jdbcType='VARCHAR' property='driverClass' />
+    <result column='JDBC_URL' jdbcType='VARCHAR' property='jdbcUrl' />
+    <result column='USERNAME' jdbcType='VARCHAR' property='username' />
+    <result column='PASSWORD_CONTENT' jdbcType='LONGVARCHAR' property='passwordContent' />
+    <result column='MAXIMUM_POOL_SIZE' jdbcType='INTEGER' property='maximumPoolSize' />
+    <result column='MINIMUM_IDLE' jdbcType='INTEGER' property='minimumIdle' />
+    <result column='CONNECTION_TIMEOUT_MS' jdbcType='BIGINT' property='connectionTimeoutMs' />
+    <result column='IDLE_TIMEOUT_MS' jdbcType='BIGINT' property='idleTimeoutMs' />
+    <result column='MAX_LIFETIME_MS' jdbcType='BIGINT' property='maxLifetimeMs' />
+    <result column='VALIDATION_QUERY' jdbcType='VARCHAR' property='validationQuery' />
+    <result column='STATUS' jdbcType='VARCHAR' property='status' />
+    <result column='LOCK_VERSION' jdbcType='INTEGER' property='lockVersion' />
+    <result column='DESCRIPTION' jdbcType='VARCHAR' property='description' />
+    <result column='CUSERID' jdbcType='VARCHAR' property='cuserid' />
+    <result column='CDATE' jdbcType='TIMESTAMP' property='cdate' />
+    <result column='UUSERID' jdbcType='VARCHAR' property='uuserid' />
+    <result column='UDATE' jdbcType='TIMESTAMP' property='udate' />
+  </resultMap>
+  <sql id='BaseColumnList'>
+    OID, TENANT_ID, POOL_ID, POOL_CODE, POOL_NAME, DB_TYPE, DRIVER_CLASS,
+    JDBC_URL, USERNAME, PASSWORD_CONTENT, MAXIMUM_POOL_SIZE, MINIMUM_IDLE,
+    CONNECTION_TIMEOUT_MS, IDLE_TIMEOUT_MS, MAX_LIFETIME_MS, VALIDATION_QUERY,
+    STATUS, LOCK_VERSION, DESCRIPTION, CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+  <select id='selectByPrimaryKey' parameterType='java.lang.String' resultMap='BaseResultMap'>
+    SELECT <include refid='BaseColumnList' />
+    FROM <include refid='org.qifu.core.mapper.DB1Config.schema'/>fm_data_source_pool
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+  <insert id='insert' parameterType='org.qifu.fm.entity.FmDataSourcePool'>
+    INSERT INTO <include refid='org.qifu.core.mapper.DB1Config.schema'/>fm_data_source_pool
+        (OID, TENANT_ID, POOL_ID, POOL_CODE, POOL_NAME, DB_TYPE, DRIVER_CLASS,
+         JDBC_URL, USERNAME, PASSWORD_CONTENT, MAXIMUM_POOL_SIZE, MINIMUM_IDLE,
+         CONNECTION_TIMEOUT_MS, IDLE_TIMEOUT_MS, MAX_LIFETIME_MS, VALIDATION_QUERY,
+         STATUS, LOCK_VERSION, DESCRIPTION, CUSERID, CDATE, UUSERID, UDATE)
+    VALUES
+        (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{poolId,jdbcType=VARCHAR},
+         #{poolCode,jdbcType=VARCHAR}, #{poolName,jdbcType=VARCHAR}, #{dbType,jdbcType=VARCHAR},
+         #{driverClass,jdbcType=VARCHAR}, #{jdbcUrl,jdbcType=VARCHAR}, #{username,jdbcType=VARCHAR},
+         #{passwordContent,jdbcType=LONGVARCHAR}, #{maximumPoolSize,jdbcType=INTEGER},
+         #{minimumIdle,jdbcType=INTEGER}, #{connectionTimeoutMs,jdbcType=BIGINT},
+         #{idleTimeoutMs,jdbcType=BIGINT}, #{maxLifetimeMs,jdbcType=BIGINT},
+         #{validationQuery,jdbcType=VARCHAR}, #{status,jdbcType=VARCHAR},
+         #{lockVersion,jdbcType=INTEGER}, #{description,jdbcType=VARCHAR},
+         #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP},
+         #{uuserid,jdbcType=VARCHAR}, #{udate,jdbcType=TIMESTAMP})
+  </insert>
+  <select id='findPage' parameterType='java.util.HashMap' resultMap='BaseResultMap'>
+    <include refid='org.qifu.core.mapper.DB1Config.sql1' />
+    SELECT <include refid='BaseColumnList' />
+    FROM <include refid='org.qifu.core.mapper.DB1Config.schema'/>fm_data_source_pool
+    WHERE 1 = 1 <include refid='baseConditions' />
+    <include refid='org.qifu.core.mapper.DB1Config.sql2' />
+  </select>
+  <select id='count' parameterType='java.util.HashMap' resultType='java.lang.Long'>
+    SELECT COUNT(*)
+    FROM <include refid='org.qifu.core.mapper.DB1Config.schema'/>fm_data_source_pool
+    WHERE 1 = 1 <include refid='baseConditions' />
+  </select>
+  <sql id='baseConditions'>
+    AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </sql>
+  <select id='selectListByParams' parameterType='java.util.HashMap' resultMap='BaseResultMap'>
+    SELECT <include refid='BaseColumnList' />
+    FROM <include refid='org.qifu.core.mapper.DB1Config.schema'/>fm_data_source_pool
+    WHERE 1 = 1 <include refid='baseConditions' />
+  </select>
+  <update id='update' parameterType='org.qifu.fm.entity.FmDataSourcePool'>
+    UPDATE <include refid='org.qifu.core.mapper.DB1Config.schema'/>fm_data_source_pool
+    SET POOL_NAME = #{poolName,jdbcType=VARCHAR},
+        DB_TYPE = #{dbType,jdbcType=VARCHAR},
+        DRIVER_CLASS = #{driverClass,jdbcType=VARCHAR},
+        JDBC_URL = #{jdbcUrl,jdbcType=VARCHAR},
+        USERNAME = #{username,jdbcType=VARCHAR},
+        PASSWORD_CONTENT = #{passwordContent,jdbcType=LONGVARCHAR},
+        MAXIMUM_POOL_SIZE = #{maximumPoolSize,jdbcType=INTEGER},
+        MINIMUM_IDLE = #{minimumIdle,jdbcType=INTEGER},
+        CONNECTION_TIMEOUT_MS = #{connectionTimeoutMs,jdbcType=BIGINT},
+        IDLE_TIMEOUT_MS = #{idleTimeoutMs,jdbcType=BIGINT},
+        MAX_LIFETIME_MS = #{maxLifetimeMs,jdbcType=BIGINT},
+        VALIDATION_QUERY = #{validationQuery,jdbcType=VARCHAR},
+        STATUS = #{status,jdbcType=VARCHAR},
+        LOCK_VERSION = LOCK_VERSION + 1,
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+        UDATE = #{udate,jdbcType=TIMESTAMP}
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+  </update>
+  <delete id='delete' parameterType='org.qifu.fm.entity.FmDataSourcePool'>
+    DELETE FROM <include refid='org.qifu.core.mapper.DB1Config.schema'/>fm_data_source_pool
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </delete>
+</mapper>
