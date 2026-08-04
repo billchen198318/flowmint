@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmDataActionStepMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmDataActionStep">
+    <result column="OID" jdbcType="CHAR" property="oid"/>
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId"/>
+    <result column="ACTION_ID" jdbcType="VARCHAR" property="actionId"/>
+    <result column="VERSION_NO" jdbcType="INTEGER" property="versionNo"/>
+    <result column="STEP_ID" jdbcType="VARCHAR" property="stepId"/>
+    <result column="STEP_CODE" jdbcType="VARCHAR" property="stepCode"/>
+    <result column="STEP_NAME" jdbcType="VARCHAR" property="stepName"/>
+    <result column="EXECUTION_ORDER" jdbcType="INTEGER" property="executionOrder"/>
+    <result column="STATEMENT_TYPE" jdbcType="VARCHAR" property="statementType"/>
+    <result column="EXECUTION_MODE" jdbcType="VARCHAR" property="executionMode"/>
+    <result column="SQL_CONTENT" jdbcType="LONGVARCHAR" property="sqlContent"/>
+    <result column="ARRAY_PATH" jdbcType="VARCHAR" property="arrayPath"/>
+    <result column="RESULT_KEY" jdbcType="VARCHAR" property="resultKey"/>
+    <result column="RESULT_MODE" jdbcType="VARCHAR" property="resultMode"/>
+    <result column="EXPECT_AFFECTED_ROWS" jdbcType="INTEGER" property="expectAffectedRows"/>
+    <result column="CONTINUE_CONDITION" jdbcType="VARCHAR" property="continueCondition"/>
+    <result column="QUERY_TIMEOUT_SECONDS" jdbcType="INTEGER" property="queryTimeoutSeconds"/>
+    <result column="MAX_ROWS" jdbcType="INTEGER" property="maxRows"/>
+    <result column="STATUS" jdbcType="VARCHAR" property="status"/>
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate"/>
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid"/>
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate"/>
+  </resultMap>
+
+  <sql id="Base_Column_List">
+      OID,
+      TENANT_ID,
+      ACTION_ID,
+      VERSION_NO,
+      STEP_ID,
+      STEP_CODE,
+      STEP_NAME,
+      EXECUTION_ORDER,
+      STATEMENT_TYPE,
+      EXECUTION_MODE,
+      SQL_CONTENT,
+      ARRAY_PATH,
+      RESULT_KEY,
+      RESULT_MODE,
+      EXPECT_AFFECTED_ROWS,
+      CONTINUE_CONDITION,
+      QUERY_TIMEOUT_SECONDS,
+      MAX_ROWS,
+      STATUS,
+      CUSERID,
+      CDATE,
+      UUSERID,
+      UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="actionId != null">
+      AND ACTION_ID = #{actionId,jdbcType=VARCHAR}
+    </if>
+    <if test="versionNo != null">
+      AND VERSION_NO = #{versionNo,jdbcType=INTEGER}
+    </if>
+    <if test="stepId != null">
+      AND STEP_ID = #{stepId,jdbcType=VARCHAR}
+    </if>
+    <if test="stepCode != null">
+      AND STEP_CODE = #{stepCode,jdbcType=VARCHAR}
+    </if>
+    <if test="stepName != null">
+      AND STEP_NAME = #{stepName,jdbcType=VARCHAR}
+    </if>
+    <if test="executionOrder != null">
+      AND EXECUTION_ORDER = #{executionOrder,jdbcType=INTEGER}
+    </if>
+    <if test="statementType != null">
+      AND STATEMENT_TYPE = #{statementType,jdbcType=VARCHAR}
+    </if>
+    <if test="executionMode != null">
+      AND EXECUTION_MODE = #{executionMode,jdbcType=VARCHAR}
+    </if>
+    <if test="sqlContent != null">
+      AND SQL_CONTENT = #{sqlContent,jdbcType=LONGVARCHAR}
+    </if>
+    <if test="arrayPath != null">
+      AND ARRAY_PATH = #{arrayPath,jdbcType=VARCHAR}
+    </if>
+    <if test="resultKey != null">
+      AND RESULT_KEY = #{resultKey,jdbcType=VARCHAR}
+    </if>
+    <if test="resultMode != null">
+      AND RESULT_MODE = #{resultMode,jdbcType=VARCHAR}
+    </if>
+    <if test="expectAffectedRows != null">
+      AND EXPECT_AFFECTED_ROWS = #{expectAffectedRows,jdbcType=INTEGER}
+    </if>
+    <if test="continueCondition != null">
+      AND CONTINUE_CONDITION = #{continueCondition,jdbcType=VARCHAR}
+    </if>
+    <if test="queryTimeoutSeconds != null">
+      AND QUERY_TIMEOUT_SECONDS = #{queryTimeoutSeconds,jdbcType=INTEGER}
+    </if>
+    <if test="maxRows != null">
+      AND MAX_ROWS = #{maxRows,jdbcType=INTEGER}
+    </if>
+    <if test="status != null">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+    <if test="cuserid != null">
+      AND CUSERID = #{cuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="cdate != null">
+      AND CDATE = #{cdate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="uuserid != null">
+      AND UUSERID = #{uuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="udate != null">
+      AND UDATE = #{udate,jdbcType=TIMESTAMP}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT
+    <include refid="Base_Column_List"/>
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action_step
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="map" resultMap="BaseResultMap">
+    SELECT
+    <include refid="Base_Column_List"/>
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action_step
+     WHERE 1 = 1
+    <include refid="baseConditions"/>
+    <if test="orderBy != null and orderBy != ''">
+     ORDER BY ${orderBy}
+      <if test="sortType != null and sortType != ''">
+        ${sortType}
+      </if>
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="map" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1"/>
+    SELECT
+    <include refid="Base_Column_List"/>
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action_step
+     WHERE 1 = 1
+    <include refid="baseConditions"/>
+    <if test="orderBy != null and orderBy != ''">
+     ORDER BY ${orderBy}
+      <if test="sortType != null and sortType != ''">
+        ${sortType}
+      </if>
+    </if>
+    <include refid="org.qifu.core.mapper.DB1Config.sql2"/>
+  </select>
+
+  <select id="count" parameterType="map" resultType="long">
+    SELECT COUNT(1)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action_step
+     WHERE 1 = 1
+    <include refid="baseConditions"/>
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmDataActionStep">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action_step
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="actionId != null">
+        ACTION_ID,
+      </if>
+      <if test="versionNo != null">
+        VERSION_NO,
+      </if>
+      <if test="stepId != null">
+        STEP_ID,
+      </if>
+      <if test="stepCode != null">
+        STEP_CODE,
+      </if>
+      <if test="stepName != null">
+        STEP_NAME,
+      </if>
+      <if test="executionOrder != null">
+        EXECUTION_ORDER,
+      </if>
+      <if test="statementType != null">
+        STATEMENT_TYPE,
+      </if>
+      <if test="executionMode != null">
+        EXECUTION_MODE,
+      </if>
+      <if test="sqlContent != null">
+        SQL_CONTENT,
+      </if>
+      <if test="arrayPath != null">
+        ARRAY_PATH,
+      </if>
+      <if test="resultKey != null">
+        RESULT_KEY,
+      </if>
+      <if test="resultMode != null">
+        RESULT_MODE,
+      </if>
+      <if test="expectAffectedRows != null">
+        EXPECT_AFFECTED_ROWS,
+      </if>
+      <if test="continueCondition != null">
+        CONTINUE_CONDITION,
+      </if>
+      <if test="queryTimeoutSeconds != null">
+        QUERY_TIMEOUT_SECONDS,
+      </if>
+      <if test="maxRows != null">
+        MAX_ROWS,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="actionId != null">
+        #{actionId,jdbcType=VARCHAR},
+      </if>
+      <if test="versionNo != null">
+        #{versionNo,jdbcType=INTEGER},
+      </if>
+      <if test="stepId != null">
+        #{stepId,jdbcType=VARCHAR},
+      </if>
+      <if test="stepCode != null">
+        #{stepCode,jdbcType=VARCHAR},
+      </if>
+      <if test="stepName != null">
+        #{stepName,jdbcType=VARCHAR},
+      </if>
+      <if test="executionOrder != null">
+        #{executionOrder,jdbcType=INTEGER},
+      </if>
+      <if test="statementType != null">
+        #{statementType,jdbcType=VARCHAR},
+      </if>
+      <if test="executionMode != null">
+        #{executionMode,jdbcType=VARCHAR},
+      </if>
+      <if test="sqlContent != null">
+        #{sqlContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="arrayPath != null">
+        #{arrayPath,jdbcType=VARCHAR},
+      </if>
+      <if test="resultKey != null">
+        #{resultKey,jdbcType=VARCHAR},
+      </if>
+      <if test="resultMode != null">
+        #{resultMode,jdbcType=VARCHAR},
+      </if>
+      <if test="expectAffectedRows != null">
+        #{expectAffectedRows,jdbcType=INTEGER},
+      </if>
+      <if test="continueCondition != null">
+        #{continueCondition,jdbcType=VARCHAR},
+      </if>
+      <if test="queryTimeoutSeconds != null">
+        #{queryTimeoutSeconds,jdbcType=INTEGER},
+      </if>
+      <if test="maxRows != null">
+        #{maxRows,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmDataActionStep">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action_step
+    <set>
+      <if test="versionNo != null">
+        VERSION_NO = #{versionNo,jdbcType=INTEGER},
+      </if>
+      <if test="stepId != null">
+        STEP_ID = #{stepId,jdbcType=VARCHAR},
+      </if>
+      <if test="stepCode != null">
+        STEP_CODE = #{stepCode,jdbcType=VARCHAR},
+      </if>
+      <if test="stepName != null">
+        STEP_NAME = #{stepName,jdbcType=VARCHAR},
+      </if>
+      <if test="executionOrder != null">
+        EXECUTION_ORDER = #{executionOrder,jdbcType=INTEGER},
+      </if>
+      <if test="statementType != null">
+        STATEMENT_TYPE = #{statementType,jdbcType=VARCHAR},
+      </if>
+      <if test="executionMode != null">
+        EXECUTION_MODE = #{executionMode,jdbcType=VARCHAR},
+      </if>
+      <if test="sqlContent != null">
+        SQL_CONTENT = #{sqlContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="arrayPath != null">
+        ARRAY_PATH = #{arrayPath,jdbcType=VARCHAR},
+      </if>
+      <if test="resultKey != null">
+        RESULT_KEY = #{resultKey,jdbcType=VARCHAR},
+      </if>
+      <if test="resultMode != null">
+        RESULT_MODE = #{resultMode,jdbcType=VARCHAR},
+      </if>
+      <if test="expectAffectedRows != null">
+        EXPECT_AFFECTED_ROWS = #{expectAffectedRows,jdbcType=INTEGER},
+      </if>
+      <if test="continueCondition != null">
+        CONTINUE_CONDITION = #{continueCondition,jdbcType=VARCHAR},
+      </if>
+      <if test="queryTimeoutSeconds != null">
+        QUERY_TIMEOUT_SECONDS = #{queryTimeoutSeconds,jdbcType=INTEGER},
+      </if>
+      <if test="maxRows != null">
+        MAX_ROWS = #{maxRows,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmDataActionStep">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action_step
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </delete>
+
+</mapper>
+

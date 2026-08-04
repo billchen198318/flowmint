@@ -2187,6 +2187,138 @@ COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
 --
+-- Table structure for table `fm_data_action`
+--
+
+DROP TABLE IF EXISTS `fm_data_action`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_data_action` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(50) NOT NULL,
+  `ACTION_ID` varchar(50) NOT NULL,
+  `ACTION_CODE` varchar(50) NOT NULL,
+  `ACTION_NAME` varchar(100) NOT NULL,
+  `POOL_ID` varchar(50) NOT NULL,
+  `ACTION_TYPE` varchar(20) NOT NULL,
+  `REQUEST_SCHEMA` longtext NOT NULL,
+  `RESPONSE_MODE` varchar(20) NOT NULL,
+  `STATUS` varchar(20) NOT NULL,
+  `CURRENT_VERSION_NO` int(11) NOT NULL DEFAULT 0,
+  `DESCRIPTION` varchar(500) DEFAULT NULL,
+  `LOCK_VERSION` int(11) NOT NULL DEFAULT 0,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_DATA_ACTION_CODE` (`TENANT_ID`,`ACTION_CODE`),
+  UNIQUE KEY `UK_FM_DATA_ACTION_ID` (`TENANT_ID`,`ACTION_ID`),
+  KEY `IX_FM_DATA_ACTION_POOL` (`TENANT_ID`,`POOL_ID`,`STATUS`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_data_action`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_data_action` WRITE;
+/*!40000 ALTER TABLE `fm_data_action` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_data_action` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_data_action_step`
+--
+
+DROP TABLE IF EXISTS `fm_data_action_step`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_data_action_step` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(50) NOT NULL,
+  `ACTION_ID` varchar(50) NOT NULL,
+  `VERSION_NO` int(11) NOT NULL,
+  `STEP_ID` varchar(50) NOT NULL,
+  `STEP_CODE` varchar(50) NOT NULL,
+  `STEP_NAME` varchar(100) NOT NULL,
+  `EXECUTION_ORDER` int(11) NOT NULL,
+  `STATEMENT_TYPE` varchar(20) NOT NULL,
+  `EXECUTION_MODE` varchar(20) NOT NULL,
+  `SQL_CONTENT` longtext NOT NULL,
+  `ARRAY_PATH` varchar(200) DEFAULT NULL,
+  `RESULT_KEY` varchar(100) NOT NULL,
+  `RESULT_MODE` varchar(20) NOT NULL,
+  `EXPECT_AFFECTED_ROWS` int(11) DEFAULT NULL,
+  `CONTINUE_CONDITION` varchar(500) DEFAULT NULL,
+  `QUERY_TIMEOUT_SECONDS` int(11) NOT NULL DEFAULT 30,
+  `MAX_ROWS` int(11) NOT NULL DEFAULT 1000,
+  `STATUS` varchar(20) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_DATA_ACTION_STEP_CODE` (`TENANT_ID`,`ACTION_ID`,`VERSION_NO`,`STEP_CODE`),
+  UNIQUE KEY `UK_FM_DATA_ACTION_RESULT_KEY` (`TENANT_ID`,`ACTION_ID`,`VERSION_NO`,`RESULT_KEY`),
+  KEY `IX_FM_DATA_ACTION_STEP_ORDER` (`TENANT_ID`,`ACTION_ID`,`VERSION_NO`,`EXECUTION_ORDER`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_data_action_step`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_data_action_step` WRITE;
+/*!40000 ALTER TABLE `fm_data_action_step` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_data_action_step` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_data_action_version`
+--
+
+DROP TABLE IF EXISTS `fm_data_action_version`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_data_action_version` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(50) NOT NULL,
+  `ACTION_ID` varchar(50) NOT NULL,
+  `VERSION_NO` int(11) NOT NULL,
+  `VERSION_STATUS` varchar(20) NOT NULL,
+  `CONTENT_SHA256` char(64) DEFAULT NULL,
+  `PUBLISHED_BY` varchar(24) DEFAULT NULL,
+  `PUBLISHED_DATE` datetime(3) DEFAULT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_DATA_ACTION_VERSION` (`TENANT_ID`,`ACTION_ID`,`VERSION_NO`),
+  KEY `IX_FM_DATA_ACTION_VERSION_STATUS` (`TENANT_ID`,`ACTION_ID`,`VERSION_STATUS`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_data_action_version`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_data_action_version` WRITE;
+/*!40000 ALTER TABLE `fm_data_action_version` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_data_action_version` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
 -- Table structure for table `fm_data_source_pool`
 --
 
@@ -4247,7 +4379,6 @@ INSERT INTO `tb_sys_menu` VALUES
 ('19aa0707-8e5a-11f1-952d-8b02dbdce924','FM_PROG004D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-02 18:08:25',NULL,NULL),
 ('19ab3f88-8e5a-11f1-952d-67a6bce6b52a','FM_PROG004D0001Q','19aa0707-8e5a-11f1-952d-8b02dbdce924','Y','admin','2026-08-02 18:08:25',NULL,NULL),
 ('1f1a7071-8ff2-11f1-9e94-2bf67523a857','FM_PROG006D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-04 18:49:09',NULL,NULL),
-('1f1bd002-8ff2-11f1-9e94-13a5c0ec6bf0','FM_PROG006D0001Q','1f1a7071-8ff2-11f1-9e94-2bf67523a857','Y','admin','2026-08-04 18:49:09',NULL,NULL),
 ('288800ef-8e47-11f1-8601-75f6d2252822','FM_PROG003D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-02 15:52:49',NULL,NULL),
 ('2bd1d3f0-8ef1-11f1-84eb-25df749b5ea1','FM_PROG005D','00000000-0000-0000-0000-000000000000','Y','admin','2026-08-03 12:09:49',NULL,NULL),
 ('2bd33381-8ef1-11f1-84eb-710e91c27197','FM_PROG005D0001Q','2bd1d3f0-8ef1-11f1-84eb-25df749b5ea1','Y','admin','2026-08-03 12:09:49',NULL,NULL),
@@ -4262,6 +4393,8 @@ INSERT INTO `tb_sys_menu` VALUES
 ('7aa2590b-5fc2-11f1-afe9-73b1551d818b','CORE_PROG005D0001Q','7aa1208a-5fc2-11f1-afe9-33fb6c1b9ce7','Y','admin','2026-06-04 11:07:11',NULL,NULL),
 ('7ea68636-c93a-4669-ac42-dafc3770d20d','CORE_PROG001D','00000000-0000-0000-0000-000000000000','Y','admin','2017-04-20 11:24:53',NULL,NULL),
 ('83f3ec93-8c1c-11f1-b7bb-0b4bed3d6265','FM_PROG001D0001Q','4d85e70f-8c1c-11f1-b7bb-df01fa5d82a7','Y','admin','2026-07-30 21:42:32',NULL,NULL),
+('84a0c173-9005-11f1-9e5f-d93ed7a02673','FM_PROG006D0001Q','1f1a7071-8ff2-11f1-9e94-2bf67523a857','Y','admin','2026-08-04 21:07:59',NULL,NULL),
+('84a1abd4-9005-11f1-9e5f-25ec38f9ba54','FM_PROG006D0002Q','1f1a7071-8ff2-11f1-9e94-2bf67523a857','Y','admin','2026-08-04 21:07:59',NULL,NULL),
 ('9972c249-2985-49ac-9b8b-f6c25c65fd4e','CORE_PROG002D0003Q','79e1cf24-2522-4cdf-abcc-6455b47d545b','Y','admin','2017-05-10 14:20:12',NULL,NULL),
 ('a00d5586-8e42-11f1-a428-5d974d2ac9d9','FM_PROG002D0001Q','571133d5-8caa-11f1-bf0e-b7fd3076ce3e','Y','admin','2026-08-02 15:20:22',NULL,NULL),
 ('a00e66f7-8e42-11f1-a428-2970c26328fb','FM_PROG002D0002Q','571133d5-8caa-11f1-bf0e-b7fd3076ce3e','Y','admin','2026-08-02 15:20:22',NULL,NULL),
@@ -4398,6 +4531,9 @@ INSERT INTO `tb_sys_prog` VALUES
 ('923d71fa-8cb7-11f1-a791-005056c00001','FM_PROG002D0002A','FB02 - 部門資料與組織樹（新增）','#/fm_prog002d0002/create','N','N',0,0,'CORE','ITEM','ORGANIZATION','diagram-2','admin','2026-07-31 16:12:09',NULL,NULL),
 ('923edcad-8cb7-11f1-a791-005056c00001','FM_PROG002D0002E','FB02 - 部門資料與組織樹（編輯）','#/fm_prog002d0002/edit','Y','N',0,0,'CORE','ITEM','ORGANIZATION','diagram-2','admin','2026-07-31 16:12:09',NULL,NULL),
 ('92404571-8cb7-11f1-a791-005056c00001','FM_PROG002D0002T','FB02 - 部門組織樹','#/fm_prog002d0002/tree','N','N',0,0,'CORE','ITEM','ORGANIZATION','diagram-2','admin','2026-07-31 16:12:09',NULL,NULL),
+('a5ffb65c-9004-11f1-a98b-005056c00001','FM_PROG006D0002Q','FF02 - Data Action 設計','#/fm_prog006d0002','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 21:01:46',NULL,NULL),
+('a5ffb92b-9004-11f1-a98b-005056c00001','FM_PROG006D0002A','FF02 - Data Action 設計（新增）','#/fm_prog006d0002/create','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 21:01:46',NULL,NULL),
+('a5ffb97b-9004-11f1-a98b-005056c00001','FM_PROG006D0002E','FF02 - Data Action 設計（編輯）','#/fm_prog006d0002/edit','Y','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 21:01:46',NULL,NULL),
 ('ac5bcfd0-4abd-11e4-916c-0800200c9a66','CORE_PROG001D0001A','ZA01 - System site (Create)','#/prog001d0001/create','N','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:45'),
 ('b39159ad-0707-4515-b78d-e3fc72c53974','CORE_PROG002D0001E','ZB01 - Role (Edit)','#/prog002d0001/edit','Y','N',0,0,'CORE','ITEM','PEOPLE','person-square','admin','2017-05-09 12:11:53','admin','2023-08-27 16:46:35'),
 ('b6b89559-6864-46ab-9ca9-0992dcf238f1','CORE_PROG001D0001Q','ZA01 - System site','#/prog001d0001','N','N',0,0,'CORE','ITEM','COMPUTER','globe2','admin','2014-10-02 00:00:00','admin','2021-01-20 08:20:29'),
@@ -4683,4 +4819,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-04 20:31:15
+-- Dump completed on 2026-08-04 21:17:14

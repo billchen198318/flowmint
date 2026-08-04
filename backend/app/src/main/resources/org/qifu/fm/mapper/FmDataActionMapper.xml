@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmDataActionMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmDataAction">
+    <result column="OID" jdbcType="CHAR" property="oid"/>
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId"/>
+    <result column="ACTION_ID" jdbcType="VARCHAR" property="actionId"/>
+    <result column="ACTION_CODE" jdbcType="VARCHAR" property="actionCode"/>
+    <result column="ACTION_NAME" jdbcType="VARCHAR" property="actionName"/>
+    <result column="POOL_ID" jdbcType="VARCHAR" property="poolId"/>
+    <result column="ACTION_TYPE" jdbcType="VARCHAR" property="actionType"/>
+    <result column="REQUEST_SCHEMA" jdbcType="LONGVARCHAR" property="requestSchema"/>
+    <result column="RESPONSE_MODE" jdbcType="VARCHAR" property="responseMode"/>
+    <result column="STATUS" jdbcType="VARCHAR" property="status"/>
+    <result column="CURRENT_VERSION_NO" jdbcType="INTEGER" property="currentVersionNo"/>
+    <result column="DESCRIPTION" jdbcType="VARCHAR" property="description"/>
+    <result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion"/>
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate"/>
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid"/>
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate"/>
+  </resultMap>
+
+  <sql id="Base_Column_List">
+      OID,
+      TENANT_ID,
+      ACTION_ID,
+      ACTION_CODE,
+      ACTION_NAME,
+      POOL_ID,
+      ACTION_TYPE,
+      REQUEST_SCHEMA,
+      RESPONSE_MODE,
+      STATUS,
+      CURRENT_VERSION_NO,
+      DESCRIPTION,
+      LOCK_VERSION,
+      CUSERID,
+      CDATE,
+      UUSERID,
+      UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="actionId != null">
+      AND ACTION_ID = #{actionId,jdbcType=VARCHAR}
+    </if>
+    <if test="actionCode != null">
+      AND ACTION_CODE = #{actionCode,jdbcType=VARCHAR}
+    </if>
+    <if test="actionCodeLike != null and actionCodeLike != ''">
+      AND ACTION_CODE LIKE #{actionCodeLike,jdbcType=VARCHAR}
+    </if>
+    <if test="actionName != null">
+      AND ACTION_NAME = #{actionName,jdbcType=VARCHAR}
+    </if>
+    <if test="poolId != null">
+      AND POOL_ID = #{poolId,jdbcType=VARCHAR}
+    </if>
+    <if test="actionType != null">
+      AND ACTION_TYPE = #{actionType,jdbcType=VARCHAR}
+    </if>
+    <if test="requestSchema != null">
+      AND REQUEST_SCHEMA = #{requestSchema,jdbcType=LONGVARCHAR}
+    </if>
+    <if test="responseMode != null">
+      AND RESPONSE_MODE = #{responseMode,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+    <if test="currentVersionNo != null">
+      AND CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER}
+    </if>
+    <if test="description != null">
+      AND DESCRIPTION = #{description,jdbcType=VARCHAR}
+    </if>
+    <if test="lockVersion != null">
+      AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+    </if>
+    <if test="cuserid != null">
+      AND CUSERID = #{cuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="cdate != null">
+      AND CDATE = #{cdate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="uuserid != null">
+      AND UUSERID = #{uuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="udate != null">
+      AND UDATE = #{udate,jdbcType=TIMESTAMP}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT
+    <include refid="Base_Column_List"/>
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="map" resultMap="BaseResultMap">
+    SELECT
+    <include refid="Base_Column_List"/>
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+     WHERE 1 = 1
+    <include refid="baseConditions"/>
+    <if test="orderBy != null and orderBy != ''">
+     ORDER BY ${orderBy}
+      <if test="sortType != null and sortType != ''">
+        ${sortType}
+      </if>
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="map" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1"/>
+    SELECT
+    <include refid="Base_Column_List"/>
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+     WHERE 1 = 1
+    <include refid="baseConditions"/>
+    <if test="orderBy != null and orderBy != ''">
+     ORDER BY ${orderBy}
+      <if test="sortType != null and sortType != ''">
+        ${sortType}
+      </if>
+    </if>
+    <include refid="org.qifu.core.mapper.DB1Config.sql2"/>
+  </select>
+
+  <select id="count" parameterType="map" resultType="long">
+    SELECT COUNT(1)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+     WHERE 1 = 1
+    <include refid="baseConditions"/>
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmDataAction">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="actionId != null">
+        ACTION_ID,
+      </if>
+      <if test="actionCode != null">
+        ACTION_CODE,
+      </if>
+      <if test="actionName != null">
+        ACTION_NAME,
+      </if>
+      <if test="poolId != null">
+        POOL_ID,
+      </if>
+      <if test="actionType != null">
+        ACTION_TYPE,
+      </if>
+      <if test="requestSchema != null">
+        REQUEST_SCHEMA,
+      </if>
+      <if test="responseMode != null">
+        RESPONSE_MODE,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="currentVersionNo != null">
+        CURRENT_VERSION_NO,
+      </if>
+      <if test="description != null">
+        DESCRIPTION,
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="actionId != null">
+        #{actionId,jdbcType=VARCHAR},
+      </if>
+      <if test="actionCode != null">
+        #{actionCode,jdbcType=VARCHAR},
+      </if>
+      <if test="actionName != null">
+        #{actionName,jdbcType=VARCHAR},
+      </if>
+      <if test="poolId != null">
+        #{poolId,jdbcType=VARCHAR},
+      </if>
+      <if test="actionType != null">
+        #{actionType,jdbcType=VARCHAR},
+      </if>
+      <if test="requestSchema != null">
+        #{requestSchema,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="responseMode != null">
+        #{responseMode,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="currentVersionNo != null">
+        #{currentVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="description != null">
+        #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="lockVersion != null">
+        #{lockVersion,jdbcType=INTEGER},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmDataAction">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+    <set>
+      <if test="actionCode != null">
+        ACTION_CODE = #{actionCode,jdbcType=VARCHAR},
+      </if>
+      <if test="actionName != null">
+        ACTION_NAME = #{actionName,jdbcType=VARCHAR},
+      </if>
+      <if test="poolId != null">
+        POOL_ID = #{poolId,jdbcType=VARCHAR},
+      </if>
+      <if test="actionType != null">
+        ACTION_TYPE = #{actionType,jdbcType=VARCHAR},
+      </if>
+      <if test="requestSchema != null">
+        REQUEST_SCHEMA = #{requestSchema,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="responseMode != null">
+        RESPONSE_MODE = #{responseMode,jdbcType=VARCHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="currentVersionNo != null">
+        CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="description != null">
+        DESCRIPTION = #{description,jdbcType=VARCHAR},
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION = #{lockVersion,jdbcType=INTEGER},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmDataAction">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </delete>
+
+  <update id="updateOptimistic" parameterType="map">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_data_action
+       SET ACTION_NAME = #{action.actionName,jdbcType=VARCHAR},
+           POOL_ID = #{action.poolId,jdbcType=VARCHAR},
+           ACTION_TYPE = #{action.actionType,jdbcType=VARCHAR},
+           REQUEST_SCHEMA = #{action.requestSchema,jdbcType=LONGVARCHAR},
+           RESPONSE_MODE = #{action.responseMode,jdbcType=VARCHAR},
+           STATUS = #{action.status,jdbcType=VARCHAR},
+           CURRENT_VERSION_NO = #{action.currentVersionNo,jdbcType=INTEGER},
+           DESCRIPTION = #{action.description,jdbcType=VARCHAR},
+           LOCK_VERSION = LOCK_VERSION + 1,
+           UUSERID = #{action.uuserid,jdbcType=VARCHAR},
+           UDATE = #{action.udate,jdbcType=TIMESTAMP}
+     WHERE OID = #{action.oid,jdbcType=CHAR}
+       AND TENANT_ID = #{action.tenantId,jdbcType=VARCHAR}
+       AND LOCK_VERSION = #{expectedLockVersion,jdbcType=INTEGER}
+  </update>
+
+</mapper>
