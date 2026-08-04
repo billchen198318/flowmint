@@ -6,7 +6,7 @@ import Toolbar from "@/components/Toolbar.vue";
 import Grid from "@/components/Grid.vue";
 import GridPagination from "@/components/GridPagination.vue";
 import HiddenQueryFieldAlertInfo from "@/components/HiddenQueryFieldAlertInfo.vue";
-import { getAxiosInstance } from "@/components/BaseHelper";
+import { escapeQifuHtmlMsg, getAxiosInstance } from "@/components/BaseHelper";
 import {
   getGridConfig,
   setConfigPage,
@@ -46,8 +46,9 @@ store.gridConfig = getGridConfig(
 );
 const query = async () => {
   showLoading();
+  rows.value = [];
   try {
-    const x = await getAxiosInstance().post(
+    const response = await getAxiosInstance().post(
       import.meta.env.VITE_API_URL + PageConstants.eventNamespace + "/findPage",
       {
         field: {
@@ -62,12 +63,20 @@ const query = async () => {
         },
       },
     );
-    if (x.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
-      toast.warning(x.data?.message);
+    if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+      setConfigTotal(store.gridConfig, 0);
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "查詢簽核方案失敗。"),
+      );
       return;
     }
-    rows.value = x.data.value || [];
-    setConfigTotal(store.gridConfig, x.data.pageOf?.countSize || 0);
+    rows.value = response.data.value || [];
+    setConfigTotal(store.gridConfig, response.data.pageOf?.countSize || 0);
+  } catch (error: unknown) {
+    setConfigTotal(store.gridConfig, 0);
+    const message =
+      error instanceof Error ? error.message : "查詢簽核方案失敗。";
+    toast.error(escapeQifuHtmlMsg(message));
   } finally {
     hideLoading();
   }

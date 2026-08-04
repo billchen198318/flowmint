@@ -7,7 +7,7 @@ import Toolbar from "@/components/Toolbar.vue";
 import Grid from "@/components/Grid.vue";
 import GridPagination from "@/components/GridPagination.vue";
 import HiddenQueryFieldAlertInfo from "@/components/HiddenQueryFieldAlertInfo.vue";
-import { getAxiosInstance } from "@/components/BaseHelper";
+import { escapeQifuHtmlMsg, getAxiosInstance } from "@/components/BaseHelper";
 import {
   getGridConfig,
   setConfigPage,
@@ -84,14 +84,17 @@ const query = async () => {
       response.data.success !== import.meta.env.VITE_SUCCESS_FLAG
     ) {
       setConfigTotal(store.gridConfig, 0);
-      toast.warning(response.data?.message || "查詢員工失敗。");
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "查詢員工失敗。"),
+      );
       return;
     }
     rows.value = response.data.value || [];
     setConfigTotal(store.gridConfig, response.data.pageOf?.countSize || 0);
-  } catch (error: any) {
+  } catch (error: unknown) {
     setConfigTotal(store.gridConfig, 0);
-    toast.error(error?.message || "查詢員工失敗。");
+    const message = error instanceof Error ? error.message : "查詢員工失敗。";
+    toast.error(escapeQifuHtmlMsg(message));
   } finally {
     hideLoading();
   }

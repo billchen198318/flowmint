@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { toast } from "vue3-toastify";
 
 import Grid from "@/components/Grid.vue";
 import GridPagination from "@/components/GridPagination.vue";
 import HiddenQueryFieldAlertInfo from "@/components/HiddenQueryFieldAlertInfo.vue";
 import Toolbar from "@/components/Toolbar.vue";
-import { getAxiosInstance } from "@/components/BaseHelper";
+import { escapeQifuHtmlMsg, getAxiosInstance } from "@/components/BaseHelper";
 import {
   getGridConfig,
   setConfigPage,
   setConfigRow,
   setConfigTotal,
 } from "@/components/GridHelper";
+import { useSwalLoading } from "@/composables/useSwalLoading";
 import { PageConstants } from "./config";
 import { useStore } from "./QueryPageStore";
 
@@ -24,6 +26,7 @@ const store = useStore();
 const rows = ref<any[]>([]);
 const tenants = ref<any[]>([]);
 const units = ref<any[]>([]);
+const { showLoading, hideLoading } = useSwalLoading();
 const dutyTypeLabels: Record<string, string> = {
   APPROVAL: "簽核",
   REVIEW: "會簽／審查",
@@ -75,25 +78,43 @@ watch(
 );
 
 const query = async () => {
-  const response = await post("/findPage", {
-    field: {
-      tenantId: store.queryParam.tenantId,
-      orgUnitId: store.queryParam.orgUnitId,
-      dutyCodeLike: store.queryParam.dutyCode,
-      dutyNameLike: store.queryParam.dutyName,
-      dutyType: store.queryParam.dutyType,
-      status: store.queryParam.status,
-    },
-    pageOf: {
-      select: store.gridConfig.page,
-      showRow: store.gridConfig.row,
-    },
-  });
-  rows.value = (response.data?.value || []).map((value: any) => ({
-    ...value,
-    dutyTypeLabel: dutyTypeLabels[value.dutyType] || value.dutyType,
-  }));
-  setConfigTotal(store.gridConfig, response.data?.pageOf?.countSize || 0);
+  showLoading();
+  rows.value = [];
+  try {
+    const response = await post("/findPage", {
+      field: {
+        tenantId: store.queryParam.tenantId,
+        orgUnitId: store.queryParam.orgUnitId,
+        dutyCodeLike: store.queryParam.dutyCode,
+        dutyNameLike: store.queryParam.dutyName,
+        dutyType: store.queryParam.dutyType,
+        status: store.queryParam.status,
+      },
+      pageOf: {
+        select: store.gridConfig.page,
+        showRow: store.gridConfig.row,
+      },
+    });
+    if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+      setConfigTotal(store.gridConfig, 0);
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "查詢職務資料失敗。"),
+      );
+      return;
+    }
+    rows.value = (response.data.value || []).map((value: any) => ({
+      ...value,
+      dutyTypeLabel: dutyTypeLabels[value.dutyType] || value.dutyType,
+    }));
+    setConfigTotal(store.gridConfig, response.data.pageOf?.countSize || 0);
+  } catch (error: unknown) {
+    setConfigTotal(store.gridConfig, 0);
+    const message =
+      error instanceof Error ? error.message : "查詢職務資料失敗。";
+    toast.error(escapeQifuHtmlMsg(message));
+  } finally {
+    hideLoading();
+  }
 };
 
 const clear = () => {
@@ -107,6 +128,7 @@ const clear = () => {
   };
   units.value = [];
   rows.value = [];
+  setConfigTotal(store.gridConfig, 0);
 };
 
 onMounted(async () => {

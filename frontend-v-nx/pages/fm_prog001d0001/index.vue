@@ -6,7 +6,7 @@ import Toolbar from "@/components/Toolbar.vue";
 import Grid from "@/components/Grid.vue";
 import GridPagination from "@/components/GridPagination.vue";
 import HiddenQueryFieldAlertInfo from "@/components/HiddenQueryFieldAlertInfo.vue";
-import { getAxiosInstance } from "@/components/BaseHelper";
+import { escapeQifuHtmlMsg, getAxiosInstance } from "@/components/BaseHelper";
 import {
   getGridConfig,
   setConfigPage,
@@ -65,18 +65,20 @@ const query = async () => {
     if (response.data) {
       if (import.meta.env.VITE_SUCCESS_FLAG != response.data.success) {
         setConfigTotal(store.gridConfig, 0);
-        toast.warning(response.data.message);
+        toast.warning(escapeQifuHtmlMsg(response.data.message));
         return;
       }
       rows.value = response.data.value || [];
       setConfigTotal(store.gridConfig, response.data.pageOf?.countSize || 0);
     } else {
       setConfigTotal(store.gridConfig, 0);
-      toast.error("error, null");
+      toast.error(escapeQifuHtmlMsg("查詢 Tenant 資料失敗。"));
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     setConfigTotal(store.gridConfig, 0);
-    toast.error(error?.message || "查詢 Tenant 資料失敗");
+    const message =
+      error instanceof Error ? error.message : "查詢 Tenant 資料失敗。";
+    toast.error(escapeQifuHtmlMsg(message));
   } finally {
     hideLoading();
   }

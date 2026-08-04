@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { toast } from "vue3-toastify";
 import Grid from "@/components/Grid.vue";
 import GridPagination from "@/components/GridPagination.vue";
 import HiddenQueryFieldAlertInfo from "@/components/HiddenQueryFieldAlertInfo.vue";
 import Toolbar from "@/components/Toolbar.vue";
-import { getAxiosInstance } from "@/components/BaseHelper";
+import { escapeQifuHtmlMsg, getAxiosInstance } from "@/components/BaseHelper";
 import {
   getGridConfig,
   setConfigPage,
   setConfigRow,
   setConfigTotal,
 } from "@/components/GridHelper";
+import { useSwalLoading } from "@/composables/useSwalLoading";
 import { PageConstants } from "./config";
 import { useStore } from "./QueryPageStore";
 
@@ -21,6 +23,7 @@ const router = useRouter();
 const store = useStore();
 const rows = ref<any[]>([]);
 const tenants = ref<any[]>([]);
+const { showLoading, hideLoading } = useSwalLoading();
 const post = (path: string, body: any = {}) =>
   getAxiosInstance().post(
     import.meta.env.VITE_API_URL + PageConstants.eventNamespace + path,
@@ -49,12 +52,30 @@ store.gridConfig = getGridConfig(
   ],
 );
 const query = async () => {
-  const response = await post("/findPage", {
-    field: { ...store.queryParam },
-    pageOf: { select: store.gridConfig.page, showRow: store.gridConfig.row },
-  });
-  rows.value = response.data?.value || [];
-  setConfigTotal(store.gridConfig, response.data?.pageOf?.countSize || 0);
+  showLoading();
+  rows.value = [];
+  try {
+    const response = await post("/findPage", {
+      field: { ...store.queryParam },
+      pageOf: { select: store.gridConfig.page, showRow: store.gridConfig.row },
+    });
+    if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+      setConfigTotal(store.gridConfig, 0);
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "查詢流程資料失敗。"),
+      );
+      return;
+    }
+    rows.value = response.data.value || [];
+    setConfigTotal(store.gridConfig, response.data.pageOf?.countSize || 0);
+  } catch (error: unknown) {
+    setConfigTotal(store.gridConfig, 0);
+    const message =
+      error instanceof Error ? error.message : "查詢流程資料失敗。";
+    toast.error(escapeQifuHtmlMsg(message));
+  } finally {
+    hideLoading();
+  }
 };
 const clear = () => {
   store.queryParam = {
@@ -64,6 +85,7 @@ const clear = () => {
     status: "",
   };
   rows.value = [];
+  setConfigTotal(store.gridConfig, 0);
   setConfigPage(store.gridConfig, 1);
 };
 onMounted(async () => {

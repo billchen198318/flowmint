@@ -84,11 +84,13 @@ store.gridConfig = getGridConfig(
 
 const query = async () => {
   if (!store.queryParam.tenantId) {
-    toast.warning("請先選擇 Tenant");
     rows.value = [];
+    setConfigTotal(store.gridConfig, 0);
+    toast.warning(escapeQifuHtmlMsg("請先選擇 Tenant。"));
     return;
   }
   showLoading();
+  rows.value = [];
   try {
     const response = await post("/findPage", {
       field: { ...store.queryParam },
@@ -98,7 +100,10 @@ const query = async () => {
       },
     });
     if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
-      toast.warning(escapeQifuHtmlMsg(response.data?.message || "查詢失敗"));
+      setConfigTotal(store.gridConfig, 0);
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "查詢 Data Action 失敗。"),
+      );
       return;
     }
     rows.value = response.data?.value || [];
@@ -107,7 +112,9 @@ const query = async () => {
       response.data?.pageOf?.countSize || 0,
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "查詢失敗";
+    setConfigTotal(store.gridConfig, 0);
+    const message =
+      error instanceof Error ? error.message : "查詢 Data Action 失敗。";
     toast.error(escapeQifuHtmlMsg(message));
   } finally {
     hideLoading();
@@ -119,6 +126,7 @@ const clear = () => {
   store.queryParam.actionCodeLike = "";
   store.queryParam.status = "";
   rows.value = [];
+  setConfigTotal(store.gridConfig, 0);
 };
 
 onMounted(async () => {
