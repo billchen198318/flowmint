@@ -2234,6 +2234,8 @@ CREATE TABLE `fm_data_source_pool` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_data_source_pool` WRITE;
 /*!40000 ALTER TABLE `fm_data_source_pool` DISABLE KEYS */;
+INSERT INTO `fm_data_source_pool` VALUES
+('f57f025b-8fff-11f1-a75b-2d3d040a70b6','A01','7f177f66-864e-46cb-8b7e-48081be7d859','FLOWMINT','本系統','MARIADB','org.mariadb.jdbc.Driver','jdbc:mariadb://127.0.0.1:3306/flowmint','root','v1:0Hmwe0cWJ06UWFDa:6gnZqZQ4uK2fuKrfmvMc8PV4DH8AFI7B',5,1,10000,600000,1800000,'SELECT 1','ACTIVE',0,'flowmint系統資料來源','admin','2026-08-04 20:28:12.338',NULL,NULL);
 /*!40000 ALTER TABLE `fm_data_source_pool` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -4418,9 +4420,9 @@ INSERT INTO `tb_sys_prog` VALUES
 ('eb6e199f-c853-4fbf-acf3-0c9c77ba9953','CORE_PROG001D0002Q','ZA02 - Program','#/prog001d0002','N','N',0,0,'CORE','ITEM','G_APP_INSTALL','filetype-html','admin','2014-10-02 00:00:00','admin','2023-08-15 19:19:05'),
 ('eb786ffd-c7d1-4631-aed2-4d9d7368eb13','CORE_PROG001D0005Q','ZA05 - JasperReport','#/prog001d0005','N','N',0,0,'CORE','ITEM','APPLICATION_PDF','file-pdf','admin','2017-05-18 09:54:35','admin','2023-08-24 20:20:16'),
 ('ef5c35e7-8fef-11f1-a98b-005056c00001','FM_PROG006D','FF. FlowMint 動態資料服務','/','N','N',0,0,'CORE','FOLDER','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL),
-('ef5c3962-8fef-11f1-a98b-005056c00001','FM_PROG006D0001Q','FF01 - DataSource Pool 管理','#/fm_prog006d0001','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL),
-('ef5c39bb-8fef-11f1-a98b-005056c00001','FM_PROG006D0001A','FF01 - DataSource Pool 管理（新增）','#/fm_prog006d0001/create','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL),
-('ef5c3a05-8fef-11f1-a98b-005056c00001','FM_PROG006D0001E','FF01 - DataSource Pool 管理（編輯）','#/fm_prog006d0001/edit','Y','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30',NULL,NULL);
+('ef5c3962-8fef-11f1-a98b-005056c00001','FM_PROG006D0001Q','FF01 - DataSource 管理','#/fm_prog006d0001','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30','admin','2026-08-04 20:25:53'),
+('ef5c39bb-8fef-11f1-a98b-005056c00001','FM_PROG006D0001A','FF01 - DataSource 管理（新增）','#/fm_prog006d0001/create','N','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30','admin','2026-08-04 20:26:06'),
+('ef5c3a05-8fef-11f1-a98b-005056c00001','FM_PROG006D0001E','FF01 - DataSource 管理（編輯）','#/fm_prog006d0001/edit','Y','N',0,0,'CORE','ITEM','DATABASE','database','admin','2026-08-04 18:33:30','admin','2026-08-04 20:26:17');
 /*!40000 ALTER TABLE `tb_sys_prog` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -4681,4 +4683,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-04 18:56:34
+-- Dump completed on 2026-08-04 20:31:15

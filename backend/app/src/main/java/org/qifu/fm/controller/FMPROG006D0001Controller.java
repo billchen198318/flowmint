@@ -3,7 +3,10 @@ package org.qifu.fm.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.qifu.base.exception.ControllerException;
+import org.qifu.base.exception.ServiceException;
 import org.qifu.base.message.BaseSystemMessage;
+import org.qifu.base.model.CheckControllerFieldHandler;
 import org.qifu.base.model.ControllerMethodAuthority;
 import org.qifu.base.model.DefaultControllerJsonResultObj;
 import org.qifu.base.model.DefaultResult;
@@ -76,6 +79,7 @@ public class FMPROG006D0001Controller extends CoreApiSupport {
 			FmDataSourcePoolCommand command, boolean create) {
 		DefaultControllerJsonResultObj<FmDataSourcePoolView> result = initDefaultJsonResult();
 		try {
+			validatePool(result, command, create);
 			DefaultResult<FmDataSourcePoolView> data = create
 					? poolLogicService.create(command) : poolLogicService.update(command);
 			setDefaultResponseJsonResult(data, result);
@@ -83,6 +87,39 @@ public class FMPROG006D0001Controller extends CoreApiSupport {
 			exceptionResult(result, exception);
 		}
 		return ResponseEntity.ok(result);
+	}
+
+	private void validatePool(DefaultControllerJsonResultObj<FmDataSourcePoolView> result,
+			FmDataSourcePoolCommand command, boolean create)
+			throws ControllerException, ServiceException {
+		@SuppressWarnings("rawtypes")
+		CheckControllerFieldHandler check = getCheckControllerFieldHandler(result);
+		check.testField("tenantId", command,
+				"@org.apache.commons.lang3.StringUtils@isBlank(tenantId)", "請選擇 Tenant")
+				.testField("poolCode", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(poolCode)", "請輸入連線池代碼")
+				.testField("poolName", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(poolName)", "請輸入連線池名稱")
+				.testField("dbType", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(dbType)", "請選擇資料庫類型")
+				.testField("jdbcUrl", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(jdbcUrl)", "請輸入 JDBC URL")
+				.testField("username", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(username)", "請輸入資料庫帳號");
+		if (create) {
+			check.testField("password", command,
+					"@org.apache.commons.lang3.StringUtils@isBlank(password)", "請輸入資料庫密碼");
+		}
+		check.testField("maximumPoolSize", command,
+				"maximumPoolSize == null || maximumPoolSize < 1 || maximumPoolSize > 100",
+				"最大連線數必須介於 1 到 100")
+				.testField("minimumIdle", command,
+						"minimumIdle == null || minimumIdle < 0 || minimumIdle > maximumPoolSize",
+						"最小閒置數不可小於 0 或超過最大連線數")
+				.testField("connectionTimeoutMs", command,
+						"connectionTimeoutMs == null || connectionTimeoutMs < 250 || connectionTimeoutMs > 120000",
+						"連線逾時必須介於 250 到 120000 毫秒")
+				.throwHtmlMessage();
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG006D0001E", check = true)
@@ -118,11 +155,31 @@ public class FMPROG006D0001Controller extends CoreApiSupport {
 			@RequestBody FmDataSourcePoolCommand command) {
 		DefaultControllerJsonResultObj<FmDataSourceTestView> result = initDefaultJsonResult();
 		try {
+			validateTestConnection(result, command);
 			setDefaultResponseJsonResult(poolLogicService.test(command), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}
 		return ResponseEntity.ok(result);
+	}
+
+	private void validateTestConnection(DefaultControllerJsonResultObj<FmDataSourceTestView> result,
+			FmDataSourcePoolCommand command) throws ControllerException, ServiceException {
+		@SuppressWarnings("rawtypes")
+		CheckControllerFieldHandler check = getCheckControllerFieldHandler(result);
+		check.testField("tenantId", command,
+				"@org.apache.commons.lang3.StringUtils@isBlank(tenantId)", "請選擇 Tenant")
+				.testField("dbType", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(dbType)", "請選擇資料庫類型")
+				.testField("jdbcUrl", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(jdbcUrl)", "請輸入 JDBC URL")
+				.testField("username", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(username)", "請輸入資料庫帳號");
+		if (command.oid() == null) {
+			check.testField("password", command,
+					"@org.apache.commons.lang3.StringUtils@isBlank(password)", "請輸入資料庫密碼");
+		}
+		check.throwHtmlMessage();
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG006D0001Q", check = true)
