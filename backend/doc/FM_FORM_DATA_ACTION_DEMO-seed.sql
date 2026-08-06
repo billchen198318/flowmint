@@ -60,7 +60,8 @@ AND NOT EXISTS (
 
 INSERT INTO fm_form_version
     (OID, TENANT_ID, FORM_ID, VERSION_NO, VERSION_STATUS,
-     SCHEMA_CONTENT, UI_SCHEMA_CONTENT, CONTENT_SHA256, CUSERID, CDATE)
+     SCHEMA_CONTENT, UI_SCHEMA_CONTENT, CUSTOM_SCRIPT_CONTENT,
+     CONTENT_SHA256, CUSERID, CDATE)
 SELECT
     @demo_version_oid,
     @demo_tenant_id,
@@ -69,7 +70,8 @@ SELECT
     'DRAFT',
     @demo_schema,
     @demo_ui_schema,
-    SHA2(CONCAT(@demo_schema, CHAR(10), @demo_ui_schema), 256),
+    '',
+    SHA2(CONCAT(@demo_schema, CHAR(10), @demo_ui_schema, CHAR(10)), 256),
     'SYSTEM',
     NOW(3)
 WHERE EXISTS (

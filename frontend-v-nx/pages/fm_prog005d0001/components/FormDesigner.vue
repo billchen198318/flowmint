@@ -12,9 +12,14 @@ import {
   invalidFeedback,
 } from "@/components/BaseHelper";
 import { useSwalLoading } from "@/composables/useSwalLoading";
+import {
+  compileFormCustomJavascript,
+  useFormCustomJavascript,
+} from "@/composables/useFormCustomJavascript";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
 import type { FormDataActionUiSchema } from "@/types/formDataAction";
 import { PageConstants } from "../config";
+import FormCustomJavascriptEditor from "./FormCustomJavascriptEditor.vue";
 import FormDataActionBindingEditor from "./FormDataActionBindingEditor.vue";
 
 const props = defineProps<{ edit?: boolean }>();
@@ -26,10 +31,16 @@ const checkFields = ref<Record<string, string>>({});
 const selectedVersion = ref<any>(null);
 const designerHost = ref<HTMLElement | null>(null);
 const designerLoading = ref(false);
-const designerMode = ref<"design" | "preview">("design");
+const designerMode = ref<"design" | "preview" | "javascript">("design");
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
+const {
+  attach: attachCustomJavascript,
+  consoleEntries,
+  clearConsole,
+} = useFormCustomJavascript();
 let designerInstance: any = null;
 let detachDataActionBridge: (() => void) | null = null;
+let detachCustomJavascript: (() => Promise<void>) | null = null;
 let designerSequence = 0;
 const newForm = () => ({
   oid: "",
@@ -107,6 +118,8 @@ const destroyDesigner = () => {
   designerSequence += 1;
   detachDataActionBridge?.();
   detachDataActionBridge = null;
+  void detachCustomJavascript?.();
+  detachCustomJavascript = null;
   designerInstance?.destroy?.(true);
   designerInstance = null;
   if (designerHost.value) designerHost.value.innerHTML = "";
@@ -121,8 +134,15 @@ const renderDesigner = async () => {
   }
   detachDataActionBridge?.();
   detachDataActionBridge = null;
+  await detachCustomJavascript?.();
+  detachCustomJavascript = null;
   designerInstance?.destroy?.(true);
+  designerInstance = null;
   designerHost.value.innerHTML = "";
+  if (designerMode.value === "javascript") {
+    designerLoading.value = false;
+    return;
+  }
   try {
     const { Formio } = await import("@formio/js");
     if (sequence !== designerSequence || !designerHost.value) return;
@@ -162,6 +182,16 @@ const renderDesigner = async () => {
         form.value.tenantId,
         parseUiSchema(selectedVersion.value.uiSchemaContent),
       );
+      const scriptRuntime = await attachCustomJavascript({
+        scriptContent: selectedVersion.value.customScriptContent,
+        form: designerInstance,
+        tenantId: form.value.tenantId,
+        formId: form.value.formId,
+        formCode: form.value.formCode,
+        versionNo: selectedVersion.value.versionNo,
+        mode: "DESIGNER_PREVIEW",
+      });
+      detachCustomJavascript = scriptRuntime.detach;
     }
   } catch (error: any) {
     toast.error(error?.message || "載入 Form.io 設計器失敗");
@@ -181,7 +211,7 @@ const syncSchemaFromDesigner = () => {
   selectedVersion.value.uiSchemaContent = normalizedUiSchemaContent();
   return true;
 };
-const setDesignerMode = (mode: "design" | "preview") => {
+const setDesignerMode = (mode: "design" | "preview" | "javascript") => {
   if (mode === designerMode.value) return;
   if (designerMode.value === "design") syncSchemaFromDesigner();
   designerMode.value = mode;
@@ -250,6 +280,8 @@ const save = async () => {
             oid: selectedVersion.value.oid,
             schemaContent: selectedVersion.value.schemaContent,
             uiSchemaContent: selectedVersion.value.uiSchemaContent,
+            customScriptContent:
+              selectedVersion.value.customScriptContent || "",
           }
         : null;
     let response = await post(props.edit ? "/update" : "/save", form.value);
@@ -284,12 +316,23 @@ const createVersion = async () => {
 const publish = async () => {
   if (selectedVersion.value?.versionStatus !== "DRAFT") return;
   if (!syncSchemaFromDesigner()) return;
+  try {
+    await compileFormCustomJavascript(
+      selectedVersion.value.customScriptContent,
+    );
+  } catch (error) {
+    toast.error(
+      error instanceof Error ? error.message : "客製 JavaScript 檢查失敗",
+    );
+    return;
+  }
   showLoading();
   try {
     let response = await post("/version/save-draft", {
       oid: selectedVersion.value.oid,
       schemaContent: selectedVersion.value.schemaContent,
       uiSchemaContent: selectedVersion.value.uiSchemaContent,
+      customScriptContent: selectedVersion.value.customScriptContent || "",
     });
     if (!responseOk(response)) {
       showResponse(response);
@@ -501,12 +544,59 @@ onBeforeUnmount(destroyDesigner);
             >
               <i class="bi bi-play-circle"></i> 試跑
             </button>
+            <button
+              type="button"
+              :class="[
+                'btn',
+                designerMode === 'javascript'
+                  ? 'btn-primary'
+                  : 'btn-outline-primary',
+              ]"
+              @click="setDesignerMode('javascript')"
+            >
+              <i class="bi bi-code-slash"></i> JavaScript
+            </button>
           </div>
           <div v-if="designerLoading" class="designer-loading text-muted">
             <span class="spinner-border spinner-border-sm me-2"></span>
             載入表單設計器…
           </div>
-          <div ref="designerHost" class="formio-designer"></div>
+          <div
+            v-show="designerMode !== 'javascript'"
+            ref="designerHost"
+            class="formio-designer"
+          ></div>
+          <FormCustomJavascriptEditor
+            v-if="designerMode === 'javascript'"
+            :model-value="selectedVersion.customScriptContent || ''"
+            :readonly="selectedVersion.versionStatus !== 'DRAFT'"
+            @update:model-value="
+              selectedVersion.customScriptContent = $event
+            "
+          />
+          <div
+            v-if="designerMode === 'javascript' && consoleEntries.length"
+            class="mt-3 border rounded p-3 bg-dark text-light script-console"
+          >
+            <div class="d-flex justify-content-between mb-2">
+              <strong>試跑 Console</strong>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-light"
+                @click="clearConsole"
+              >
+                清除
+              </button>
+            </div>
+            <div
+              v-for="(entry, index) in consoleEntries"
+              :key="index"
+              class="small font-monospace"
+            >
+              {{ entry.occurredAt }} [{{ entry.level }}]
+              {{ entry.lifecycle || '' }} {{ entry.values }}
+            </div>
+          </div>
         </div>
         <div class="col-12">
           <FormDataActionBindingEditor
@@ -595,6 +685,11 @@ onBeforeUnmount(destroyDesigner);
 
 .formio-designer {
   min-height: 420px;
+}
+
+.script-console {
+  max-height: 240px;
+  overflow: auto;
 }
 
 :global(.formio-dialog.component-settings .nav-tabs) {

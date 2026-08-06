@@ -52,6 +52,8 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             }
             """;
 
+    private static final String DEFAULT_CUSTOM_SCRIPT = "";
+
     private final IFmFormDefService formDefService;
     private final IFmFormVersionService formVersionService;
     private final IFmTenantService tenantService;
@@ -132,9 +134,11 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         assertFormActive(findDef(version.getTenantId(), version.getFormId()));
         JsonContent content = validateContent(
                 command.schemaContent(),
-                command.uiSchemaContent());
+                command.uiSchemaContent(),
+                command.customScriptContent());
         version.setSchemaContent(content.schemaContent());
         version.setUiSchemaContent(content.uiSchemaContent());
+        version.setCustomScriptContent(content.customScriptContent());
         version.setContentSha256(sha256(content.combined()));
         formVersionService.update(version);
         return loadByBusinessId(
@@ -160,7 +164,8 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 formDef,
                 nextVersionNo,
                 source.getSchemaContent(),
-                source.getUiSchemaContent());
+                source.getUiSchemaContent(),
+                source.getCustomScriptContent());
         formVersionService.insert(version);
         formDef.setCurrentVersionNo(nextVersionNo);
         formDef.setStatus("DRAFT");
@@ -174,7 +179,8 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         FmFormVersion version = draft(versionOid);
         JsonContent content = validateContent(
                 version.getSchemaContent(),
-                version.getUiSchemaContent());
+                version.getUiSchemaContent(),
+                version.getCustomScriptContent());
         FmFormDef formDef = findDef(version.getTenantId(), version.getFormId());
         assertFormActive(formDef);
         for (FmFormVersion previous : versions(formDef)) {
@@ -186,6 +192,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         version.setVersionStatus("PUBLISHED");
         version.setSchemaContent(content.schemaContent());
         version.setUiSchemaContent(content.uiSchemaContent());
+        version.setCustomScriptContent(content.customScriptContent());
         version.setContentSha256(sha256(content.combined()));
         version.setPublishedBy(UserUtils.getCurrentUser().getUserId());
         version.setPublishedDate(new Date());
@@ -216,6 +223,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                         value.getVersionStatus(),
                         value.getSchemaContent(),
                         value.getUiSchemaContent(),
+                        value.getCustomScriptContent(),
                         value.getContentSha256(),
                         value.getPublishedBy(),
                         value.getPublishedDate()))
@@ -305,7 +313,24 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             Integer versionNo,
             String schemaContent,
             String uiSchemaContent) throws ServiceException {
-        JsonContent content = validateContent(schemaContent, uiSchemaContent);
+        return newVersion(
+                formDef,
+                versionNo,
+                schemaContent,
+                uiSchemaContent,
+                DEFAULT_CUSTOM_SCRIPT);
+    }
+
+    private FmFormVersion newVersion(
+            FmFormDef formDef,
+            Integer versionNo,
+            String schemaContent,
+            String uiSchemaContent,
+            String customScriptContent) throws ServiceException {
+        JsonContent content = validateContent(
+                schemaContent,
+                uiSchemaContent,
+                customScriptContent);
         FmFormVersion version = new FmFormVersion();
         version.setTenantId(formDef.getTenantId());
         version.setFormId(formDef.getFormId());
@@ -313,13 +338,15 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         version.setVersionStatus("DRAFT");
         version.setSchemaContent(content.schemaContent());
         version.setUiSchemaContent(content.uiSchemaContent());
+        version.setCustomScriptContent(content.customScriptContent());
         version.setContentSha256(sha256(content.combined()));
         return version;
     }
 
     private JsonContent validateContent(
             String schemaContent,
-            String uiSchemaContent) throws ServiceException {
+            String uiSchemaContent,
+            String customScriptContent) throws ServiceException {
         if (StringUtils.isAnyBlank(schemaContent, uiSchemaContent)) {
             throw new ServiceException("JSON Schema 與 UI Schema 不可空白");
         }
@@ -347,10 +374,19 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                     .writeValueAsString(schema);
             String normalizedUiSchema = objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValueAsString(uiSchema);
-            return new JsonContent(normalizedSchema, normalizedUiSchema);
+            return new JsonContent(
+                    normalizedSchema,
+                    normalizedUiSchema,
+                    normalizeScript(customScriptContent));
         } catch (JacksonException exception) {
             throw new ServiceException("表單 JSON 格式錯誤：" + exception.getMessage());
         }
+    }
+
+    private String normalizeScript(String customScriptContent) {
+        return StringUtils.defaultString(customScriptContent)
+                .replace("\r\n", "\n")
+                .replace('\r', '\n');
     }
 
     private String sha256(String value) throws ServiceException {
@@ -369,10 +405,13 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         return result;
     }
 
-    private record JsonContent(String schemaContent, String uiSchemaContent) {
+    private record JsonContent(
+            String schemaContent,
+            String uiSchemaContent,
+            String customScriptContent) {
 
         private String combined() {
-            return schemaContent + "\n" + uiSchemaContent;
+            return schemaContent + "\n" + uiSchemaContent + "\n" + customScriptContent;
         }
     }
 }
