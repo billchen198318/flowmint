@@ -2665,7 +2665,8 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_form_def` WRITE;
 /*!40000 ALTER TABLE `fm_form_def` DISABLE KEYS */;
 INSERT INTO `fm_form_def` VALUES
-('38d6ce2a-8ef1-11f1-84eb-456241e7c7ef','A01','9016f926-700c-403d-b89b-381ec2e29b11','TESTFORM01','測試表單',1,'DRAFT','','admin','2026-08-03 12:10:11.706',NULL,NULL);
+('38d6ce2a-8ef1-11f1-84eb-456241e7c7ef','A01','9016f926-700c-403d-b89b-381ec2e29b11','TESTFORM01','測試表單',1,'DRAFT','','admin','2026-08-03 12:10:11.706',NULL,NULL),
+('f5000001-0001-4000-8000-000000000001','A01','f5000001-0001-4000-8000-000000000002','FLOWMINT_DATA_ACTION_DEMO','Data Action Demo－目前登入者資料',1,'DRAFT','示範 Form.io 呼叫 FlowMint Data Action 並回填欄位','SYSTEM','2026-08-06 10:16:35.535',NULL,NULL);
 /*!40000 ALTER TABLE `fm_form_def` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -2749,7 +2750,8 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_form_version` WRITE;
 /*!40000 ALTER TABLE `fm_form_version` DISABLE KEYS */;
 INSERT INTO `fm_form_version` VALUES
-('38d87bdb-8ef1-11f1-84eb-65f36aeb03d2','A01','9016f926-700c-403d-b89b-381ec2e29b11',1,'DRAFT','{\r\n  \"$schema\" : \"https://json-schema.org/draft/2020-12/schema\",\r\n  \"type\" : \"object\",\r\n  \"properties\" : { }\r\n}','{\r\n  \"type\" : \"VerticalLayout\",\r\n  \"elements\" : [ ]\r\n}','2b94910e4bbb6018e562fd2223ed7e4fd6d440d9c89497af2a01cd8d7cc01cee',NULL,NULL,'admin','2026-08-03 12:10:11.718',NULL,NULL);
+('38d87bdb-8ef1-11f1-84eb-65f36aeb03d2','A01','9016f926-700c-403d-b89b-381ec2e29b11',1,'DRAFT','{\r\n  \"$schema\" : \"https://json-schema.org/draft/2020-12/schema\",\r\n  \"type\" : \"object\",\r\n  \"properties\" : { }\r\n}','{\r\n  \"type\" : \"VerticalLayout\",\r\n  \"elements\" : [ ]\r\n}','2b94910e4bbb6018e562fd2223ed7e4fd6d440d9c89497af2a01cd8d7cc01cee',NULL,NULL,'admin','2026-08-03 12:10:11.718',NULL,NULL),
+('f5000001-0001-4000-8000-000000000003','A01','f5000001-0001-4000-8000-000000000002',1,'DRAFT','{\"display\":\"form\",\"components\":[{\"type\":\"content\",\"key\":\"demoIntroduction\",\"html\":\"<div><strong>FlowMint Data Action Demo</strong><br>按下按鈕後，表單會呼叫已發布的 <code>FM_GET_CURRENT_EMPLOYEE</code>，並將目前登入者的員工資料回填至下方欄位。</div>\",\"input\":false},{\"type\":\"button\",\"key\":\"loadCurrentEmployee\",\"label\":\"讀取目前登入者\",\"action\":\"event\",\"event\":\"load-current-employee\",\"theme\":\"primary\",\"block\":false,\"input\":true},{\"type\":\"columns\",\"key\":\"employeeColumns\",\"columns\":[{\"width\":6,\"size\":\"md\",\"components\":[{\"type\":\"textfield\",\"key\":\"employeeId\",\"label\":\"員工 ID\",\"input\":true,\"disabled\":true},{\"type\":\"textfield\",\"key\":\"employeeNo\",\"label\":\"員工編號\",\"input\":true,\"disabled\":true},{\"type\":\"textfield\",\"key\":\"account\",\"label\":\"登入帳號\",\"input\":true,\"disabled\":true},{\"type\":\"textfield\",\"key\":\"displayName\",\"label\":\"顯示名稱\",\"input\":true,\"disabled\":true}]},{\"width\":6,\"size\":\"md\",\"components\":[{\"type\":\"email\",\"key\":\"email\",\"label\":\"Email\",\"input\":true,\"disabled\":true},{\"type\":\"textfield\",\"key\":\"locale\",\"label\":\"語系\",\"input\":true,\"disabled\":true},{\"type\":\"textfield\",\"key\":\"timezone\",\"label\":\"時區\",\"input\":true,\"disabled\":true},{\"type\":\"textfield\",\"key\":\"dataActionStatus\",\"label\":\"執行狀態\",\"input\":true,\"disabled\":true,\"defaultValue\":\"READY\"}]}],\"input\":false},{\"type\":\"textarea\",\"key\":\"dataActionError\",\"label\":\"錯誤訊息\",\"input\":true,\"disabled\":true,\"rows\":3}]}','{\"engine\":\"FORMIO\",\"version\":1,\"dataActions\":[{\"bindingId\":\"load-current-employee\",\"event\":\"load-current-employee\",\"actionCode\":\"FM_GET_CURRENT_EMPLOYEE\",\"actionVersion\":1,\"requestMapping\":{},\"responseMapping\":{\"employee.employeeId\":\"employeeId\",\"employee.employeeNo\":\"employeeNo\",\"employee.account\":\"account\",\"employee.displayName\":\"displayName\",\"employee.email\":\"email\",\"employee.locale\":\"locale\",\"employee.timezone\":\"timezone\"},\"statusTarget\":\"dataActionStatus\",\"errorTarget\":\"dataActionError\"}]}','2ff1992b483c011532144417b568eff8c0fb33bce2b76066e43a15f54c4e8e36',NULL,NULL,'SYSTEM','2026-08-06 10:16:35.537',NULL,NULL);
 /*!40000 ALTER TABLE `fm_form_version` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -4882,4 +4884,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-06  9:45:31
+-- Dump completed on 2026-08-06 10:41:32

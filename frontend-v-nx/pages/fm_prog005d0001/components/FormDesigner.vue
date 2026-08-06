@@ -12,7 +12,10 @@ import {
   invalidFeedback,
 } from "@/components/BaseHelper";
 import { useSwalLoading } from "@/composables/useSwalLoading";
+import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
+import type { FormDataActionUiSchema } from "@/types/formDataAction";
 import { PageConstants } from "../config";
+import FormDataActionBindingEditor from "./FormDataActionBindingEditor.vue";
 
 const props = defineProps<{ edit?: boolean }>();
 const route = useRoute();
@@ -23,7 +26,10 @@ const checkFields = ref<Record<string, string>>({});
 const selectedVersion = ref<any>(null);
 const designerHost = ref<HTMLElement | null>(null);
 const designerLoading = ref(false);
+const designerMode = ref<"design" | "preview">("design");
+const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 let designerInstance: any = null;
+let detachDataActionBridge: (() => void) | null = null;
 let designerSequence = 0;
 const newForm = () => ({
   oid: "",
@@ -86,8 +92,21 @@ const parseFormioSchema = (content: string) => {
   }
   return emptyFormioSchema();
 };
+const parseUiSchema = (content: string): FormDataActionUiSchema => {
+  try {
+    const parsed = JSON.parse(content || "{}");
+    if (parsed?.engine === "FORMIO") return parsed;
+  } catch {
+    // Invalid content is reported by the backend when the draft is saved.
+  }
+  return { engine: "FORMIO", version: 1 };
+};
+const normalizedUiSchemaContent = () =>
+  JSON.stringify(parseUiSchema(selectedVersion.value?.uiSchemaContent), null, 2);
 const destroyDesigner = () => {
   designerSequence += 1;
+  detachDataActionBridge?.();
+  detachDataActionBridge = null;
   designerInstance?.destroy?.(true);
   designerInstance = null;
   if (designerHost.value) designerHost.value.innerHTML = "";
@@ -100,19 +119,24 @@ const renderDesigner = async () => {
     designerLoading.value = false;
     return;
   }
+  detachDataActionBridge?.();
+  detachDataActionBridge = null;
   designerInstance?.destroy?.(true);
   designerHost.value.innerHTML = "";
   try {
     const { Formio } = await import("@formio/js");
     if (sequence !== designerSequence || !designerHost.value) return;
     const schema = parseFormioSchema(selectedVersion.value.schemaContent);
-    if (selectedVersion.value.versionStatus === "DRAFT") {
+    if (
+      selectedVersion.value.versionStatus === "DRAFT" &&
+      designerMode.value === "design"
+    ) {
       designerInstance = await Formio.builder(designerHost.value, schema, {
         noDefaultSubmitButton: true,
         alwaysConfirmComponentRemoval: true,
         builder: {
-          basic: { title: "基本欄位", weight: 0, default: true },
-          advanced: { title: "進階欄位", weight: 10 },
+          basic: { title: "基本元件", weight: 0, default: true },
+          advanced: { title: "進階元件", weight: 10 },
           data: { title: "資料與 API", weight: 20 },
           premium: false,
           layout: { title: "版面配置", weight: 30 },
@@ -125,17 +149,19 @@ const renderDesigner = async () => {
           null,
           2,
         );
-        selectedVersion.value.uiSchemaContent = JSON.stringify(
-          { engine: "FORMIO", version: 1 },
-          null,
-          2,
-        );
+        selectedVersion.value.uiSchemaContent = normalizedUiSchemaContent();
       });
     } else {
       designerInstance = await Formio.createForm(designerHost.value, schema, {
-        readOnly: true,
+        readOnly: selectedVersion.value.versionStatus !== "DRAFT",
         noAlerts: true,
+        noDefaultSubmitButton: true,
       });
+      detachDataActionBridge = attachDataActionBridge(
+        designerInstance,
+        form.value.tenantId,
+        parseUiSchema(selectedVersion.value.uiSchemaContent),
+      );
     }
   } catch (error: any) {
     toast.error(error?.message || "載入 Form.io 設計器失敗");
@@ -143,22 +169,28 @@ const renderDesigner = async () => {
     if (sequence === designerSequence) designerLoading.value = false;
   }
 };
-const selectVersion = (version: any) => {
-  selectedVersion.value = version;
-  void renderDesigner();
-};
 const syncSchemaFromDesigner = () => {
-  if (selectedVersion.value?.versionStatus !== "DRAFT") return true;
+  if (
+    selectedVersion.value?.versionStatus !== "DRAFT" ||
+    designerMode.value !== "design"
+  ) return true;
   const schema =
     designerInstance?.form ||
     parseFormioSchema(selectedVersion.value.schemaContent);
   selectedVersion.value.schemaContent = JSON.stringify(schema, null, 2);
-  selectedVersion.value.uiSchemaContent = JSON.stringify(
-    { engine: "FORMIO", version: 1 },
-    null,
-    2,
-  );
+  selectedVersion.value.uiSchemaContent = normalizedUiSchemaContent();
   return true;
+};
+const setDesignerMode = (mode: "design" | "preview") => {
+  if (mode === designerMode.value) return;
+  if (designerMode.value === "design") syncSchemaFromDesigner();
+  designerMode.value = mode;
+  void renderDesigner();
+};
+const selectVersion = (version: any) => {
+  selectedVersion.value = version;
+  designerMode.value = version?.versionStatus === "DRAFT" ? "design" : "preview";
+  void renderDesigner();
 };
 const apply = (value: any) => {
   form.value = value;
@@ -447,11 +479,48 @@ onBeforeUnmount(destroyDesigner);
             </div>
             <span class="badge text-bg-secondary">Form.io</span>
           </div>
+          <div class="btn-group btn-group-sm mb-3" role="group" aria-label="表單模式">
+            <button
+              v-if="selectedVersion.versionStatus === 'DRAFT'"
+              type="button"
+              :class="[
+                'btn',
+                designerMode === 'design' ? 'btn-primary' : 'btn-outline-primary',
+              ]"
+              @click="setDesignerMode('design')"
+            >
+              <i class="bi bi-pencil-square"></i> 設計
+            </button>
+            <button
+              type="button"
+              :class="[
+                'btn',
+                designerMode === 'preview' ? 'btn-primary' : 'btn-outline-primary',
+              ]"
+              @click="setDesignerMode('preview')"
+            >
+              <i class="bi bi-play-circle"></i> 試跑
+            </button>
+          </div>
           <div v-if="designerLoading" class="designer-loading text-muted">
             <span class="spinner-border spinner-border-sm me-2"></span>
             載入表單設計器…
           </div>
           <div ref="designerHost" class="formio-designer"></div>
+        </div>
+        <div class="col-12">
+          <FormDataActionBindingEditor
+            :tenant-id="form.tenantId"
+            :schema-content="selectedVersion.schemaContent"
+            :ui-schema-content="selectedVersion.uiSchemaContent"
+            :readonly="
+              selectedVersion.versionStatus !== 'DRAFT' ||
+              designerMode !== 'design'
+            "
+            @update:ui-schema-content="
+              selectedVersion.uiSchemaContent = $event
+            "
+          />
         </div>
         <div class="col-12">
           <details class="border rounded p-3 bg-light">
