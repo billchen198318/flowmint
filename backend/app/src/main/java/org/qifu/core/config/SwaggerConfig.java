@@ -49,7 +49,7 @@ public class SwaggerConfig {
 	public OpenAPI customOpenAPI() {
 		Contact contact = new Contact().name("Bill Chen").email("chen.xin.nien@gmail.com");
 		License license = new License().name("Apache 2.0").url("http://www.apache.org/licenses/LICENSE-2.0");
-		Info info = new Info().title("QiFu4").description("backend interface.").version("0.4").contact(contact).license(license);
+		Info info = new Info().title("FlowMint").description("backend interface.").version("0.4").contact(contact).license(license);
 		Components component = new Components().addSecuritySchemes(
 				SECURITY_SCHEME_NAME, 
 				new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme(Constants.TOKEN_PREFIX).bearerFormat("JWT")

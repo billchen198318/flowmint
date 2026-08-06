@@ -61,7 +61,7 @@ const loginBtnClick = async () => {
         <div class="login-form">
           <h3 class="login-head">
             <i class="bi bi-person-circle"></i>
-            qífū - frontend
+            FlowMint
           </h3>
           <div class="form-group form-floating">
             <input type="text" class="form-control" id="username" placeholder="Account" v-model="userId" @keyup.enter="loginBtnClick">

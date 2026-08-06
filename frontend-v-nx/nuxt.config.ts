@@ -4,6 +4,10 @@ export default defineNuxtConfig({
 
   // 1. 修正資源路徑，解決 JS 檔案抓不到 (404) 的問題
   app: {
+    head: {
+      title: 'FlowMint',
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    },
     baseURL: '/',
     buildAssetsDir: '/_nuxt/',
   },

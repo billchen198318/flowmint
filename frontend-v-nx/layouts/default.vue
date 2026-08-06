@@ -75,7 +75,7 @@ onMounted(() => {
   <div v-if="baseStore.isLoggedIn" class="app sidebar-mini" :class="{ 'sidenav-toggled': isSidebarToggled }">
     <!-- Navbar-->
     <header class="app-header">
-      <a class="app-header__logo" href="#" @click.prevent="reloadPageLogoClick">qífū</a>
+      <a class="app-header__logo" href="#" @click.prevent="reloadPageLogoClick">FlowMint</a>
       <!-- Sidebar toggle button-->
       <a class="app-sidebar__toggle" href="#" @click.prevent="toggleSidebar" aria-label="Hide Sidebar">
         <h4 style="margin-top: 10px;"><i class="bi bi-list"></i></h4>
