@@ -137,6 +137,10 @@ onMounted(async () => {
     const message = error instanceof Error ? error.message : "載入 Tenant 失敗";
     toast.error(escapeQifuHtmlMsg(message));
   }
+
+  if (store.queryParam.tenantId) {
+    await query();
+  }
 });
 </script>
 
