@@ -3647,6 +3647,51 @@ COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
 --
+-- Table structure for table `fm_process_start_proxy`
+--
+
+DROP TABLE IF EXISTS `fm_process_start_proxy`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_process_start_proxy` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `START_PROXY_ID` varchar(36) NOT NULL,
+  `PRINCIPAL_ACCOUNT` varchar(24) NOT NULL,
+  `PROXY_ACCOUNT` varchar(24) NOT NULL,
+  `SCOPE_TYPE` varchar(20) NOT NULL DEFAULT 'ALL',
+  `SCOPE_REF_ID` varchar(36) DEFAULT NULL,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `EFFECTIVE_FROM` datetime(3) NOT NULL,
+  `EFFECTIVE_TO` datetime(3) NOT NULL,
+  `REASON` varchar(500) NOT NULL,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_START_PROXY_ID` (`TENANT_ID`,`START_PROXY_ID`),
+  KEY `IDX_FM_START_PROXY_RESOLVE` (`TENANT_ID`,`PRINCIPAL_ACCOUNT`,`PROXY_ACCOUNT`,`STATUS`,`EFFECTIVE_FROM`,`EFFECTIVE_TO`),
+  CONSTRAINT `CK_FM_START_PROXY_ACCOUNT` CHECK (`PRINCIPAL_ACCOUNT` <> `PROXY_ACCOUNT`),
+  CONSTRAINT `CK_FM_START_PROXY_SCOPE` CHECK (`SCOPE_TYPE` in ('ALL','PROCESS')),
+  CONSTRAINT `CK_FM_START_PROXY_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE')),
+  CONSTRAINT `CK_FM_START_PROXY_DATE` CHECK (`EFFECTIVE_TO` > `EFFECTIVE_FROM`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_process_start_proxy`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_process_start_proxy` WRITE;
+/*!40000 ALTER TABLE `fm_process_start_proxy` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_process_start_proxy` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
 -- Table structure for table `fm_process_version`
 --
 
@@ -5461,4 +5506,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-09 11:14:33
+-- Dump completed on 2026-08-09 14:03:19

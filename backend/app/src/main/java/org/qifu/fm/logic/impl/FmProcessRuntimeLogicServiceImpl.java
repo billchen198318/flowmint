@@ -14,8 +14,10 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
+import org.qifu.core.util.UserUtils;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator.StartSubject;
+import org.qifu.fm.domain.runtime.FmProcessStartProxyEvaluator;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
 import org.qifu.fm.entity.FmEmployee;
@@ -34,6 +36,7 @@ import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmProcessStartPolicyService;
+import org.qifu.fm.service.IFmProcessStartProxyService;
 import org.qifu.fm.service.IFmProcessVersionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +57,8 @@ public class FmProcessRuntimeLogicServiceImpl
     private final IFmProcessStartPolicyService startPolicyService;
     private final IFmApprovalGroupMemberService approvalGroupMemberService;
     private final FmProcessStartPolicyEvaluator startPolicyEvaluator;
+    private final IFmProcessStartProxyService startProxyService;
+    private final FmProcessStartProxyEvaluator startProxyEvaluator;
     private final RuntimeService runtimeService;
     private final ObjectMapper objectMapper;
 
@@ -67,6 +72,8 @@ public class FmProcessRuntimeLogicServiceImpl
             IFmProcessStartPolicyService startPolicyService,
             IFmApprovalGroupMemberService approvalGroupMemberService,
             FmProcessStartPolicyEvaluator startPolicyEvaluator,
+            IFmProcessStartProxyService startProxyService,
+            FmProcessStartProxyEvaluator startProxyEvaluator,
             RuntimeService runtimeService,
             ObjectMapper objectMapper) {
         this.processVersionService = processVersionService;
@@ -78,6 +85,8 @@ public class FmProcessRuntimeLogicServiceImpl
         this.startPolicyService = startPolicyService;
         this.approvalGroupMemberService = approvalGroupMemberService;
         this.startPolicyEvaluator = startPolicyEvaluator;
+        this.startProxyService = startProxyService;
+        this.startProxyEvaluator = startProxyEvaluator;
         this.runtimeService = runtimeService;
         this.objectMapper = objectMapper;
     }
@@ -90,6 +99,9 @@ public class FmProcessRuntimeLogicServiceImpl
         FmProcessVersion processVersion = publishedProcessVersion(command);
         publishedFormVersion(command);
         FmEmployee applicant = activeApplicant(command.tenantId(), command.applicantAccount());
+        String starterAccount = UserUtils.getCurrentUser().getUsername();
+        activeApplicant(command.tenantId(), starterAccount);
+        authorizeProxy(command, starterAccount);
         FmEmployeeOrgAssignment assignment = primaryAssignment(
                 command.tenantId(),
                 applicant.getEmployeeId());
@@ -115,6 +127,7 @@ public class FmProcessRuntimeLogicServiceImpl
                 formData,
                 flowableInstance,
                 businessKey,
+                starterAccount,
                 now);
         return success(new FmProcessSubmitView(
                 businessKey,
@@ -215,6 +228,25 @@ public class FmProcessRuntimeLogicServiceImpl
         }
     }
 
+    private void authorizeProxy(FmProcessSubmitCommand command, String starterAccount)
+            throws ServiceException {
+        if (starterAccount.equals(command.applicantAccount())) {
+            return;
+        }
+        Map<String, Object> parameters = activeParameters(command.tenantId());
+        parameters.put("principalAccount", command.applicantAccount());
+        parameters.put("proxyAccount", starterAccount);
+        boolean authorized = startProxyEvaluator.isAuthorized(
+                starterAccount,
+                command.applicantAccount(),
+                command.processDefId(),
+                startProxyService.selectListByParams(parameters).getValue(),
+                new Date());
+        if (!authorized) {
+            throw new ServiceException("目前登入者沒有替此申請人代起單的授權");
+        }
+    }
+
     private void ensureBusinessKeyAvailable(String tenantId, String businessKey)
             throws ServiceException {
         Map<String, Object> parameters = new HashMap<>();
@@ -262,6 +294,8 @@ public class FmProcessRuntimeLogicServiceImpl
                 command.applicantAccount());
         variables.put(FmTaskAssignmentListener.VARIABLE_FORM_DATA, command.formData());
         variables.put("flowmintBusinessKey", businessKey);
+        variables.put("flowmintStarterAccount",
+                UserUtils.getCurrentUser().getUsername());
         return variables;
     }
 
@@ -272,6 +306,7 @@ public class FmProcessRuntimeLogicServiceImpl
             FmFormData formData,
             ProcessInstance flowableInstance,
             String businessKey,
+            String starterAccount,
             Date now) {
         FmProcessInstance value = new FmProcessInstance();
         value.setTenantId(command.tenantId());
@@ -281,7 +316,7 @@ public class FmProcessRuntimeLogicServiceImpl
         value.setFlowableProcessDefId(processVersion.getFlowableProcessDefId());
         value.setBusinessKey(businessKey);
         value.setFormDataId(formData.getFormDataId());
-        value.setInitiatorAccount(command.applicantAccount());
+        value.setInitiatorAccount(starterAccount);
         value.setInitiatorOrgUnitId(assignment.getOrgUnitId());
         value.setInstanceStatus("RUNNING");
         value.setStartDate(now);
