@@ -84,6 +84,18 @@ POST          /assignment-resolver/preview
 
 ## 7. Request／Task
 
+目前已實作的最小正式起單 API：
+
+```text
+POST   /api/fm/requests/start/load
+POST   /api/fm/requests/submit
+```
+
+- 兩個端點都必須以 `X-FlowMint-Tenant` header 指定 Tenant，body 不接受 `tenantId`。
+- `submit` 必須提供 `Idempotency-Key` header；相同 key 與相同內容重送時回傳原流程結果，相同 key 夾帶不同內容時拒絕。
+- 發起人一律由 Security Context 取得；body 只能指定申請人，並仍須通過代起單授權。
+- 未提供流程實例刪除 API。
+
 ```text
 GET    /request-catalog
 POST   /requests
