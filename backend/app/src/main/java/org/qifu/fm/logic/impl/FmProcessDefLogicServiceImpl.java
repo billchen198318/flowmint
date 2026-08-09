@@ -304,16 +304,20 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 .getValueEmptyThrowMessage();
         List<FmResolverPreviewView> previews = assignmentRules(version).stream()
                 .filter(rule -> "ACTIVE".equals(rule.getStatus()))
-                .map(rule -> resolvePreview(rule, command.initiatorAccount()))
+                .map(rule -> resolvePreview(
+                        rule,
+                        command.initiatorAccount(),
+                        command.variables()))
                 .toList();
         return success(previews);
     }
 
     private FmResolverPreviewView resolvePreview(
             FmTaskAssignmentRule rule,
-            String initiatorAccount) {
+            String initiatorAccount,
+            Map<String, Object> variables) {
         try {
-            return assignmentResolverService.resolve(rule, initiatorAccount);
+            return assignmentResolverService.resolve(rule, initiatorAccount, variables);
         } catch (ServiceException exception) {
             return new FmResolverPreviewView(rule.getTaskDefKey(), rule.getRuleSeq(),
                     rule.getResolverType(), "ERROR", exception.getMessage(), List.of());

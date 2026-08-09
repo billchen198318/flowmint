@@ -9,6 +9,7 @@ const props = defineProps<{
   tenantId: string;
   processDefId: string;
   formId?: string;
+  schemaContent?: string;
   modelValue?: string;
   disabled?: boolean;
   accounts: any[];
@@ -22,16 +23,35 @@ const emit = defineEmits<{ "update:modelValue": [value: string] }>();
 const authorities = ref<any[]>([]);
 const editing = ref(false);
 const saving = ref(false);
-const fields = ref([
-  { value: "form.totalAmount", label: "表單總金額" },
-  { value: "form.category", label: "申請分類" },
-  { value: "form.days", label: "申請天數" },
-]);
+const collectFields = (components: any[], values: any[]) => {
+  for (const component of components || []) {
+    if (component?.key && component?.input !== false) {
+      values.push({
+        value: `form.${component.key}`,
+        label: component.label || component.key,
+      });
+    }
+    collectFields(component?.components, values);
+    for (const column of component?.columns || []) collectFields(column?.components, values);
+    for (const row of component?.rows || [])
+      for (const cell of row || []) collectFields(cell?.components, values);
+  }
+};
+const fields = computed(() => {
+  try {
+    const schema = JSON.parse(props.schemaContent || "{}");
+    const values: any[] = [];
+    collectFields(schema.components || [], values);
+    return values;
+  } catch {
+    return [];
+  }
+});
 const emptyRule = (sequence = 1) => ({
   ruleSeq: sequence,
   conditionConfig: JSON.stringify({
     match: "ALL",
-    conditions: [{ field: "form.totalAmount", operator: "GTE", value: 0 }],
+    conditions: [{ field: "", operator: "EQ", value: "" }],
   }),
   targetType: "APPROVAL_LEVEL",
   targetRefId: "",

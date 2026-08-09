@@ -30,6 +30,7 @@ const publishedForms = ref<any[]>([]);
 const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
 const previewAccount = ref("");
+const previewFormData = ref("{}");
 const resolverPreview = ref<any[]>([]);
 const resolverAccounts = ref<any[]>([]);
 const approvalGroups = ref<any[]>([]);
@@ -172,6 +173,10 @@ const selectedFormValue = computed(() => {
   const rule = selectedTaskRule.value;
   return rule ? `${rule.formId}::${rule.formVersionNo}` : "";
 });
+const selectedPublishedForm = computed(() => publishedForms.value.find(
+  (item: any) => item.formId === selectedTaskRule.value?.formId
+    && item.formVersionNo === selectedTaskRule.value?.formVersionNo,
+));
 const loadPublishedForms = async () => {
   if (!form.value.tenantId) return;
   const response = await post("/published-form-options", {
@@ -400,11 +405,19 @@ const previewResolvers = async () => {
     toast.warning("請輸入測試申請人的帳號");
     return;
   }
+  let formData: Record<string, unknown>;
+  try {
+    formData = JSON.parse(previewFormData.value || "{}");
+  } catch {
+    toast.warning("測試表單資料不是有效的 JSON");
+    return;
+  }
   showLoading();
   try {
     const response = await post("/resolver-preview", {
       versionOid: selectedVersion.value.oid,
       initiatorAccount: previewAccount.value.trim(),
+      variables: { form: formData },
     });
     if (!responseOk(response)) {
       showResponse(response);
@@ -821,6 +834,7 @@ onBeforeUnmount(() => modeler?.destroy());
                     <ApprovalAuthorityPanel v-model="selectedApprovalAuthority"
                       :tenant-id="form.tenantId" :process-def-id="form.processDefId"
                       :form-id="selectedTaskRule?.formId"
+                      :schema-content="selectedPublishedForm?.schemaContent"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
                       :accounts="resolverAccounts" :groups="approvalGroups"
                       :levels="approvalLevels" :titles="orgTitles" :duties="orgDuties" />
@@ -887,6 +901,11 @@ onBeforeUnmount(() => modeler?.destroy());
               placeholder="例如 tester" @keyup.enter="previewResolvers" />
             <button type="button" class="btn btn-outline-primary"
               @click="previewResolvers">開始預覽</button>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">測試表單資料</label>
+            <textarea v-model="previewFormData" rows="3" class="form-control"
+              placeholder='例如 {"totalAmount": 100000, "category": "資訊設備"}'></textarea>
           </div>
           <div class="form-text mb-3">預覽使用已儲存的簽核人規則；修改規則後請先儲存草稿。</div>
           <div v-if="resolverPreview.length" class="table-responsive">

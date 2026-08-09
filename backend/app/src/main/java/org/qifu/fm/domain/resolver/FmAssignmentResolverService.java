@@ -10,10 +10,13 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
+import org.qifu.fm.domain.authority.FmApprovalAuthorityConditionEvaluator;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmApprovalGroupMember;
+import org.qifu.fm.entity.FmApprovalAuthority;
+import org.qifu.fm.entity.FmApprovalAuthorityRule;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmEmployeeDuty;
@@ -25,6 +28,8 @@ import org.qifu.fm.entity.FmOrgTitle;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmApprovalGroupService;
+import org.qifu.fm.service.IFmApprovalAuthorityRuleService;
+import org.qifu.fm.service.IFmApprovalAuthorityService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmEmployeeDutyService;
@@ -54,6 +59,9 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private final IFmOrgApprovalLevelService orgApprovalLevelService;
     private final IFmEmployeeDutyService employeeDutyService;
     private final IFmOrgDutyService orgDutyService;
+    private final IFmApprovalAuthorityService approvalAuthorityService;
+    private final IFmApprovalAuthorityRuleService approvalAuthorityRuleService;
+    private final FmApprovalAuthorityConditionEvaluator conditionEvaluator;
 
     public FmAssignmentResolverService(
             IFmEmployeeService employeeService,
@@ -66,6 +74,9 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             IFmOrgApprovalLevelService orgApprovalLevelService,
             IFmEmployeeDutyService employeeDutyService,
             IFmOrgDutyService orgDutyService,
+            IFmApprovalAuthorityService approvalAuthorityService,
+            IFmApprovalAuthorityRuleService approvalAuthorityRuleService,
+            FmApprovalAuthorityConditionEvaluator conditionEvaluator,
             ObjectMapper objectMapper) {
         this.employeeService = employeeService;
         this.assignmentService = assignmentService;
@@ -77,6 +88,9 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         this.orgApprovalLevelService = orgApprovalLevelService;
         this.employeeDutyService = employeeDutyService;
         this.orgDutyService = orgDutyService;
+        this.approvalAuthorityService = approvalAuthorityService;
+        this.approvalAuthorityRuleService = approvalAuthorityRuleService;
+        this.conditionEvaluator = conditionEvaluator;
         this.objectMapper = objectMapper;
     }
 
@@ -84,6 +98,14 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     public FmResolverPreviewView resolve(
             FmTaskAssignmentRule rule,
             String initiatorAccount) throws ServiceException {
+        return resolve(rule, initiatorAccount, Map.of());
+    }
+
+    @Override
+    public FmResolverPreviewView resolve(
+            FmTaskAssignmentRule rule,
+            String initiatorAccount,
+            Map<String, Object> variables) throws ServiceException {
         if (StringUtils.isBlank(initiatorAccount)) {
             return result(rule, "ERROR", "請選擇測試申請人", List.of());
         }
@@ -109,9 +131,105 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             case "LEVEL_HEAD_CHAIN" -> levelHeadChain(rule, assignment.getOrgUnitId());
             case "ORG_TITLE" -> orgTitle(rule, assignment.getOrgUnitId());
             case "ORG_DUTY" -> orgDuty(rule, assignment.getOrgUnitId());
+            case "APPROVAL_AUTHORITY" -> approvalAuthority(
+                    rule,
+                    assignment,
+                    variables == null ? Map.of() : variables);
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
+    }
+
+    private FmResolverPreviewView approvalAuthority(
+            FmTaskAssignmentRule taskRule,
+            FmEmployeeOrgAssignment assignment,
+            Map<String, Object> variables) throws ServiceException {
+        String authorityId = config(taskRule).path("approvalAuthorityId").asString();
+        if (StringUtils.isBlank(authorityId)) {
+            return result(taskRule, "ERROR", "尚未選擇核決權限", List.of());
+        }
+        Map<String, Object> parameters = activeParameters(taskRule.getTenantId());
+        parameters.put("approvalAuthorityId", authorityId);
+        FmApprovalAuthority authority = approvalAuthorityService
+                .selectListByParams(parameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst().orElse(null);
+        if (authority == null) {
+            return result(taskRule, "NOT_FOUND", "核決權限不存在、未啟用或尚未生效", List.of());
+        }
+        List<FmApprovalAuthorityRule> authorityRules = approvalAuthorityRuleService
+                .findByAuthority(taskRule.getTenantId(), authorityId).stream()
+                .filter(value -> "ACTIVE".equals(value.getStatus()))
+                .toList();
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        int matchedRules = 0;
+        for (FmApprovalAuthorityRule authorityRule : authorityRules) {
+            if (!conditionEvaluator.matches(authorityRule.getConditionConfig(), variables)) {
+                continue;
+            }
+            matchedRules++;
+            FmResolverPreviewView target = resolveAuthorityTarget(
+                    taskRule,
+                    assignment,
+                    authorityRule);
+            for (FmResolverCandidateView candidate : target.candidates()) {
+                if (candidates.size() >= taskRule.getMaxResults()) {
+                    break;
+                }
+                candidates.putIfAbsent(candidate.employeeId(), candidate);
+            }
+            if ("Y".equals(authorityRule.getStopAfterApproval())) {
+                break;
+            }
+        }
+        if (matchedRules == 0) {
+            return result(taskRule, "NOT_FOUND", "表單資料未符合任何核決條件", List.of());
+        }
+        if (candidates.isEmpty()) {
+            return result(taskRule, "NOT_FOUND", "核決條件已命中，但找不到有效簽核人", List.of());
+        }
+        return result(taskRule, "RESOLVED",
+                "已依核決權限「" + authority.getAuthorityName() + "」解析簽核人",
+                List.copyOf(candidates.values()));
+    }
+
+    private FmResolverPreviewView resolveAuthorityTarget(
+            FmTaskAssignmentRule taskRule,
+            FmEmployeeOrgAssignment assignment,
+            FmApprovalAuthorityRule authorityRule) throws ServiceException {
+        FmTaskAssignmentRule targetRule = authorityTargetRule(taskRule, authorityRule);
+        return switch (authorityRule.getTargetType()) {
+            case "APPROVAL_LEVEL" -> targetLevelHead(targetRule, assignment);
+            case "ORG_TITLE" -> orgTitle(targetRule, assignment.getOrgUnitId());
+            case "ORG_DUTY" -> orgDuty(targetRule, assignment.getOrgUnitId());
+            case "APPROVAL_GROUP" -> approvalGroup(targetRule);
+            case "FIXED_ACCOUNT" -> fixedAccounts(targetRule);
+            default -> result(taskRule, "ERROR", "不支援的核決簽核目標", List.of());
+        };
+    }
+
+    private FmTaskAssignmentRule authorityTargetRule(
+            FmTaskAssignmentRule taskRule,
+            FmApprovalAuthorityRule authorityRule) {
+        FmTaskAssignmentRule targetRule = new FmTaskAssignmentRule();
+        targetRule.setTenantId(taskRule.getTenantId());
+        targetRule.setTaskDefKey(taskRule.getTaskDefKey());
+        targetRule.setRuleSeq(taskRule.getRuleSeq());
+        targetRule.setResolverType(authorityRule.getTargetType());
+        targetRule.setMaxResults(taskRule.getMaxResults());
+        Map<String, Object> config = switch (authorityRule.getTargetType()) {
+            case "APPROVAL_LEVEL" -> Map.of(
+                    "approvalLevelId", authorityRule.getTargetRefId());
+            case "ORG_TITLE" -> Map.of("titleId", authorityRule.getTargetRefId());
+            case "ORG_DUTY" -> Map.of("dutyId", authorityRule.getTargetRefId());
+            case "APPROVAL_GROUP" -> Map.of(
+                    "approvalGroupId", authorityRule.getTargetRefId());
+            case "FIXED_ACCOUNT" -> Map.of(
+                    "accounts", List.of(authorityRule.getTargetRefId()));
+            default -> Map.of();
+        };
+        targetRule.setResolverConfig(objectMapper.writeValueAsString(config));
+        return targetRule;
     }
 
     private FmResolverPreviewView orgTitle(
