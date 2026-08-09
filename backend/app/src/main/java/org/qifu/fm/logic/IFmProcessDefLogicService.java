@@ -36,5 +36,11 @@ public interface IFmProcessDefLogicService {
     DefaultResult<List<FmResolverPreviewView>> resolverPreview(FmResolverPreviewCommand command)
             throws ServiceException;
 
+    DefaultResult<List<FmOptionView>> resolverAccountOptions(String tenantId)
+            throws ServiceException;
+
+    DefaultResult<List<FmOptionView>> approvalGroupOptions(String tenantId)
+            throws ServiceException;
+
     FmProcessDefView view(FmProcessDef processDef) throws ServiceException;
 }

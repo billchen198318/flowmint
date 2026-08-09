@@ -30,6 +30,8 @@ const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
 const previewAccount = ref("");
 const resolverPreview = ref<any[]>([]);
+const resolverAccounts = ref<any[]>([]);
+const approvalGroups = ref<any[]>([]);
 let modeler: any = null;
 const newForm = () => ({
   oid: "",
@@ -72,6 +74,27 @@ const selectedAssignmentRule = computed(() =>
     (item: any) => item.taskDefKey === selectedTask.value?.id && item.ruleSeq === 1,
   ),
 );
+const ruleConfig = () => {
+  try {
+    return JSON.parse(selectedAssignmentRule.value?.resolverConfig || "{}");
+  } catch {
+    return {};
+  }
+};
+const selectedFixedAccounts = computed({
+  get: () => ruleConfig().accounts || [],
+  set: (accounts: string[]) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ accounts });
+  },
+});
+const selectedApprovalGroup = computed({
+  get: () => ruleConfig().approvalGroupId || "",
+  set: (approvalGroupId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalGroupId });
+  },
+});
 const ensureSelectedAssignmentRule = () => {
   if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT") return;
   selectedVersion.value.assignmentRules ||= [];
@@ -123,6 +146,15 @@ const loadPublishedForms = async () => {
     tenantId: form.value.tenantId,
   });
   publishedForms.value = response.data?.value || [];
+};
+const loadResolverOptions = async () => {
+  if (!form.value.tenantId) return;
+  const [accountResponse, groupResponse] = await Promise.all([
+    post("/resolver-account-options", { tenantId: form.value.tenantId }),
+    post("/approval-group-options", { tenantId: form.value.tenantId }),
+  ]);
+  resolverAccounts.value = accountResponse.data?.value || [];
+  approvalGroups.value = groupResponse.data?.value || [];
 };
 const bindModelerEvents = () => {
   const selectElement = (element: any) => {
@@ -207,6 +239,7 @@ const openVersion = async (version: any) => {
 const apply = async (value: any) => {
   form.value = value;
   await loadPublishedForms();
+  await loadResolverOptions();
   const draft = value.versions?.find(
     (item: any) => item.versionStatus === "DRAFT",
   );
@@ -356,6 +389,7 @@ onMounted(async () => {
   tenants.value = (await post("/tenant-options")).data?.value || [];
   if (!props.edit && tenants.value.length === 1)
     form.value.tenantId = tenants.value[0].value;
+  if (!props.edit) await loadResolverOptions();
   await load();
 });
 onBeforeUnmount(() => modeler?.destroy());
@@ -684,12 +718,36 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="APPROVAL_AUTHORITY">簽核權限</option>
                     </select>
                   </div>
-                  <div class="mb-3">
+                  <div v-if="selectedAssignmentRule.resolverType === 'FIXED_ACCOUNT'"
+                    class="mb-3">
+                    <label class="form-label">指定帳號</label>
+                    <select v-model="selectedFixedAccounts" multiple
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select" size="6">
+                      <option v-for="item in resolverAccounts" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <div class="form-text">按住 Ctrl 可選擇多個帳號。</div>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'APPROVAL_GROUP'"
+                    class="mb-3">
+                    <label class="form-label">簽核群組</label>
+                    <select v-model="selectedApprovalGroup"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇簽核群組</option>
+                      <option v-for="item in approvalGroups" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                  </div>
+                  <div v-else-if="['TARGET_LEVEL_HEAD', 'ORG_TITLE', 'ORG_DUTY',
+                    'APPROVAL_AUTHORITY'].includes(selectedAssignmentRule.resolverType)"
+                    class="mb-3">
                     <label class="form-label">規則參數</label>
                     <textarea v-model="selectedAssignmentRule.resolverConfig" rows="2"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-control" placeholder="無參數時保留 {}"></textarea>
-                    <div class="form-text">目前先保存結構化 JSON；無參數的主管規則使用 {}。</div>
+                      class="form-control"></textarea>
+                    <div class="form-text">此類型的專用選擇元件將於後續階段補上。</div>
                   </div>
                   <div class="row g-2">
                     <div class="col-6">

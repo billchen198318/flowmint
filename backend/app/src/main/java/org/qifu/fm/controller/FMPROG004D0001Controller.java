@@ -170,6 +170,34 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
         return ResponseEntity.ok(result);
     }
 
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/resolver-account-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> resolverAccountOptions(
+            @RequestBody Map<String, String> body) {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    processDefLogicService.resolverAccountOptions(body.get("tenantId")), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/approval-group-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> approvalGroupOptions(
+            @RequestBody Map<String, String> body) {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    processDefLogicService.approvalGroupOptions(body.get("tenantId")), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     private ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> result(
             ResultSupplier supplier) {
         DefaultControllerJsonResultObj<FmProcessDefView> result = initDefaultJsonResult();

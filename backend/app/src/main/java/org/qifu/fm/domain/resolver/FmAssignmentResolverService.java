@@ -1,5 +1,6 @@
 package org.qifu.fm.domain.resolver;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -11,17 +12,24 @@ import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
+import org.qifu.fm.entity.FmApprovalGroup;
+import org.qifu.fm.entity.FmApprovalGroupMember;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmOrgUnitHead;
 import org.qifu.fm.entity.FmOrgUnitVersion;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
+import org.qifu.fm.service.IFmApprovalGroupMemberService;
+import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmOrgUnitHeadService;
 import org.qifu.fm.service.IFmOrgUnitVersionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @Transactional(readOnly = true)
@@ -31,16 +39,25 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private final IFmEmployeeOrgAssignmentService assignmentService;
     private final IFmOrgUnitHeadService orgUnitHeadService;
     private final IFmOrgUnitVersionService orgUnitVersionService;
+    private final IFmApprovalGroupService approvalGroupService;
+    private final IFmApprovalGroupMemberService approvalGroupMemberService;
+    private final ObjectMapper objectMapper;
 
     public FmAssignmentResolverService(
             IFmEmployeeService employeeService,
             IFmEmployeeOrgAssignmentService assignmentService,
             IFmOrgUnitHeadService orgUnitHeadService,
-            IFmOrgUnitVersionService orgUnitVersionService) {
+            IFmOrgUnitVersionService orgUnitVersionService,
+            IFmApprovalGroupService approvalGroupService,
+            IFmApprovalGroupMemberService approvalGroupMemberService,
+            ObjectMapper objectMapper) {
         this.employeeService = employeeService;
         this.assignmentService = assignmentService;
         this.orgUnitHeadService = orgUnitHeadService;
         this.orgUnitVersionService = orgUnitVersionService;
+        this.approvalGroupService = approvalGroupService;
+        this.approvalGroupMemberService = approvalGroupMemberService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -60,6 +77,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             return result(rule, "NOT_FOUND", "申請人沒有啟用中的主要部門配置", List.of());
         }
         return switch (rule.getResolverType()) {
+            case "FIXED_ACCOUNT" -> fixedAccounts(rule);
+            case "APPROVAL_GROUP" -> approvalGroup(rule);
             case "DIRECT_MANAGER" -> directManager(rule, assignment);
             case "INITIATOR_ORG_HEAD" -> orgUnitHead(rule, assignment.getOrgUnitId());
             case "PARENT_ORG_HEAD" -> parentOrgUnitHead(rule, assignment.getOrgUnitId());
@@ -69,6 +88,72 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
+    }
+
+    private FmResolverPreviewView fixedAccounts(FmTaskAssignmentRule rule)
+            throws ServiceException {
+        JsonNode accounts = config(rule).path("accounts");
+        if (!accounts.isArray() || accounts.size() == 0) {
+            return result(rule, "ERROR", "指定帳號規則尚未選擇帳號", List.of());
+        }
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        for (JsonNode accountNode : accounts) {
+            if (candidates.size() >= rule.getMaxResults()) {
+                break;
+            }
+            FmEmployee employee = activeEmployeeByAccount(
+                    rule.getTenantId(), accountNode.asString());
+            if (employee != null) {
+                candidates.putIfAbsent(employee.getEmployeeId(), candidate(employee));
+            }
+        }
+        if (candidates.isEmpty()) {
+            return result(rule, "NOT_FOUND", "指定帳號均不存在或未啟用", List.of());
+        }
+        return result(rule, "RESOLVED", "已解析指定帳號",
+                List.copyOf(candidates.values()));
+    }
+
+    private FmResolverPreviewView approvalGroup(FmTaskAssignmentRule rule)
+            throws ServiceException {
+        String approvalGroupId = config(rule).path("approvalGroupId").asString();
+        if (StringUtils.isBlank(approvalGroupId)) {
+            return result(rule, "ERROR", "簽核群組規則尚未選擇群組", List.of());
+        }
+        Map<String, Object> groupParameters = activeParameters(rule.getTenantId());
+        groupParameters.put("approvalGroupId", approvalGroupId);
+        FmApprovalGroup group = approvalGroupService.selectListByParams(groupParameters)
+                .getValue().stream().findFirst().orElse(null);
+        if (group == null) {
+            return result(rule, "NOT_FOUND", "簽核群組不存在或未啟用", List.of());
+        }
+        Map<String, Object> memberParameters = activeParameters(rule.getTenantId());
+        memberParameters.put("approvalGroupId", approvalGroupId);
+        List<FmApprovalGroupMember> members = approvalGroupMemberService
+                .selectListByParams(memberParameters, "PRIORITY", "ASC").getValue();
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        for (FmApprovalGroupMember member : members) {
+            if (candidates.size() >= rule.getMaxResults()) {
+                break;
+            }
+            if (isEffective(member.getEffectiveFrom(), member.getEffectiveTo())) {
+                addEmployeeCandidate(rule.getTenantId(), member.getEmployeeId(), candidates);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return result(rule, "NOT_FOUND", "簽核群組沒有啟用中的有效成員", List.of());
+        }
+        return result(rule, "RESOLVED", "已解析簽核群組「" + group.getGroupName() + "」",
+                List.copyOf(candidates.values()));
+    }
+
+    private JsonNode config(FmTaskAssignmentRule rule) throws ServiceException {
+        try {
+            return objectMapper.readTree(StringUtils.defaultIfBlank(
+                    rule.getResolverConfig(), "{}"));
+        } catch (RuntimeException exception) {
+            throw new ServiceException("Resolver 參數不是有效的 JSON");
+        }
     }
 
     private FmResolverPreviewView parentOrgUnitHead(
@@ -170,7 +255,9 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("orgUnitId", orgUnitId);
         return orgUnitHeadService.selectListByParams(parameters, "PRIORITY", "ASC")
-                .getValue().stream().findFirst().orElse(null);
+                .getValue().stream()
+                .filter(head -> isEffective(head.getEffectiveFrom(), head.getEffectiveTo()))
+                .findFirst().orElse(null);
     }
 
     private FmOrgUnitVersion currentOrgUnit(String tenantId, String orgUnitId)
@@ -178,7 +265,9 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("orgUnitId", orgUnitId);
         return orgUnitVersionService.selectListByParams(parameters, "VERSION_NO", "DESC")
-                .getValue().stream().findFirst().orElse(null);
+                .getValue().stream()
+                .filter(unit -> isEffective(unit.getEffectiveFrom(), unit.getEffectiveTo()))
+                .findFirst().orElse(null);
     }
 
     private void addEmployeeCandidate(
@@ -187,9 +276,13 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             Map<String, FmResolverCandidateView> candidates) throws ServiceException {
         FmEmployee employee = activeEmployeeById(tenantId, employeeId);
         if (employee != null) {
-            candidates.putIfAbsent(employee.getEmployeeId(), new FmResolverCandidateView(
-                    employee.getEmployeeId(), employee.getAccount(), employee.getDisplayName()));
+            candidates.putIfAbsent(employee.getEmployeeId(), candidate(employee));
         }
+    }
+
+    private FmResolverCandidateView candidate(FmEmployee employee) {
+        return new FmResolverCandidateView(
+                employee.getEmployeeId(), employee.getAccount(), employee.getDisplayName());
     }
 
     private FmResolverPreviewView employeeResult(
@@ -210,6 +303,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("account", account);
         return employeeService.selectListByParams(parameters).getValue().stream()
+                .filter(employee -> isEffective(
+                        employee.getEffectiveFrom(), employee.getEffectiveTo()))
                 .findFirst().orElse(null);
     }
 
@@ -218,6 +313,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("employeeId", employeeId);
         return employeeService.selectListByParams(parameters).getValue().stream()
+                .filter(employee -> isEffective(
+                        employee.getEffectiveFrom(), employee.getEffectiveTo()))
                 .findFirst().orElse(null);
     }
 
@@ -227,6 +324,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         parameters.put("employeeId", employeeId);
         parameters.put("isPrimary", "Y");
         return assignmentService.selectListByParams(parameters).getValue().stream()
+                .filter(assignment -> isEffective(
+                        assignment.getEffectiveFrom(), assignment.getEffectiveTo()))
                 .findFirst().orElse(null);
     }
 
@@ -236,7 +335,15 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("employeeOrgAssignmentId", assignmentId);
         return assignmentService.selectListByParams(parameters).getValue().stream()
+                .filter(assignment -> isEffective(
+                        assignment.getEffectiveFrom(), assignment.getEffectiveTo()))
                 .findFirst().orElse(null);
+    }
+
+    private boolean isEffective(Date effectiveFrom, Date effectiveTo) {
+        Date now = new Date();
+        return (effectiveFrom == null || !effectiveFrom.after(now))
+                && (effectiveTo == null || effectiveTo.after(now));
     }
 
     private Map<String, Object> activeParameters(String tenantId) {

@@ -48,6 +48,8 @@ import org.qifu.fm.service.IFmProcessVersionService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
+import org.qifu.fm.service.IFmEmployeeService;
+import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,6 +65,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmAssignmentResolverService assignmentResolverService;
+    private final IFmEmployeeService employeeService;
+    private final IFmApprovalGroupService approvalGroupService;
     private final RepositoryService repositoryService;
 
     public FmProcessDefLogicServiceImpl(
@@ -73,6 +77,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmTaskPolicyService taskPolicyService,
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmAssignmentResolverService assignmentResolverService,
+            IFmEmployeeService employeeService,
+            IFmApprovalGroupService approvalGroupService,
             RepositoryService repositoryService) {
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
@@ -81,6 +87,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.taskPolicyService = taskPolicyService;
         this.assignmentRuleService = assignmentRuleService;
         this.assignmentResolverService = assignmentResolverService;
+        this.employeeService = employeeService;
+        this.approvalGroupService = approvalGroupService;
         this.repositoryService = repositoryService;
     }
 
@@ -297,6 +305,36 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         } catch (ServiceException exception) {
             return new FmResolverPreviewView(rule.getTaskDefKey(), rule.getRuleSeq(),
                     rule.getResolverType(), "ERROR", exception.getMessage(), List.of());
+        }
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> resolverAccountOptions(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        return success(employeeService.selectListByParams(parameters, "EMPLOYEE_NO", "ASC")
+                .getValue().stream().map(employee -> new FmOptionView(employee.getAccount(),
+                        employee.getEmployeeNo() + "／" + employee.getDisplayName())).toList());
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> approvalGroupOptions(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        return success(approvalGroupService.selectListByParams(parameters, "GROUP_CODE", "ASC")
+                .getValue().stream().map(group -> new FmOptionView(group.getApprovalGroupId(),
+                        group.getGroupCode() + "／" + group.getGroupName())).toList());
+    }
+
+    private void validateTenantId(String tenantId) throws ServiceException {
+        if (StringUtils.isBlank(tenantId)) {
+            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
     }
 
