@@ -48,6 +48,15 @@ const newAssignmentForm = () => ({
 });
 const assignmentForm = ref<any>(newAssignmentForm());
 
+const applyAssignmentToForm = (value: any) => {
+  assignmentForm.value = {
+    ...value,
+    employeeOid: String(route.params.id),
+    effectiveFrom: toLocalInput(value.effectiveFrom),
+    effectiveTo: toLocalInput(value.effectiveTo),
+  };
+};
+
 const apiPost = (path: string, body: any = {}) =>
   getAxiosInstance().post(
     import.meta.env.VITE_API_URL + PageConstants.eventNamespace + path,
@@ -77,6 +86,14 @@ const loadAssignmentData = async () => {
   orgUnitOptions.value = unitResponse.data?.value || [];
   titleOptions.value = titleResponse.data?.value || [];
   managerOptions.value = managerResponse.data?.value || [];
+  const primaryAssignment = assignments.value.find(
+    (value) => value.isPrimary === "Y" && value.status === "ACTIVE",
+  );
+  if (primaryAssignment) {
+    applyAssignmentToForm(primaryAssignment);
+  } else {
+    assignmentForm.value = newAssignmentForm();
+  }
 };
 
 const applyEmployee = async (value: any) => {
@@ -151,12 +168,7 @@ const resetAssignment = () => {
 };
 
 const editAssignment = (value: any) => {
-  assignmentForm.value = {
-    ...value,
-    employeeOid: String(route.params.id),
-    effectiveFrom: toLocalInput(value.effectiveFrom),
-    effectiveTo: toLocalInput(value.effectiveTo),
-  };
+  applyAssignmentToForm(value);
   assignmentCheckFields.value = {};
 };
 
@@ -191,7 +203,6 @@ const saveAssignment = async () => {
     }
     assignments.value = response.data.value || [];
     await loadAssignmentData();
-    resetAssignment();
     toast.success(response.data.message || "任職資料已儲存。");
   } catch (error: any) {
     toast.error(error?.message || "儲存任職失敗。");
