@@ -1,15 +1,21 @@
 package org.qifu.fm.controller;
 
+import java.util.List;
+
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultControllerJsonResultObj;
 import org.qifu.core.util.CoreApiSupport;
+import org.qifu.fm.dto.command.FmProcessStartCatalogCommand;
+import org.qifu.fm.dto.command.FmProcessStartCatalogRequest;
 import org.qifu.fm.dto.command.FmProcessStartLoadCommand;
 import org.qifu.fm.dto.command.FmProcessStartLoadRequest;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
 import org.qifu.fm.dto.command.FmProcessSubmitRequest;
+import org.qifu.fm.dto.view.FmProcessStartCatalogView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
+import org.qifu.fm.dto.view.FmRuntimeTenantView;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +37,37 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 	public FmProcessRuntimeController(
 			IFmProcessRuntimeLogicService runtimeLogicService) {
 		this.runtimeLogicService = runtimeLogicService;
+	}
+
+	@PostMapping("/start/tenants")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmRuntimeTenantView>>> tenants() {
+		DefaultControllerJsonResultObj<List<FmRuntimeTenantView>> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(runtimeLogicService.tenants(), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/start/catalog")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessStartCatalogView>>> catalog(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmProcessStartCatalogRequest request) {
+		DefaultControllerJsonResultObj<List<FmProcessStartCatalogView>> result =
+				initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("起單清單參數不可為空");
+			}
+			setDefaultResponseJsonResult(runtimeLogicService.catalog(
+					new FmProcessStartCatalogCommand(
+							tenantId, request.applicantAccount())), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
 	}
 
 	@PostMapping("/start/load")

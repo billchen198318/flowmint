@@ -11,7 +11,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     const baseStore = useBaseStore();
     const loginPageUrl = '/login';
     const noPermissionUrl = '/nopermission';
-    const notCheckPermUrls = ['', '/', '/nopermission', '/login', '/about', '/error'];
+    const notCheckPermUrls = ['', '/', '/workspace', '/nopermission', '/login', '/about', '/error'];
 
     // 如果是登入頁，直接跳過
     if (to.path === loginPageUrl) return;

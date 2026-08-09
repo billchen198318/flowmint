@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 class FmProcessRuntimeControllerContractTest {
 
 	@Test
-	void exposesOnlyLoadAndSubmitRuntimeEndpoints() {
+	void exposesOnlyRequiredRuntimeEndpoints() {
 		RequestMapping root = FmProcessRuntimeController.class
 				.getAnnotation(RequestMapping.class);
 		assertNotNull(root);
@@ -30,7 +30,11 @@ class FmProcessRuntimeControllerContractTest {
 				.filter(annotation -> annotation != null)
 				.flatMap(annotation -> Arrays.stream(annotation.value()))
 				.collect(Collectors.toSet());
-		assertEquals(Set.of("/start/load", "/submit"), paths);
+		assertEquals(Set.of(
+				"/start/tenants",
+				"/start/catalog",
+				"/start/load",
+				"/submit"), paths);
 		assertFalse(paths.stream().anyMatch(path -> path.contains("delete")));
 	}
 

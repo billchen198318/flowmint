@@ -99,6 +99,11 @@ onMounted(() => {
     <div class="app-sidebar__overlay" @click="toggleSidebar"></div>
     <aside class="app-sidebar">
       <ul class="app-menu">
+        <li>
+          <NuxtLink to="/workspace" class="app-menu__item">
+            <i class="bi bi-grid-1x2"></i>&nbsp;<span class="app-menu__label">工作台</span>
+          </NuxtLink>
+        </li>
         <template v-if="baseStore.menuList && baseStore.menuList.length > 0">
           <li class="treeview" v-for="(t, idx) in baseStore.menuList" :key="idx" :class="{ 'is-expanded': expandedMenus[idx] }">
             <a class="app-menu__item" href="#" @click.prevent="toggleMenu(idx)">

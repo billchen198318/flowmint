@@ -87,11 +87,15 @@ POST          /assignment-resolver/preview
 目前已實作的最小正式起單 API：
 
 ```text
+POST   /api/fm/requests/start/tenants
+POST   /api/fm/requests/start/catalog
 POST   /api/fm/requests/start/load
 POST   /api/fm/requests/submit
 ```
 
-- 兩個端點都必須以 `X-FlowMint-Tenant` header 指定 Tenant，body 不接受 `tenantId`。
+- `start/tenants` 依 Security Context 回傳登入者有效且啟用的 Tenant membership，不接受帳號參數。
+- `start/catalog` 以 `X-FlowMint-Tenant` header 與 body 的 `applicantAccount`，回傳同時通過 Tenant membership、在職、代起單、起單政策、已發布版本及表單綁定檢查的流程。
+- `start/catalog`、`start/load` 與 `submit` 必須以 `X-FlowMint-Tenant` header 指定 Tenant，body 不接受 `tenantId`。
 - `submit` 必須提供 `Idempotency-Key` header；相同 key 與相同內容重送時回傳原流程結果，相同 key 夾帶不同內容時拒絕。
 - 發起人一律由 Security Context 取得；body 只能指定申請人，並仍須通過代起單授權。
 - 未提供流程實例刪除 API。

@@ -23,10 +23,13 @@ import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator.StartSubject;
 import org.qifu.fm.domain.runtime.FmProcessStartProxyEvaluator;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
+import org.qifu.fm.dto.command.FmProcessStartCatalogCommand;
 import org.qifu.fm.dto.command.FmProcessStartLoadCommand;
+import org.qifu.fm.dto.view.FmProcessStartCatalogView;
 import org.qifu.fm.dto.view.FmProcessStartFormView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
+import org.qifu.fm.dto.view.FmRuntimeTenantView;
 import org.qifu.fm.entity.FmApprovalGroupMember;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
@@ -37,6 +40,7 @@ import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskFormRule;
+import org.qifu.fm.entity.FmTenant;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
@@ -54,6 +58,7 @@ import org.qifu.fm.service.IFmProcessStartProxyService;
 import org.qifu.fm.service.IFmProcessVersionService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTenantAccountService;
+import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,6 +84,7 @@ public class FmProcessRuntimeLogicServiceImpl
     private final FmProcessStartProxyEvaluator startProxyEvaluator;
     private final IFmTaskFormRuleService taskFormRuleService;
     private final IFmTenantAccountService tenantAccountService;
+    private final IFmTenantService tenantService;
     private final FmFormSubmissionValidator formSubmissionValidator;
     private final IFmRuntimeAuditLogicService runtimeAuditService;
     private final RuntimeService runtimeService;
@@ -100,6 +106,7 @@ public class FmProcessRuntimeLogicServiceImpl
             FmProcessStartProxyEvaluator startProxyEvaluator,
             IFmTaskFormRuleService taskFormRuleService,
             IFmTenantAccountService tenantAccountService,
+            IFmTenantService tenantService,
             FmFormSubmissionValidator formSubmissionValidator,
             IFmRuntimeAuditLogicService runtimeAuditService,
             RuntimeService runtimeService,
@@ -119,10 +126,90 @@ public class FmProcessRuntimeLogicServiceImpl
         this.startProxyEvaluator = startProxyEvaluator;
         this.taskFormRuleService = taskFormRuleService;
         this.tenantAccountService = tenantAccountService;
+        this.tenantService = tenantService;
         this.formSubmissionValidator = formSubmissionValidator;
         this.runtimeAuditService = runtimeAuditService;
         this.runtimeService = runtimeService;
         this.objectMapper = objectMapper;
+    }
+
+    @Override
+    public DefaultResult<List<FmRuntimeTenantView>> tenants()
+            throws ServiceException {
+        String account = UserUtils.getCurrentUser().getUsername();
+        Map<String, Object> membershipParameters = new HashMap<>();
+        membershipParameters.put("account", account);
+        membershipParameters.put("status", "ACTIVE");
+        Map<String, FmTenantAccount> memberships = tenantAccountService
+                .selectListByParams(membershipParameters).getValue().stream()
+                .filter(value -> isEffective(
+                        value.getEffectiveFrom(), value.getEffectiveTo()))
+                .collect(Collectors.toMap(
+                        FmTenantAccount::getTenantId,
+                        value -> value,
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
+        if (memberships.isEmpty()) {
+            return success(List.of());
+        }
+        Map<String, Object> tenantParameters = new HashMap<>();
+        tenantParameters.put("status", "ACTIVE");
+        List<FmRuntimeTenantView> values = tenantService
+                .selectListByParams(tenantParameters, "TENANT_NAME", "ASC")
+                .getValue().stream()
+                .filter(value -> memberships.containsKey(value.getTenantId()))
+                .map(value -> tenantView(value, memberships.get(value.getTenantId())))
+                .toList();
+        return success(values);
+    }
+
+    @Override
+    public DefaultResult<List<FmProcessStartCatalogView>> catalog(
+            FmProcessStartCatalogCommand command) throws ServiceException {
+        if (command == null || StringUtils.isAnyBlank(
+                command.tenantId(), command.applicantAccount())) {
+            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+        }
+        String starterAccount = UserUtils.getCurrentUser().getUsername();
+        validateTenantMembership(command.tenantId(), starterAccount);
+        activeApplicant(command.tenantId(), starterAccount);
+        FmEmployee applicant = activeApplicant(
+                command.tenantId(), command.applicantAccount());
+        Map<String, Object> parameters = activeParameters(command.tenantId());
+        List<FmProcessStartCatalogView> values = new ArrayList<>();
+        for (FmProcessDef processDef : processDefService
+                .selectListByParams(parameters, "PROCESS_NAME", "ASC").getValue()) {
+            try {
+                FmProcessVersion version = publishedProcessVersion(
+                        command.tenantId(), processDef.getProcessDefId());
+                authorizeProxy(
+                        command.tenantId(), processDef.getProcessDefId(),
+                        command.applicantAccount(), starterAccount);
+                authorizeStart(
+                        command.tenantId(), processDef.getProcessDefId(),
+                        version, applicant);
+                startForms(command.tenantId(), version);
+                values.add(new FmProcessStartCatalogView(
+                        processDef.getProcessDefId(),
+                        processDef.getProcessKey(),
+                        processDef.getProcessName(),
+                        processDef.getCategory(),
+                        processDef.getDescription(),
+                        version.getVersionNo()));
+            } catch (ServiceException ignored) {
+                // Catalog only exposes processes that are currently startable.
+            }
+        }
+        return success(List.copyOf(values));
+    }
+
+    private FmRuntimeTenantView tenantView(
+            FmTenant tenant, FmTenantAccount membership) {
+        return new FmRuntimeTenantView(
+                tenant.getTenantId(),
+                tenant.getTenantCode(),
+                tenant.getTenantName(),
+                "Y".equals(membership.getIsDefault()));
     }
 
     @Override
