@@ -15,29 +15,31 @@ import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
+import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator.StartSubject;
 import org.qifu.fm.domain.runtime.FmProcessStartProxyEvaluator;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
+import org.qifu.fm.entity.FmApprovalGroupMember;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
-import org.qifu.fm.entity.FmApprovalGroupMember;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
+import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
-import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmProcessStartPolicyService;
 import org.qifu.fm.service.IFmProcessStartProxyService;
 import org.qifu.fm.service.IFmProcessVersionService;
+import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,6 +61,8 @@ public class FmProcessRuntimeLogicServiceImpl
     private final FmProcessStartPolicyEvaluator startPolicyEvaluator;
     private final IFmProcessStartProxyService startProxyService;
     private final FmProcessStartProxyEvaluator startProxyEvaluator;
+    private final IFmTaskFormRuleService taskFormRuleService;
+    private final FmFormSubmissionValidator formSubmissionValidator;
     private final RuntimeService runtimeService;
     private final ObjectMapper objectMapper;
 
@@ -74,6 +78,8 @@ public class FmProcessRuntimeLogicServiceImpl
             FmProcessStartPolicyEvaluator startPolicyEvaluator,
             IFmProcessStartProxyService startProxyService,
             FmProcessStartProxyEvaluator startProxyEvaluator,
+            IFmTaskFormRuleService taskFormRuleService,
+            FmFormSubmissionValidator formSubmissionValidator,
             RuntimeService runtimeService,
             ObjectMapper objectMapper) {
         this.processVersionService = processVersionService;
@@ -87,6 +93,8 @@ public class FmProcessRuntimeLogicServiceImpl
         this.startPolicyEvaluator = startPolicyEvaluator;
         this.startProxyService = startProxyService;
         this.startProxyEvaluator = startProxyEvaluator;
+        this.taskFormRuleService = taskFormRuleService;
+        this.formSubmissionValidator = formSubmissionValidator;
         this.runtimeService = runtimeService;
         this.objectMapper = objectMapper;
     }
@@ -97,7 +105,9 @@ public class FmProcessRuntimeLogicServiceImpl
             throws ServiceException {
         validate(command);
         FmProcessVersion processVersion = publishedProcessVersion(command);
-        publishedFormVersion(command);
+        FmFormVersion formVersion = publishedFormVersion(command);
+        ensureFormBound(command, processVersion);
+        formSubmissionValidator.validate(formVersion.getSchemaContent(), command.formData());
         FmEmployee applicant = activeApplicant(command.tenantId(), command.applicantAccount());
         String starterAccount = UserUtils.getCurrentUser().getUsername();
         activeApplicant(command.tenantId(), starterAccount);
@@ -174,6 +184,21 @@ public class FmProcessRuntimeLogicServiceImpl
         return formVersionService.selectListByParams(parameters).getValue().stream()
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("指定表單版本尚未發布"));
+    }
+
+    private void ensureFormBound(
+            FmProcessSubmitCommand command,
+            FmProcessVersion processVersion) throws ServiceException {
+        boolean bound = taskFormRuleService.findByVersion(
+                command.tenantId(),
+                command.processDefId(),
+                processVersion.getVersionNo()).stream()
+                .anyMatch(rule -> command.formId().equals(rule.getFormId())
+                        && command.formVersionNo().equals(rule.getFormVersionNo()));
+        if (!bound) {
+            throw new ServiceException(
+                    "送出的表單版本未綁定至指定的流程版本");
+        }
     }
 
     private FmEmployee activeApplicant(String tenantId, String account)
