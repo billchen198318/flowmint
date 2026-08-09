@@ -244,13 +244,15 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         Set<String> taskKeys = userTaskKeys(version.getBpmnXml());
         validateTaskFormsForPublish(version, taskKeys);
         validateTaskPoliciesForPublish(version, taskKeys);
+        validateRuntimeAssignmentModes(version);
+        String runtimeBpmnXml = runtimeBpmnXml(version.getBpmnXml());
         String resourceName = processDef.getProcessKey() + "-v" + version.getVersionNo()
                 + ".bpmn20.xml";
         try {
             Deployment deployment = repositoryService.createDeployment()
                     .tenantId(version.getTenantId())
                     .name(processDef.getProcessName() + " v" + version.getVersionNo())
-                    .addString(resourceName, version.getBpmnXml()).deploy();
+                    .addString(resourceName, runtimeBpmnXml).deploy();
             ProcessDefinition deployed = repositoryService.createProcessDefinitionQuery()
                     .deploymentId(deployment.getId()).singleResult();
             for (FmProcessVersion previous : versions(processDef)) {
@@ -291,6 +293,52 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
         return success(taskFormRuleService.publishedFormOptions(tenantId));
+    }
+
+    private String runtimeBpmnXml(String sourceXml) throws ServiceException {
+        try {
+            javax.xml.stream.XMLStreamReader reader = javax.xml.stream.XMLInputFactory
+                    .newFactory().createXMLStreamReader(new java.io.StringReader(sourceXml));
+            org.flowable.bpmn.converter.BpmnXMLConverter converter =
+                    new org.flowable.bpmn.converter.BpmnXMLConverter();
+            org.flowable.bpmn.model.BpmnModel model = converter.convertToBpmnModel(reader);
+            for (org.flowable.bpmn.model.UserTask userTask
+                    : model.getMainProcess().findFlowElementsOfType(
+                            org.flowable.bpmn.model.UserTask.class)) {
+                boolean exists = userTask.getTaskListeners().stream()
+                        .anyMatch(listener -> "create".equals(listener.getEvent())
+                                && "${fmTaskAssignmentListener}"
+                                        .equals(listener.getImplementation()));
+                if (exists) {
+                    continue;
+                }
+                org.flowable.bpmn.model.FlowableListener listener =
+                        new org.flowable.bpmn.model.FlowableListener();
+                listener.setEvent("create");
+                listener.setImplementationType(
+                        org.flowable.bpmn.model.ImplementationType
+                                .IMPLEMENTATION_TYPE_DELEGATEEXPRESSION);
+                listener.setImplementation("${fmTaskAssignmentListener}");
+                userTask.getTaskListeners().add(listener);
+            }
+            return new String(converter.convertToXML(model), StandardCharsets.UTF_8);
+        } catch (RuntimeException | javax.xml.stream.XMLStreamException exception) {
+            throw new ServiceException("無法建立 FlowMint Runtime BPMN：" + exception.getMessage());
+        }
+    }
+
+    private void validateRuntimeAssignmentModes(FmProcessVersion version)
+            throws ServiceException {
+        List<String> unsupportedTasks = taskPolicies(version).stream()
+                .filter(policy -> Set.of("ALL", "SEQUENTIAL")
+                        .contains(policy.getAssignmentMode()))
+                .map(FmTaskPolicy::getTaskDefKey)
+                .toList();
+        if (!unsupportedTasks.isEmpty()) {
+            throw new ServiceException(
+                    "下列 User Task 使用尚未啟用的 Multi-instance 派送方式："
+                            + String.join(", ", unsupportedTasks));
+        }
     }
 
     @Override
