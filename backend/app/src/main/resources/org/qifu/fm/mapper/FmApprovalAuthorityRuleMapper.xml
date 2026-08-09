@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmApprovalAuthorityRuleMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmApprovalAuthorityRule">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="APPROVAL_AUTHORITY_RULE_ID" jdbcType="VARCHAR" property="approvalAuthorityRuleId" />
+    <result column="APPROVAL_AUTHORITY_ID" jdbcType="VARCHAR" property="approvalAuthorityId" />
+    <result column="RULE_SEQ" jdbcType="INTEGER" property="ruleSeq" />
+    <result column="CONDITION_CONFIG" jdbcType="LONGVARCHAR" property="conditionConfig" />
+    <result column="TARGET_TYPE" jdbcType="VARCHAR" property="targetType" />
+    <result column="TARGET_REF_ID" jdbcType="VARCHAR" property="targetRefId" />
+    <result column="RESOLVER_CONFIG" jdbcType="LONGVARCHAR" property="resolverConfig" />
+    <result column="STOP_AFTER_APPROVAL" jdbcType="CHAR" property="stopAfterApproval" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    APPROVAL_AUTHORITY_RULE_ID,
+    APPROVAL_AUTHORITY_ID,
+    RULE_SEQ,
+    CONDITION_CONFIG,
+    TARGET_TYPE,
+    TARGET_REF_ID,
+    RESOLVER_CONFIG,
+    STOP_AFTER_APPROVAL,
+    STATUS,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="approvalAuthorityRuleId != null and approvalAuthorityRuleId != ''">
+      AND APPROVAL_AUTHORITY_RULE_ID = #{approvalAuthorityRuleId,jdbcType=VARCHAR}
+    </if>
+    <if test="approvalAuthorityId != null and approvalAuthorityId != ''">
+      AND APPROVAL_AUTHORITY_ID = #{approvalAuthorityId,jdbcType=VARCHAR}
+    </if>
+    <if test="targetType != null and targetType != ''">
+      AND TARGET_TYPE = #{targetType,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmApprovalAuthorityRule">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="approvalAuthorityRuleId != null">
+        APPROVAL_AUTHORITY_RULE_ID,
+      </if>
+      <if test="approvalAuthorityId != null">
+        APPROVAL_AUTHORITY_ID,
+      </if>
+      <if test="ruleSeq != null">
+        RULE_SEQ,
+      </if>
+      <if test="conditionConfig != null">
+        CONDITION_CONFIG,
+      </if>
+      <if test="targetType != null">
+        TARGET_TYPE,
+      </if>
+      <if test="targetRefId != null">
+        TARGET_REF_ID,
+      </if>
+      <if test="resolverConfig != null">
+        RESOLVER_CONFIG,
+      </if>
+      <if test="stopAfterApproval != null">
+        STOP_AFTER_APPROVAL,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="approvalAuthorityRuleId != null">
+        #{approvalAuthorityRuleId,jdbcType=VARCHAR},
+      </if>
+      <if test="approvalAuthorityId != null">
+        #{approvalAuthorityId,jdbcType=VARCHAR},
+      </if>
+      <if test="ruleSeq != null">
+        #{ruleSeq,jdbcType=INTEGER},
+      </if>
+      <if test="conditionConfig != null">
+        #{conditionConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="targetType != null">
+        #{targetType,jdbcType=VARCHAR},
+      </if>
+      <if test="targetRefId != null">
+        #{targetRefId,jdbcType=VARCHAR},
+      </if>
+      <if test="resolverConfig != null">
+        #{resolverConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="stopAfterApproval != null">
+        #{stopAfterApproval,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmApprovalAuthorityRule">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    <set>
+      <if test="ruleSeq != null">
+        RULE_SEQ = #{ruleSeq,jdbcType=INTEGER},
+      </if>
+      <if test="conditionConfig != null">
+        CONDITION_CONFIG = #{conditionConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="targetType != null">
+        TARGET_TYPE = #{targetType,jdbcType=VARCHAR},
+      </if>
+      <if test="targetRefId != null">
+        TARGET_REF_ID = #{targetRefId,jdbcType=VARCHAR},
+      </if>
+      <if test="resolverConfig != null">
+        RESOLVER_CONFIG = #{resolverConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="stopAfterApproval != null">
+        STOP_AFTER_APPROVAL = #{stopAfterApproval,jdbcType=CHAR},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmApprovalAuthorityRule">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <select id="selectByAuthority" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND APPROVAL_AUTHORITY_ID = #{approvalAuthorityId,jdbcType=VARCHAR}
+    ORDER BY RULE_SEQ
+  </select>
+
+  <delete id="deleteByAuthority" parameterType="java.util.HashMap">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_approval_authority_rule
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND APPROVAL_AUTHORITY_ID = #{approvalAuthorityId,jdbcType=VARCHAR}
+  </delete>
+</mapper>
