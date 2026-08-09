@@ -212,6 +212,34 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
         return ResponseEntity.ok(result);
     }
 
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/org-title-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> orgTitleOptions(
+            @RequestBody Map<String, String> body) {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    processDefLogicService.orgTitleOptions(body.get("tenantId")), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/org-duty-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> orgDutyOptions(
+            @RequestBody Map<String, String> body) {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    processDefLogicService.orgDutyOptions(body.get("tenantId")), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     private ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> result(
             ResultSupplier supplier) {
         DefaultControllerJsonResultObj<FmProcessDefView> result = initDefaultJsonResult();

@@ -16,6 +16,8 @@ import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmApprovalGroupMember;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
+import org.qifu.fm.entity.FmEmployeeDuty;
+import org.qifu.fm.entity.FmOrgDuty;
 import org.qifu.fm.entity.FmOrgUnitHead;
 import org.qifu.fm.entity.FmOrgUnitVersion;
 import org.qifu.fm.entity.FmOrgApprovalLevel;
@@ -25,6 +27,8 @@ import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
+import org.qifu.fm.service.IFmEmployeeDutyService;
+import org.qifu.fm.service.IFmOrgDutyService;
 import org.qifu.fm.service.IFmOrgUnitHeadService;
 import org.qifu.fm.service.IFmOrgUnitVersionService;
 import org.qifu.fm.service.IFmOrgApprovalLevelService;
@@ -48,6 +52,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private final ObjectMapper objectMapper;
     private final IFmOrgTitleService orgTitleService;
     private final IFmOrgApprovalLevelService orgApprovalLevelService;
+    private final IFmEmployeeDutyService employeeDutyService;
+    private final IFmOrgDutyService orgDutyService;
 
     public FmAssignmentResolverService(
             IFmEmployeeService employeeService,
@@ -58,6 +64,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             IFmApprovalGroupMemberService approvalGroupMemberService,
             IFmOrgTitleService orgTitleService,
             IFmOrgApprovalLevelService orgApprovalLevelService,
+            IFmEmployeeDutyService employeeDutyService,
+            IFmOrgDutyService orgDutyService,
             ObjectMapper objectMapper) {
         this.employeeService = employeeService;
         this.assignmentService = assignmentService;
@@ -67,6 +75,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         this.approvalGroupMemberService = approvalGroupMemberService;
         this.orgTitleService = orgTitleService;
         this.orgApprovalLevelService = orgApprovalLevelService;
+        this.employeeDutyService = employeeDutyService;
+        this.orgDutyService = orgDutyService;
         this.objectMapper = objectMapper;
     }
 
@@ -97,9 +107,80 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             case "ROOT_ORG_HEAD" -> rootOrgUnitHead(rule, assignment.getOrgUnitId());
             case "MANAGER_CHAIN" -> managerChain(rule, assignment);
             case "LEVEL_HEAD_CHAIN" -> levelHeadChain(rule, assignment.getOrgUnitId());
+            case "ORG_TITLE" -> orgTitle(rule, assignment.getOrgUnitId());
+            case "ORG_DUTY" -> orgDuty(rule, assignment.getOrgUnitId());
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
+    }
+
+    private FmResolverPreviewView orgTitle(
+            FmTaskAssignmentRule rule,
+            String orgUnitId) throws ServiceException {
+        String titleId = config(rule).path("titleId").asString();
+        if (StringUtils.isBlank(titleId)) {
+            return result(rule, "ERROR", "尚未選擇組織職稱", List.of());
+        }
+        Map<String, Object> parameters = activeParameters(rule.getTenantId());
+        parameters.put("orgUnitId", orgUnitId);
+        parameters.put("titleId", titleId);
+        List<FmEmployeeOrgAssignment> assignments = assignmentService
+                .selectListByParams(parameters, "EMPLOYEE_ORG_ASSIGNMENT_ID", "ASC").getValue();
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        for (FmEmployeeOrgAssignment assignment : assignments) {
+            if (candidates.size() >= rule.getMaxResults()) {
+                break;
+            }
+            if (isEffective(assignment.getEffectiveFrom(), assignment.getEffectiveTo())) {
+                addEmployeeCandidate(rule.getTenantId(), assignment.getEmployeeId(), candidates);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return result(rule, "NOT_FOUND", "申請人所屬單位沒有此職稱的有效任職者", List.of());
+        }
+        return result(rule, "RESOLVED", "已解析申請人所屬單位的指定職稱",
+                List.copyOf(candidates.values()));
+    }
+
+    private FmResolverPreviewView orgDuty(
+            FmTaskAssignmentRule rule,
+            String orgUnitId) throws ServiceException {
+        String dutyId = config(rule).path("dutyId").asString();
+        if (StringUtils.isBlank(dutyId)) {
+            return result(rule, "ERROR", "尚未選擇組織職務", List.of());
+        }
+        Map<String, Object> dutyParameters = activeParameters(rule.getTenantId());
+        dutyParameters.put("dutyId", dutyId);
+        dutyParameters.put("orgUnitId", orgUnitId);
+        FmOrgDuty duty = orgDutyService.selectListByParams(dutyParameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst().orElse(null);
+        if (duty == null) {
+            return result(rule, "NOT_FOUND", "此職務不屬於申請人所屬單位或未啟用", List.of());
+        }
+        Map<String, Object> memberParameters = activeParameters(rule.getTenantId());
+        memberParameters.put("dutyId", dutyId);
+        List<FmEmployeeDuty> members = employeeDutyService
+                .selectListByParams(memberParameters).getValue();
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        for (FmEmployeeDuty member : members) {
+            if (candidates.size() >= rule.getMaxResults()) {
+                break;
+            }
+            if (!isEffective(member.getEffectiveFrom(), member.getEffectiveTo())) {
+                continue;
+            }
+            FmEmployeeOrgAssignment assignment = assignmentByBusinessId(
+                    rule.getTenantId(), member.getEmployeeOrgAssignmentId());
+            if (assignment != null && orgUnitId.equals(assignment.getOrgUnitId())) {
+                addEmployeeCandidate(rule.getTenantId(), assignment.getEmployeeId(), candidates);
+            }
+        }
+        if (candidates.isEmpty()) {
+            return result(rule, "NOT_FOUND", "此職務沒有啟用中的有效擔任者", List.of());
+        }
+        return result(rule, "RESOLVED", "已解析組織職務「" + duty.getDutyName() + "」",
+                List.copyOf(candidates.values()));
     }
 
     private FmResolverPreviewView nextHigherLevelHead(

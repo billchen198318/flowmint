@@ -51,6 +51,8 @@ import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmOrgApprovalLevelService;
+import org.qifu.fm.service.IFmOrgTitleService;
+import org.qifu.fm.service.IFmOrgDutyService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +71,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmEmployeeService employeeService;
     private final IFmApprovalGroupService approvalGroupService;
     private final IFmOrgApprovalLevelService orgApprovalLevelService;
+    private final IFmOrgTitleService orgTitleService;
+    private final IFmOrgDutyService orgDutyService;
     private final RepositoryService repositoryService;
 
     public FmProcessDefLogicServiceImpl(
@@ -82,6 +86,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmEmployeeService employeeService,
             IFmApprovalGroupService approvalGroupService,
             IFmOrgApprovalLevelService orgApprovalLevelService,
+            IFmOrgTitleService orgTitleService,
+            IFmOrgDutyService orgDutyService,
             RepositoryService repositoryService) {
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
@@ -93,6 +99,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.employeeService = employeeService;
         this.approvalGroupService = approvalGroupService;
         this.orgApprovalLevelService = orgApprovalLevelService;
+        this.orgTitleService = orgTitleService;
+        this.orgDutyService = orgDutyService;
         this.repositoryService = repositoryService;
     }
 
@@ -347,6 +355,33 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 .selectListByParams(parameters, "LEVEL_ORDER", "ASC").getValue().stream()
                 .map(level -> new FmOptionView(level.getApprovalLevelId(),
                         level.getLevelCode() + "／" + level.getLevelName())).toList());
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> orgTitleOptions(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        return success(orgTitleService.selectListByParams(parameters, "SORT_NO", "ASC")
+                .getValue().stream().map(title -> new FmOptionView(title.getTitleId(),
+                        title.getTitleCode() + "／" + title.getTitleName())).toList());
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> orgDutyOptions(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        return success(orgDutyService.selectListByParams(parameters, "DUTY_CODE", "ASC")
+                .getValue().stream().map(duty -> new FmOptionView(duty.getDutyId(),
+                        duty.getDutyCode() + "／" + duty.getDutyName())).toList());
+    }
+
+    private Map<String, Object> activeOptionParameters(String tenantId) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        return parameters;
     }
 
     private void validateTenantId(String tenantId) throws ServiceException {

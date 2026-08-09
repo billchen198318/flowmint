@@ -42,6 +42,9 @@
 		<if test="orgUnitId != null and orgUnitId != ''">
 			AND ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}
 		</if>
+		<if test="titleId != null and titleId != ''">
+			AND TITLE_ID = #{titleId,jdbcType=VARCHAR}
+		</if>
 		<if test="isPrimary != null and isPrimary != ''">
 			AND IS_PRIMARY = #{isPrimary,jdbcType=CHAR}
 		</if>

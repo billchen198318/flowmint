@@ -33,6 +33,8 @@ const resolverPreview = ref<any[]>([]);
 const resolverAccounts = ref<any[]>([]);
 const approvalGroups = ref<any[]>([]);
 const approvalLevels = ref<any[]>([]);
+const orgTitles = ref<any[]>([]);
+const orgDuties = ref<any[]>([]);
 let modeler: any = null;
 const newForm = () => ({
   oid: "",
@@ -103,6 +105,20 @@ const selectedApprovalLevel = computed({
       selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalLevelId });
   },
 });
+const selectedOrgTitle = computed({
+  get: () => ruleConfig().titleId || "",
+  set: (titleId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ titleId });
+  },
+});
+const selectedOrgDuty = computed({
+  get: () => ruleConfig().dutyId || "",
+  set: (dutyId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ dutyId });
+  },
+});
 const ensureSelectedAssignmentRule = () => {
   if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT") return;
   selectedVersion.value.assignmentRules ||= [];
@@ -157,14 +173,19 @@ const loadPublishedForms = async () => {
 };
 const loadResolverOptions = async () => {
   if (!form.value.tenantId) return;
-  const [accountResponse, groupResponse, levelResponse] = await Promise.all([
+  const [accountResponse, groupResponse, levelResponse, titleResponse, dutyResponse] =
+    await Promise.all([
     post("/resolver-account-options", { tenantId: form.value.tenantId }),
     post("/approval-group-options", { tenantId: form.value.tenantId }),
     post("/approval-level-options", { tenantId: form.value.tenantId }),
+    post("/org-title-options", { tenantId: form.value.tenantId }),
+    post("/org-duty-options", { tenantId: form.value.tenantId }),
   ]);
   resolverAccounts.value = accountResponse.data?.value || [];
   approvalGroups.value = groupResponse.data?.value || [];
   approvalLevels.value = levelResponse.data?.value || [];
+  orgTitles.value = titleResponse.data?.value || [];
+  orgDuties.value = dutyResponse.data?.value || [];
 };
 const bindModelerEvents = () => {
   const selectElement = (element: any) => {
@@ -761,8 +782,33 @@ onBeforeUnmount(() => modeler?.destroy());
                         :value="item.value">{{ item.label }}</option>
                     </select>
                   </div>
-                  <div v-else-if="['ORG_TITLE', 'ORG_DUTY',
-                    'APPROVAL_AUTHORITY'].includes(selectedAssignmentRule.resolverType)"
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'ORG_TITLE'"
+                    class="mb-3">
+                    <label class="form-label">組織職稱</label>
+                    <select v-model="selectedOrgTitle"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇職稱</option>
+                      <option v-for="item in orgTitles" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <div class="form-text">解析申請人主要部門中具有此職稱的有效任職者。</div>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'ORG_DUTY'"
+                    class="mb-3">
+                    <label class="form-label">組織職務</label>
+                    <select v-model="selectedOrgDuty"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇職務</option>
+                      <option v-for="item in orgDuties" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <div v-if="!orgDuties.length" class="form-text text-warning">
+                      此 Tenant 尚未建立組織職務資料。
+                    </div>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'APPROVAL_AUTHORITY'"
                     class="mb-3">
                     <label class="form-label">規則參數</label>
                     <textarea v-model="selectedAssignmentRule.resolverConfig" rows="2"
