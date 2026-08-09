@@ -8,6 +8,7 @@ import "bpmn-js/dist/assets/bpmn-font/css/bpmn.css";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import Toolbar from "@/components/Toolbar.vue";
+import ApprovalAuthorityPanel from "./ApprovalAuthorityPanel.vue";
 import {
   checkInvalid,
   escapeQifuHtmlMsg,
@@ -117,6 +118,13 @@ const selectedOrgDuty = computed({
   set: (dutyId: string) => {
     if (selectedAssignmentRule.value)
       selectedAssignmentRule.value.resolverConfig = JSON.stringify({ dutyId });
+  },
+});
+const selectedApprovalAuthority = computed({
+  get: () => ruleConfig().approvalAuthorityId || "",
+  set: (approvalAuthorityId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalAuthorityId });
   },
 });
 const ensureSelectedAssignmentRule = () => {
@@ -810,11 +818,12 @@ onBeforeUnmount(() => modeler?.destroy());
                   </div>
                   <div v-else-if="selectedAssignmentRule.resolverType === 'APPROVAL_AUTHORITY'"
                     class="mb-3">
-                    <label class="form-label">規則參數</label>
-                    <textarea v-model="selectedAssignmentRule.resolverConfig" rows="2"
+                    <ApprovalAuthorityPanel v-model="selectedApprovalAuthority"
+                      :tenant-id="form.tenantId" :process-def-id="form.processDefId"
+                      :form-id="selectedTaskRule?.formId"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-control"></textarea>
-                    <div class="form-text">此類型的專用選擇元件將於後續階段補上。</div>
+                      :accounts="resolverAccounts" :groups="approvalGroups"
+                      :levels="approvalLevels" :titles="orgTitles" :duties="orgDuties" />
                   </div>
                   <div class="row g-2">
                     <div class="col-6">

@@ -9,14 +9,17 @@ import org.qifu.base.model.DefaultControllerJsonResultObj;
 import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
+import org.qifu.fm.dto.command.FmApprovalAuthorityCommand;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
 import org.qifu.fm.dto.command.FmResolverPreviewCommand;
 import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.dto.view.FmApprovalAuthorityView;
 import org.qifu.fm.dto.view.FmProcessDefView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmProcessDef;
+import org.qifu.fm.logic.IFmApprovalAuthorityLogicService;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.springframework.http.ResponseEntity;
@@ -35,12 +38,15 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
 
     private final transient IFmProcessDefService processDefService;
     private final transient IFmProcessDefLogicService processDefLogicService;
+    private final transient IFmApprovalAuthorityLogicService approvalAuthorityLogicService;
 
     public FMPROG004D0001Controller(
             IFmProcessDefService processDefService,
-            IFmProcessDefLogicService processDefLogicService) {
+            IFmProcessDefLogicService processDefLogicService,
+            IFmApprovalAuthorityLogicService approvalAuthorityLogicService) {
         this.processDefService = processDefService;
         this.processDefLogicService = processDefLogicService;
+        this.approvalAuthorityLogicService = approvalAuthorityLogicService;
     }
 
     @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
@@ -240,6 +246,65 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
         return ResponseEntity.ok(result);
     }
 
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/approval-authority/list")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmApprovalAuthorityView>>>
+            approvalAuthorityList(@RequestBody Map<String, String> body) {
+        DefaultControllerJsonResultObj<List<FmApprovalAuthorityView>> result =
+                initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    approvalAuthorityLogicService.findByProcess(
+                            body.get("tenantId"),
+                            body.get("processDefId")),
+                    result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/approval-authority/load")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmApprovalAuthorityView>>
+            approvalAuthorityLoad(@RequestBody Map<String, String> body) {
+        return approvalAuthorityResult(
+                () -> approvalAuthorityLogicService.load(body.get("oid")));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/approval-authority/save")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmApprovalAuthorityView>>
+            approvalAuthoritySave(@RequestBody FmApprovalAuthorityCommand command) {
+        return approvalAuthorityResult(() -> approvalAuthorityLogicService.create(command));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/approval-authority/update")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmApprovalAuthorityView>>
+            approvalAuthorityUpdate(@RequestBody FmApprovalAuthorityCommand command) {
+        return approvalAuthorityResult(() -> approvalAuthorityLogicService.update(command));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/approval-authority/deactivate")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmApprovalAuthorityView>>
+            approvalAuthorityDeactivate(@RequestBody Map<String, String> body) {
+        return approvalAuthorityResult(
+                () -> approvalAuthorityLogicService.deactivate(body.get("oid")));
+    }
+
+    private ResponseEntity<DefaultControllerJsonResultObj<FmApprovalAuthorityView>>
+            approvalAuthorityResult(ApprovalAuthorityResultSupplier supplier) {
+        DefaultControllerJsonResultObj<FmApprovalAuthorityView> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(supplier.get(), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     private ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> result(
             ResultSupplier supplier) {
         DefaultControllerJsonResultObj<FmProcessDefView> result = initDefaultJsonResult();
@@ -254,5 +319,10 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
     @FunctionalInterface
     private interface ResultSupplier {
         org.qifu.base.model.DefaultResult<FmProcessDefView> get() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface ApprovalAuthorityResultSupplier {
+        org.qifu.base.model.DefaultResult<FmApprovalAuthorityView> get() throws Exception;
     }
 }

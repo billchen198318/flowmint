@@ -27,12 +27,9 @@ public class FmApprovalAuthorityConditionEvaluator {
     public boolean matches(String conditionConfig, Map<String, Object> variables)
             throws ServiceException {
         JsonNode config = parse(conditionConfig);
+        validateConfig(config);
         String matchMode = config.path("match").asString("ALL");
         JsonNode conditions = config.path("conditions");
-        if (!MATCH_MODES.contains(matchMode) || !conditions.isArray()
-                || conditions.size() == 0) {
-            throw new ServiceException("核決權限條件格式不正確");
-        }
         boolean anyMatched = false;
         for (JsonNode condition : conditions) {
             boolean matched = evaluate(condition, variables);
@@ -42,6 +39,29 @@ public class FmApprovalAuthorityConditionEvaluator {
             anyMatched |= matched;
         }
         return "ALL".equals(matchMode) || anyMatched;
+    }
+
+    public void validate(String conditionConfig) throws ServiceException {
+        validateConfig(parse(conditionConfig));
+    }
+
+    private void validateConfig(JsonNode config) throws ServiceException {
+        String matchMode = config.path("match").asString("ALL");
+        JsonNode conditions = config.path("conditions");
+        if (!MATCH_MODES.contains(matchMode) || !conditions.isArray()
+                || conditions.size() == 0) {
+            throw new ServiceException("核決權限條件格式不正確");
+        }
+        for (JsonNode condition : conditions) {
+            String field = condition.path("field").asString();
+            String operator = condition.path("operator").asString();
+            JsonNode expected = condition.path("value");
+            if (StringUtils.isBlank(field) || !OPERATORS.contains(operator)
+                    || expected.isMissingNode()
+                    || (List.of("IN", "NOT_IN").contains(operator) && !expected.isArray())) {
+                throw new ServiceException("核決權限條件項目不正確");
+            }
+        }
     }
 
     private boolean evaluate(JsonNode condition, Map<String, Object> variables)
