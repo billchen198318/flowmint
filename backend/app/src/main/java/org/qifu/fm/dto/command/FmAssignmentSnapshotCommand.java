@@ -6,6 +6,7 @@ import org.qifu.fm.dto.view.FmResolverCandidateView;
 
 public record FmAssignmentSnapshotCommand(
         String tenantId,
+        String formDataId,
         String processInstanceId,
         String taskId,
         String taskDefKey,

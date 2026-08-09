@@ -18,9 +18,9 @@ import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmTaskPolicy;
+import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
-import org.qifu.fm.service.IFmRuntimeAuditService;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.ObjectMapper;
@@ -35,18 +35,19 @@ public class FmTaskAssignmentListener implements TaskListener {
     public static final String VARIABLE_INITIATOR_ORG_UNIT_ID =
             "flowmintInitiatorOrgUnitId";
     public static final String VARIABLE_FORM_DATA = "flowmintFormData";
+    public static final String VARIABLE_FORM_DATA_ID = "flowmintFormDataId";
 
     private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmAssignmentResolverService assignmentResolverService;
-    private final IFmRuntimeAuditService runtimeAuditService;
+    private final IFmRuntimeAuditLogicService runtimeAuditService;
     private final ObjectMapper objectMapper;
 
     public FmTaskAssignmentListener(
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmTaskPolicyService taskPolicyService,
             IFmAssignmentResolverService assignmentResolverService,
-            IFmRuntimeAuditService runtimeAuditService,
+            IFmRuntimeAuditLogicService runtimeAuditService,
             ObjectMapper objectMapper) {
         this.assignmentRuleService = assignmentRuleService;
         this.taskPolicyService = taskPolicyService;
@@ -67,6 +68,7 @@ public class FmTaskAssignmentListener implements TaskListener {
             runtimeAuditService.recordAssignmentSnapshot(
                     new FmAssignmentSnapshotCommand(
                             context.tenantId(),
+                            context.formDataId(),
                             task.getProcessInstanceId(),
                             task.getId(),
                             task.getTaskDefinitionKey(),
@@ -91,8 +93,10 @@ public class FmTaskAssignmentListener implements TaskListener {
         String processDefId = stringVariable(task, VARIABLE_PROCESS_DEF_ID);
         String initiatorAccount = stringVariable(task, VARIABLE_INITIATOR_ACCOUNT);
         String initiatorOrgUnitId = stringVariable(task, VARIABLE_INITIATOR_ORG_UNIT_ID);
+        String formDataId = stringVariable(task, VARIABLE_FORM_DATA_ID);
         Object versionValue = task.getVariable(VARIABLE_PROCESS_VERSION_NO);
-        if (StringUtils.isAnyBlank(tenantId, processDefId, initiatorAccount)
+        if (StringUtils.isAnyBlank(
+                tenantId, processDefId, initiatorAccount, formDataId)
                 || versionValue == null) {
             throw new ServiceException("流程缺少 FlowMint Runtime 必要變數");
         }
@@ -111,6 +115,7 @@ public class FmTaskAssignmentListener implements TaskListener {
                 versionNo,
                 initiatorAccount,
                 initiatorOrgUnitId,
+                formDataId,
                 Map.of("form", formData));
     }
 
@@ -203,6 +208,7 @@ public class FmTaskAssignmentListener implements TaskListener {
             Integer versionNo,
             String initiatorAccount,
             String initiatorOrgUnitId,
+            String formDataId,
             Map<String, Object> variables) {
     }
 

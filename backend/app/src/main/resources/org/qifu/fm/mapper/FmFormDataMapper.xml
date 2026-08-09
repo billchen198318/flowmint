@@ -239,4 +239,13 @@
     DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
     WHERE OID = #{oid,jdbcType=CHAR}
   </delete>
+
+  <select id="lockByFormDataId" parameterType="java.util.HashMap"
+          resultType="java.lang.String">
+    SELECT OID
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND FORM_DATA_ID = #{formDataId,jdbcType=VARCHAR}
+    FOR UPDATE
+  </select>
 </mapper>

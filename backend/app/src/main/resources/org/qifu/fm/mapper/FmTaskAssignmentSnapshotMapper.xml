@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTaskAssignmentSnapshotMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmTaskAssignmentSnapshot">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="ASSIGNMENT_SNAPSHOT_ID" jdbcType="VARCHAR" property="assignmentSnapshotId" />
+    <result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId" />
+    <result column="TASK_ID" jdbcType="VARCHAR" property="taskId" />
+    <result column="TASK_DEF_KEY" jdbcType="VARCHAR" property="taskDefKey" />
+    <result column="RESOLUTION_SEQ" jdbcType="INTEGER" property="resolutionSeq" />
+    <result column="RESOLVER_TYPE" jdbcType="VARCHAR" property="resolverType" />
+    <result column="SOURCE_ACCOUNT" jdbcType="VARCHAR" property="sourceAccount" />
+    <result column="SOURCE_ORG_UNIT_ID" jdbcType="VARCHAR" property="sourceOrgUnitId" />
+    <result column="RESOLUTION_STATUS" jdbcType="VARCHAR" property="resolutionStatus" />
+    <result column="RESOLUTION_CONTEXT" jdbcType="LONGVARCHAR" property="resolutionContext" />
+    <result column="RESOLVED_DATE" jdbcType="TIMESTAMP" property="resolvedDate" />
+    <result column="SUPERSEDED_DATE" jdbcType="TIMESTAMP" property="supersededDate" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    ASSIGNMENT_SNAPSHOT_ID,
+    PROCESS_INSTANCE_ID,
+    TASK_ID,
+    TASK_DEF_KEY,
+    RESOLUTION_SEQ,
+    RESOLVER_TYPE,
+    SOURCE_ACCOUNT,
+    SOURCE_ORG_UNIT_ID,
+    RESOLUTION_STATUS,
+    RESOLUTION_CONTEXT,
+    RESOLVED_DATE,
+    SUPERSEDED_DATE,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="assignmentSnapshotId != null and assignmentSnapshotId != ''">
+      AND ASSIGNMENT_SNAPSHOT_ID = #{assignmentSnapshotId,jdbcType=VARCHAR}
+    </if>
+    <if test="processInstanceId != null and processInstanceId != ''">
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+    </if>
+    <if test="taskId != null and taskId != ''">
+      AND TASK_ID = #{taskId,jdbcType=VARCHAR}
+    </if>
+    <if test="taskDefKey != null and taskDefKey != ''">
+      AND TASK_DEF_KEY = #{taskDefKey,jdbcType=VARCHAR}
+    </if>
+    <if test="resolutionSeq != null">
+      AND RESOLUTION_SEQ = #{resolutionSeq,jdbcType=INTEGER}
+    </if>
+    <if test="resolverType != null and resolverType != ''">
+      AND RESOLVER_TYPE = #{resolverType,jdbcType=VARCHAR}
+    </if>
+    <if test="sourceAccount != null and sourceAccount != ''">
+      AND SOURCE_ACCOUNT = #{sourceAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="sourceOrgUnitId != null and sourceOrgUnitId != ''">
+      AND SOURCE_ORG_UNIT_ID = #{sourceOrgUnitId,jdbcType=VARCHAR}
+    </if>
+    <if test="resolutionStatus != null and resolutionStatus != ''">
+      AND RESOLUTION_STATUS = #{resolutionStatus,jdbcType=VARCHAR}
+    </if>
+    <if test="resolutionContext != null and resolutionContext != ''">
+      AND RESOLUTION_CONTEXT = #{resolutionContext,jdbcType=LONGVARCHAR}
+    </if>
+    <if test="resolvedDate != null">
+      AND RESOLVED_DATE = #{resolvedDate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="supersededDate != null">
+      AND SUPERSEDED_DATE = #{supersededDate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="cuserid != null and cuserid != ''">
+      AND CUSERID = #{cuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="cdate != null">
+      AND CDATE = #{cdate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="uuserid != null and uuserid != ''">
+      AND UUSERID = #{uuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="udate != null">
+      AND UDATE = #{udate,jdbcType=TIMESTAMP}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap"
+          resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTaskAssignmentSnapshot">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="assignmentSnapshotId != null">
+        ASSIGNMENT_SNAPSHOT_ID,
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID,
+      </if>
+      <if test="taskId != null">
+        TASK_ID,
+      </if>
+      <if test="taskDefKey != null">
+        TASK_DEF_KEY,
+      </if>
+      <if test="resolutionSeq != null">
+        RESOLUTION_SEQ,
+      </if>
+      <if test="resolverType != null">
+        RESOLVER_TYPE,
+      </if>
+      <if test="sourceAccount != null">
+        SOURCE_ACCOUNT,
+      </if>
+      <if test="sourceOrgUnitId != null">
+        SOURCE_ORG_UNIT_ID,
+      </if>
+      <if test="resolutionStatus != null">
+        RESOLUTION_STATUS,
+      </if>
+      <if test="resolutionContext != null">
+        RESOLUTION_CONTEXT,
+      </if>
+      <if test="resolvedDate != null">
+        RESOLVED_DATE,
+      </if>
+      <if test="supersededDate != null">
+        SUPERSEDED_DATE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentSnapshotId != null">
+        #{assignmentSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskId != null">
+        #{taskId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskDefKey != null">
+        #{taskDefKey,jdbcType=VARCHAR},
+      </if>
+      <if test="resolutionSeq != null">
+        #{resolutionSeq,jdbcType=INTEGER},
+      </if>
+      <if test="resolverType != null">
+        #{resolverType,jdbcType=VARCHAR},
+      </if>
+      <if test="sourceAccount != null">
+        #{sourceAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="sourceOrgUnitId != null">
+        #{sourceOrgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="resolutionStatus != null">
+        #{resolutionStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="resolutionContext != null">
+        #{resolutionContext,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="resolvedDate != null">
+        #{resolvedDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="supersededDate != null">
+        #{supersededDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmTaskAssignmentSnapshot">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    <set>
+      <if test="tenantId != null">
+        TENANT_ID = #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentSnapshotId != null">
+        ASSIGNMENT_SNAPSHOT_ID = #{assignmentSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskId != null">
+        TASK_ID = #{taskId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskDefKey != null">
+        TASK_DEF_KEY = #{taskDefKey,jdbcType=VARCHAR},
+      </if>
+      <if test="resolutionSeq != null">
+        RESOLUTION_SEQ = #{resolutionSeq,jdbcType=INTEGER},
+      </if>
+      <if test="resolverType != null">
+        RESOLVER_TYPE = #{resolverType,jdbcType=VARCHAR},
+      </if>
+      <if test="sourceAccount != null">
+        SOURCE_ACCOUNT = #{sourceAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="sourceOrgUnitId != null">
+        SOURCE_ORG_UNIT_ID = #{sourceOrgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="resolutionStatus != null">
+        RESOLUTION_STATUS = #{resolutionStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="resolutionContext != null">
+        RESOLUTION_CONTEXT = #{resolutionContext,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="resolvedDate != null">
+        RESOLVED_DATE = #{resolvedDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="supersededDate != null">
+        SUPERSEDED_DATE = #{supersededDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        CUSERID = #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        CDATE = #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmTaskAssignmentSnapshot">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <select id="selectFirstAssignmentSnapshotId" parameterType="java.util.HashMap"
+          resultType="java.lang.String">
+    SELECT ASSIGNMENT_SNAPSHOT_ID
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+      AND RESOLUTION_STATUS = 'RESOLVED'
+    ORDER BY RESOLVED_DATE,
+             TASK_ID
+    LIMIT 1
+  </select>
+
+  <select id="selectNextResolutionSeq" parameterType="java.util.HashMap"
+          resultType="java.lang.Integer">
+    SELECT COALESCE(MAX(RESOLUTION_SEQ), 0) + 1
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+      AND TASK_DEF_KEY = #{taskDefKey,jdbcType=VARCHAR}
+  </select>
+
+</mapper>
+

@@ -30,6 +30,7 @@ import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
+import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
@@ -39,7 +40,6 @@ import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmProcessStartPolicyService;
 import org.qifu.fm.service.IFmProcessStartProxyService;
 import org.qifu.fm.service.IFmProcessVersionService;
-import org.qifu.fm.service.IFmRuntimeAuditService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +64,7 @@ public class FmProcessRuntimeLogicServiceImpl
     private final FmProcessStartProxyEvaluator startProxyEvaluator;
     private final IFmTaskFormRuleService taskFormRuleService;
     private final FmFormSubmissionValidator formSubmissionValidator;
-    private final IFmRuntimeAuditService runtimeAuditService;
+    private final IFmRuntimeAuditLogicService runtimeAuditService;
     private final RuntimeService runtimeService;
     private final ObjectMapper objectMapper;
 
@@ -82,7 +82,7 @@ public class FmProcessRuntimeLogicServiceImpl
             FmProcessStartProxyEvaluator startProxyEvaluator,
             IFmTaskFormRuleService taskFormRuleService,
             FmFormSubmissionValidator formSubmissionValidator,
-            IFmRuntimeAuditService runtimeAuditService,
+            IFmRuntimeAuditLogicService runtimeAuditService,
             RuntimeService runtimeService,
             ObjectMapper objectMapper) {
         this.processVersionService = processVersionService;
@@ -133,7 +133,8 @@ public class FmProcessRuntimeLogicServiceImpl
         ProcessInstance flowableInstance = runtimeService.startProcessInstanceById(
                 processVersion.getFlowableProcessDefId(),
                 businessKey,
-                runtimeVariables(command, processVersion, assignment, businessKey));
+                runtimeVariables(
+                        command, processVersion, assignment, formData, businessKey));
         FmProcessInstance processInstance = insertProcessInstance(
                 command,
                 processVersion,
@@ -320,6 +321,7 @@ public class FmProcessRuntimeLogicServiceImpl
             FmProcessSubmitCommand command,
             FmProcessVersion processVersion,
             FmEmployeeOrgAssignment assignment,
+            FmFormData formData,
             String businessKey) {
         Map<String, Object> variables = new HashMap<>();
         variables.put(FmTaskAssignmentListener.VARIABLE_TENANT_ID, command.tenantId());
@@ -332,6 +334,8 @@ public class FmProcessRuntimeLogicServiceImpl
         variables.put(FmTaskAssignmentListener.VARIABLE_INITIATOR_ORG_UNIT_ID,
                 assignment.getOrgUnitId());
         variables.put(FmTaskAssignmentListener.VARIABLE_FORM_DATA, command.formData());
+        variables.put(FmTaskAssignmentListener.VARIABLE_FORM_DATA_ID,
+                formData.getFormDataId());
         variables.put("flowmintBusinessKey", businessKey);
         variables.put("flowmintStarterAccount",
                 UserUtils.getCurrentUser().getUsername());
