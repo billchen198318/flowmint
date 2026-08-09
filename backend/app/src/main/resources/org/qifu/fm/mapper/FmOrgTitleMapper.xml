@@ -23,6 +23,9 @@
     SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE OID = #{oid,jdbcType=CHAR}
   </select>
   <sql id="conditions">
+    <if test="titleId!=null and titleId!=''">
+      AND TITLE_ID=#{titleId,jdbcType=VARCHAR}
+    </if>
     <if test="tenantId!=null and tenantId!=''">
       AND TENANT_ID=#{tenantId,jdbcType=VARCHAR}
     </if>

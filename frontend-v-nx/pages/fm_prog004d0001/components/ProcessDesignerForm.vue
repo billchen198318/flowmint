@@ -32,6 +32,7 @@ const previewAccount = ref("");
 const resolverPreview = ref<any[]>([]);
 const resolverAccounts = ref<any[]>([]);
 const approvalGroups = ref<any[]>([]);
+const approvalLevels = ref<any[]>([]);
 let modeler: any = null;
 const newForm = () => ({
   oid: "",
@@ -95,6 +96,13 @@ const selectedApprovalGroup = computed({
       selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalGroupId });
   },
 });
+const selectedApprovalLevel = computed({
+  get: () => ruleConfig().approvalLevelId || "",
+  set: (approvalLevelId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalLevelId });
+  },
+});
 const ensureSelectedAssignmentRule = () => {
   if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT") return;
   selectedVersion.value.assignmentRules ||= [];
@@ -149,12 +157,14 @@ const loadPublishedForms = async () => {
 };
 const loadResolverOptions = async () => {
   if (!form.value.tenantId) return;
-  const [accountResponse, groupResponse] = await Promise.all([
+  const [accountResponse, groupResponse, levelResponse] = await Promise.all([
     post("/resolver-account-options", { tenantId: form.value.tenantId }),
     post("/approval-group-options", { tenantId: form.value.tenantId }),
+    post("/approval-level-options", { tenantId: form.value.tenantId }),
   ]);
   resolverAccounts.value = accountResponse.data?.value || [];
   approvalGroups.value = groupResponse.data?.value || [];
+  approvalLevels.value = levelResponse.data?.value || [];
 };
 const bindModelerEvents = () => {
   const selectElement = (element: any) => {
@@ -740,7 +750,18 @@ onBeforeUnmount(() => modeler?.destroy());
                         :value="item.value">{{ item.label }}</option>
                     </select>
                   </div>
-                  <div v-else-if="['TARGET_LEVEL_HEAD', 'ORG_TITLE', 'ORG_DUTY',
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'TARGET_LEVEL_HEAD'"
+                    class="mb-3">
+                    <label class="form-label">目標簽核層級</label>
+                    <select v-model="selectedApprovalLevel"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇簽核層級</option>
+                      <option v-for="item in approvalLevels" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                  </div>
+                  <div v-else-if="['ORG_TITLE', 'ORG_DUTY',
                     'APPROVAL_AUTHORITY'].includes(selectedAssignmentRule.resolverType)"
                     class="mb-3">
                     <label class="form-label">規則參數</label>

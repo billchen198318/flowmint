@@ -18,6 +18,8 @@ import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmOrgUnitHead;
 import org.qifu.fm.entity.FmOrgUnitVersion;
+import org.qifu.fm.entity.FmOrgApprovalLevel;
+import org.qifu.fm.entity.FmOrgTitle;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmApprovalGroupService;
@@ -25,6 +27,8 @@ import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmOrgUnitHeadService;
 import org.qifu.fm.service.IFmOrgUnitVersionService;
+import org.qifu.fm.service.IFmOrgApprovalLevelService;
+import org.qifu.fm.service.IFmOrgTitleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +46,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private final IFmApprovalGroupService approvalGroupService;
     private final IFmApprovalGroupMemberService approvalGroupMemberService;
     private final ObjectMapper objectMapper;
+    private final IFmOrgTitleService orgTitleService;
+    private final IFmOrgApprovalLevelService orgApprovalLevelService;
 
     public FmAssignmentResolverService(
             IFmEmployeeService employeeService,
@@ -50,6 +56,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             IFmOrgUnitVersionService orgUnitVersionService,
             IFmApprovalGroupService approvalGroupService,
             IFmApprovalGroupMemberService approvalGroupMemberService,
+            IFmOrgTitleService orgTitleService,
+            IFmOrgApprovalLevelService orgApprovalLevelService,
             ObjectMapper objectMapper) {
         this.employeeService = employeeService;
         this.assignmentService = assignmentService;
@@ -57,6 +65,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         this.orgUnitVersionService = orgUnitVersionService;
         this.approvalGroupService = approvalGroupService;
         this.approvalGroupMemberService = approvalGroupMemberService;
+        this.orgTitleService = orgTitleService;
+        this.orgApprovalLevelService = orgApprovalLevelService;
         this.objectMapper = objectMapper;
     }
 
@@ -82,12 +92,95 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             case "DIRECT_MANAGER" -> directManager(rule, assignment);
             case "INITIATOR_ORG_HEAD" -> orgUnitHead(rule, assignment.getOrgUnitId());
             case "PARENT_ORG_HEAD" -> parentOrgUnitHead(rule, assignment.getOrgUnitId());
+            case "NEXT_HIGHER_LEVEL_HEAD" -> nextHigherLevelHead(rule, assignment);
+            case "TARGET_LEVEL_HEAD" -> targetLevelHead(rule, assignment);
             case "ROOT_ORG_HEAD" -> rootOrgUnitHead(rule, assignment.getOrgUnitId());
             case "MANAGER_CHAIN" -> managerChain(rule, assignment);
             case "LEVEL_HEAD_CHAIN" -> levelHeadChain(rule, assignment.getOrgUnitId());
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
+    }
+
+    private FmResolverPreviewView nextHigherLevelHead(
+            FmTaskAssignmentRule rule,
+            FmEmployeeOrgAssignment assignment) throws ServiceException {
+        FmOrgApprovalLevel currentLevel = approvalLevel(rule.getTenantId(), assignment);
+        if (currentLevel == null) {
+            return result(rule, "NOT_FOUND", "申請人的職稱未配置簽核層級", List.of());
+        }
+        FmEmployeeOrgAssignment manager = assignment;
+        Set<String> visited = new HashSet<>();
+        while (StringUtils.isNotBlank(manager.getDirectManagerAssignmentId())
+                && visited.add(manager.getEmployeeOrgAssignmentId())) {
+            manager = assignmentByBusinessId(
+                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
+            if (manager == null) {
+                break;
+            }
+            FmOrgApprovalLevel managerLevel = approvalLevel(rule.getTenantId(), manager);
+            if (managerLevel != null
+                    && managerLevel.getLevelOrder() < currentLevel.getLevelOrder()) {
+                return employeeResult(rule, manager.getEmployeeId(),
+                        "已解析下一個較高簽核層級主管「" + managerLevel.getLevelName() + "」");
+            }
+        }
+        return result(rule, "NOT_FOUND", "主管鏈中沒有更高簽核層級", List.of());
+    }
+
+    private FmResolverPreviewView targetLevelHead(
+            FmTaskAssignmentRule rule,
+            FmEmployeeOrgAssignment assignment) throws ServiceException {
+        String targetLevelId = config(rule).path("approvalLevelId").asString();
+        if (StringUtils.isBlank(targetLevelId)) {
+            return result(rule, "ERROR", "尚未選擇目標簽核層級", List.of());
+        }
+        FmOrgApprovalLevel targetLevel = approvalLevelById(rule.getTenantId(), targetLevelId);
+        if (targetLevel == null) {
+            return result(rule, "NOT_FOUND", "目標簽核層級不存在或未啟用", List.of());
+        }
+        FmEmployeeOrgAssignment manager = assignment;
+        Set<String> visited = new HashSet<>();
+        while (visited.add(manager.getEmployeeOrgAssignmentId())) {
+            FmOrgApprovalLevel managerLevel = approvalLevel(rule.getTenantId(), manager);
+            if (managerLevel != null
+                    && targetLevelId.equals(managerLevel.getApprovalLevelId())) {
+                return employeeResult(rule, manager.getEmployeeId(),
+                        "已解析指定簽核層級「" + targetLevel.getLevelName() + "」");
+            }
+            if (StringUtils.isBlank(manager.getDirectManagerAssignmentId())) {
+                break;
+            }
+            manager = assignmentByBusinessId(
+                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
+            if (manager == null) {
+                break;
+            }
+        }
+        return result(rule, "NOT_FOUND", "主管鏈中找不到指定簽核層級", List.of());
+    }
+
+    private FmOrgApprovalLevel approvalLevel(
+            String tenantId,
+            FmEmployeeOrgAssignment assignment) throws ServiceException {
+        if (StringUtils.isBlank(assignment.getTitleId())) {
+            return null;
+        }
+        Map<String, Object> titleParameters = activeParameters(tenantId);
+        titleParameters.put("titleId", assignment.getTitleId());
+        FmOrgTitle title = orgTitleService.selectListByParams(titleParameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst().orElse(null);
+        return title == null ? null : approvalLevelById(tenantId, title.getApprovalLevelId());
+    }
+
+    private FmOrgApprovalLevel approvalLevelById(String tenantId, String approvalLevelId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("approvalLevelId", approvalLevelId);
+        return orgApprovalLevelService.selectListByParams(parameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst().orElse(null);
     }
 
     private FmResolverPreviewView fixedAccounts(FmTaskAssignmentRule rule)

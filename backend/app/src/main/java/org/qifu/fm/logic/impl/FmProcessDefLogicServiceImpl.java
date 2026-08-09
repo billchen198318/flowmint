@@ -50,6 +50,7 @@ import org.qifu.fm.service.IFmTaskPolicyService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmApprovalGroupService;
+import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,6 +68,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmAssignmentResolverService assignmentResolverService;
     private final IFmEmployeeService employeeService;
     private final IFmApprovalGroupService approvalGroupService;
+    private final IFmOrgApprovalLevelService orgApprovalLevelService;
     private final RepositoryService repositoryService;
 
     public FmProcessDefLogicServiceImpl(
@@ -79,6 +81,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmAssignmentResolverService assignmentResolverService,
             IFmEmployeeService employeeService,
             IFmApprovalGroupService approvalGroupService,
+            IFmOrgApprovalLevelService orgApprovalLevelService,
             RepositoryService repositoryService) {
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
@@ -89,6 +92,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.assignmentResolverService = assignmentResolverService;
         this.employeeService = employeeService;
         this.approvalGroupService = approvalGroupService;
+        this.orgApprovalLevelService = orgApprovalLevelService;
         this.repositoryService = repositoryService;
     }
 
@@ -330,6 +334,19 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return success(approvalGroupService.selectListByParams(parameters, "GROUP_CODE", "ASC")
                 .getValue().stream().map(group -> new FmOptionView(group.getApprovalGroupId(),
                         group.getGroupCode() + "／" + group.getGroupName())).toList());
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> approvalLevelOptions(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        return success(orgApprovalLevelService
+                .selectListByParams(parameters, "LEVEL_ORDER", "ASC").getValue().stream()
+                .map(level -> new FmOptionView(level.getApprovalLevelId(),
+                        level.getLevelCode() + "／" + level.getLevelName())).toList());
     }
 
     private void validateTenantId(String tenantId) throws ServiceException {

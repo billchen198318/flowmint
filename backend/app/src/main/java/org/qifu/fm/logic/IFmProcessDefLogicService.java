@@ -42,5 +42,8 @@ public interface IFmProcessDefLogicService {
     DefaultResult<List<FmOptionView>> approvalGroupOptions(String tenantId)
             throws ServiceException;
 
+    DefaultResult<List<FmOptionView>> approvalLevelOptions(String tenantId)
+            throws ServiceException;
+
     FmProcessDefView view(FmProcessDef processDef) throws ServiceException;
 }
