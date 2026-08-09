@@ -28,6 +28,8 @@ const selectedVersion = ref<any>(null);
 const publishedForms = ref<any[]>([]);
 const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
+const previewAccount = ref("");
+const resolverPreview = ref<any[]>([]);
 let modeler: any = null;
 const newForm = () => ({
   oid: "",
@@ -317,6 +319,26 @@ const publish = async () => {
       oid: selectedVersion.value.oid,
     });
     if (showResponse(response)) await apply(response.data.value);
+  } finally {
+    hideLoading();
+  }
+};
+const previewResolvers = async () => {
+  if (!selectedVersion.value || !previewAccount.value.trim()) {
+    toast.warning("請輸入測試申請人的帳號");
+    return;
+  }
+  showLoading();
+  try {
+    const response = await post("/resolver-preview", {
+      versionOid: selectedVersion.value.oid,
+      initiatorAccount: previewAccount.value.trim(),
+    });
+    if (!responseOk(response)) {
+      showResponse(response);
+      return;
+    }
+    resolverPreview.value = response.data?.value || [];
   } finally {
     hideLoading();
   }
@@ -721,6 +743,37 @@ onBeforeUnmount(() => modeler?.destroy());
         ><small class="text-muted"
           >SHA-256：{{ selectedVersion.bpmnSha256 }}</small
         >
+      </div>
+      <div v-if="selectedVersion" class="card mt-3">
+        <div class="card-header">簽核人解析預覽</div>
+        <div class="card-body">
+          <div class="input-group mb-3">
+            <span class="input-group-text">測試申請人帳號</span>
+            <input v-model="previewAccount" class="form-control"
+              placeholder="例如 tester" @keyup.enter="previewResolvers" />
+            <button type="button" class="btn btn-outline-primary"
+              @click="previewResolvers">開始預覽</button>
+          </div>
+          <div class="form-text mb-3">預覽使用已儲存的簽核人規則；修改規則後請先儲存草稿。</div>
+          <div v-if="resolverPreview.length" class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>節點</th><th>Resolver</th><th>結果</th><th>簽核人</th><th>說明</th></tr></thead>
+              <tbody>
+                <tr v-for="item in resolverPreview"
+                  :key="`${item.taskDefKey}-${item.ruleSeq}`">
+                  <td>{{ item.taskDefKey }}</td>
+                  <td>{{ item.resolverType }}</td>
+                  <td><span class="badge"
+                    :class="item.resultStatus === 'RESOLVED' ? 'text-bg-success' : 'text-bg-warning'">
+                    {{ item.resultStatus }}</span></td>
+                  <td>{{ (item.candidates || []).map((candidate: any) =>
+                    `${candidate.displayName} (${candidate.account})`).join('、') || '—' }}</td>
+                  <td>{{ item.message }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>

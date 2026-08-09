@@ -24,6 +24,7 @@ import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
+import org.qifu.fm.dto.command.FmResolverPreviewCommand;
 import org.qifu.fm.dto.command.FmTaskAssignmentRuleCommand;
 import org.qifu.fm.dto.command.FmTaskFormRuleCommand;
 import org.qifu.fm.dto.command.FmTaskPolicyCommand;
@@ -31,6 +32,7 @@ import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmProcessDefView;
 import org.qifu.fm.dto.view.FmProcessVersionView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
+import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.dto.view.FmTaskFormRuleView;
 import org.qifu.fm.dto.view.FmTaskPolicyView;
 import org.qifu.fm.dto.view.FmTaskAssignmentRuleView;
@@ -39,6 +41,7 @@ import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTaskPolicy;
+import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessVersionService;
@@ -59,6 +62,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmTaskFormRuleService taskFormRuleService;
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmTaskAssignmentRuleService assignmentRuleService;
+    private final IFmAssignmentResolverService assignmentResolverService;
     private final RepositoryService repositoryService;
 
     public FmProcessDefLogicServiceImpl(
@@ -68,6 +72,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmTaskFormRuleService taskFormRuleService,
             IFmTaskPolicyService taskPolicyService,
             IFmTaskAssignmentRuleService assignmentRuleService,
+            IFmAssignmentResolverService assignmentResolverService,
             RepositoryService repositoryService) {
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
@@ -75,6 +80,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.taskFormRuleService = taskFormRuleService;
         this.taskPolicyService = taskPolicyService;
         this.assignmentRuleService = assignmentRuleService;
+        this.assignmentResolverService = assignmentResolverService;
         this.repositoryService = repositoryService;
     }
 
@@ -265,6 +271,33 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
         return success(taskFormRuleService.publishedFormOptions(tenantId));
+    }
+
+    @Override
+    public DefaultResult<List<FmResolverPreviewView>> resolverPreview(
+            FmResolverPreviewCommand command) throws ServiceException {
+        if (command == null || StringUtils.isAnyBlank(
+                command.versionOid(), command.initiatorAccount())) {
+            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+        }
+        FmProcessVersion version = processVersionService.selectByPrimaryKey(command.versionOid())
+                .getValueEmptyThrowMessage();
+        List<FmResolverPreviewView> previews = assignmentRules(version).stream()
+                .filter(rule -> "ACTIVE".equals(rule.getStatus()))
+                .map(rule -> resolvePreview(rule, command.initiatorAccount()))
+                .toList();
+        return success(previews);
+    }
+
+    private FmResolverPreviewView resolvePreview(
+            FmTaskAssignmentRule rule,
+            String initiatorAccount) {
+        try {
+            return assignmentResolverService.resolve(rule, initiatorAccount);
+        } catch (ServiceException exception) {
+            return new FmResolverPreviewView(rule.getTaskDefKey(), rule.getRuleSeq(),
+                    rule.getResolverType(), "ERROR", exception.getMessage(), List.of());
+        }
     }
 
     @Override

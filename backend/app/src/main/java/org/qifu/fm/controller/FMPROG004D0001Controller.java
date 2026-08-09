@@ -11,9 +11,11 @@ import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
+import org.qifu.fm.dto.command.FmResolverPreviewCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmProcessDefView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
+import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
@@ -149,6 +151,19 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
         DefaultControllerJsonResultObj<List<FmPublishedFormOptionView>> result = initDefaultJsonResult();
         try {
             setDefaultResponseJsonResult(processDefLogicService.publishedFormOptions(body.get("tenantId")), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/resolver-preview")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmResolverPreviewView>>> resolverPreview(
+            @RequestBody FmResolverPreviewCommand command) {
+        DefaultControllerJsonResultObj<List<FmResolverPreviewView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(processDefLogicService.resolverPreview(command), result);
         } catch (Exception exception) {
             exceptionResult(result, exception);
         }

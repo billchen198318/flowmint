@@ -6,9 +6,11 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
+import org.qifu.fm.dto.command.FmResolverPreviewCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
 import org.qifu.fm.dto.view.FmProcessDefView;
+import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmProcessDef;
 
 public interface IFmProcessDefLogicService {
@@ -30,6 +32,9 @@ public interface IFmProcessDefLogicService {
 
     DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException;
     DefaultResult<List<FmPublishedFormOptionView>> publishedFormOptions(String tenantId) throws ServiceException;
+
+    DefaultResult<List<FmResolverPreviewView>> resolverPreview(FmResolverPreviewCommand command)
+            throws ServiceException;
 
     FmProcessDefView view(FmProcessDef processDef) throws ServiceException;
 }
