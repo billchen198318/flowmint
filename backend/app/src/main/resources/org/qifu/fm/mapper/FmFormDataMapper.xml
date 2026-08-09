@@ -63,13 +63,15 @@
   </sql>
 
   <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
-    SELECT <include refid="BaseColumnList" />
+    SELECT
+    <include refid="BaseColumnList" />
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
     WHERE OID = #{oid,jdbcType=CHAR}
   </select>
 
   <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
-    SELECT <include refid="BaseColumnList" />
+    SELECT
+    <include refid="BaseColumnList" />
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
     WHERE 1 = 1
     <include refid="baseConditions" />
@@ -80,7 +82,8 @@
 
   <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
     <include refid="org.qifu.core.mapper.DB1Config.sql1" />
-    SELECT <include refid="BaseColumnList" />
+    SELECT
+    <include refid="BaseColumnList" />
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
     WHERE 1 = 1
     <include refid="baseConditions" />
@@ -96,30 +99,139 @@
 
   <insert id="insert" parameterType="org.qifu.fm.entity.FmFormData">
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
-    (OID, TENANT_ID, FORM_DATA_ID, FORM_ID, FORM_VERSION_NO, BUSINESS_KEY,
-     OWNER_ACCOUNT, OWNER_ORG_UNIT_ID, DATA_CONTENT, DATA_STATUS, REVISION_NO,
-     LOCK_VERSION, SUBMITTED_DATE, CUSERID, CDATE, UUSERID, UDATE)
-    VALUES
-    (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR},
-     #{formDataId,jdbcType=VARCHAR}, #{formId,jdbcType=VARCHAR},
-     #{formVersionNo,jdbcType=INTEGER}, #{businessKey,jdbcType=VARCHAR},
-     #{ownerAccount,jdbcType=VARCHAR}, #{ownerOrgUnitId,jdbcType=VARCHAR},
-     #{dataContent,jdbcType=LONGVARCHAR}, #{dataStatus,jdbcType=VARCHAR},
-     #{revisionNo,jdbcType=INTEGER}, #{lockVersion,jdbcType=INTEGER},
-     #{submittedDate,jdbcType=TIMESTAMP}, #{cuserid,jdbcType=VARCHAR},
-     #{cdate,jdbcType=TIMESTAMP}, #{uuserid,jdbcType=VARCHAR},
-     #{udate,jdbcType=TIMESTAMP})
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="formDataId != null">
+        FORM_DATA_ID,
+      </if>
+      <if test="formId != null">
+        FORM_ID,
+      </if>
+      <if test="formVersionNo != null">
+        FORM_VERSION_NO,
+      </if>
+      <if test="businessKey != null">
+        BUSINESS_KEY,
+      </if>
+      <if test="ownerAccount != null">
+        OWNER_ACCOUNT,
+      </if>
+      <if test="ownerOrgUnitId != null">
+        OWNER_ORG_UNIT_ID,
+      </if>
+      <if test="dataContent != null">
+        DATA_CONTENT,
+      </if>
+      <if test="dataStatus != null">
+        DATA_STATUS,
+      </if>
+      <if test="revisionNo != null">
+        REVISION_NO,
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION,
+      </if>
+      <if test="submittedDate != null">
+        SUBMITTED_DATE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="formDataId != null">
+        #{formDataId,jdbcType=VARCHAR},
+      </if>
+      <if test="formId != null">
+        #{formId,jdbcType=VARCHAR},
+      </if>
+      <if test="formVersionNo != null">
+        #{formVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="businessKey != null">
+        #{businessKey,jdbcType=VARCHAR},
+      </if>
+      <if test="ownerAccount != null">
+        #{ownerAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="ownerOrgUnitId != null">
+        #{ownerOrgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="dataContent != null">
+        #{dataContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="dataStatus != null">
+        #{dataStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="revisionNo != null">
+        #{revisionNo,jdbcType=INTEGER},
+      </if>
+      <if test="lockVersion != null">
+        #{lockVersion,jdbcType=INTEGER},
+      </if>
+      <if test="submittedDate != null">
+        #{submittedDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
 
   <update id="update" parameterType="org.qifu.fm.entity.FmFormData">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
-    SET DATA_CONTENT = #{dataContent,jdbcType=LONGVARCHAR},
+    <set>
+      <if test="dataContent != null">
+        DATA_CONTENT = #{dataContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="dataStatus != null">
         DATA_STATUS = #{dataStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="revisionNo != null">
         REVISION_NO = #{revisionNo,jdbcType=INTEGER},
+      </if>
+      <if test="lockVersion != null">
         LOCK_VERSION = #{lockVersion,jdbcType=INTEGER},
+      </if>
+      <if test="submittedDate != null">
         SUBMITTED_DATE = #{submittedDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
         UUSERID = #{uuserid,jdbcType=VARCHAR},
-        UDATE = #{udate,jdbcType=TIMESTAMP}
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
     WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 

@@ -1,7 +1,17 @@
 package org.qifu.fm.service;
 
+import java.util.Date;
+
 import org.qifu.base.service.IBaseService;
 import org.qifu.fm.entity.FmProcessInstance;
 
 public interface IFmProcessInstanceService extends IBaseService<FmProcessInstance, String> {
+
+    boolean updateStatus(
+            String tenantId,
+            String processInstanceId,
+            String currentStatus,
+            String targetStatus,
+            Date endDate,
+            String updateAccount);
 }

@@ -63,13 +63,15 @@
   </sql>
 
   <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
-    SELECT <include refid="BaseColumnList" />
+    SELECT
+    <include refid="BaseColumnList" />
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
     WHERE OID = #{oid,jdbcType=CHAR}
   </select>
 
   <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
-    SELECT <include refid="BaseColumnList" />
+    SELECT
+    <include refid="BaseColumnList" />
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
     WHERE 1 = 1
     <include refid="baseConditions" />
@@ -80,7 +82,8 @@
 
   <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
     <include refid="org.qifu.core.mapper.DB1Config.sql1" />
-    SELECT <include refid="BaseColumnList" />
+    SELECT
+    <include refid="BaseColumnList" />
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
     WHERE 1 = 1
     <include refid="baseConditions" />
@@ -96,28 +99,130 @@
 
   <insert id="insert" parameterType="org.qifu.fm.entity.FmProcessInstance">
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
-    (OID, TENANT_ID, PROCESS_INSTANCE_ID, PROCESS_DEF_ID, PROCESS_VERSION_NO,
-     FLOWABLE_PROCESS_DEF_ID, BUSINESS_KEY, FORM_DATA_ID, INITIATOR_ACCOUNT,
-     INITIATOR_ORG_UNIT_ID, INSTANCE_STATUS, START_DATE, END_DATE,
-     CUSERID, CDATE, UUSERID, UDATE)
-    VALUES
-    (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR},
-     #{processInstanceId,jdbcType=VARCHAR}, #{processDefId,jdbcType=VARCHAR},
-     #{processVersionNo,jdbcType=INTEGER}, #{flowableProcessDefId,jdbcType=VARCHAR},
-     #{businessKey,jdbcType=VARCHAR}, #{formDataId,jdbcType=VARCHAR},
-     #{initiatorAccount,jdbcType=VARCHAR}, #{initiatorOrgUnitId,jdbcType=VARCHAR},
-     #{instanceStatus,jdbcType=VARCHAR}, #{startDate,jdbcType=TIMESTAMP},
-     #{endDate,jdbcType=TIMESTAMP}, #{cuserid,jdbcType=VARCHAR},
-     #{cdate,jdbcType=TIMESTAMP}, #{uuserid,jdbcType=VARCHAR},
-     #{udate,jdbcType=TIMESTAMP})
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID,
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID,
+      </if>
+      <if test="processVersionNo != null">
+        PROCESS_VERSION_NO,
+      </if>
+      <if test="flowableProcessDefId != null">
+        FLOWABLE_PROCESS_DEF_ID,
+      </if>
+      <if test="businessKey != null">
+        BUSINESS_KEY,
+      </if>
+      <if test="formDataId != null">
+        FORM_DATA_ID,
+      </if>
+      <if test="initiatorAccount != null">
+        INITIATOR_ACCOUNT,
+      </if>
+      <if test="initiatorOrgUnitId != null">
+        INITIATOR_ORG_UNIT_ID,
+      </if>
+      <if test="instanceStatus != null">
+        INSTANCE_STATUS,
+      </if>
+      <if test="startDate != null">
+        START_DATE,
+      </if>
+      <if test="endDate != null">
+        END_DATE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="processVersionNo != null">
+        #{processVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="flowableProcessDefId != null">
+        #{flowableProcessDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="businessKey != null">
+        #{businessKey,jdbcType=VARCHAR},
+      </if>
+      <if test="formDataId != null">
+        #{formDataId,jdbcType=VARCHAR},
+      </if>
+      <if test="initiatorAccount != null">
+        #{initiatorAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="initiatorOrgUnitId != null">
+        #{initiatorOrgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="instanceStatus != null">
+        #{instanceStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="startDate != null">
+        #{startDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="endDate != null">
+        #{endDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
   </insert>
 
   <update id="update" parameterType="org.qifu.fm.entity.FmProcessInstance">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
-    SET INSTANCE_STATUS = #{instanceStatus,jdbcType=VARCHAR},
+    <set>
+      <if test="instanceStatus != null">
+        INSTANCE_STATUS = #{instanceStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="endDate != null">
         END_DATE = #{endDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
         UUSERID = #{uuserid,jdbcType=VARCHAR},
-        UDATE = #{udate,jdbcType=TIMESTAMP}
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
     WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 
@@ -125,4 +230,15 @@
     DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
     WHERE OID = #{oid,jdbcType=CHAR}
   </delete>
+
+  <update id="updateStatus" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    SET INSTANCE_STATUS = #{targetStatus,jdbcType=VARCHAR},
+        END_DATE = #{endDate,jdbcType=TIMESTAMP},
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+        UDATE = #{udate,jdbcType=TIMESTAMP}
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+      AND INSTANCE_STATUS = #{currentStatus,jdbcType=VARCHAR}
+  </update>
 </mapper>

@@ -3,7 +3,9 @@ package org.qifu.fm.logic.impl;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.engine.RuntimeService;
@@ -12,10 +14,13 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
+import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator;
+import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator.StartSubject;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
+import org.qifu.fm.entity.FmApprovalGroupMember;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmProcessInstance;
@@ -24,9 +29,11 @@ import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
+import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmProcessInstanceService;
+import org.qifu.fm.service.IFmProcessStartPolicyService;
 import org.qifu.fm.service.IFmProcessVersionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +51,9 @@ public class FmProcessRuntimeLogicServiceImpl
     private final IFmEmployeeOrgAssignmentService assignmentService;
     private final IFmFormDataService formDataService;
     private final IFmProcessInstanceService processInstanceService;
+    private final IFmProcessStartPolicyService startPolicyService;
+    private final IFmApprovalGroupMemberService approvalGroupMemberService;
+    private final FmProcessStartPolicyEvaluator startPolicyEvaluator;
     private final RuntimeService runtimeService;
     private final ObjectMapper objectMapper;
 
@@ -54,6 +64,9 @@ public class FmProcessRuntimeLogicServiceImpl
             IFmEmployeeOrgAssignmentService assignmentService,
             IFmFormDataService formDataService,
             IFmProcessInstanceService processInstanceService,
+            IFmProcessStartPolicyService startPolicyService,
+            IFmApprovalGroupMemberService approvalGroupMemberService,
+            FmProcessStartPolicyEvaluator startPolicyEvaluator,
             RuntimeService runtimeService,
             ObjectMapper objectMapper) {
         this.processVersionService = processVersionService;
@@ -62,6 +75,9 @@ public class FmProcessRuntimeLogicServiceImpl
         this.assignmentService = assignmentService;
         this.formDataService = formDataService;
         this.processInstanceService = processInstanceService;
+        this.startPolicyService = startPolicyService;
+        this.approvalGroupMemberService = approvalGroupMemberService;
+        this.startPolicyEvaluator = startPolicyEvaluator;
         this.runtimeService = runtimeService;
         this.objectMapper = objectMapper;
     }
@@ -77,6 +93,7 @@ public class FmProcessRuntimeLogicServiceImpl
         FmEmployeeOrgAssignment assignment = primaryAssignment(
                 command.tenantId(),
                 applicant.getEmployeeId());
+        authorizeStart(command, processVersion, applicant);
         String businessKey = StringUtils.defaultIfBlank(
                 command.businessKey(),
                 UUID.randomUUID().toString());
@@ -165,6 +182,37 @@ public class FmProcessRuntimeLogicServiceImpl
                 .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("申請人沒有有效的主要任職配置"));
+    }
+
+    private void authorizeStart(
+            FmProcessSubmitCommand command,
+            FmProcessVersion processVersion,
+            FmEmployee applicant) throws ServiceException {
+        Map<String, Object> assignmentParameters = activeParameters(command.tenantId());
+        assignmentParameters.put("employeeId", applicant.getEmployeeId());
+        Set<String> orgUnitIds = assignmentService
+                .selectListByParams(assignmentParameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .map(FmEmployeeOrgAssignment::getOrgUnitId)
+                .collect(Collectors.toSet());
+
+        Map<String, Object> groupParameters = activeParameters(command.tenantId());
+        groupParameters.put("employeeId", applicant.getEmployeeId());
+        Set<String> groupIds = approvalGroupMemberService
+                .selectListByParams(groupParameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .map(FmApprovalGroupMember::getApprovalGroupId)
+                .collect(Collectors.toSet());
+
+        boolean allowed = startPolicyEvaluator.isAllowed(
+                startPolicyService.findByVersion(
+                        command.tenantId(),
+                        command.processDefId(),
+                        processVersion.getVersionNo()),
+                new StartSubject(applicant.getAccount(), orgUnitIds, groupIds));
+        if (!allowed) {
+            throw new ServiceException("申請人沒有此流程的起單權限");
+        }
     }
 
     private void ensureBusinessKeyAvailable(String tenantId, String businessKey)

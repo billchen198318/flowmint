@@ -1,5 +1,9 @@
 package org.qifu.fm.service.impl;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
 import org.qifu.base.mapper.IBaseMapper;
 import org.qifu.base.service.BaseService;
 import org.qifu.fm.entity.FmProcessInstance;
@@ -22,5 +26,25 @@ public class FmProcessInstanceServiceImpl extends BaseService<FmProcessInstance,
     @Override
     protected IBaseMapper<FmProcessInstance, String> getBaseMapper() {
         return mapper;
+    }
+
+    @Override
+    @Transactional(readOnly = false)
+    public boolean updateStatus(
+            String tenantId,
+            String processInstanceId,
+            String currentStatus,
+            String targetStatus,
+            Date endDate,
+            String updateAccount) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("processInstanceId", processInstanceId);
+        parameters.put("currentStatus", currentStatus);
+        parameters.put("targetStatus", targetStatus);
+        parameters.put("endDate", endDate);
+        parameters.put("uuserid", updateAccount);
+        parameters.put("udate", new Date());
+        return mapper.updateStatus(parameters) == 1;
     }
 }
