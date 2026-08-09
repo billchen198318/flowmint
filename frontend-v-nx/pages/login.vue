@@ -38,7 +38,7 @@ const loginBtnClick = async () => {
     if (responseJson) {
       baseStore.setUserData(responseJson);
       setRefreshAndAccessTokenCookie(responseJson.refreshToken, responseJson.accessToken);
-      navigateTo('/');
+      navigateTo('/workspace');
     } else {
       baseStore.clearUserData();
       userLogoutClearCookie();

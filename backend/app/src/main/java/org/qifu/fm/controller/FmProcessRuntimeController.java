@@ -12,11 +12,21 @@ import org.qifu.fm.dto.command.FmProcessStartLoadCommand;
 import org.qifu.fm.dto.command.FmProcessStartLoadRequest;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
 import org.qifu.fm.dto.command.FmProcessSubmitRequest;
+import org.qifu.fm.dto.command.FmRequestTrackLoadRequest;
+import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmTaskLoadRequest;
 import org.qifu.fm.dto.view.FmProcessStartCatalogView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
 import org.qifu.fm.dto.view.FmRuntimeTenantView;
+import org.qifu.fm.dto.view.FmRequestTrackDetailView;
+import org.qifu.fm.dto.view.FmRequestTrackView;
+import org.qifu.fm.dto.view.FmTaskActionResultView;
+import org.qifu.fm.dto.view.FmTaskDetailView;
+import org.qifu.fm.dto.view.FmTaskInboxView;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
+import org.qifu.fm.logic.IFmRequestTrackingLogicService;
+import org.qifu.fm.logic.IFmTaskRuntimeLogicService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,10 +43,93 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 	private static final long serialVersionUID = 1L;
 
 	private final transient IFmProcessRuntimeLogicService runtimeLogicService;
+	private final transient IFmTaskRuntimeLogicService taskRuntimeLogicService;
+	private final transient IFmRequestTrackingLogicService trackingLogicService;
 
 	public FmProcessRuntimeController(
-			IFmProcessRuntimeLogicService runtimeLogicService) {
+			IFmProcessRuntimeLogicService runtimeLogicService,
+			IFmTaskRuntimeLogicService taskRuntimeLogicService,
+			IFmRequestTrackingLogicService trackingLogicService) {
 		this.runtimeLogicService = runtimeLogicService;
+		this.taskRuntimeLogicService = taskRuntimeLogicService;
+		this.trackingLogicService = trackingLogicService;
+	}
+
+	@PostMapping("/mine")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmRequestTrackView>>> mine(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId) {
+		DefaultControllerJsonResultObj<List<FmRequestTrackView>> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(trackingLogicService.mine(tenantId), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/mine/load")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmRequestTrackDetailView>> loadMine(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmRequestTrackLoadRequest request) {
+		DefaultControllerJsonResultObj<FmRequestTrackDetailView> result =
+				initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("申請進度參數不可為空");
+			}
+			setDefaultResponseJsonResult(trackingLogicService.load(
+					tenantId, request.processInstanceId()), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/inbox")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmTaskInboxView>>> inbox(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId) {
+		DefaultControllerJsonResultObj<List<FmTaskInboxView>> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(taskRuntimeLogicService.inbox(tenantId), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/load")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskDetailView>> loadTask(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskLoadRequest request) {
+		DefaultControllerJsonResultObj<FmTaskDetailView> result =
+				initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("待辦載入參數不可為空");
+			}
+			setDefaultResponseJsonResult(taskRuntimeLogicService.load(
+					tenantId, request.taskId()), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/action")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>> action(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskActionRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(taskRuntimeLogicService.action(
+					tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
 	}
 
 	@PostMapping("/start/tenants")

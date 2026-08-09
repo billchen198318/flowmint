@@ -7,11 +7,13 @@ import { useBaseStore } from "@/store/baseStore";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
 import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
 
-definePageMeta({ layout: "default" });
+definePageMeta({ layout: "default", middleware: ["auth"] });
 
 const baseStore = useBaseStore();
 const tenants = ref<any[]>([]);
 const processes = ref<any[]>([]);
+const inbox = ref<any[]>([]);
+const myRequests = ref<any[]>([]);
 const startData = ref<any>(null);
 const selectedForm = ref<any>(null);
 const tenantId = ref("");
@@ -31,7 +33,7 @@ let detachCustomJavascript: (() => Promise<void>) | null = null;
 const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
 const runtimePost = (path: string, body: any = {}, headers: any = {}) =>
-  useApi(`/api/fm/requests${path}`, { method: "POST", body, headers });
+  useApi(`/fm/requests${path}`, { method: "POST", body, headers });
 const tenantHeaders = () => ({ "X-FlowMint-Tenant": tenantId.value });
 const showError = (response: any, fallback: string) => {
   toast.warning(response?.message || fallback);
@@ -106,6 +108,24 @@ const loadCatalog = async () => {
     loading.value = false;
   }
 };
+const loadInbox = async () => {
+  inbox.value = [];
+  if (!tenantId.value) return;
+  const response: any = await runtimePost(
+    "/tasks/inbox",
+    {},
+    tenantHeaders(),
+  );
+  if (!ok(response)) return showError(response, "無法載入我的待辦");
+  inbox.value = response.value || [];
+};
+const loadMyRequests = async () => {
+  myRequests.value = [];
+  if (!tenantId.value) return;
+  const response: any = await runtimePost("/mine", {}, tenantHeaders());
+  if (!ok(response)) return showError(response, "無法載入我的申請");
+  myRequests.value = response.value || [];
+};
 const loadStart = async () => {
   startData.value = null;
   selectedForm.value = null;
@@ -158,7 +178,9 @@ const submit = async () => {
   }
 };
 
-watch(tenantId, loadCatalog);
+watch(tenantId, async () => {
+  await Promise.all([loadCatalog(), loadInbox(), loadMyRequests()]);
+});
 watch(selectedForm, renderForm);
 onMounted(async () => {
   await loadTenants();
@@ -174,6 +196,75 @@ onBeforeUnmount(() => void destroyForm());
         <div class="text-muted">選擇您可發起的流程並填寫正式表單。</div>
       </div>
       <span class="badge text-bg-light border">發起人：{{ baseStore.userId }}</span>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <strong>我的待辦</strong>
+          <span class="badge rounded-pill text-bg-primary ms-2">{{ inbox.length }}</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="loadInbox">
+          <i class="bi bi-arrow-clockwise"></i> 重新整理
+        </button>
+      </div>
+      <div v-if="inbox.length" class="list-group list-group-flush">
+        <NuxtLink
+          v-for="task in inbox"
+          :key="task.taskId"
+          :to="{ path: `/tasks/${task.taskId}`, query: { tenant: tenantId } }"
+          class="list-group-item list-group-item-action py-3"
+        >
+          <div class="d-flex justify-content-between gap-3">
+            <div>
+              <div class="fw-semibold">{{ task.processName }}・{{ task.taskName }}</div>
+              <div class="small text-muted mt-1">
+                申請人：{{ task.applicantAccount }}　流程編號：{{ task.businessKey }}
+              </div>
+            </div>
+            <i class="bi bi-chevron-right text-muted align-self-center"></i>
+          </div>
+        </NuxtLink>
+      </div>
+      <div v-else class="card-body text-center text-muted py-4">
+        <i class="bi bi-check2-circle fs-3 d-block mb-2"></i>
+        目前沒有待處理事項
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+          <strong>我的申請</strong>
+          <span class="badge rounded-pill text-bg-secondary ms-2">{{ myRequests.length }}</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @click="loadMyRequests">
+          <i class="bi bi-arrow-clockwise"></i> 重新整理
+        </button>
+      </div>
+      <div v-if="myRequests.length" class="list-group list-group-flush">
+        <NuxtLink
+          v-for="request in myRequests.slice(0, 10)"
+          :key="request.processInstanceId"
+          :to="{ path: `/requests/${request.processInstanceId}`, query: { tenant: tenantId } }"
+          class="list-group-item list-group-item-action py-3"
+        >
+          <div class="d-flex justify-content-between align-items-center gap-3">
+            <div>
+              <div class="fw-semibold">{{ request.processName }}・{{ request.formName }}</div>
+              <div class="small text-muted mt-1">
+                申請人：{{ request.applicantAccount }}　目前節點：{{ request.currentTaskNames?.join('、') || '—' }}
+              </div>
+            </div>
+            <span :class="['badge', request.instanceStatus === 'RUNNING' ? 'text-bg-primary' : request.instanceStatus === 'COMPLETED' ? 'text-bg-success' : 'text-bg-secondary']">
+              {{ request.instanceStatus }}
+            </span>
+          </div>
+        </NuxtLink>
+      </div>
+      <div v-else class="card-body text-center text-muted py-4">
+        尚無申請紀錄
+      </div>
     </div>
 
     <div class="card mb-4">

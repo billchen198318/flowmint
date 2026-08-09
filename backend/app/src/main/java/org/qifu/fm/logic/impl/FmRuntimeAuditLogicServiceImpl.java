@@ -148,6 +148,59 @@ public class FmRuntimeAuditLogicServiceImpl implements IFmRuntimeAuditLogicServi
 		taskActionService.insert(action);
 	}
 
+	@Override
+	@Transactional(readOnly = false)
+	public void recordTaskAction(
+			String tenantId,
+			String processInstanceId,
+			String taskId,
+			String taskDefKey,
+			String actionType,
+			String outcome,
+			String actorAccount,
+			String principalAccount,
+			String comment,
+			String reason,
+			FmFormData formData,
+			FmTaskAssignmentSnapshot assignmentSnapshot,
+			Date now) {
+		FmFormSnapshot snapshot = new FmFormSnapshot();
+		snapshot.setTenantId(tenantId);
+		snapshot.setFormSnapshotId(UUID.randomUUID().toString());
+		snapshot.setFormDataId(formData.getFormDataId());
+		snapshot.setProcessInstanceId(processInstanceId);
+		snapshot.setTaskId(taskId);
+		snapshot.setActionType(actionType);
+		snapshot.setFormVersionNo(formData.getFormVersionNo());
+		snapshot.setRevisionNo(formData.getRevisionNo());
+		snapshot.setDataContent(formData.getDataContent());
+		snapshot.setContentSha256(sha256(formData.getDataContent()));
+		snapshot.setSnapshotDate(now);
+		snapshot.setCuserid(actorAccount);
+		snapshot.setCdate(now);
+		formSnapshotService.insert(snapshot);
+
+		FmTaskAction action = new FmTaskAction();
+		action.setTenantId(tenantId);
+		action.setTaskActionId(UUID.randomUUID().toString());
+		action.setProcessInstanceId(processInstanceId);
+		action.setTaskId(taskId);
+		action.setTaskDefKey(taskDefKey);
+		action.setActionType(actionType);
+		action.setOutcome(outcome);
+		action.setActorAccount(actorAccount);
+		action.setPrincipalAccount(principalAccount);
+		action.setFormSnapshotId(snapshot.getFormSnapshotId());
+		action.setAssignmentSnapshotId(assignmentSnapshot == null
+				? null : assignmentSnapshot.getAssignmentSnapshotId());
+		action.setCommentText(comment);
+		action.setReason(reason);
+		action.setActionDate(now);
+		action.setCuserid(actorAccount);
+		action.setCdate(now);
+		taskActionService.insert(action);
+	}
+
 	private FmTaskAssignmentSnapshotDtl candidateDetail(
 			FmAssignmentSnapshotCommand command,
 			String snapshotId,

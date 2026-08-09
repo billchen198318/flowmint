@@ -66,7 +66,9 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }
 
     // 權限檢查
-    const needChkPerm = !notCheckPermUrls.includes(to.path);
+    const needChkPerm = !notCheckPermUrls.includes(to.path)
+        && !to.path.startsWith('/tasks/')
+        && !to.path.startsWith('/requests/');
     if (needChkPerm && !checkHasPermission(to.path, true)) {
         return navigateTo(noPermissionUrl);
     }

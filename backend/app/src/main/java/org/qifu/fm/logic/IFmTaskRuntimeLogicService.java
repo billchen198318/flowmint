@@ -1,0 +1,22 @@
+package org.qifu.fm.logic;
+
+import java.util.List;
+
+import org.qifu.base.exception.ServiceException;
+import org.qifu.base.model.DefaultResult;
+import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.view.FmTaskActionResultView;
+import org.qifu.fm.dto.view.FmTaskDetailView;
+import org.qifu.fm.dto.view.FmTaskInboxView;
+
+public interface IFmTaskRuntimeLogicService {
+
+    DefaultResult<List<FmTaskInboxView>> inbox(String tenantId)
+            throws ServiceException;
+
+    DefaultResult<FmTaskDetailView> load(String tenantId, String taskId)
+            throws ServiceException;
+
+    DefaultResult<FmTaskActionResultView> action(
+            String tenantId, FmTaskActionRequest request) throws ServiceException;
+}

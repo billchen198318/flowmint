@@ -34,6 +34,11 @@ class FmProcessRuntimeControllerContractTest {
 				"/start/tenants",
 				"/start/catalog",
 				"/start/load",
+				"/tasks/inbox",
+				"/tasks/load",
+				"/tasks/action",
+				"/mine",
+				"/mine/load",
 				"/submit"), paths);
 		assertFalse(paths.stream().anyMatch(path -> path.contains("delete")));
 	}
