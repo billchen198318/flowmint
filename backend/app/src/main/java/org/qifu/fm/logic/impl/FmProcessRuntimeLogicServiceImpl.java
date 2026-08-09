@@ -1,0 +1,262 @@
+package org.qifu.fm.logic.impl;
+
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+import org.apache.commons.lang3.StringUtils;
+import org.flowable.engine.RuntimeService;
+import org.flowable.engine.runtime.ProcessInstance;
+import org.qifu.base.exception.ServiceException;
+import org.qifu.base.message.BaseSystemMessage;
+import org.qifu.base.model.DefaultResult;
+import org.qifu.base.model.YesNoKeyProvide;
+import org.qifu.fm.dto.command.FmProcessSubmitCommand;
+import org.qifu.fm.dto.view.FmProcessSubmitView;
+import org.qifu.fm.entity.FmEmployee;
+import org.qifu.fm.entity.FmEmployeeOrgAssignment;
+import org.qifu.fm.entity.FmFormData;
+import org.qifu.fm.entity.FmFormVersion;
+import org.qifu.fm.entity.FmProcessInstance;
+import org.qifu.fm.entity.FmProcessVersion;
+import org.qifu.fm.flowable.FmTaskAssignmentListener;
+import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
+import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
+import org.qifu.fm.service.IFmEmployeeService;
+import org.qifu.fm.service.IFmFormDataService;
+import org.qifu.fm.service.IFmFormVersionService;
+import org.qifu.fm.service.IFmProcessInstanceService;
+import org.qifu.fm.service.IFmProcessVersionService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import tools.jackson.databind.ObjectMapper;
+
+@Service
+@Transactional(readOnly = true)
+public class FmProcessRuntimeLogicServiceImpl
+        implements IFmProcessRuntimeLogicService {
+
+    private final IFmProcessVersionService processVersionService;
+    private final IFmFormVersionService formVersionService;
+    private final IFmEmployeeService employeeService;
+    private final IFmEmployeeOrgAssignmentService assignmentService;
+    private final IFmFormDataService formDataService;
+    private final IFmProcessInstanceService processInstanceService;
+    private final RuntimeService runtimeService;
+    private final ObjectMapper objectMapper;
+
+    public FmProcessRuntimeLogicServiceImpl(
+            IFmProcessVersionService processVersionService,
+            IFmFormVersionService formVersionService,
+            IFmEmployeeService employeeService,
+            IFmEmployeeOrgAssignmentService assignmentService,
+            IFmFormDataService formDataService,
+            IFmProcessInstanceService processInstanceService,
+            RuntimeService runtimeService,
+            ObjectMapper objectMapper) {
+        this.processVersionService = processVersionService;
+        this.formVersionService = formVersionService;
+        this.employeeService = employeeService;
+        this.assignmentService = assignmentService;
+        this.formDataService = formDataService;
+        this.processInstanceService = processInstanceService;
+        this.runtimeService = runtimeService;
+        this.objectMapper = objectMapper;
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmProcessSubmitView> submit(FmProcessSubmitCommand command)
+            throws ServiceException {
+        validate(command);
+        FmProcessVersion processVersion = publishedProcessVersion(command);
+        publishedFormVersion(command);
+        FmEmployee applicant = activeApplicant(command.tenantId(), command.applicantAccount());
+        FmEmployeeOrgAssignment assignment = primaryAssignment(
+                command.tenantId(),
+                applicant.getEmployeeId());
+        String businessKey = StringUtils.defaultIfBlank(
+                command.businessKey(),
+                UUID.randomUUID().toString());
+        ensureBusinessKeyAvailable(command.tenantId(), businessKey);
+        Date now = new Date();
+        FmFormData formData = insertFormData(
+                command,
+                assignment,
+                businessKey,
+                now);
+        ProcessInstance flowableInstance = runtimeService.startProcessInstanceById(
+                processVersion.getFlowableProcessDefId(),
+                businessKey,
+                runtimeVariables(command, processVersion, businessKey));
+        FmProcessInstance processInstance = insertProcessInstance(
+                command,
+                processVersion,
+                assignment,
+                formData,
+                flowableInstance,
+                businessKey,
+                now);
+        return success(new FmProcessSubmitView(
+                businessKey,
+                formData.getFormDataId(),
+                processInstance.getProcessInstanceId(),
+                processInstance.getInstanceStatus()));
+    }
+
+    private void validate(FmProcessSubmitCommand command) throws ServiceException {
+        if (command == null
+                || StringUtils.isAnyBlank(
+                        command.tenantId(),
+                        command.processDefId(),
+                        command.formId(),
+                        command.applicantAccount())
+                || command.formVersionNo() == null
+                || command.formData() == null) {
+            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+        }
+    }
+
+    private FmProcessVersion publishedProcessVersion(FmProcessSubmitCommand command)
+            throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", command.tenantId());
+        parameters.put("processDefId", command.processDefId());
+        parameters.put("versionStatus", "PUBLISHED");
+        FmProcessVersion version = processVersionService
+                .selectListByParams(parameters, "VERSION_NO", "DESC")
+                .getValue().stream().findFirst().orElse(null);
+        if (version == null || StringUtils.isBlank(version.getFlowableProcessDefId())) {
+            throw new ServiceException("流程尚未發布或缺少 Flowable 部署資訊");
+        }
+        return version;
+    }
+
+    private FmFormVersion publishedFormVersion(FmProcessSubmitCommand command)
+            throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", command.tenantId());
+        parameters.put("formId", command.formId());
+        parameters.put("versionNo", command.formVersionNo());
+        parameters.put("versionStatus", "PUBLISHED");
+        return formVersionService.selectListByParams(parameters).getValue().stream()
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("指定表單版本尚未發布"));
+    }
+
+    private FmEmployee activeApplicant(String tenantId, String account)
+            throws ServiceException {
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("account", account);
+        return employeeService.selectListByParams(parameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("申請人不存在、未啟用或不在有效期間"));
+    }
+
+    private FmEmployeeOrgAssignment primaryAssignment(String tenantId, String employeeId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("employeeId", employeeId);
+        parameters.put("isPrimary", "Y");
+        return assignmentService.selectListByParams(parameters).getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("申請人沒有有效的主要任職配置"));
+    }
+
+    private void ensureBusinessKeyAvailable(String tenantId, String businessKey)
+            throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("businessKey", businessKey);
+        if (!formDataService.selectListByParams(parameters).getValue().isEmpty()
+                || !processInstanceService.selectListByParams(parameters).getValue().isEmpty()) {
+            throw new ServiceException("Business key 已存在");
+        }
+    }
+
+    private FmFormData insertFormData(
+            FmProcessSubmitCommand command,
+            FmEmployeeOrgAssignment assignment,
+            String businessKey,
+            Date now) {
+        FmFormData value = new FmFormData();
+        value.setTenantId(command.tenantId());
+        value.setFormDataId(UUID.randomUUID().toString());
+        value.setFormId(command.formId());
+        value.setFormVersionNo(command.formVersionNo());
+        value.setBusinessKey(businessKey);
+        value.setOwnerAccount(command.applicantAccount());
+        value.setOwnerOrgUnitId(assignment.getOrgUnitId());
+        value.setDataContent(objectMapper.writeValueAsString(command.formData()));
+        value.setDataStatus("SUBMITTED");
+        value.setRevisionNo(1);
+        value.setLockVersion(0);
+        value.setSubmittedDate(now);
+        formDataService.insert(value);
+        return value;
+    }
+
+    private Map<String, Object> runtimeVariables(
+            FmProcessSubmitCommand command,
+            FmProcessVersion processVersion,
+            String businessKey) {
+        Map<String, Object> variables = new HashMap<>();
+        variables.put(FmTaskAssignmentListener.VARIABLE_TENANT_ID, command.tenantId());
+        variables.put(FmTaskAssignmentListener.VARIABLE_PROCESS_DEF_ID,
+                command.processDefId());
+        variables.put(FmTaskAssignmentListener.VARIABLE_PROCESS_VERSION_NO,
+                processVersion.getVersionNo());
+        variables.put(FmTaskAssignmentListener.VARIABLE_INITIATOR_ACCOUNT,
+                command.applicantAccount());
+        variables.put(FmTaskAssignmentListener.VARIABLE_FORM_DATA, command.formData());
+        variables.put("flowmintBusinessKey", businessKey);
+        return variables;
+    }
+
+    private FmProcessInstance insertProcessInstance(
+            FmProcessSubmitCommand command,
+            FmProcessVersion processVersion,
+            FmEmployeeOrgAssignment assignment,
+            FmFormData formData,
+            ProcessInstance flowableInstance,
+            String businessKey,
+            Date now) {
+        FmProcessInstance value = new FmProcessInstance();
+        value.setTenantId(command.tenantId());
+        value.setProcessInstanceId(flowableInstance.getId());
+        value.setProcessDefId(command.processDefId());
+        value.setProcessVersionNo(processVersion.getVersionNo());
+        value.setFlowableProcessDefId(processVersion.getFlowableProcessDefId());
+        value.setBusinessKey(businessKey);
+        value.setFormDataId(formData.getFormDataId());
+        value.setInitiatorAccount(command.applicantAccount());
+        value.setInitiatorOrgUnitId(assignment.getOrgUnitId());
+        value.setInstanceStatus("RUNNING");
+        value.setStartDate(now);
+        processInstanceService.insert(value);
+        return value;
+    }
+
+    private Map<String, Object> activeParameters(String tenantId) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        return parameters;
+    }
+
+    private boolean isEffective(Date from, Date to) {
+        Date now = new Date();
+        return (from == null || !from.after(now)) && (to == null || to.after(now));
+    }
+
+    private <T> DefaultResult<T> success(T value) {
+        DefaultResult<T> result = new DefaultResult<>();
+        result.setSuccess(YesNoKeyProvide.YES);
+        result.setValue(value);
+        return result;
+    }
+}
