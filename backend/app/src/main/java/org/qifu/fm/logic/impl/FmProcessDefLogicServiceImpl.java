@@ -24,6 +24,7 @@ import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
+import org.qifu.fm.dto.command.FmTaskAssignmentRuleCommand;
 import org.qifu.fm.dto.command.FmTaskFormRuleCommand;
 import org.qifu.fm.dto.command.FmTaskPolicyCommand;
 import org.qifu.fm.dto.view.FmOptionView;
@@ -32,6 +33,8 @@ import org.qifu.fm.dto.view.FmProcessVersionView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
 import org.qifu.fm.dto.view.FmTaskFormRuleView;
 import org.qifu.fm.dto.view.FmTaskPolicyView;
+import org.qifu.fm.dto.view.FmTaskAssignmentRuleView;
+import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskFormRule;
@@ -41,6 +44,7 @@ import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessVersionService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,6 +58,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmTenantService tenantService;
     private final IFmTaskFormRuleService taskFormRuleService;
     private final IFmTaskPolicyService taskPolicyService;
+    private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final RepositoryService repositoryService;
 
     public FmProcessDefLogicServiceImpl(
@@ -62,12 +67,14 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmTenantService tenantService,
             IFmTaskFormRuleService taskFormRuleService,
             IFmTaskPolicyService taskPolicyService,
+            IFmTaskAssignmentRuleService assignmentRuleService,
             RepositoryService repositoryService) {
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
         this.tenantService = tenantService;
         this.taskFormRuleService = taskFormRuleService;
         this.taskPolicyService = taskPolicyService;
+        this.assignmentRuleService = assignmentRuleService;
         this.repositoryService = repositoryService;
     }
 
@@ -146,6 +153,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         Set<String> taskKeys = userTaskKeys(command.bpmnXml());
         saveTaskForms(version, command.taskForms(), taskKeys);
         saveTaskPolicies(version, command.taskPolicies(), taskKeys);
+        saveAssignmentRules(version, command.assignmentRules(), taskKeys);
         version.setBpmnXml(command.bpmnXml());
         version.setBpmnSha256(sha256(command.bpmnXml()));
         processVersionService.update(version);
@@ -191,6 +199,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 version.getProcessDefId(),
                 version.getVersionNo(),
                 copiedPolicies);
+        List<FmTaskAssignmentRule> copiedAssignmentRules = assignmentRules(source).stream()
+                .map(sourceRule -> copyAssignmentRule(version, sourceRule)).toList();
+        assignmentRuleService.replaceVersion(version.getTenantId(), version.getProcessDefId(),
+                version.getVersionNo(), copiedAssignmentRules);
         processDef.setCurrentVersionNo(nextVersion);
         processDef.setStatus("DRAFT");
         processDefService.update(processDef);
@@ -275,7 +287,11 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                                 policy.getAllowReturn(),
                                 policy.getAllowTransfer(),
                                 policy.getAllowAddSign(),
-                                policy.getCommentRequired())).toList())).toList();
+                                policy.getCommentRequired())).toList(),
+                        assignmentRules(value).stream().map(rule -> new FmTaskAssignmentRuleView(
+                                rule.getTaskDefKey(), rule.getRuleSeq(), rule.getResolverType(),
+                                rule.getResolverConfig(), rule.getFallbackConfig(),
+                                rule.getMaxResults(), rule.getStatus())).toList())).toList();
         return new FmProcessDefView(processDef.getOid(), processDef.getTenantId(),
                 processDef.getProcessDefId(), processDef.getProcessKey(),
                 processDef.getProcessName(), processDef.getCategory(),
@@ -380,6 +396,77 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 version.getTenantId(),
                 version.getProcessDefId(),
                 version.getVersionNo());
+    }
+
+    private List<FmTaskAssignmentRule> assignmentRules(FmProcessVersion version)
+            throws ServiceException {
+        return assignmentRuleService.findByVersion(version.getTenantId(),
+                version.getProcessDefId(), version.getVersionNo());
+    }
+
+    private void saveAssignmentRules(FmProcessVersion version,
+            List<FmTaskAssignmentRuleCommand> commands, Set<String> taskKeys)
+            throws ServiceException {
+        if (commands == null) {
+            return;
+        }
+        Set<String> identities = new java.util.HashSet<>();
+        List<FmTaskAssignmentRule> rules = new java.util.ArrayList<>();
+        for (FmTaskAssignmentRuleCommand command : commands) {
+            if (command == null || StringUtils.isAnyBlank(command.taskDefKey(), command.resolverType())
+                    || !taskKeys.contains(command.taskDefKey()) || command.ruleSeq() == null
+                    || command.ruleSeq() < 1
+                    || !identities.add(command.taskDefKey() + ":" + command.ruleSeq())
+                    || !resolverTypes().contains(command.resolverType())
+                    || command.maxResults() == null || command.maxResults() < 1
+                    || command.maxResults() > 1000
+                    || !Set.of("ACTIVE", "INACTIVE").contains(command.status())) {
+                throw new ServiceException("User Task 簽核人規則不完整或重複");
+            }
+            FmTaskAssignmentRule rule = new FmTaskAssignmentRule();
+            rule.setOid(UUID.randomUUID().toString());
+            rule.setTenantId(version.getTenantId());
+            rule.setProcessDefId(version.getProcessDefId());
+            rule.setProcessVersionNo(version.getVersionNo());
+            rule.setTaskDefKey(command.taskDefKey());
+            rule.setRuleSeq(command.ruleSeq());
+            rule.setResolverType(command.resolverType());
+            rule.setResolverConfig(StringUtils.defaultIfBlank(command.resolverConfig(), "{}"));
+            rule.setFallbackConfig(command.fallbackConfig());
+            rule.setMaxResults(command.maxResults());
+            rule.setStatus(command.status());
+            rule.setCuserid(UserUtils.getCurrentUser().getUserId());
+            rule.setCdate(new Date());
+            rules.add(rule);
+        }
+        assignmentRuleService.replaceVersion(version.getTenantId(), version.getProcessDefId(),
+                version.getVersionNo(), rules);
+    }
+
+    private Set<String> resolverTypes() {
+        return Set.of("FIXED_ACCOUNT", "APPROVAL_GROUP", "INITIATOR_ORG_HEAD",
+                "PARENT_ORG_HEAD", "NEXT_HIGHER_LEVEL_HEAD", "TARGET_LEVEL_HEAD",
+                "LEVEL_HEAD_CHAIN", "ROOT_ORG_HEAD", "DIRECT_MANAGER", "MANAGER_CHAIN",
+                "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY");
+    }
+
+    private FmTaskAssignmentRule copyAssignmentRule(FmProcessVersion version,
+            FmTaskAssignmentRule source) {
+        FmTaskAssignmentRule result = new FmTaskAssignmentRule();
+        result.setOid(UUID.randomUUID().toString());
+        result.setTenantId(version.getTenantId());
+        result.setProcessDefId(version.getProcessDefId());
+        result.setProcessVersionNo(version.getVersionNo());
+        result.setTaskDefKey(source.getTaskDefKey());
+        result.setRuleSeq(source.getRuleSeq());
+        result.setResolverType(source.getResolverType());
+        result.setResolverConfig(source.getResolverConfig());
+        result.setFallbackConfig(source.getFallbackConfig());
+        result.setMaxResults(source.getMaxResults());
+        result.setStatus(source.getStatus());
+        result.setCuserid(UserUtils.getCurrentUser().getUserId());
+        result.setCdate(new Date());
+        return result;
     }
 
     private void saveTaskPolicies(
@@ -549,9 +636,15 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         "User Task「" + taskKey + "」尚未設定 Task Policy");
             }
         }
-        if (!taskKeys.isEmpty()) {
-            throw new ServiceException(
-                    "Task Policy 已通過；請先完成每個 User Task 的簽核人 Resolver 設定");
+        Map<String, Long> activeRuleCounts = assignmentRules(version).stream()
+                .filter(rule -> "ACTIVE".equals(rule.getStatus()))
+                .collect(Collectors.groupingBy(FmTaskAssignmentRule::getTaskDefKey,
+                        Collectors.counting()));
+        for (String taskKey : taskKeys) {
+            if (activeRuleCounts.getOrDefault(taskKey, 0L) < 1) {
+                throw new ServiceException(
+                        "User Task " + taskKey + " 尚未設定啟用的簽核人規則");
+            }
         }
     }
 

@@ -65,6 +65,26 @@ const selectedTaskPolicy = computed(() =>
     (item: any) => item.taskDefKey === selectedTask.value?.id,
   ),
 );
+const selectedAssignmentRule = computed(() =>
+  selectedVersion.value?.assignmentRules?.find(
+    (item: any) => item.taskDefKey === selectedTask.value?.id && item.ruleSeq === 1,
+  ),
+);
+const ensureSelectedAssignmentRule = () => {
+  if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT") return;
+  selectedVersion.value.assignmentRules ||= [];
+  if (!selectedAssignmentRule.value) {
+    selectedVersion.value.assignmentRules.push({
+      taskDefKey: selectedTask.value.id,
+      ruleSeq: 1,
+      resolverType: "DIRECT_MANAGER",
+      resolverConfig: "{}",
+      fallbackConfig: null,
+      maxResults: 100,
+      status: "ACTIVE",
+    });
+  }
+};
 const ensureSelectedTaskPolicy = () => {
   if (
     !selectedTask.value ||
@@ -107,6 +127,7 @@ const bindModelerEvents = () => {
     selectedElement.value = element || null;
     selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
     ensureSelectedTaskPolicy();
+    ensureSelectedAssignmentRule();
   };
   modeler.get("eventBus").on("selection.changed", (event: any) => {
     selectElement(event.newSelection?.[0]);
@@ -159,6 +180,13 @@ const currentTaskPolicies = () => {
   return (selectedVersion.value.taskPolicies || []).filter((item: any) =>
     taskKeys.has(item.taskDefKey),
   );
+};
+const currentAssignmentRules = () => {
+  if (!modeler || !selectedVersion.value) return [];
+  const taskKeys = new Set(modeler.get("elementRegistry")
+    .filter((item: any) => is(item, "bpmn:UserTask")).map((item: any) => item.id));
+  return (selectedVersion.value.assignmentRules || []).filter((item: any) =>
+    taskKeys.has(item.taskDefKey));
 };
 const openVersion = async (version: any) => {
   selectedVersion.value = version;
@@ -232,6 +260,7 @@ const save = async () => {
       draftOid && modeler ? (await modeler.saveXML({ format: true })).xml : "";
     const draftTaskForms = draftOid ? currentTaskForms() : [];
     const draftTaskPolicies = draftOid ? currentTaskPolicies() : [];
+    const draftAssignmentRules = draftOid ? currentAssignmentRules() : [];
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
     if (!showResponse(response)) return;
@@ -248,6 +277,7 @@ const save = async () => {
         bpmnXml: draftXml,
         taskForms: draftTaskForms,
         taskPolicies: draftTaskPolicies,
+        assignmentRules: draftAssignmentRules,
       });
       if (showResponse(response)) await apply(response.data.value);
     }
@@ -277,6 +307,7 @@ const publish = async () => {
       bpmnXml: xml,
       taskForms: currentTaskForms(),
       taskPolicies: currentTaskPolicies(),
+      assignmentRules: currentAssignmentRules(),
     });
     if (!responseOk(response)) {
       showResponse(response);
@@ -606,6 +637,51 @@ onBeforeUnmount(() => modeler?.destroy());
                       >
                         {{ action[1] }}
                       </label>
+                    </div>
+                  </div>
+                </template>
+                <template v-if="selectedAssignmentRule">
+                  <hr />
+                  <h6>簽核人規則</h6>
+                  <div class="mb-3">
+                    <label class="form-label">解析方式</label>
+                    <select v-model="selectedAssignmentRule.resolverType"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'" class="form-select">
+                      <option value="DIRECT_MANAGER">申請人的直屬主管</option>
+                      <option value="INITIATOR_ORG_HEAD">申請人所屬單位主管</option>
+                      <option value="PARENT_ORG_HEAD">上一層單位主管</option>
+                      <option value="NEXT_HIGHER_LEVEL_HEAD">下一個較高層級主管</option>
+                      <option value="ROOT_ORG_HEAD">最高層單位主管</option>
+                      <option value="MANAGER_CHAIN">逐級直屬主管</option>
+                      <option value="LEVEL_HEAD_CHAIN">逐級單位主管</option>
+                      <option value="FIXED_ACCOUNT">指定帳號</option>
+                      <option value="APPROVAL_GROUP">簽核群組</option>
+                      <option value="TARGET_LEVEL_HEAD">指定層級主管</option>
+                      <option value="ORG_TITLE">組織職稱</option>
+                      <option value="ORG_DUTY">組織職務</option>
+                      <option value="APPROVAL_AUTHORITY">簽核權限</option>
+                    </select>
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">規則參數</label>
+                    <textarea v-model="selectedAssignmentRule.resolverConfig" rows="2"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-control" placeholder="無參數時保留 {}"></textarea>
+                    <div class="form-text">目前先保存結構化 JSON；無參數的主管規則使用 {}。</div>
+                  </div>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label">最多結果數</label>
+                      <input v-model.number="selectedAssignmentRule.maxResults" type="number"
+                        min="1" max="1000" :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        class="form-control" />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">狀態</label>
+                      <select v-model="selectedAssignmentRule.status"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'" class="form-select">
+                        <option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option>
+                      </select>
                     </div>
                   </div>
                 </template>

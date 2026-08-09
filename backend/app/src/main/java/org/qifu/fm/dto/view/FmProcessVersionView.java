@@ -14,5 +14,6 @@ public record FmProcessVersionView(
         String publishedBy,
         Date publishedDate,
         List<FmTaskFormRuleView> taskForms,
-        List<FmTaskPolicyView> taskPolicies) {
+        List<FmTaskPolicyView> taskPolicies,
+        List<FmTaskAssignmentRuleView> assignmentRules) {
 }
