@@ -1,5 +1,7 @@
 package org.qifu.fm.flowable;
 
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -11,13 +13,17 @@ import org.flowable.task.service.delegate.DelegateTask;
 import org.flowable.task.service.delegate.TaskListener;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
+import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmRuntimeAuditService;
 import org.springframework.stereotype.Component;
+
+import tools.jackson.databind.ObjectMapper;
 
 @Component("fmTaskAssignmentListener")
 public class FmTaskAssignmentListener implements TaskListener {
@@ -26,19 +32,27 @@ public class FmTaskAssignmentListener implements TaskListener {
     public static final String VARIABLE_PROCESS_DEF_ID = "flowmintProcessDefId";
     public static final String VARIABLE_PROCESS_VERSION_NO = "flowmintProcessVersionNo";
     public static final String VARIABLE_INITIATOR_ACCOUNT = "flowmintInitiatorAccount";
+    public static final String VARIABLE_INITIATOR_ORG_UNIT_ID =
+            "flowmintInitiatorOrgUnitId";
     public static final String VARIABLE_FORM_DATA = "flowmintFormData";
 
     private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmAssignmentResolverService assignmentResolverService;
+    private final IFmRuntimeAuditService runtimeAuditService;
+    private final ObjectMapper objectMapper;
 
     public FmTaskAssignmentListener(
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmTaskPolicyService taskPolicyService,
-            IFmAssignmentResolverService assignmentResolverService) {
+            IFmAssignmentResolverService assignmentResolverService,
+            IFmRuntimeAuditService runtimeAuditService,
+            ObjectMapper objectMapper) {
         this.assignmentRuleService = assignmentRuleService;
         this.taskPolicyService = taskPolicyService;
         this.assignmentResolverService = assignmentResolverService;
+        this.runtimeAuditService = runtimeAuditService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -46,10 +60,24 @@ public class FmTaskAssignmentListener implements TaskListener {
         try {
             RuntimeContext context = context(task);
             FmTaskPolicy policy = policy(context, task.getTaskDefinitionKey());
-            Set<String> accounts = resolveAccounts(
+            ResolvedAssignment resolved = resolveAssignment(
                     context,
                     task.getTaskDefinitionKey());
-            applyAssignment(task, policy, accounts);
+            applyAssignment(task, policy, resolved.accounts());
+            runtimeAuditService.recordAssignmentSnapshot(
+                    new FmAssignmentSnapshotCommand(
+                            context.tenantId(),
+                            task.getProcessInstanceId(),
+                            task.getId(),
+                            task.getTaskDefinitionKey(),
+                            resolved.resolverType(),
+                            context.initiatorAccount(),
+                            context.initiatorOrgUnitId(),
+                            resolved.resolutionContext(),
+                            "ASSIGNEE".equals(policy.getAssignmentMode())
+                                    ? "ASSIGNEE" : "CANDIDATE",
+                            resolved.candidates()),
+                    new Date());
         } catch (ServiceException exception) {
             throw new FlowableException(
                     "FlowMint 無法解析節點「" + task.getTaskDefinitionKey()
@@ -62,6 +90,7 @@ public class FmTaskAssignmentListener implements TaskListener {
         String tenantId = stringVariable(task, VARIABLE_TENANT_ID);
         String processDefId = stringVariable(task, VARIABLE_PROCESS_DEF_ID);
         String initiatorAccount = stringVariable(task, VARIABLE_INITIATOR_ACCOUNT);
+        String initiatorOrgUnitId = stringVariable(task, VARIABLE_INITIATOR_ORG_UNIT_ID);
         Object versionValue = task.getVariable(VARIABLE_PROCESS_VERSION_NO);
         if (StringUtils.isAnyBlank(tenantId, processDefId, initiatorAccount)
                 || versionValue == null) {
@@ -81,6 +110,7 @@ public class FmTaskAssignmentListener implements TaskListener {
                 processDefId,
                 versionNo,
                 initiatorAccount,
+                initiatorOrgUnitId,
                 Map.of("form", formData));
     }
 
@@ -95,7 +125,7 @@ public class FmTaskAssignmentListener implements TaskListener {
                 .orElseThrow(() -> new ServiceException("找不到 User Task 派送政策"));
     }
 
-    private Set<String> resolveAccounts(RuntimeContext context, String taskDefKey)
+    private ResolvedAssignment resolveAssignment(RuntimeContext context, String taskDefKey)
             throws ServiceException {
         List<FmTaskAssignmentRule> rules = assignmentRuleService.findByVersion(
                 context.tenantId(),
@@ -108,6 +138,8 @@ public class FmTaskAssignmentListener implements TaskListener {
             throw new ServiceException("找不到啟用中的簽核人規則");
         }
         Set<String> accounts = new LinkedHashSet<>();
+        Map<String, FmResolverCandidateView> candidates = new java.util.LinkedHashMap<>();
+        List<Map<String, Object>> resolutionPath = new ArrayList<>();
         for (FmTaskAssignmentRule rule : rules) {
             FmResolverPreviewView resolved = assignmentResolverService.resolve(
                     rule,
@@ -116,15 +148,29 @@ public class FmTaskAssignmentListener implements TaskListener {
             if (!"RESOLVED".equals(resolved.resultStatus())) {
                 throw new ServiceException(resolved.message());
             }
-            resolved.candidates().stream()
-                    .map(FmResolverCandidateView::account)
-                    .filter(StringUtils::isNotBlank)
-                    .forEach(accounts::add);
+            for (FmResolverCandidateView candidate : resolved.candidates()) {
+                if (StringUtils.isNotBlank(candidate.account())) {
+                    accounts.add(candidate.account());
+                    candidates.putIfAbsent(candidate.account(), candidate);
+                }
+            }
+            Map<String, Object> pathItem = new java.util.LinkedHashMap<>();
+            pathItem.put("ruleSeq", rule.getRuleSeq());
+            pathItem.put("resolverType", rule.getResolverType());
+            pathItem.put("accounts", resolved.candidates().stream()
+                    .map(FmResolverCandidateView::account).toList());
+            resolutionPath.add(pathItem);
         }
         if (accounts.isEmpty()) {
             throw new ServiceException("簽核人規則沒有解析出有效帳號");
         }
-        return accounts;
+        String resolverType = rules.size() == 1
+                ? rules.getFirst().getResolverType() : "COMPOSITE";
+        return new ResolvedAssignment(
+                accounts,
+                List.copyOf(candidates.values()),
+                resolverType,
+                objectMapper.writeValueAsString(resolutionPath));
     }
 
     private void applyAssignment(
@@ -156,6 +202,14 @@ public class FmTaskAssignmentListener implements TaskListener {
             String processDefId,
             Integer versionNo,
             String initiatorAccount,
+            String initiatorOrgUnitId,
             Map<String, Object> variables) {
+    }
+
+    private record ResolvedAssignment(
+            Set<String> accounts,
+            List<FmResolverCandidateView> candidates,
+            String resolverType,
+            String resolutionContext) {
     }
 }
