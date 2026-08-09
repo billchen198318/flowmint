@@ -1,8 +1,11 @@
 package org.qifu.fm.domain.resolver;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
@@ -11,10 +14,12 @@ import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmOrgUnitHead;
+import org.qifu.fm.entity.FmOrgUnitVersion;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmOrgUnitHeadService;
+import org.qifu.fm.service.IFmOrgUnitVersionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,14 +30,17 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private final IFmEmployeeService employeeService;
     private final IFmEmployeeOrgAssignmentService assignmentService;
     private final IFmOrgUnitHeadService orgUnitHeadService;
+    private final IFmOrgUnitVersionService orgUnitVersionService;
 
     public FmAssignmentResolverService(
             IFmEmployeeService employeeService,
             IFmEmployeeOrgAssignmentService assignmentService,
-            IFmOrgUnitHeadService orgUnitHeadService) {
+            IFmOrgUnitHeadService orgUnitHeadService,
+            IFmOrgUnitVersionService orgUnitVersionService) {
         this.employeeService = employeeService;
         this.assignmentService = assignmentService;
         this.orgUnitHeadService = orgUnitHeadService;
+        this.orgUnitVersionService = orgUnitVersionService;
     }
 
     @Override
@@ -54,9 +62,83 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         return switch (rule.getResolverType()) {
             case "DIRECT_MANAGER" -> directManager(rule, assignment);
             case "INITIATOR_ORG_HEAD" -> orgUnitHead(rule, assignment.getOrgUnitId());
+            case "PARENT_ORG_HEAD" -> parentOrgUnitHead(rule, assignment.getOrgUnitId());
+            case "ROOT_ORG_HEAD" -> rootOrgUnitHead(rule, assignment.getOrgUnitId());
+            case "MANAGER_CHAIN" -> managerChain(rule, assignment);
+            case "LEVEL_HEAD_CHAIN" -> levelHeadChain(rule, assignment.getOrgUnitId());
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
+    }
+
+    private FmResolverPreviewView parentOrgUnitHead(
+            FmTaskAssignmentRule rule,
+            String orgUnitId) throws ServiceException {
+        FmOrgUnitVersion unit = currentOrgUnit(rule.getTenantId(), orgUnitId);
+        if (unit == null || StringUtils.isBlank(unit.getParentOrgUnitId())) {
+            return result(rule, "NOT_FOUND", "申請人所屬單位沒有上一層單位", List.of());
+        }
+        return orgUnitHead(rule, unit.getParentOrgUnitId());
+    }
+
+    private FmResolverPreviewView rootOrgUnitHead(
+            FmTaskAssignmentRule rule,
+            String orgUnitId) throws ServiceException {
+        String currentId = orgUnitId;
+        Set<String> visited = new HashSet<>();
+        while (visited.add(currentId)) {
+            FmOrgUnitVersion unit = currentOrgUnit(rule.getTenantId(), currentId);
+            if (unit == null || StringUtils.isBlank(unit.getParentOrgUnitId())) {
+                return orgUnitHead(rule, currentId);
+            }
+            currentId = unit.getParentOrgUnitId();
+        }
+        return result(rule, "ERROR", "組織階層存在循環，無法解析最高層主管", List.of());
+    }
+
+    private FmResolverPreviewView managerChain(
+            FmTaskAssignmentRule rule,
+            FmEmployeeOrgAssignment assignment) throws ServiceException {
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        Set<String> visited = new HashSet<>();
+        FmEmployeeOrgAssignment current = assignment;
+        while (StringUtils.isNotBlank(current.getDirectManagerAssignmentId())
+                && visited.add(current.getEmployeeOrgAssignmentId())
+                && candidates.size() < rule.getMaxResults()) {
+            current = assignmentByBusinessId(
+                    rule.getTenantId(), current.getDirectManagerAssignmentId());
+            if (current == null) {
+                break;
+            }
+            addEmployeeCandidate(rule.getTenantId(), current.getEmployeeId(), candidates);
+        }
+        if (candidates.isEmpty()) {
+            return result(rule, "NOT_FOUND", "找不到任何逐級直屬主管", List.of());
+        }
+        return result(rule, "RESOLVED", "已依直屬主管配置逐級解析",
+                List.copyOf(candidates.values()));
+    }
+
+    private FmResolverPreviewView levelHeadChain(
+            FmTaskAssignmentRule rule,
+            String orgUnitId) throws ServiceException {
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        Set<String> visited = new HashSet<>();
+        String currentId = orgUnitId;
+        while (StringUtils.isNotBlank(currentId) && visited.add(currentId)
+                && candidates.size() < rule.getMaxResults()) {
+            FmOrgUnitHead head = firstOrgUnitHead(rule.getTenantId(), currentId);
+            if (head != null) {
+                addEmployeeCandidate(rule.getTenantId(), head.getEmployeeId(), candidates);
+            }
+            FmOrgUnitVersion unit = currentOrgUnit(rule.getTenantId(), currentId);
+            currentId = unit == null ? null : unit.getParentOrgUnitId();
+        }
+        if (candidates.isEmpty()) {
+            return result(rule, "NOT_FOUND", "組織鏈上沒有啟用中的單位主管", List.of());
+        }
+        return result(rule, "RESOLVED", "已由所屬單位向上逐級解析主管",
+                List.copyOf(candidates.values()));
     }
 
     private FmResolverPreviewView directManager(
@@ -76,15 +158,38 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private FmResolverPreviewView orgUnitHead(
             FmTaskAssignmentRule rule,
             String orgUnitId) throws ServiceException {
-        Map<String, Object> parameters = activeParameters(rule.getTenantId());
-        parameters.put("orgUnitId", orgUnitId);
-        List<FmOrgUnitHead> heads = orgUnitHeadService
-                .selectListByParams(parameters, "PRIORITY", "ASC").getValue();
-        if (heads.isEmpty()) {
+        FmOrgUnitHead head = firstOrgUnitHead(rule.getTenantId(), orgUnitId);
+        if (head == null) {
             return result(rule, "NOT_FOUND", "申請人所屬單位沒有啟用中的主管", List.of());
         }
-        FmOrgUnitHead head = heads.get(0);
         return employeeResult(rule, head.getEmployeeId(), "已解析申請人所屬單位主管");
+    }
+
+    private FmOrgUnitHead firstOrgUnitHead(String tenantId, String orgUnitId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("orgUnitId", orgUnitId);
+        return orgUnitHeadService.selectListByParams(parameters, "PRIORITY", "ASC")
+                .getValue().stream().findFirst().orElse(null);
+    }
+
+    private FmOrgUnitVersion currentOrgUnit(String tenantId, String orgUnitId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("orgUnitId", orgUnitId);
+        return orgUnitVersionService.selectListByParams(parameters, "VERSION_NO", "DESC")
+                .getValue().stream().findFirst().orElse(null);
+    }
+
+    private void addEmployeeCandidate(
+            String tenantId,
+            String employeeId,
+            Map<String, FmResolverCandidateView> candidates) throws ServiceException {
+        FmEmployee employee = activeEmployeeById(tenantId, employeeId);
+        if (employee != null) {
+            candidates.putIfAbsent(employee.getEmployeeId(), new FmResolverCandidateView(
+                    employee.getEmployeeId(), employee.getAccount(), employee.getDisplayName()));
+        }
     }
 
     private FmResolverPreviewView employeeResult(
