@@ -13,6 +13,7 @@ import org.qifu.fm.dto.command.FmProcessStartLoadRequest;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
 import org.qifu.fm.dto.command.FmProcessSubmitRequest;
 import org.qifu.fm.dto.command.FmRequestTrackLoadRequest;
+import org.qifu.fm.dto.command.FmRequestWithdrawRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.qifu.fm.dto.command.FmTaskLoadRequest;
 import org.qifu.fm.dto.view.FmProcessStartCatalogView;
@@ -80,6 +81,24 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 			}
 			setDefaultResponseJsonResult(trackingLogicService.load(
 					tenantId, request.processInstanceId()), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/mine/withdraw")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>> withdraw(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmRequestWithdrawRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result =
+				initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("撤回參數不可為空");
+			}
+			setDefaultResponseJsonResult(trackingLogicService.withdraw(
+					tenantId, request.processInstanceId(), request.reason()), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}

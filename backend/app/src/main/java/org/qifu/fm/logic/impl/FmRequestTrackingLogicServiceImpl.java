@@ -10,6 +10,7 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.engine.TaskService;
+import org.flowable.engine.RuntimeService;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
@@ -18,6 +19,7 @@ import org.qifu.fm.dto.view.FmFormSnapshotView;
 import org.qifu.fm.dto.view.FmRequestTrackDetailView;
 import org.qifu.fm.dto.view.FmRequestTrackView;
 import org.qifu.fm.dto.view.FmTaskActionView;
+import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormSnapshot;
@@ -27,6 +29,7 @@ import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.logic.IFmRequestTrackingLogicService;
+import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmFormDefService;
 import org.qifu.fm.service.IFmFormSnapshotService;
@@ -48,6 +51,7 @@ public class FmRequestTrackingLogicServiceImpl
         implements IFmRequestTrackingLogicService {
 
     private final TaskService taskService;
+    private final RuntimeService runtimeService;
     private final IFmTenantAccountService tenantAccountService;
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessDefService processDefService;
@@ -56,10 +60,12 @@ public class FmRequestTrackingLogicServiceImpl
     private final IFmFormVersionService formVersionService;
     private final IFmTaskActionService taskActionService;
     private final IFmFormSnapshotService formSnapshotService;
+    private final IFmRuntimeAuditLogicService auditLogicService;
     private final ObjectMapper objectMapper;
 
     public FmRequestTrackingLogicServiceImpl(
             TaskService taskService,
+            RuntimeService runtimeService,
             IFmTenantAccountService tenantAccountService,
             IFmProcessInstanceService processInstanceService,
             IFmProcessDefService processDefService,
@@ -68,8 +74,10 @@ public class FmRequestTrackingLogicServiceImpl
             IFmFormVersionService formVersionService,
             IFmTaskActionService taskActionService,
             IFmFormSnapshotService formSnapshotService,
+            IFmRuntimeAuditLogicService auditLogicService,
             ObjectMapper objectMapper) {
         this.taskService = taskService;
+        this.runtimeService = runtimeService;
         this.tenantAccountService = tenantAccountService;
         this.processInstanceService = processInstanceService;
         this.processDefService = processDefService;
@@ -78,6 +86,7 @@ public class FmRequestTrackingLogicServiceImpl
         this.formVersionService = formVersionService;
         this.taskActionService = taskActionService;
         this.formSnapshotService = formSnapshotService;
+        this.auditLogicService = auditLogicService;
         this.objectMapper = objectMapper;
     }
 
@@ -140,6 +149,53 @@ public class FmRequestTrackingLogicServiceImpl
                 parseData(formData.getDataContent()),
                 actions(tenantId, processInstanceId),
                 snapshots(tenantId, processInstanceId)));
+    }
+
+    @Override
+    @Transactional(readOnly = false)
+    public DefaultResult<FmTaskActionResultView> withdraw(
+            String tenantId, String processInstanceId, String reason)
+            throws ServiceException {
+        if (StringUtils.isAnyBlank(processInstanceId, reason)) {
+            throw new ServiceException("流程實例與撤回原因不可為空");
+        }
+        if (reason.trim().length() > 1000) {
+            throw new ServiceException("撤回原因不可超過 1000 字");
+        }
+        reason = reason.trim();
+        String account = currentAccount(tenantId);
+        FmProcessInstance process = requiredProcess(tenantId, processInstanceId);
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        formDataService.lockByFormDataId(tenantId, formData.getFormDataId());
+        process = requiredProcess(tenantId, processInstanceId);
+        formData = requiredFormData(tenantId, process.getFormDataId());
+        if (!account.equals(formData.getOwnerAccount())) {
+            throw new ServiceException("只有申請人可以撤回申請");
+        }
+        if (!"RUNNING".equals(process.getInstanceStatus())) {
+            throw new ServiceException("只有進行中的申請可以撤回");
+        }
+        if (runtimeService.createProcessInstanceQuery()
+                .processInstanceId(processInstanceId).singleResult() == null) {
+            throw new ServiceException("流程執行個體不存在，無法撤回");
+        }
+        Date now = new Date();
+        auditLogicService.recordTaskAction(
+                tenantId, processInstanceId, null, null,
+                "WITHDRAW", "CANCELLED", account, formData.getOwnerAccount(),
+                null, reason, formData, null, now);
+        runtimeService.deleteProcessInstance(processInstanceId, reason);
+        if (!processInstanceService.updateStatus(
+                tenantId, processInstanceId, "RUNNING", "CANCELLED",
+                now, account)) {
+            throw new ServiceException("流程狀態已變更，請重新整理後再試");
+        }
+        formData.setDataStatus("CANCELLED");
+        formData.setUuserid(account);
+        formData.setUdate(now);
+        formDataService.update(formData);
+        return success(new FmTaskActionResultView(
+                null, "WITHDRAW", processInstanceId, "CANCELLED"));
     }
 
     private FmRequestTrackView trackView(

@@ -96,6 +96,7 @@ POST   /api/fm/requests/tasks/load
 POST   /api/fm/requests/tasks/action
 POST   /api/fm/requests/mine
 POST   /api/fm/requests/mine/load
+POST   /api/fm/requests/mine/withdraw
 ```
 
 - `start/tenants` 依 Security Context 回傳登入者有效且啟用的 Tenant membership，不接受帳號參數。
@@ -109,6 +110,7 @@ POST   /api/fm/requests/mine/load
 - `tasks/action` 首版接受 `APPROVE`、`RETURN`、`REJECT`。退回目標必須是同一流程已完成的前置 User Task；駁回會終止 Flowable instance；所有動作都建立不可變表單快照與 `fm_task_action`。
 - `mine` 回傳登入者本人申請或由登入者代發起的流程，包含狀態與目前 User Task 名稱。
 - `mine/load` 僅允許表單 Owner 或實際發起人查看，回傳完整 Action 軌跡及各次不可變表單快照。
+- `mine/withdraw` 僅允許表單 Owner 撤回 `RUNNING` 流程，原因必填；成功時終止 Flowable instance，將流程與表單狀態轉為 `CANCELLED`，並建立不可變 `WITHDRAW` 快照與 Action。
 
 ```text
 GET    /request-catalog

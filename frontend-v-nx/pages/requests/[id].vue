@@ -4,15 +4,19 @@ import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
+import { useBaseStore } from "@/store/baseStore";
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
 
 const route = useRoute();
 const router = useRouter();
+const baseStore = useBaseStore();
 const tenantId = String(route.query.tenant || "");
 const detail = ref<any>(null);
 const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
+const withdrawing = ref(false);
+const withdrawReason = ref("");
 const selectedSnapshot = ref<any>(null);
 let formInstance: any = null;
 
@@ -64,6 +68,31 @@ const load = async () => {
     loading.value = false;
   }
 };
+const withdraw = async () => {
+  const reason = withdrawReason.value.trim();
+  if (!reason) {
+    toast.warning("請填寫撤回原因");
+    return;
+  }
+  if (!window.confirm("確定要撤回這筆申請？撤回後流程將立即終止。")) return;
+  withdrawing.value = true;
+  try {
+    const response: any = await useApi("/fm/requests/mine/withdraw", {
+      method: "POST",
+      body: { processInstanceId: route.params.id, reason },
+      headers: { "X-FlowMint-Tenant": tenantId },
+    });
+    if (!ok(response)) {
+      toast.warning(response?.message || "撤回申請失敗");
+      return;
+    }
+    toast.success("申請已撤回");
+    withdrawReason.value = "";
+    await load();
+  } finally {
+    withdrawing.value = false;
+  }
+};
 
 onMounted(load);
 onBeforeUnmount(destroyForm);
@@ -107,6 +136,35 @@ onBeforeUnmount(destroyForm);
           </div>
         </div>
         <div class="col-xl-4">
+          <div
+            v-if="detail.request.instanceStatus === 'RUNNING' && detail.request.applicantAccount === baseStore.userId"
+            class="card border-danger-subtle shadow-sm mb-4"
+          >
+            <div class="card-header bg-white py-3"><strong>撤回申請</strong></div>
+            <div class="card-body">
+              <label for="withdrawReason" class="form-label">撤回原因</label>
+              <textarea
+                id="withdrawReason"
+                v-model="withdrawReason"
+                class="form-control"
+                rows="3"
+                maxlength="1000"
+                :disabled="withdrawing"
+              ></textarea>
+              <button
+                type="button"
+                class="btn btn-outline-danger mt-3 w-100"
+                :disabled="withdrawing || !withdrawReason.trim()"
+                @click="withdraw"
+              >
+                <span
+                  v-if="withdrawing"
+                  class="spinner-border spinner-border-sm me-2"
+                ></span>
+                撤回申請
+              </button>
+            </div>
+          </div>
           <div class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white py-3"><strong>表單快照</strong></div>
             <div class="list-group list-group-flush snapshot-list">

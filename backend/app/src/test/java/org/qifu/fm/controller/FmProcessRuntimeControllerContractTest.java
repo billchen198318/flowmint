@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.qifu.fm.dto.command.FmProcessSubmitRequest;
+import org.qifu.fm.dto.command.FmRequestWithdrawRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,6 +41,7 @@ class FmProcessRuntimeControllerContractTest {
 				"/tasks/action",
 				"/mine",
 				"/mine/load",
+				"/mine/withdraw",
 				"/submit"), paths);
 		assertFalse(paths.stream().anyMatch(path -> path.contains("delete")));
 	}
@@ -79,5 +81,14 @@ class FmProcessRuntimeControllerContractTest {
 				.collect(Collectors.toSet());
 		assertEquals(Set.of("taskId", "actionType", "comment", "reason",
 				"targetTaskDefKey", "formData"), components);
+	}
+
+	@Test
+	void withdrawBodyCannotOverrideTenantOrActor() {
+		Set<String> components = Arrays.stream(FmRequestWithdrawRequest.class
+				.getRecordComponents())
+				.map(component -> component.getName())
+				.collect(Collectors.toSet());
+		assertEquals(Set.of("processInstanceId", "reason"), components);
 	}
 }
