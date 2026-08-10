@@ -19,4 +19,8 @@ public interface IFmRequestTrackingLogicService {
     DefaultResult<FmTaskActionResultView> withdraw(
             String tenantId, String processInstanceId, String reason)
             throws ServiceException;
+
+    DefaultResult<FmTaskActionResultView> cancel(
+            String tenantId, String processInstanceId, String reason)
+            throws ServiceException;
 }

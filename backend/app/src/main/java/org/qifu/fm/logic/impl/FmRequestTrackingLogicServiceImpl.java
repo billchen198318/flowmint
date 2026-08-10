@@ -156,11 +156,30 @@ public class FmRequestTrackingLogicServiceImpl
     public DefaultResult<FmTaskActionResultView> withdraw(
             String tenantId, String processInstanceId, String reason)
             throws ServiceException {
+        return terminateRequest(
+                tenantId, processInstanceId, reason, "WITHDRAW", true);
+    }
+
+    @Override
+    @Transactional(readOnly = false)
+    public DefaultResult<FmTaskActionResultView> cancel(
+            String tenantId, String processInstanceId, String reason)
+            throws ServiceException {
+        return terminateRequest(
+                tenantId, processInstanceId, reason, "CANCEL", false);
+    }
+
+    private DefaultResult<FmTaskActionResultView> terminateRequest(
+            String tenantId,
+            String processInstanceId,
+            String reason,
+            String actionType,
+            boolean ownerRequired) throws ServiceException {
         if (StringUtils.isAnyBlank(processInstanceId, reason)) {
-            throw new ServiceException("流程實例與撤回原因不可為空");
+            throw new ServiceException("流程實例與原因不可為空");
         }
         if (reason.trim().length() > 1000) {
-            throw new ServiceException("撤回原因不可超過 1000 字");
+            throw new ServiceException("原因不可超過 1000 字");
         }
         reason = reason.trim();
         String account = currentAccount(tenantId);
@@ -169,20 +188,24 @@ public class FmRequestTrackingLogicServiceImpl
         formDataService.lockByFormDataId(tenantId, formData.getFormDataId());
         process = requiredProcess(tenantId, processInstanceId);
         formData = requiredFormData(tenantId, process.getFormDataId());
-        if (!account.equals(formData.getOwnerAccount())) {
-            throw new ServiceException("只有申請人可以撤回申請");
+        String authorizedAccount = ownerRequired
+                ? formData.getOwnerAccount() : process.getInitiatorAccount();
+        if (!account.equals(authorizedAccount)) {
+            throw new ServiceException(ownerRequired
+                    ? "只有申請人可以撤回申請"
+                    : "只有實際發起人可以取消流程");
         }
         if (!"RUNNING".equals(process.getInstanceStatus())) {
-            throw new ServiceException("只有進行中的申請可以撤回");
+            throw new ServiceException("只有進行中的流程可以終止");
         }
         if (runtimeService.createProcessInstanceQuery()
                 .processInstanceId(processInstanceId).singleResult() == null) {
-            throw new ServiceException("流程執行個體不存在，無法撤回");
+            throw new ServiceException("流程執行個體不存在，無法終止");
         }
         Date now = new Date();
         auditLogicService.recordTaskAction(
                 tenantId, processInstanceId, null, null,
-                "WITHDRAW", "CANCELLED", account, formData.getOwnerAccount(),
+                actionType, "CANCELLED", account, formData.getOwnerAccount(),
                 null, reason, formData, null, now);
         runtimeService.deleteProcessInstance(processInstanceId, reason);
         if (!processInstanceService.updateStatus(
@@ -195,7 +218,7 @@ public class FmRequestTrackingLogicServiceImpl
         formData.setUdate(now);
         formDataService.update(formData);
         return success(new FmTaskActionResultView(
-                null, "WITHDRAW", processInstanceId, "CANCELLED"));
+                null, actionType, processInstanceId, "CANCELLED"));
     }
 
     private FmRequestTrackView trackView(
