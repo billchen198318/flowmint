@@ -14,6 +14,7 @@ import org.flowable.task.service.delegate.DelegateTask;
 import org.flowable.task.service.delegate.TaskListener;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
+import org.qifu.fm.domain.incident.FmAssignmentIncidentRecorder;
 import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
@@ -43,17 +44,20 @@ public class FmTaskAssignmentListener implements TaskListener {
     private final IFmAssignmentResolverService assignmentResolverService;
     private final IFmRuntimeAuditLogicService runtimeAuditService;
     private final ObjectMapper objectMapper;
+    private final FmAssignmentIncidentRecorder incidentRecorder;
 
     public FmTaskAssignmentListener(
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmTaskPolicyService taskPolicyService,
             IFmAssignmentResolverService assignmentResolverService,
             IFmRuntimeAuditLogicService runtimeAuditService,
+            FmAssignmentIncidentRecorder incidentRecorder,
             ObjectMapper objectMapper) {
         this.assignmentRuleService = assignmentRuleService;
         this.taskPolicyService = taskPolicyService;
         this.assignmentResolverService = assignmentResolverService;
         this.runtimeAuditService = runtimeAuditService;
+        this.incidentRecorder = incidentRecorder;
         this.objectMapper = objectMapper;
     }
 
@@ -94,10 +98,18 @@ public class FmTaskAssignmentListener implements TaskListener {
                             resolved.candidates()),
                     new Date());
         } catch (ServiceException exception) {
-            throw new FlowableException(
-                    "FlowMint 無法解析節點「" + task.getTaskDefinitionKey()
-                            + "」的簽核人：" + exception.getMessage(),
-                    exception);
+            RuntimeContext context = context(task);
+            String incidentId = incidentRecorder.record(
+                    new FmAssignmentIncidentRecorder.IncidentCommand(
+                            context.tenantId(), task.getProcessInstanceId(), task.getId(),
+                            task.getTaskDefinitionKey(), "ASSIGNMENT",
+                            "RESOLVER_FAILED", exception.getMessage(),
+                            objectMapper.writeValueAsString(Map.of(
+                                    "processDefId", context.processDefId(),
+                                    "processVersionNo", context.versionNo(),
+                                    "initiatorAccount", context.initiatorAccount())),
+                            context.initiatorAccount(), new Date()));
+            task.setCategory("FLOWMINT_INCIDENT:" + incidentId);
         }
     }
 

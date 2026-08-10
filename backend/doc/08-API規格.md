@@ -157,6 +157,8 @@ POST   /operations/process-instances/{id}/terminate
 GET    /operations/audit
 ```
 
+Resolver 建立 Task 時若無法解析簽核人，Runtime 必須保留未指派 Task 並建立 `OPEN` Assignment Incident，不可因直接回滾而遺失異常證據。Incident 與 Task 以 Tenant、Process Instance、Task ID 及 Task Definition Key 關聯；後續 Retry／Reassign／Terminate 只能由流程營運管理權限執行並要求理由。
+
 高風險 POST 必須包含 reason 及 idempotency key。
 
 ## 9. HTTP
