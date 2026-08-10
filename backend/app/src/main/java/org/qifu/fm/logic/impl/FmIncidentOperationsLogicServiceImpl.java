@@ -25,6 +25,7 @@ import org.qifu.fm.dto.command.FmProcessTerminateRequest;
 import org.qifu.fm.dto.view.FmAssignmentIncidentView;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
+import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormData;
@@ -102,6 +103,30 @@ public class FmIncidentOperationsLogicServiceImpl
         }
         return success(incidentRecorder.find(tenantId,
                 StringUtils.trimToNull(status)));
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> reassignOptions(String tenantId)
+            throws ServiceException {
+        requireOperator();
+        if (StringUtils.isBlank(tenantId)) {
+            throw new ServiceException("Tenant 不可為空");
+        }
+        Date now = new Date();
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        List<FmOptionView> options = employeeService.selectListByParams(
+                parameters, "EMPLOYEE_NO", "ASC").getValue().stream()
+                .filter(value -> (value.getEffectiveFrom() == null
+                        || !value.getEffectiveFrom().after(now))
+                        && (value.getEffectiveTo() == null
+                                || value.getEffectiveTo().after(now)))
+                .filter(value -> activeMembership(tenantId, value.getAccount(), now))
+                .map(value -> new FmOptionView(value.getAccount(),
+                        value.getEmployeeNo() + " - " + value.getDisplayName()))
+                .toList();
+        return success(options);
     }
 
     @Override
@@ -334,16 +359,22 @@ public class FmIncidentOperationsLogicServiceImpl
                         && (value.getEffectiveTo() == null
                                 || value.getEffectiveTo().after(now)))
                 .findFirst().orElseThrow(() -> new ServiceException("改派員工不存在或未啟用"));
-        boolean activeMembership = tenantAccountService.selectListByParams(parameters)
-                .getValue().stream().anyMatch(value ->
-                        (value.getEffectiveFrom() == null
-                                || !value.getEffectiveFrom().after(now))
-                        && (value.getEffectiveTo() == null
-                                || value.getEffectiveTo().after(now)));
-        if (!activeMembership) {
+        if (!activeMembership(tenantId, account, now)) {
             throw new ServiceException("改派帳號不屬於目前 Tenant");
         }
         return employee;
+    }
+
+    private boolean activeMembership(String tenantId, String account, Date now) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("account", account);
+        parameters.put("status", "ACTIVE");
+        return tenantAccountService.selectListByParams(parameters).getValue().stream()
+                .anyMatch(value -> (value.getEffectiveFrom() == null
+                        || !value.getEffectiveFrom().after(now))
+                        && (value.getEffectiveTo() == null
+                                || value.getEffectiveTo().after(now)));
     }
 
     private FmProcessInstance requiredProcess(String tenantId, String processInstanceId)

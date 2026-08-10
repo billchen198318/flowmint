@@ -28,7 +28,8 @@ class FmIncidentOperationsControllerContractTest {
                 .flatMap(annotation -> Arrays.stream(annotation.value()))
                 .collect(Collectors.toSet());
         assertEquals(Set.of("/incidents", "/incidents/reassign",
-                "/incidents/retry", "/process-instances/terminate"), paths);
+                "/incidents/reassign-options", "/incidents/retry",
+                "/process-instances/terminate"), paths);
     }
 
     @Test

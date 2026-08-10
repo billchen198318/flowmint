@@ -10,6 +10,7 @@ import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
 import org.qifu.fm.dto.view.FmAssignmentIncidentView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
+import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,6 +42,19 @@ public class FmIncidentOperationsController extends CoreApiSupport {
         try {
             setDefaultResponseJsonResult(operationsLogicService.incidents(
                     tenantId, request == null ? null : request.status()), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/incidents/reassign-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> reassignOptions(
+            @RequestHeader("X-FlowMint-Tenant") String tenantId) {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(operationsLogicService.reassignOptions(
+                    tenantId), result);
         } catch (Exception exception) {
             exceptionResult(result, exception);
         }
