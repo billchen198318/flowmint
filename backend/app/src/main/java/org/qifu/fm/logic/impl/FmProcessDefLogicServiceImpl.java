@@ -37,11 +37,13 @@ import org.qifu.fm.dto.view.FmTaskFormRuleView;
 import org.qifu.fm.dto.view.FmTaskPolicyView;
 import org.qifu.fm.dto.view.FmTaskAssignmentRuleView;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
+import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
+import org.qifu.fm.domain.runtime.FmApprovalGroupModeValidator;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessVersionService;
@@ -60,6 +62,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Transactional(readOnly = true)
 public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
+
+    private final FmApprovalGroupModeValidator approvalGroupModeValidator =
+            new FmApprovalGroupModeValidator(new tools.jackson.databind.ObjectMapper());
 
     private final IFmProcessDefService processDefService;
     private final IFmProcessVersionService processVersionService;
@@ -244,6 +249,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         Set<String> taskKeys = userTaskKeys(version.getBpmnXml());
         validateTaskFormsForPublish(version, taskKeys);
         validateTaskPoliciesForPublish(version, taskKeys);
+        validateApprovalGroupModesForPublish(version);
         String runtimeBpmnXml = runtimeBpmnXml(version);
         String resourceName = processDef.getProcessKey() + "-v" + version.getVersionNo()
                 + ".bpmn20.xml";
@@ -835,6 +841,20 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         "User Task " + taskKey + " 尚未設定啟用的簽核人規則");
             }
         }
+    }
+
+    private void validateApprovalGroupModesForPublish(FmProcessVersion version)
+            throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", version.getTenantId());
+        parameters.put("status", "ACTIVE");
+        Map<String, String> groupModes = approvalGroupService
+                .selectListByParams(parameters).getValue().stream()
+                .collect(Collectors.toMap(
+                        FmApprovalGroup::getApprovalGroupId,
+                        FmApprovalGroup::getAssignmentMode));
+        approvalGroupModeValidator.validate(
+                taskPolicies(version), assignmentRules(version), groupModes);
     }
 
     private String defaultBpmn(FmProcessDef processDef) {

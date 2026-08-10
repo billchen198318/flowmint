@@ -3,6 +3,7 @@ package org.qifu.fm.logic;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -28,6 +29,7 @@ class FmProcessMultiInstanceBpmnTest {
     void convertsAllAndSequentialPoliciesToRealMultiInstanceTasks() throws Exception {
         IFmTaskPolicyService policies = mock(IFmTaskPolicyService.class);
         when(policies.findByVersion("T1", "P1", 1)).thenReturn(List.of(
+                policy("candidateApproval", "CANDIDATE"),
                 policy("allApproval", "ALL"),
                 policy("orderedApproval", "SEQUENTIAL")));
         FmProcessDefLogicServiceImpl service = new FmProcessDefLogicServiceImpl(
@@ -48,9 +50,12 @@ class FmProcessMultiInstanceBpmnTest {
                         new StringReader(runtimeXml)));
 
         UserTask all = (UserTask) model.getMainProcess().getFlowElement("allApproval");
+        UserTask candidate = (UserTask) model.getMainProcess()
+                .getFlowElement("candidateApproval");
         UserTask ordered = (UserTask) model.getMainProcess()
                 .getFlowElement("orderedApproval");
         assertNotNull(all.getLoopCharacteristics());
+        assertNull(candidate.getLoopCharacteristics());
         assertFalse(all.getLoopCharacteristics().isSequential());
         assertTrue(ordered.getLoopCharacteristics().isSequential());
         assertEquals("flowmintAssignee",
@@ -77,12 +82,14 @@ class FmProcessMultiInstanceBpmnTest {
                   targetNamespace="FlowMint">
                   <process id="multiTest" isExecutable="true">
                     <startEvent id="start" />
+                    <userTask id="candidateApproval" name="Candidate" />
                     <userTask id="allApproval" name="All" />
                     <userTask id="orderedApproval" name="Ordered" />
                     <endEvent id="end" />
-                    <sequenceFlow id="f1" sourceRef="start" targetRef="allApproval" />
-                    <sequenceFlow id="f2" sourceRef="allApproval" targetRef="orderedApproval" />
-                    <sequenceFlow id="f3" sourceRef="orderedApproval" targetRef="end" />
+                    <sequenceFlow id="f1" sourceRef="start" targetRef="candidateApproval" />
+                    <sequenceFlow id="f2" sourceRef="candidateApproval" targetRef="allApproval" />
+                    <sequenceFlow id="f3" sourceRef="allApproval" targetRef="orderedApproval" />
+                    <sequenceFlow id="f4" sourceRef="orderedApproval" targetRef="end" />
                   </process>
                 </definitions>
                 """;
