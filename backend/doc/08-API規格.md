@@ -159,6 +159,8 @@ GET    /operations/audit
 
 Resolver 建立 Task 時若無法解析簽核人，Runtime 必須保留未指派 Task 並建立 `OPEN` Assignment Incident，不可因直接回滾而遺失異常證據。Incident 與 Task 以 Tenant、Process Instance、Task ID 及 Task Definition Key 關聯；後續 Retry／Reassign／Terminate 只能由流程營運管理權限執行並要求理由。
 
+目前正式提供 `POST /api/fm/operations/incidents`、`POST /api/fm/operations/incidents/reassign`、`POST /api/fm/operations/incidents/retry` 與 `POST /api/fm/operations/process-instances/terminate`。全部只接受 server-side `X-FlowMint-Tenant`，並限系統管理員或 `FLOWMINT_OPERATIONS` 角色。Reassign 只處理仍為 `OPEN` 且 Task category 與 Incident ID 相符的紀錄，目標必須是同 Tenant 有效員工與有效 membership。Retry 重新執行原流程版本與節點的啟用 Assignment Rules，只有成功解析並恢復 Task 指派後才關閉 Incident。Reassign／Retry 均建立 Assignment Snapshot、不可變表單快照及 `ADMIN_REASSIGN` Action，並以 `OPEN` 條件更新避免重複處理。Terminate 只處理 `RUNNING` 流程，建立 `TERMINATE` 快照與 Action、終止 Flowable instance、將業務流程轉為 `TERMINATED`、表單轉為 `CANCELLED`，並把同流程其餘 `OPEN` Incident 標為 `IGNORED`。
+
 高風險 POST 必須包含 reason 及 idempotency key。
 
 ## 9. HTTP
