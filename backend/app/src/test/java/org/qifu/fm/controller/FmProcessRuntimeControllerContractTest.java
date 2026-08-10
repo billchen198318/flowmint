@@ -16,6 +16,8 @@ import org.qifu.fm.dto.command.FmRequestCancelRequest;
 import org.qifu.fm.dto.command.FmRequestWithdrawRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
+import org.qifu.fm.dto.command.FmTaskDelegationRequest;
+import org.qifu.fm.dto.command.FmTaskResolveRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -43,6 +45,8 @@ class FmProcessRuntimeControllerContractTest {
 				"/tasks/action",
 				"/tasks/transfer",
 				"/tasks/transfer-options",
+				"/tasks/delegate",
+				"/tasks/resolve",
 				"/mine",
 				"/mine/cancel",
 				"/mine/load",
@@ -114,5 +118,18 @@ class FmProcessRuntimeControllerContractTest {
 				.collect(Collectors.toSet());
 		assertEquals(Set.of("taskId", "targetAccount", "comment", "reason"),
 				components);
+	}
+
+	@Test
+	void delegationBodiesCannotOverrideTenantOrActor() {
+		Set<String> delegateComponents = Arrays.stream(FmTaskDelegationRequest.class
+				.getRecordComponents()).map(component -> component.getName())
+				.collect(Collectors.toSet());
+		Set<String> resolveComponents = Arrays.stream(FmTaskResolveRequest.class
+				.getRecordComponents()).map(component -> component.getName())
+				.collect(Collectors.toSet());
+		assertEquals(Set.of("taskId", "delegationId", "comment", "reason"),
+				delegateComponents);
+		assertEquals(Set.of("taskId", "comment"), resolveComponents);
 	}
 }

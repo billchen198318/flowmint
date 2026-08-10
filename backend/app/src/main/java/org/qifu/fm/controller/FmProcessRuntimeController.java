@@ -18,6 +18,8 @@ import org.qifu.fm.dto.command.FmRequestCancelRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.qifu.fm.dto.command.FmTaskLoadRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
+import org.qifu.fm.dto.command.FmTaskDelegationRequest;
+import org.qifu.fm.dto.command.FmTaskResolveRequest;
 import org.qifu.fm.dto.view.FmProcessStartCatalogView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
@@ -201,6 +203,32 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 			}
 			setDefaultResponseJsonResult(taskRuntimeLogicService.transfer(
 					tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/delegate")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>> delegate(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskDelegationRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(taskRuntimeLogicService.delegate(tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/resolve")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>> resolve(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskResolveRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(taskRuntimeLogicService.resolve(tenantId, request), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}

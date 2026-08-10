@@ -6,6 +6,8 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
+import org.qifu.fm.dto.command.FmTaskDelegationRequest;
+import org.qifu.fm.dto.command.FmTaskResolveRequest;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
@@ -27,4 +29,10 @@ public interface IFmTaskRuntimeLogicService {
 
     DefaultResult<FmTaskActionResultView> transfer(
             String tenantId, FmTaskTransferRequest request) throws ServiceException;
+
+    DefaultResult<FmTaskActionResultView> delegate(
+            String tenantId, FmTaskDelegationRequest request) throws ServiceException;
+
+    DefaultResult<FmTaskActionResultView> resolve(
+            String tenantId, FmTaskResolveRequest request) throws ServiceException;
 }

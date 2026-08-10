@@ -16,6 +16,8 @@ public record FmTaskDetailView(
         boolean allowReject,
         boolean allowReturn,
         boolean allowTransfer,
+        boolean delegatedTask,
+        List<FmOptionView> delegationOptions,
         String commentRequired,
         List<FmTaskHistoryView> returnTargets,
         List<FmTaskActionView> actions) {

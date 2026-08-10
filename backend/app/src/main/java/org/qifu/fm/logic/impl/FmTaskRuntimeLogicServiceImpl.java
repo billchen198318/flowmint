@@ -13,6 +13,7 @@ import org.flowable.engine.HistoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
+import org.flowable.task.api.DelegationState;
 import org.flowable.identitylink.api.IdentityLink;
 import org.flowable.identitylink.api.IdentityLinkType;
 import org.flowable.task.api.history.HistoricTaskInstance;
@@ -23,6 +24,8 @@ import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
+import org.qifu.fm.dto.command.FmTaskDelegationRequest;
+import org.qifu.fm.dto.command.FmTaskResolveRequest;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
@@ -42,6 +45,7 @@ import org.qifu.fm.entity.FmTaskAssignmentSnapshot;
 import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.entity.FmWorkflowDelegation;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.logic.IFmTaskRuntimeLogicService;
 import org.qifu.fm.service.IFmFormDataService;
@@ -55,6 +59,7 @@ import org.qifu.fm.service.IFmTaskAssignmentSnapshotService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
 import org.qifu.fm.service.IFmTenantAccountService;
+import org.qifu.fm.service.IFmWorkflowDelegationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,6 +78,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final RuntimeService runtimeService;
     private final HistoryService historyService;
     private final IFmTenantAccountService tenantAccountService;
+    private final IFmWorkflowDelegationService workflowDelegationService;
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessDefService processDefService;
     private final IFmFormDataService formDataService;
@@ -92,6 +98,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             RuntimeService runtimeService,
             HistoryService historyService,
             IFmTenantAccountService tenantAccountService,
+            IFmWorkflowDelegationService workflowDelegationService,
             IFmProcessInstanceService processInstanceService,
             IFmProcessDefService processDefService,
             IFmFormDataService formDataService,
@@ -109,6 +116,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.runtimeService = runtimeService;
         this.historyService = historyService;
         this.tenantAccountService = tenantAccountService;
+        this.workflowDelegationService = workflowDelegationService;
         this.processInstanceService = processInstanceService;
         this.processDefService = processDefService;
         this.formDataService = formDataService;
@@ -164,6 +172,8 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 "Y".equals(policy.getAllowReject()),
                 "Y".equals(policy.getAllowReturn()),
                 "Y".equals(policy.getAllowTransfer()),
+                DelegationState.PENDING.equals(task.getDelegationState()),
+                delegationOptions(tenantId, process, task, account, new Date()),
                 policy.getCommentRequired(),
                 returnTargets(process, task.getTaskDefinitionKey()),
                 actionHistory(tenantId, process.getProcessInstanceId())));
@@ -176,6 +186,9 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         validateActionRequest(request);
         String account = currentAccount(tenantId);
         Task task = authorizedTask(request.taskId(), account);
+        if (DelegationState.PENDING.equals(task.getDelegationState())) {
+            throw new ServiceException("代理工作必須先回覆委託人，不能直接完成簽核");
+        }
         FmProcessInstance process = requiredProcess(tenantId, task.getProcessInstanceId());
         FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
         FmTaskPolicy policy = taskPolicy(process, task.getTaskDefinitionKey());
@@ -299,6 +312,79 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         return success(new FmTaskActionResultView(
                 task.getId(), "TRANSFER",
                 process.getProcessInstanceId(), "RUNNING"));
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmTaskActionResultView> delegate(
+            String tenantId, FmTaskDelegationRequest request) throws ServiceException {
+        if (request == null || StringUtils.isAnyBlank(
+                request.taskId(), request.delegationId(), request.reason())) {
+            throw new ServiceException("Task、代理授權與原因不可為空");
+        }
+        if (request.reason().trim().length() > 1000) {
+            throw new ServiceException("原因不可超過 1000 字");
+        }
+        String account = currentAccount(tenantId);
+        Task task = authorizedTask(request.taskId(), account);
+        FmProcessInstance process = requiredProcess(
+                tenantId, task.getProcessInstanceId());
+        Date now = new Date();
+        FmWorkflowDelegation delegation = activeDelegations(
+                tenantId, process, account, now).stream()
+                .filter(value -> request.delegationId().equals(value.getDelegationId()))
+                .findFirst().orElseThrow(() ->
+                        new ServiceException("代理授權不存在、已失效或不適用此流程"));
+        if (DelegationState.PENDING.equals(task.getDelegationState())
+                && !redelegationAllowed(tenantId, process, task, account, now)) {
+            throw new ServiceException("原委託未允許再次轉代理");
+        }
+        FmEmployee target = activeEmployee(
+                tenantId, delegation.getDelegateAccount(), now);
+        claimIfRequired(task, account);
+        taskService.delegateTask(task.getId(), target.getAccount());
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        FmTaskAssignmentSnapshot snapshot = recordDelegationSnapshot(
+                tenantId, process, task, formData, account, target, "DELEGATE", now);
+        auditLogicService.recordTaskAction(
+                tenantId, process.getProcessInstanceId(), task.getId(),
+                task.getTaskDefinitionKey(), "DELEGATE",
+                "DELEGATED_TO:" + target.getAccount(), account,
+                formData.getOwnerAccount(), request.comment(), request.reason().trim(),
+                formData, snapshot, now);
+        return success(new FmTaskActionResultView(
+                task.getId(), "DELEGATE", process.getProcessInstanceId(), "RUNNING"));
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmTaskActionResultView> resolve(
+            String tenantId, FmTaskResolveRequest request) throws ServiceException {
+        if (request == null || StringUtils.isBlank(request.taskId())) {
+            throw new ServiceException("Task 不可為空");
+        }
+        String account = currentAccount(tenantId);
+        Task task = authorizedTask(request.taskId(), account);
+        if (!DelegationState.PENDING.equals(task.getDelegationState())
+                || StringUtils.isBlank(task.getOwner())) {
+            throw new ServiceException("此待辦不是待回覆的代理工作");
+        }
+        FmProcessInstance process = requiredProcess(
+                tenantId, task.getProcessInstanceId());
+        Date now = new Date();
+        FmEmployee owner = activeEmployee(tenantId, task.getOwner(), now);
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        taskService.resolveTask(task.getId());
+        FmTaskAssignmentSnapshot snapshot = recordDelegationSnapshot(
+                tenantId, process, task, formData, account, owner, "RESOLVE", now);
+        auditLogicService.recordTaskAction(
+                tenantId, process.getProcessInstanceId(), task.getId(),
+                task.getTaskDefinitionKey(), "RESOLVE",
+                "RESOLVED_TO:" + owner.getAccount(), account,
+                formData.getOwnerAccount(), request.comment(), null,
+                formData, snapshot, now);
+        return success(new FmTaskActionResultView(
+                task.getId(), "RESOLVE", process.getProcessInstanceId(), "RUNNING"));
     }
 
     private String executeAction(
@@ -488,6 +574,79 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                         || !value.getEffectiveFrom().after(now))
                         && (value.getEffectiveTo() == null
                                 || value.getEffectiveTo().after(now)));
+    }
+
+    private List<FmOptionView> delegationOptions(
+            String tenantId, FmProcessInstance process, Task task,
+            String account, Date now) {
+        if (DelegationState.PENDING.equals(task.getDelegationState())
+                && !redelegationAllowed(tenantId, process, task, account, now)) {
+            return List.of();
+        }
+        return activeDelegations(tenantId, process, account, now).stream()
+                .map(value -> new FmOptionView(
+                        value.getDelegationId(), value.getDelegateAccount()))
+                .toList();
+    }
+
+    private List<FmWorkflowDelegation> activeDelegations(
+            String tenantId, FmProcessInstance process,
+            String principalAccount, Date now) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("principalAccount", principalAccount);
+        parameters.put("status", "ACTIVE");
+        return workflowDelegationService.selectListByParams(parameters)
+                .getValue().stream()
+                .filter(value -> value.getEffectiveFrom() == null
+                        || !value.getEffectiveFrom().after(now))
+                .filter(value -> value.getEffectiveTo() == null
+                        || value.getEffectiveTo().after(now))
+                .filter(value -> delegationApplies(value, process))
+                .toList();
+    }
+
+    private boolean redelegationAllowed(
+            String tenantId, FmProcessInstance process, Task task,
+            String delegateAccount, Date now) {
+        if (StringUtils.isBlank(task.getOwner())) {
+            return false;
+        }
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("principalAccount", task.getOwner());
+        parameters.put("delegateAccount", delegateAccount);
+        parameters.put("status", "ACTIVE");
+        return workflowDelegationService.selectListByParams(parameters).getValue().stream()
+                .anyMatch(value -> "Y".equals(value.getAllowRedelegate())
+                        && (value.getEffectiveFrom() == null
+                                || !value.getEffectiveFrom().after(now))
+                        && (value.getEffectiveTo() == null
+                                || value.getEffectiveTo().after(now))
+                        && delegationApplies(value, process));
+    }
+
+    private boolean delegationApplies(
+            FmWorkflowDelegation delegation, FmProcessInstance process) {
+        return "ALL".equals(delegation.getScopeType())
+                || ("PROCESS".equals(delegation.getScopeType())
+                        && process.getProcessDefId().equals(delegation.getScopeRefId()));
+    }
+
+    private FmTaskAssignmentSnapshot recordDelegationSnapshot(
+            String tenantId, FmProcessInstance process, Task task,
+            FmFormData formData, String sourceAccount,
+            FmEmployee target, String actionType, Date now) throws ServiceException {
+        String snapshotId = auditLogicService.recordAssignmentSnapshot(
+                new FmAssignmentSnapshotCommand(
+                        tenantId, formData.getFormDataId(),
+                        process.getProcessInstanceId(), task.getId(),
+                        task.getTaskDefinitionKey(), actionType,
+                        sourceAccount, null, actionType + "_FROM:" + sourceAccount,
+                        "ASSIGNEE", List.of(new FmResolverCandidateView(
+                                target.getEmployeeId(), target.getAccount(),
+                                target.getDisplayName()))), now);
+        return assignmentSnapshot(tenantId, snapshotId);
     }
 
     private FmTaskInboxView inboxView(Task task, FmProcessInstance process)

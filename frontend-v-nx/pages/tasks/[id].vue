@@ -16,12 +16,13 @@ const detail = ref<any>(null);
 const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const acting = ref(false);
-const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER">("APPROVE");
+const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER" | "DELEGATE" | "RESOLVE">("APPROVE");
 const comment = ref("");
 const reason = ref("");
 const targetTaskDefKey = ref("");
 const targetAccount = ref("");
 const transferOptions = ref<any[]>([]);
+const delegationId = ref("");
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
@@ -87,7 +88,9 @@ const load = async () => {
       return;
     }
     detail.value = response.value;
-    actionType.value = response.value?.correctionTask ? "RESUBMIT" : "APPROVE";
+    actionType.value = response.value?.delegatedTask
+      ? "RESOLVE"
+      : response.value?.correctionTask ? "RESUBMIT" : "APPROVE";
     targetTaskDefKey.value = response.value?.returnTargets?.[0]?.taskDefKey || "";
     if (response.value?.allowTransfer) {
       const options: any = await post("/tasks/transfer-options", {
@@ -120,6 +123,10 @@ const submitAction = async () => {
     toast.warning("請選擇轉派對象");
     return;
   }
+  if (actionType.value === "DELEGATE" && !delegationId.value) {
+    toast.warning("請選擇代理授權");
+    return;
+  }
   acting.value = true;
   try {
     const editedFormData = actionType.value === "RESUBMIT"
@@ -132,14 +139,26 @@ const submitAction = async () => {
           comment: comment.value,
           reason: reason.value,
         })
-      : await post("/tasks/action", {
+      : actionType.value === "DELEGATE"
+        ? await post("/tasks/delegate", {
+            taskId: route.params.id,
+            delegationId: delegationId.value,
+            comment: comment.value,
+            reason: reason.value,
+          })
+        : actionType.value === "RESOLVE"
+          ? await post("/tasks/resolve", {
+              taskId: route.params.id,
+              comment: comment.value,
+            })
+          : await post("/tasks/action", {
           taskId: route.params.id,
           actionType: actionType.value,
           comment: comment.value,
           reason: reason.value,
           targetTaskDefKey: actionType.value === "RETURN" ? targetTaskDefKey.value : null,
           formData: editedFormData,
-        });
+            });
     if (!ok(response)) {
       toast.warning(response?.message || "簽核處理失敗");
       return;
@@ -206,6 +225,7 @@ onBeforeUnmount(() => void destroyForm());
               <div class="d-grid gap-2 mb-3">
                 <button v-if="detail.correctionTask" type="button" class="btn btn-primary" @click="actionType = 'RESUBMIT'">重新送出</button>
                 <template v-else>
+                <template v-if="!detail.delegatedTask">
                 <button type="button" :class="['btn', actionType === 'APPROVE' ? 'btn-success' : 'btn-outline-success']" @click="actionType = 'APPROVE'">核准</button>
                 <button v-if="detail.allowReturn" type="button" :class="['btn', actionType === 'RETURN' ? 'btn-warning' : 'btn-outline-warning']" @click="actionType = 'RETURN'">退回</button>
                 <button v-if="detail.allowReject" type="button" :class="['btn', actionType === 'REJECT' ? 'btn-danger' : 'btn-outline-danger']" @click="actionType = 'REJECT'">駁回</button>
@@ -216,6 +236,23 @@ onBeforeUnmount(() => void destroyForm());
                   @click="actionType = 'TRANSFER'"
                 >
                   轉派
+                </button>
+                </template>
+                <button
+                  v-if="detail.delegationOptions?.length"
+                  type="button"
+                  :class="['btn', actionType === 'DELEGATE' ? 'btn-secondary' : 'btn-outline-secondary']"
+                  @click="actionType = 'DELEGATE'"
+                >
+                  委託代理
+                </button>
+                <button
+                  v-if="detail.delegatedTask"
+                  type="button"
+                  :class="['btn', actionType === 'RESOLVE' ? 'btn-primary' : 'btn-outline-primary']"
+                  @click="actionType = 'RESOLVE'"
+                >
+                  回覆委託人
                 </button>
                 </template>
               </div>
@@ -239,11 +276,24 @@ onBeforeUnmount(() => void destroyForm());
                   </option>
                 </select>
               </div>
+              <div v-if="actionType === 'DELEGATE'" class="mb-3">
+                <label class="form-label">代理授權</label>
+                <select v-model="delegationId" class="form-select">
+                  <option value="">請選擇</option>
+                  <option
+                    v-for="option in detail.delegationOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+              </div>
               <div class="mb-3">
                 <label class="form-label">簽核意見</label>
                 <textarea v-model="comment" rows="4" class="form-control"></textarea>
               </div>
-              <div v-if="actionType !== 'APPROVE' && actionType !== 'RESUBMIT'" class="mb-3">
+              <div v-if="!['APPROVE', 'RESUBMIT', 'RESOLVE'].includes(actionType)" class="mb-3">
                 <label class="form-label">理由 *</label>
                 <textarea v-model="reason" rows="3" class="form-control"></textarea>
               </div>
