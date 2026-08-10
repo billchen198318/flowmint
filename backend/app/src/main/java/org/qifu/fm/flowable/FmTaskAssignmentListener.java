@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.common.engine.api.FlowableException;
+import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.task.service.delegate.DelegateTask;
 import org.flowable.task.service.delegate.TaskListener;
 import org.qifu.base.exception.ServiceException;
@@ -88,8 +89,8 @@ public class FmTaskAssignmentListener implements TaskListener {
                             context.initiatorAccount(),
                             context.initiatorOrgUnitId(),
                             resolved.resolutionContext(),
-                            "ASSIGNEE".equals(policy.getAssignmentMode())
-                                    ? "ASSIGNEE" : "CANDIDATE",
+                            "CANDIDATE".equals(policy.getAssignmentMode())
+                                    ? "CANDIDATE" : "ASSIGNEE",
                             resolved.candidates()),
                     new Date());
         } catch (ServiceException exception) {
@@ -97,6 +98,16 @@ public class FmTaskAssignmentListener implements TaskListener {
                     "FlowMint 無法解析節點「" + task.getTaskDefinitionKey()
                             + "」的簽核人：" + exception.getMessage(),
                     exception);
+        }
+    }
+
+    public List<String> multiInstanceAccounts(
+            DelegateExecution execution, String taskDefKey) {
+        try {
+            return List.copyOf(resolveAssignment(context(execution), taskDefKey).accounts());
+        } catch (ServiceException exception) {
+            throw new FlowableException("FlowMint Multi-instance 指派失敗："
+                    + exception.getMessage(), exception);
         }
     }
 
@@ -128,6 +139,32 @@ public class FmTaskAssignmentListener implements TaskListener {
                 initiatorAccount,
                 initiatorOrgUnitId,
                 formDataId,
+                Map.of("form", formData));
+    }
+
+    private RuntimeContext context(DelegateExecution execution) throws ServiceException {
+        String tenantId = stringVariable(execution, VARIABLE_TENANT_ID);
+        String processDefId = stringVariable(execution, VARIABLE_PROCESS_DEF_ID);
+        String initiatorAccount = stringVariable(execution, VARIABLE_INITIATOR_ACCOUNT);
+        String initiatorOrgUnitId = stringVariable(
+                execution, VARIABLE_INITIATOR_ORG_UNIT_ID);
+        String formDataId = stringVariable(execution, VARIABLE_FORM_DATA_ID);
+        Object versionValue = execution.getVariable(VARIABLE_PROCESS_VERSION_NO);
+        if (StringUtils.isAnyBlank(tenantId, processDefId, initiatorAccount, formDataId)
+                || versionValue == null) {
+            throw new ServiceException("流程缺少 FlowMint Runtime 標準變數");
+        }
+        Integer versionNo;
+        try {
+            versionNo = Integer.valueOf(versionValue.toString());
+        } catch (NumberFormatException exception) {
+            throw new ServiceException("流程版本變數格式不正確");
+        }
+        Object formValue = execution.getVariable(VARIABLE_FORM_DATA);
+        Map<String, Object> formData = formValue instanceof Map<?, ?> map
+                ? stringKeyMap(map) : Map.of();
+        return new RuntimeContext(tenantId, processDefId, versionNo,
+                initiatorAccount, initiatorOrgUnitId, formDataId,
                 Map.of("form", formData));
     }
 
@@ -197,14 +234,25 @@ public class FmTaskAssignmentListener implements TaskListener {
         switch (policy.getAssignmentMode()) {
             case "ASSIGNEE" -> task.setAssignee(accounts.iterator().next());
             case "CANDIDATE" -> task.addCandidateUsers(accounts);
-            case "ALL", "SEQUENTIAL" -> throw new ServiceException(
-                    "全員會簽與依序簽核需要 Multi-instance Runtime，尚未啟用");
+            case "ALL", "SEQUENTIAL" -> {
+                Object current = task.getVariable("flowmintAssignee");
+                String account = current == null ? null : current.toString();
+                if (StringUtils.isBlank(account) || !accounts.contains(account)) {
+                    throw new ServiceException("Multi-instance 簽核人變數不正確");
+                }
+                task.setAssignee(account);
+            }
             default -> throw new ServiceException("不支援的 User Task 派送方式");
         }
     }
 
     private String stringVariable(DelegateTask task, String name) {
         Object value = task.getVariable(name);
+        return value == null ? null : value.toString();
+    }
+
+    private String stringVariable(DelegateExecution execution, String name) {
+        Object value = execution.getVariable(name);
         return value == null ? null : value.toString();
     }
 
