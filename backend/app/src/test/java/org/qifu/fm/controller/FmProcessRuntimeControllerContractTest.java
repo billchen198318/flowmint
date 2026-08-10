@@ -15,6 +15,7 @@ import org.qifu.fm.dto.command.FmProcessSubmitRequest;
 import org.qifu.fm.dto.command.FmRequestCancelRequest;
 import org.qifu.fm.dto.command.FmRequestWithdrawRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmTaskAddSignRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.command.FmTaskDelegationRequest;
 import org.qifu.fm.dto.command.FmTaskResolveRequest;
@@ -43,6 +44,9 @@ class FmProcessRuntimeControllerContractTest {
 				"/tasks/inbox",
 				"/tasks/load",
 				"/tasks/action",
+				"/tasks/add-sign",
+				"/tasks/add-sign-options",
+				"/tasks/complete-add-sign",
 				"/tasks/transfer",
 				"/tasks/transfer-options",
 				"/tasks/delegate",
@@ -131,5 +135,14 @@ class FmProcessRuntimeControllerContractTest {
 		assertEquals(Set.of("taskId", "delegationId", "comment", "reason"),
 				delegateComponents);
 		assertEquals(Set.of("taskId", "comment"), resolveComponents);
+	}
+
+	@Test
+	void addSignBodyCannotOverrideTenantOrActor() {
+		Set<String> components = Arrays.stream(FmTaskAddSignRequest.class
+				.getRecordComponents()).map(component -> component.getName())
+				.collect(Collectors.toSet());
+		assertEquals(Set.of("taskId", "targetAccount", "comment", "reason"),
+				components);
 	}
 }

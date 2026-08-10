@@ -5,6 +5,7 @@ import java.util.List;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmTaskAddSignRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.command.FmTaskDelegationRequest;
 import org.qifu.fm.dto.command.FmTaskResolveRequest;
@@ -34,5 +35,14 @@ public interface IFmTaskRuntimeLogicService {
             String tenantId, FmTaskDelegationRequest request) throws ServiceException;
 
     DefaultResult<FmTaskActionResultView> resolve(
+            String tenantId, FmTaskResolveRequest request) throws ServiceException;
+
+    DefaultResult<List<FmOptionView>> addSignOptions(
+            String tenantId, String taskId) throws ServiceException;
+
+    DefaultResult<FmTaskActionResultView> addSign(
+            String tenantId, FmTaskAddSignRequest request) throws ServiceException;
+
+    DefaultResult<FmTaskActionResultView> completeAddSign(
             String tenantId, FmTaskResolveRequest request) throws ServiceException;
 }

@@ -16,6 +16,7 @@ import org.qifu.fm.dto.command.FmRequestTrackLoadRequest;
 import org.qifu.fm.dto.command.FmRequestWithdrawRequest;
 import org.qifu.fm.dto.command.FmRequestCancelRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmTaskAddSignRequest;
 import org.qifu.fm.dto.command.FmTaskLoadRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.command.FmTaskDelegationRequest;
@@ -229,6 +230,50 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 		DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
 		try {
 			setDefaultResponseJsonResult(taskRuntimeLogicService.resolve(tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/add-sign-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> addSignOptions(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskLoadRequest request) {
+		DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("Task 不可為空");
+			}
+			setDefaultResponseJsonResult(taskRuntimeLogicService.addSignOptions(
+					tenantId, request.taskId()), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/add-sign")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>> addSign(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskAddSignRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(taskRuntimeLogicService.addSign(tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/complete-add-sign")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>> completeAddSign(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskResolveRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(taskRuntimeLogicService.completeAddSign(
+					tenantId, request), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}

@@ -16,7 +16,7 @@ const detail = ref<any>(null);
 const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const acting = ref(false);
-const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER" | "DELEGATE" | "RESOLVE">("APPROVE");
+const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER" | "DELEGATE" | "RESOLVE" | "ADD_SIGN" | "ADD_SIGN_COMPLETE">("APPROVE");
 const comment = ref("");
 const reason = ref("");
 const targetTaskDefKey = ref("");
@@ -88,12 +88,19 @@ const load = async () => {
       return;
     }
     detail.value = response.value;
-    actionType.value = response.value?.delegatedTask
-      ? "RESOLVE"
+    actionType.value = response.value?.addSignTask
+      ? "ADD_SIGN_COMPLETE"
+      : response.value?.delegatedTask ? "RESOLVE"
       : response.value?.correctionTask ? "RESUBMIT" : "APPROVE";
     targetTaskDefKey.value = response.value?.returnTargets?.[0]?.taskDefKey || "";
     if (response.value?.allowTransfer) {
       const options: any = await post("/tasks/transfer-options", {
+        taskId: route.params.id,
+      });
+      if (ok(options)) transferOptions.value = options.value || [];
+    }
+    if (response.value?.allowAddSign && !response.value?.delegatedTask) {
+      const options: any = await post("/tasks/add-sign-options", {
         taskId: route.params.id,
       });
       if (ok(options)) transferOptions.value = options.value || [];
@@ -119,8 +126,8 @@ const submitAction = async () => {
     toast.warning("請選擇退回節點");
     return;
   }
-  if (actionType.value === "TRANSFER" && !targetAccount.value) {
-    toast.warning("請選擇轉派對象");
+  if ((actionType.value === "TRANSFER" || actionType.value === "ADD_SIGN") && !targetAccount.value) {
+    toast.warning("請選擇處理對象");
     return;
   }
   if (actionType.value === "DELEGATE" && !delegationId.value) {
@@ -139,6 +146,18 @@ const submitAction = async () => {
           comment: comment.value,
           reason: reason.value,
         })
+      : actionType.value === "ADD_SIGN"
+        ? await post("/tasks/add-sign", {
+            taskId: route.params.id,
+            targetAccount: targetAccount.value,
+            comment: comment.value,
+            reason: reason.value,
+          })
+      : actionType.value === "ADD_SIGN_COMPLETE"
+        ? await post("/tasks/complete-add-sign", {
+            taskId: route.params.id,
+            comment: comment.value,
+          })
       : actionType.value === "DELEGATE"
         ? await post("/tasks/delegate", {
             taskId: route.params.id,
@@ -237,6 +256,14 @@ onBeforeUnmount(() => void destroyForm());
                 >
                   轉派
                 </button>
+                <button
+                  v-if="detail.allowAddSign"
+                  type="button"
+                  :class="['btn', actionType === 'ADD_SIGN' ? 'btn-info' : 'btn-outline-info']"
+                  @click="actionType = 'ADD_SIGN'"
+                >
+                  加簽
+                </button>
                 </template>
                 <button
                   v-if="detail.delegationOptions?.length"
@@ -247,12 +274,20 @@ onBeforeUnmount(() => void destroyForm());
                   委託代理
                 </button>
                 <button
-                  v-if="detail.delegatedTask"
+                  v-if="detail.delegatedTask && !detail.addSignTask"
                   type="button"
                   :class="['btn', actionType === 'RESOLVE' ? 'btn-primary' : 'btn-outline-primary']"
                   @click="actionType = 'RESOLVE'"
                 >
                   回覆委託人
+                </button>
+                <button
+                  v-if="detail.addSignTask"
+                  type="button"
+                  :class="['btn', actionType === 'ADD_SIGN_COMPLETE' ? 'btn-primary' : 'btn-outline-primary']"
+                  @click="actionType = 'ADD_SIGN_COMPLETE'"
+                >
+                  完成加簽
                 </button>
                 </template>
               </div>
@@ -263,8 +298,8 @@ onBeforeUnmount(() => void destroyForm());
                   <option v-for="target in detail.returnTargets" :key="target.taskDefKey" :value="target.taskDefKey">{{ target.taskName }}</option>
                 </select>
               </div>
-              <div v-if="actionType === 'TRANSFER'" class="mb-3">
-                <label class="form-label">轉派對象</label>
+              <div v-if="actionType === 'TRANSFER' || actionType === 'ADD_SIGN'" class="mb-3">
+                <label class="form-label">{{ actionType === 'ADD_SIGN' ? '加簽人' : '轉派對象' }}</label>
                 <select v-model="targetAccount" class="form-select">
                   <option value="">請選擇</option>
                   <option
@@ -293,7 +328,7 @@ onBeforeUnmount(() => void destroyForm());
                 <label class="form-label">簽核意見</label>
                 <textarea v-model="comment" rows="4" class="form-control"></textarea>
               </div>
-              <div v-if="!['APPROVE', 'RESUBMIT', 'RESOLVE'].includes(actionType)" class="mb-3">
+              <div v-if="!['APPROVE', 'RESUBMIT', 'RESOLVE', 'ADD_SIGN_COMPLETE'].includes(actionType)" class="mb-3">
                 <label class="form-label">理由 *</label>
                 <textarea v-model="reason" rows="3" class="form-control"></textarea>
               </div>

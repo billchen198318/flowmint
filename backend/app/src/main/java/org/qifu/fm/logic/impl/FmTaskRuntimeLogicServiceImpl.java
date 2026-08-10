@@ -22,6 +22,7 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmTaskAddSignRequest;
 import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.command.FmTaskDelegationRequest;
@@ -34,6 +35,7 @@ import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.qifu.fm.dto.view.FmTaskHistoryView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
+import org.qifu.fm.domain.runtime.FmDelegationScopeEvaluator;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormDef;
@@ -41,6 +43,7 @@ import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmTaskAction;
+import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmTaskAssignmentSnapshot;
 import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTaskPolicy;
@@ -56,6 +59,7 @@ import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmTaskActionService;
 import org.qifu.fm.service.IFmTaskAssignmentSnapshotService;
+import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
 import org.qifu.fm.service.IFmTenantAccountService;
@@ -73,6 +77,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
 
     private static final Set<String> ACTION_TYPES = Set.of(
             "APPROVE", "REJECT", "RETURN", "RESUBMIT");
+    private static final String VARIABLE_ADD_SIGN = "flowMintAddSign";
 
     private final TaskService taskService;
     private final RuntimeService runtimeService;
@@ -89,9 +94,11 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmTaskActionService taskActionService;
     private final IFmTaskAssignmentSnapshotService assignmentSnapshotService;
+    private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmRuntimeAuditLogicService auditLogicService;
     private final FmFormSubmissionValidator formSubmissionValidator;
     private final ObjectMapper objectMapper;
+    private final FmDelegationScopeEvaluator delegationScopeEvaluator;
 
     public FmTaskRuntimeLogicServiceImpl(
             TaskService taskService,
@@ -109,6 +116,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             IFmTaskPolicyService taskPolicyService,
             IFmTaskActionService taskActionService,
             IFmTaskAssignmentSnapshotService assignmentSnapshotService,
+            IFmTaskAssignmentRuleService assignmentRuleService,
             IFmRuntimeAuditLogicService auditLogicService,
             FmFormSubmissionValidator formSubmissionValidator,
             ObjectMapper objectMapper) {
@@ -127,9 +135,11 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.taskPolicyService = taskPolicyService;
         this.taskActionService = taskActionService;
         this.assignmentSnapshotService = assignmentSnapshotService;
+        this.assignmentRuleService = assignmentRuleService;
         this.auditLogicService = auditLogicService;
         this.formSubmissionValidator = formSubmissionValidator;
         this.objectMapper = objectMapper;
+        this.delegationScopeEvaluator = new FmDelegationScopeEvaluator(objectMapper);
     }
 
     @Override
@@ -172,7 +182,9 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 "Y".equals(policy.getAllowReject()),
                 "Y".equals(policy.getAllowReturn()),
                 "Y".equals(policy.getAllowTransfer()),
+                "Y".equals(policy.getAllowAddSign()),
                 DelegationState.PENDING.equals(task.getDelegationState()),
+                addSignTask(task),
                 delegationOptions(tenantId, process, task, account, new Date()),
                 policy.getCommentRequired(),
                 returnTargets(process, task.getTaskDefinitionKey()),
@@ -233,11 +245,15 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         FmProcessInstance process = requiredProcess(
                 tenantId, task.getProcessInstanceId());
         ensureTransferAllowed(taskPolicy(process, task.getTaskDefinitionKey()));
-        Date now = new Date();
+        return success(employeeOptions(tenantId, account, new Date()));
+    }
+
+    private List<FmOptionView> employeeOptions(
+            String tenantId, String account, Date now) throws ServiceException {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);
         parameters.put("status", "ACTIVE");
-        List<FmOptionView> values = employeeService.selectListByParams(
+        return employeeService.selectListByParams(
                 parameters, "EMPLOYEE_NO", "ASC").getValue().stream()
                 .filter(employee -> !account.equals(employee.getAccount()))
                 .filter(employee -> effective(employee, now))
@@ -247,7 +263,6 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                         employee.getAccount(),
                         employee.getEmployeeNo() + " - " + employee.getDisplayName()))
                 .toList();
-        return success(values);
     }
 
     @Override
@@ -331,7 +346,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 tenantId, task.getProcessInstanceId());
         Date now = new Date();
         FmWorkflowDelegation delegation = activeDelegations(
-                tenantId, process, account, now).stream()
+                tenantId, process, task, account, now).stream()
                 .filter(value -> request.delegationId().equals(value.getDelegationId()))
                 .findFirst().orElseThrow(() ->
                         new ServiceException("代理授權不存在、已失效或不適用此流程"));
@@ -365,6 +380,9 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         }
         String account = currentAccount(tenantId);
         Task task = authorizedTask(request.taskId(), account);
+        if (addSignTask(task)) {
+            throw new ServiceException("加簽工作必須使用完成加簽操作");
+        }
         if (!DelegationState.PENDING.equals(task.getDelegationState())
                 || StringUtils.isBlank(task.getOwner())) {
             throw new ServiceException("此待辦不是待回覆的代理工作");
@@ -385,6 +403,85 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 formData, snapshot, now);
         return success(new FmTaskActionResultView(
                 task.getId(), "RESOLVE", process.getProcessInstanceId(), "RUNNING"));
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> addSignOptions(
+            String tenantId, String taskId) throws ServiceException {
+        String account = currentAccount(tenantId);
+        Task task = authorizedTask(taskId, account);
+        FmProcessInstance process = requiredProcess(tenantId, task.getProcessInstanceId());
+        ensureAddSignAllowed(task, taskPolicy(process, task.getTaskDefinitionKey()));
+        return success(employeeOptions(tenantId, account, new Date()));
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmTaskActionResultView> addSign(
+            String tenantId, FmTaskAddSignRequest request) throws ServiceException {
+        if (request == null || StringUtils.isAnyBlank(
+                request.taskId(), request.targetAccount(), request.reason())) {
+            throw new ServiceException("Task、加簽人與原因不可為空");
+        }
+        if (request.reason().trim().length() > 1000) {
+            throw new ServiceException("原因不可超過 1000 字");
+        }
+        String account = currentAccount(tenantId);
+        if (account.equals(request.targetAccount().trim())) {
+            throw new ServiceException("不可將自己設為加簽人");
+        }
+        Task task = authorizedTask(request.taskId(), account);
+        FmProcessInstance process = requiredProcess(tenantId, task.getProcessInstanceId());
+        ensureAddSignAllowed(task, taskPolicy(process, task.getTaskDefinitionKey()));
+        Date now = new Date();
+        FmEmployee target = activeEmployee(tenantId, request.targetAccount().trim(), now);
+        claimIfRequired(task, account);
+        taskService.delegateTask(task.getId(), target.getAccount());
+        taskService.setVariableLocal(task.getId(), VARIABLE_ADD_SIGN, Boolean.TRUE);
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        FmTaskAssignmentSnapshot snapshot = recordDelegationSnapshot(
+                tenantId, process, task, formData, account, target, "ADD_SIGN", now);
+        auditLogicService.recordTaskAction(
+                tenantId, process.getProcessInstanceId(), task.getId(),
+                task.getTaskDefinitionKey(), "ADD_SIGN",
+                "ADD_SIGN_TO:" + target.getAccount(), account,
+                formData.getOwnerAccount(), request.comment(), request.reason().trim(),
+                formData, snapshot, now);
+        return success(new FmTaskActionResultView(
+                task.getId(), "ADD_SIGN", process.getProcessInstanceId(), "RUNNING"));
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmTaskActionResultView> completeAddSign(
+            String tenantId, FmTaskResolveRequest request) throws ServiceException {
+        if (request == null || StringUtils.isBlank(request.taskId())) {
+            throw new ServiceException("Task 不可為空");
+        }
+        String account = currentAccount(tenantId);
+        Task task = authorizedTask(request.taskId(), account);
+        if (!addSignTask(task) || !DelegationState.PENDING.equals(task.getDelegationState())
+                || StringUtils.isBlank(task.getOwner())) {
+            throw new ServiceException("目前工作不是待完成的加簽工作");
+        }
+        FmProcessInstance process = requiredProcess(tenantId, task.getProcessInstanceId());
+        Date now = new Date();
+        FmEmployee owner = activeEmployee(tenantId, task.getOwner(), now);
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        taskService.setVariableLocal(task.getId(), VARIABLE_ADD_SIGN, Boolean.FALSE);
+        taskService.resolveTask(task.getId());
+        FmTaskAssignmentSnapshot snapshot = recordDelegationSnapshot(
+                tenantId, process, task, formData, account, owner,
+                "ADD_SIGN_COMPLETE", now);
+        auditLogicService.recordTaskAction(
+                tenantId, process.getProcessInstanceId(), task.getId(),
+                task.getTaskDefinitionKey(), "ADD_SIGN_COMPLETE",
+                "RETURNED_TO:" + owner.getAccount(), account,
+                formData.getOwnerAccount(), request.comment(), null,
+                formData, snapshot, now);
+        return success(new FmTaskActionResultView(
+                task.getId(), "ADD_SIGN_COMPLETE",
+                process.getProcessInstanceId(), "RUNNING"));
     }
 
     private String executeAction(
@@ -540,6 +637,21 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         }
     }
 
+    private void ensureAddSignAllowed(Task task, FmTaskPolicy policy)
+            throws ServiceException {
+        if (!"Y".equals(policy.getAllowAddSign())) {
+            throw new ServiceException("此節點不允許加簽");
+        }
+        if (DelegationState.PENDING.equals(task.getDelegationState())) {
+            throw new ServiceException("代理或加簽中的工作不可再次加簽");
+        }
+    }
+
+    private boolean addSignTask(Task task) {
+        return Boolean.TRUE.equals(taskService.getVariableLocal(
+                task.getId(), VARIABLE_ADD_SIGN));
+    }
+
     private FmEmployee activeEmployee(
             String tenantId, String account, Date now) throws ServiceException {
         Map<String, Object> parameters = new HashMap<>();
@@ -583,15 +695,19 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 && !redelegationAllowed(tenantId, process, task, account, now)) {
             return List.of();
         }
-        return activeDelegations(tenantId, process, account, now).stream()
+        return activeDelegations(tenantId, process, task, account, now).stream()
                 .map(value -> new FmOptionView(
                         value.getDelegationId(), value.getDelegateAccount()))
                 .toList();
     }
 
     private List<FmWorkflowDelegation> activeDelegations(
-            String tenantId, FmProcessInstance process,
+            String tenantId, FmProcessInstance process, Task task,
             String principalAccount, Date now) {
+        List<FmTaskAssignmentRule> assignmentRules =
+                assignmentRuleService.findByVersion(
+                        tenantId, process.getProcessDefId(),
+                        process.getProcessVersionNo());
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);
         parameters.put("principalAccount", principalAccount);
@@ -602,7 +718,9 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                         || !value.getEffectiveFrom().after(now))
                 .filter(value -> value.getEffectiveTo() == null
                         || value.getEffectiveTo().after(now))
-                .filter(value -> delegationApplies(value, process))
+                .filter(value -> delegationScopeEvaluator.applies(
+                        value, process.getProcessDefId(),
+                        task.getTaskDefinitionKey(), assignmentRules))
                 .toList();
     }
 
@@ -617,20 +735,19 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         parameters.put("principalAccount", task.getOwner());
         parameters.put("delegateAccount", delegateAccount);
         parameters.put("status", "ACTIVE");
+        List<FmTaskAssignmentRule> assignmentRules =
+                assignmentRuleService.findByVersion(
+                        tenantId, process.getProcessDefId(),
+                        process.getProcessVersionNo());
         return workflowDelegationService.selectListByParams(parameters).getValue().stream()
                 .anyMatch(value -> "Y".equals(value.getAllowRedelegate())
                         && (value.getEffectiveFrom() == null
                                 || !value.getEffectiveFrom().after(now))
                         && (value.getEffectiveTo() == null
                                 || value.getEffectiveTo().after(now))
-                        && delegationApplies(value, process));
-    }
-
-    private boolean delegationApplies(
-            FmWorkflowDelegation delegation, FmProcessInstance process) {
-        return "ALL".equals(delegation.getScopeType())
-                || ("PROCESS".equals(delegation.getScopeType())
-                        && process.getProcessDefId().equals(delegation.getScopeRefId()));
+                        && delegationScopeEvaluator.applies(
+                                value, process.getProcessDefId(),
+                                task.getTaskDefinitionKey(), assignmentRules));
     }
 
     private FmTaskAssignmentSnapshot recordDelegationSnapshot(
