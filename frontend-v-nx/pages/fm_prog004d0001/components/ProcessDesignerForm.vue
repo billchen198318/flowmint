@@ -678,6 +678,7 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="CANDIDATE">候選人承接</option>
                       <option value="ALL">全員會簽</option>
                       <option value="SEQUENTIAL">依序簽核</option>
+                      <option value="APPLICANT_CORRECTION">申請人補件</option>
                     </select>
                   </div>
                   <div class="mb-3">
@@ -748,7 +749,7 @@ onBeforeUnmount(() => modeler?.destroy());
                     </div>
                   </div>
                 </template>
-                <template v-if="selectedAssignmentRule">
+                <template v-if="selectedAssignmentRule && selectedTaskPolicy?.assignmentMode !== 'APPLICANT_CORRECTION'">
                   <hr />
                   <h6>簽核人規則</h6>
                   <div class="mb-3">

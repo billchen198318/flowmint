@@ -24,6 +24,7 @@ import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.qifu.fm.dto.view.FmTaskHistoryView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
+import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormVersion;
@@ -58,7 +59,7 @@ import tools.jackson.databind.ObjectMapper;
 public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService {
 
     private static final Set<String> ACTION_TYPES = Set.of(
-            "APPROVE", "REJECT", "RETURN");
+            "APPROVE", "REJECT", "RETURN", "RESUBMIT");
 
     private final TaskService taskService;
     private final RuntimeService runtimeService;
@@ -74,6 +75,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final IFmTaskActionService taskActionService;
     private final IFmTaskAssignmentSnapshotService assignmentSnapshotService;
     private final IFmRuntimeAuditLogicService auditLogicService;
+    private final FmFormSubmissionValidator formSubmissionValidator;
     private final ObjectMapper objectMapper;
 
     public FmTaskRuntimeLogicServiceImpl(
@@ -91,6 +93,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             IFmTaskActionService taskActionService,
             IFmTaskAssignmentSnapshotService assignmentSnapshotService,
             IFmRuntimeAuditLogicService auditLogicService,
+            FmFormSubmissionValidator formSubmissionValidator,
             ObjectMapper objectMapper) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
@@ -106,6 +109,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.taskActionService = taskActionService;
         this.assignmentSnapshotService = assignmentSnapshotService;
         this.auditLogicService = auditLogicService;
+        this.formSubmissionValidator = formSubmissionValidator;
         this.objectMapper = objectMapper;
     }
 
@@ -145,10 +149,11 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 formVersion.getUiSchemaContent(),
                 formVersion.getCustomScriptContent(),
                 parseData(formData.getDataContent()),
+                "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()),
                 "Y".equals(policy.getAllowReject()),
                 "Y".equals(policy.getAllowReturn()),
                 policy.getCommentRequired(),
-                historyTargets(process.getProcessInstanceId(), task.getTaskDefinitionKey()),
+                returnTargets(process, task.getTaskDefinitionKey()),
                 actionHistory(tenantId, process.getProcessInstanceId())));
     }
 
@@ -166,6 +171,13 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 task.getTaskDefinitionKey());
         claimIfRequired(task, account);
         Date now = new Date();
+        if ("RESUBMIT".equals(request.actionType())) {
+            resubmitForm(request, formData, formVersion(
+                    tenantId, taskFormRule(process, task.getTaskDefinitionKey())), account, now);
+            runtimeService.setVariable(process.getProcessInstanceId(),
+                    org.qifu.fm.flowable.FmTaskAssignmentListener.VARIABLE_FORM_DATA,
+                    request.formData());
+        }
         FmTaskAssignmentSnapshot assignmentSnapshot = latestAssignmentSnapshot(
                 tenantId, task.getId());
         auditLogicService.recordTaskAction(
@@ -213,11 +225,16 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             updateFormStatus(formData, "REJECTED", account, now);
             return "REJECTED";
         }
+        if ("RESUBMIT".equals(request.actionType())) {
+            taskService.complete(task.getId());
+            return "RUNNING";
+        }
         runtimeService.createChangeActivityStateBuilder()
                 .processInstanceId(process.getProcessInstanceId())
                 .moveActivityIdTo(
                         task.getTaskDefinitionKey(), request.targetTaskDefKey())
                 .changeState();
+        updateFormStatus(formData, "RETURNED", account, now);
         return "RUNNING";
     }
 
@@ -237,6 +254,11 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             String currentTaskDefKey) throws ServiceException {
         boolean reject = "REJECT".equals(request.actionType());
         boolean returning = "RETURN".equals(request.actionType());
+        boolean resubmit = "RESUBMIT".equals(request.actionType());
+        boolean correctionTask = "APPLICANT_CORRECTION".equals(policy.getAssignmentMode());
+        if (resubmit != correctionTask) {
+            throw new ServiceException("只有申請人補件節點可以重新送出表單");
+        }
         if (reject && !"Y".equals(policy.getAllowReject())) {
             throw new ServiceException("此節點不允許駁回");
         }
@@ -253,13 +275,25 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             throw new ServiceException("駁回或退回必須填寫理由");
         }
         if (returning) {
-            boolean validTarget = historyTargets(processInstanceId, currentTaskDefKey)
+            boolean validTarget = correctionTargets(policy.getTenantId(),
+                    policy.getProcessDefId(), policy.getProcessVersionNo(), currentTaskDefKey)
                     .stream().anyMatch(value -> value.taskDefKey()
                             .equals(request.targetTaskDefKey()));
             if (!validTarget) {
                 throw new ServiceException("退回目標不是已完成的前置 User Task");
             }
         }
+    }
+
+    private void resubmitForm(FmTaskActionRequest request, FmFormData formData,
+            FmFormVersion formVersion, String account, Date now) throws ServiceException {
+        formSubmissionValidator.validate(formVersion.getSchemaContent(), request.formData());
+        formData.setDataContent(objectMapper.writeValueAsString(request.formData()));
+        formData.setRevisionNo(formData.getRevisionNo() + 1);
+        formData.setDataStatus("SUBMITTED");
+        formData.setUuserid(account);
+        formData.setUdate(now);
+        formDataService.update(formData);
     }
 
     private Task authorizedTask(String taskId, String account) throws ServiceException {
@@ -400,6 +434,22 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         return List.copyOf(values.values());
     }
 
+    private List<FmTaskHistoryView> returnTargets(
+            FmProcessInstance process, String currentTaskDefKey) {
+        return correctionTargets(process.getTenantId(), process.getProcessDefId(),
+                process.getProcessVersionNo(), currentTaskDefKey);
+    }
+
+    private List<FmTaskHistoryView> correctionTargets(String tenantId,
+            String processDefId, Integer versionNo, String currentTaskDefKey) {
+        return taskPolicyService.findByVersion(tenantId, processDefId, versionNo).stream()
+                .filter(value -> !currentTaskDefKey.equals(value.getTaskDefKey()))
+                .filter(value -> "APPLICANT_CORRECTION".equals(value.getAssignmentMode()))
+                .map(value -> new FmTaskHistoryView(value.getTaskDefKey(),
+                        value.getTaskName(), null, null, null))
+                .toList();
+    }
+
     private List<FmTaskActionView> actionHistory(
             String tenantId, String processInstanceId) {
         Map<String, Object> parameters = new HashMap<>();
@@ -461,6 +511,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             case "APPROVE" -> "APPROVED";
             case "REJECT" -> "REJECTED";
             case "RETURN" -> "RETURNED";
+            case "RESUBMIT" -> "RESUBMITTED";
             default -> actionType;
         };
     }

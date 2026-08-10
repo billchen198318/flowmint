@@ -16,7 +16,7 @@ const detail = ref<any>(null);
 const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const acting = ref(false);
-const actionType = ref<"APPROVE" | "RETURN" | "REJECT">("APPROVE");
+const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT">("APPROVE");
 const comment = ref("");
 const reason = ref("");
 const targetTaskDefKey = ref("");
@@ -51,7 +51,7 @@ const renderForm = async () => {
   formInstance = await Formio.createForm(
     formHost.value,
     JSON.parse(detail.value.schemaContent || "{}"),
-    { readOnly: true, noAlerts: true, noDefaultSubmitButton: true },
+    { readOnly: !detail.value.correctionTask, noAlerts: true, noDefaultSubmitButton: true },
   );
   formInstance.submission = { data: detail.value.formData || {} };
   let uiSchema: any = { engine: "FORMIO", version: 1 };
@@ -85,6 +85,7 @@ const load = async () => {
       return;
     }
     detail.value = response.value;
+    actionType.value = response.value?.correctionTask ? "RESUBMIT" : "APPROVE";
     targetTaskDefKey.value = response.value?.returnTargets?.[0]?.taskDefKey || "";
     await renderForm();
   } finally {
@@ -94,7 +95,7 @@ const load = async () => {
 const submitAction = async () => {
   const commentRequired = detail.value?.commentRequired === "ALWAYS"
     || (detail.value?.commentRequired === "ON_REJECT_RETURN"
-      && actionType.value !== "APPROVE");
+      && (actionType.value === "REJECT" || actionType.value === "RETURN"));
   if (commentRequired && !comment.value.trim()) {
     toast.warning("此簽核動作必須填寫意見");
     return;
@@ -109,12 +110,16 @@ const submitAction = async () => {
   }
   acting.value = true;
   try {
+    const editedFormData = actionType.value === "RESUBMIT"
+      ? (await formInstance?.submit?.())?.data
+      : null;
     const response: any = await post("/tasks/action", {
       taskId: route.params.id,
       actionType: actionType.value,
       comment: comment.value,
       reason: reason.value,
       targetTaskDefKey: actionType.value === "RETURN" ? targetTaskDefKey.value : null,
+      formData: editedFormData,
     });
     if (!ok(response)) {
       toast.warning(response?.message || "簽核處理失敗");
@@ -180,9 +185,12 @@ onBeforeUnmount(() => void destroyForm());
             <div class="card-header bg-white py-3"><strong>簽核處理</strong></div>
             <div class="card-body">
               <div class="d-grid gap-2 mb-3">
+                <button v-if="detail.correctionTask" type="button" class="btn btn-primary" @click="actionType = 'RESUBMIT'">重新送出</button>
+                <template v-else>
                 <button type="button" :class="['btn', actionType === 'APPROVE' ? 'btn-success' : 'btn-outline-success']" @click="actionType = 'APPROVE'">核准</button>
                 <button v-if="detail.allowReturn" type="button" :class="['btn', actionType === 'RETURN' ? 'btn-warning' : 'btn-outline-warning']" @click="actionType = 'RETURN'">退回</button>
                 <button v-if="detail.allowReject" type="button" :class="['btn', actionType === 'REJECT' ? 'btn-danger' : 'btn-outline-danger']" @click="actionType = 'REJECT'">駁回</button>
+                </template>
               </div>
               <div v-if="actionType === 'RETURN'" class="mb-3">
                 <label class="form-label">退回節點</label>
@@ -195,7 +203,7 @@ onBeforeUnmount(() => void destroyForm());
                 <label class="form-label">簽核意見</label>
                 <textarea v-model="comment" rows="4" class="form-control"></textarea>
               </div>
-              <div v-if="actionType !== 'APPROVE'" class="mb-3">
+              <div v-if="actionType !== 'APPROVE' && actionType !== 'RESUBMIT'" class="mb-3">
                 <label class="form-label">理由 *</label>
                 <textarea v-model="reason" rows="3" class="form-control"></textarea>
               </div>

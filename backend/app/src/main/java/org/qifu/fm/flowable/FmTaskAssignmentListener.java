@@ -61,6 +61,18 @@ public class FmTaskAssignmentListener implements TaskListener {
         try {
             RuntimeContext context = context(task);
             FmTaskPolicy policy = policy(context, task.getTaskDefinitionKey());
+            if ("APPLICANT_CORRECTION".equals(policy.getAssignmentMode())) {
+                task.setAssignee(context.initiatorAccount());
+                runtimeAuditService.recordAssignmentSnapshot(
+                        new FmAssignmentSnapshotCommand(
+                                context.tenantId(), context.formDataId(),
+                                task.getProcessInstanceId(), task.getId(),
+                                task.getTaskDefinitionKey(), "APPLICANT",
+                                context.initiatorAccount(), context.initiatorOrgUnitId(),
+                                "{\"source\":\"FORM_OWNER\"}", "ASSIGNEE", List.of()),
+                        new Date());
+                return;
+            }
             ResolvedAssignment resolved = resolveAssignment(
                     context,
                     task.getTaskDefinitionKey());

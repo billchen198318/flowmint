@@ -12,6 +12,7 @@ public record FmTaskDetailView(
         String uiSchemaContent,
         String customScriptContent,
         Map<String, Object> formData,
+        boolean correctionTask,
         boolean allowReject,
         boolean allowReturn,
         String commentRequired,

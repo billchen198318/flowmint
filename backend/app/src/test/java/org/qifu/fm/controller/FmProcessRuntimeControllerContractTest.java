@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.qifu.fm.dto.command.FmProcessSubmitRequest;
+import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -68,5 +69,15 @@ class FmProcessRuntimeControllerContractTest {
 				.map(org.springframework.web.bind.annotation.RequestHeader::value)
 				.collect(Collectors.toSet());
 		assertEquals(Set.of("X-FlowMint-Tenant", "Idempotency-Key"), headers);
+	}
+
+	@Test
+	void taskActionSupportsValidatedFormResubmission() {
+		Set<String> components = Arrays.stream(FmTaskActionRequest.class
+				.getRecordComponents())
+				.map(component -> component.getName())
+				.collect(Collectors.toSet());
+		assertEquals(Set.of("taskId", "actionType", "comment", "reason",
+				"targetTaskDefKey", "formData"), components);
 	}
 }

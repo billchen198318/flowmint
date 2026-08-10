@@ -672,7 +672,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 || StringUtils.isAnyBlank(command.taskDefKey(), command.taskName())
                 || !taskKeys.contains(command.taskDefKey())
                 || !submittedKeys.add(command.taskDefKey())
-                || !Set.of("ASSIGNEE", "CANDIDATE", "ALL", "SEQUENTIAL")
+                || !Set.of("ASSIGNEE", "CANDIDATE", "ALL", "SEQUENTIAL",
+                        "APPLICANT_CORRECTION")
                         .contains(command.assignmentMode())
                 || !Set.of("ALLOW", "SKIP_TO_NEXT", "REQUIRE_ALTERNATE", "INCIDENT")
                         .contains(command.selfApprovalPolicy())
@@ -802,7 +803,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private void validateTaskPoliciesForPublish(
             FmProcessVersion version,
             Set<String> taskKeys) throws ServiceException {
-        Set<String> policyKeys = taskPolicies(version).stream()
+        List<FmTaskPolicy> policies = taskPolicies(version);
+        Set<String> policyKeys = policies.stream()
                 .map(FmTaskPolicy::getTaskDefKey)
                 .collect(Collectors.toSet());
         for (String taskKey : taskKeys) {
@@ -811,11 +813,23 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         "User Task「" + taskKey + "」尚未設定 Task Policy");
             }
         }
+        boolean hasCorrectionTask = policies.stream().anyMatch(policy ->
+                "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()));
+        if (!hasCorrectionTask && policies.stream()
+                .anyMatch(policy -> "Y".equals(policy.getAllowReturn()))) {
+            throw new ServiceException("流程允許退回時，必須至少設定一個申請人補件節點");
+        }
         Map<String, Long> activeRuleCounts = assignmentRules(version).stream()
                 .filter(rule -> "ACTIVE".equals(rule.getStatus()))
                 .collect(Collectors.groupingBy(FmTaskAssignmentRule::getTaskDefKey,
                         Collectors.counting()));
         for (String taskKey : taskKeys) {
+            boolean correctionTask = policies.stream()
+                    .anyMatch(policy -> taskKey.equals(policy.getTaskDefKey())
+                            && "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()));
+            if (correctionTask) {
+                continue;
+            }
             if (activeRuleCounts.getOrDefault(taskKey, 0L) < 1) {
                 throw new ServiceException(
                         "User Task " + taskKey + " 尚未設定啟用的簽核人規則");
