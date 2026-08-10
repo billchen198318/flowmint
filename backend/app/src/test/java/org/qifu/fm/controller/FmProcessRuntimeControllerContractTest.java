@@ -15,6 +15,7 @@ import org.qifu.fm.dto.command.FmProcessSubmitRequest;
 import org.qifu.fm.dto.command.FmRequestCancelRequest;
 import org.qifu.fm.dto.command.FmRequestWithdrawRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -40,6 +41,8 @@ class FmProcessRuntimeControllerContractTest {
 				"/tasks/inbox",
 				"/tasks/load",
 				"/tasks/action",
+				"/tasks/transfer",
+				"/tasks/transfer-options",
 				"/mine",
 				"/mine/cancel",
 				"/mine/load",
@@ -101,5 +104,15 @@ class FmProcessRuntimeControllerContractTest {
 				.map(component -> component.getName())
 				.collect(Collectors.toSet());
 		assertEquals(Set.of("processInstanceId", "reason"), components);
+	}
+
+	@Test
+	void transferBodyCannotOverrideTenantOrActor() {
+		Set<String> components = Arrays.stream(FmTaskTransferRequest.class
+				.getRecordComponents())
+				.map(component -> component.getName())
+				.collect(Collectors.toSet());
+		assertEquals(Set.of("taskId", "targetAccount", "comment", "reason"),
+				components);
 	}
 }

@@ -13,12 +13,18 @@ import org.flowable.engine.HistoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
+import org.flowable.identitylink.api.IdentityLink;
+import org.flowable.identitylink.api.IdentityLinkType;
 import org.flowable.task.api.history.HistoricTaskInstance;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
+import org.qifu.fm.dto.command.FmTaskTransferRequest;
+import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
@@ -26,6 +32,7 @@ import org.qifu.fm.dto.view.FmTaskHistoryView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
 import org.qifu.fm.entity.FmFormData;
+import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmProcessDef;
@@ -38,6 +45,7 @@ import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.logic.IFmTaskRuntimeLogicService;
 import org.qifu.fm.service.IFmFormDataService;
+import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmFormDefService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmProcessDefService;
@@ -68,6 +76,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessDefService processDefService;
     private final IFmFormDataService formDataService;
+    private final IFmEmployeeService employeeService;
     private final IFmFormDefService formDefService;
     private final IFmFormVersionService formVersionService;
     private final IFmTaskFormRuleService taskFormRuleService;
@@ -86,6 +95,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             IFmProcessInstanceService processInstanceService,
             IFmProcessDefService processDefService,
             IFmFormDataService formDataService,
+            IFmEmployeeService employeeService,
             IFmFormDefService formDefService,
             IFmFormVersionService formVersionService,
             IFmTaskFormRuleService taskFormRuleService,
@@ -102,6 +112,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.processInstanceService = processInstanceService;
         this.processDefService = processDefService;
         this.formDataService = formDataService;
+        this.employeeService = employeeService;
         this.formDefService = formDefService;
         this.formVersionService = formVersionService;
         this.taskFormRuleService = taskFormRuleService;
@@ -152,6 +163,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()),
                 "Y".equals(policy.getAllowReject()),
                 "Y".equals(policy.getAllowReturn()),
+                "Y".equals(policy.getAllowTransfer()),
                 policy.getCommentRequired(),
                 returnTargets(process, task.getTaskDefinitionKey()),
                 actionHistory(tenantId, process.getProcessInstanceId())));
@@ -198,6 +210,95 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         return success(new FmTaskActionResultView(
                 task.getId(), request.actionType(),
                 process.getProcessInstanceId(), status));
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> transferOptions(
+            String tenantId, String taskId) throws ServiceException {
+        String account = currentAccount(tenantId);
+        Task task = authorizedTask(taskId, account);
+        FmProcessInstance process = requiredProcess(
+                tenantId, task.getProcessInstanceId());
+        ensureTransferAllowed(taskPolicy(process, task.getTaskDefinitionKey()));
+        Date now = new Date();
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        List<FmOptionView> values = employeeService.selectListByParams(
+                parameters, "EMPLOYEE_NO", "ASC").getValue().stream()
+                .filter(employee -> !account.equals(employee.getAccount()))
+                .filter(employee -> effective(employee, now))
+                .filter(employee -> activeTenantAccount(
+                        tenantId, employee.getAccount(), now))
+                .map(employee -> new FmOptionView(
+                        employee.getAccount(),
+                        employee.getEmployeeNo() + " - " + employee.getDisplayName()))
+                .toList();
+        return success(values);
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmTaskActionResultView> transfer(
+            String tenantId, FmTaskTransferRequest request) throws ServiceException {
+        if (request == null || StringUtils.isAnyBlank(
+                request.taskId(), request.targetAccount(), request.reason())) {
+            throw new ServiceException("Task、轉派對象與原因不可為空");
+        }
+        if (request.reason().trim().length() > 1000) {
+            throw new ServiceException("轉派原因不可超過 1000 字");
+        }
+        String account = currentAccount(tenantId);
+        String targetAccount = request.targetAccount().trim();
+        if (account.equals(targetAccount)) {
+            throw new ServiceException("不可將待辦轉派給自己");
+        }
+        Task task = authorizedTask(request.taskId(), account);
+        FmProcessInstance process = requiredProcess(
+                tenantId, task.getProcessInstanceId());
+        FmTaskPolicy policy = taskPolicy(process, task.getTaskDefinitionKey());
+        ensureTransferAllowed(policy);
+        Date now = new Date();
+        FmEmployee target = activeEmployee(
+                tenantId, targetAccount, now);
+        claimIfRequired(task, account);
+        clearCandidateLinks(task.getId());
+        taskService.setAssignee(task.getId(), target.getAccount());
+        FmFormData formData = requiredFormData(
+                tenantId, process.getFormDataId());
+        String snapshotId = auditLogicService.recordAssignmentSnapshot(
+                new FmAssignmentSnapshotCommand(
+                        tenantId,
+                        formData.getFormDataId(),
+                        process.getProcessInstanceId(),
+                        task.getId(),
+                        task.getTaskDefinitionKey(),
+                        "TRANSFER",
+                        account,
+                        null,
+                        "TRANSFER_FROM:" + account,
+                        "ASSIGNEE",
+                        List.of(new FmResolverCandidateView(
+                                target.getEmployeeId(), target.getAccount(),
+                                target.getDisplayName()))),
+                now);
+        auditLogicService.recordTaskAction(
+                tenantId,
+                process.getProcessInstanceId(),
+                task.getId(),
+                task.getTaskDefinitionKey(),
+                "TRANSFER",
+                "TRANSFERRED_TO:" + target.getAccount(),
+                account,
+                formData.getOwnerAccount(),
+                request.comment(),
+                request.reason().trim(),
+                formData,
+                assignmentSnapshot(tenantId, snapshotId),
+                now);
+        return success(new FmTaskActionResultView(
+                task.getId(), "TRANSFER",
+                process.getProcessInstanceId(), "RUNNING"));
     }
 
     private String executeAction(
@@ -314,6 +415,20 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         }
     }
 
+    private void clearCandidateLinks(String taskId) {
+        for (IdentityLink link : taskService.getIdentityLinksForTask(taskId)) {
+            if (!IdentityLinkType.CANDIDATE.equals(link.getType())) {
+                continue;
+            }
+            if (StringUtils.isNotBlank(link.getUserId())) {
+                taskService.deleteCandidateUser(taskId, link.getUserId());
+            }
+            if (StringUtils.isNotBlank(link.getGroupId())) {
+                taskService.deleteCandidateGroup(taskId, link.getGroupId());
+            }
+        }
+    }
+
     private String currentAccount(String tenantId) throws ServiceException {
         String account = UserUtils.getCurrentUser().getUsername();
         Map<String, Object> parameters = new HashMap<>();
@@ -331,6 +446,48 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             throw new ServiceException("目前帳號不屬於指定 Tenant");
         }
         return account;
+    }
+
+    private void ensureTransferAllowed(FmTaskPolicy policy) throws ServiceException {
+        if (!"Y".equals(policy.getAllowTransfer())) {
+            throw new ServiceException("此節點不允許轉派");
+        }
+    }
+
+    private FmEmployee activeEmployee(
+            String tenantId, String account, Date now) throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("account", account);
+        parameters.put("status", "ACTIVE");
+        FmEmployee employee = employeeService.selectListByParams(parameters)
+                .getValue().stream()
+                .filter(value -> effective(value, now))
+                .findFirst().orElseThrow(() ->
+                        new ServiceException("轉派對象不是有效員工"));
+        if (!activeTenantAccount(tenantId, account, now)) {
+            throw new ServiceException("轉派對象不具有效 Tenant membership");
+        }
+        return employee;
+    }
+
+    private boolean effective(FmEmployee employee, Date now) {
+        return (employee.getEffectiveFrom() == null
+                || !employee.getEffectiveFrom().after(now))
+                && (employee.getEffectiveTo() == null
+                        || employee.getEffectiveTo().after(now));
+    }
+
+    private boolean activeTenantAccount(String tenantId, String account, Date now) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("account", account);
+        parameters.put("status", "ACTIVE");
+        return tenantAccountService.selectListByParams(parameters).getValue().stream()
+                .anyMatch(value -> (value.getEffectiveFrom() == null
+                        || !value.getEffectiveFrom().after(now))
+                        && (value.getEffectiveTo() == null
+                                || value.getEffectiveTo().after(now)));
     }
 
     private FmTaskInboxView inboxView(Task task, FmProcessInstance process)
@@ -475,6 +632,16 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         return assignmentSnapshotService.selectListByParams(
                 parameters, "RESOLVED_DATE", "DESC").getValue().stream()
                 .findFirst().orElse(null);
+    }
+
+    private FmTaskAssignmentSnapshot assignmentSnapshot(
+            String tenantId, String assignmentSnapshotId) throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("assignmentSnapshotId", assignmentSnapshotId);
+        return assignmentSnapshotService.selectListByParams(parameters).getValue().stream()
+                .findFirst().orElseThrow(() ->
+                        new ServiceException("轉派指派快照建立失敗"));
     }
 
     private Map<String, Object> parseData(String content) throws ServiceException {

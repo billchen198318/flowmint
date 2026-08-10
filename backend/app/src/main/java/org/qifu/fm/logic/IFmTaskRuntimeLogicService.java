@@ -5,9 +5,11 @@ import java.util.List;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
+import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
+import org.qifu.fm.dto.view.FmOptionView;
 
 public interface IFmTaskRuntimeLogicService {
 
@@ -19,4 +21,10 @@ public interface IFmTaskRuntimeLogicService {
 
     DefaultResult<FmTaskActionResultView> action(
             String tenantId, FmTaskActionRequest request) throws ServiceException;
+
+    DefaultResult<List<FmOptionView>> transferOptions(
+            String tenantId, String taskId) throws ServiceException;
+
+    DefaultResult<FmTaskActionResultView> transfer(
+            String tenantId, FmTaskTransferRequest request) throws ServiceException;
 }

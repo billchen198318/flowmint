@@ -16,10 +16,12 @@ const detail = ref<any>(null);
 const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const acting = ref(false);
-const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT">("APPROVE");
+const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER">("APPROVE");
 const comment = ref("");
 const reason = ref("");
 const targetTaskDefKey = ref("");
+const targetAccount = ref("");
+const transferOptions = ref<any[]>([]);
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
@@ -87,6 +89,12 @@ const load = async () => {
     detail.value = response.value;
     actionType.value = response.value?.correctionTask ? "RESUBMIT" : "APPROVE";
     targetTaskDefKey.value = response.value?.returnTargets?.[0]?.taskDefKey || "";
+    if (response.value?.allowTransfer) {
+      const options: any = await post("/tasks/transfer-options", {
+        taskId: route.params.id,
+      });
+      if (ok(options)) transferOptions.value = options.value || [];
+    }
     await renderForm();
   } finally {
     loading.value = false;
@@ -108,19 +116,30 @@ const submitAction = async () => {
     toast.warning("請選擇退回節點");
     return;
   }
+  if (actionType.value === "TRANSFER" && !targetAccount.value) {
+    toast.warning("請選擇轉派對象");
+    return;
+  }
   acting.value = true;
   try {
     const editedFormData = actionType.value === "RESUBMIT"
       ? (await formInstance?.submit?.())?.data
       : null;
-    const response: any = await post("/tasks/action", {
-      taskId: route.params.id,
-      actionType: actionType.value,
-      comment: comment.value,
-      reason: reason.value,
-      targetTaskDefKey: actionType.value === "RETURN" ? targetTaskDefKey.value : null,
-      formData: editedFormData,
-    });
+    const response: any = actionType.value === "TRANSFER"
+      ? await post("/tasks/transfer", {
+          taskId: route.params.id,
+          targetAccount: targetAccount.value,
+          comment: comment.value,
+          reason: reason.value,
+        })
+      : await post("/tasks/action", {
+          taskId: route.params.id,
+          actionType: actionType.value,
+          comment: comment.value,
+          reason: reason.value,
+          targetTaskDefKey: actionType.value === "RETURN" ? targetTaskDefKey.value : null,
+          formData: editedFormData,
+        });
     if (!ok(response)) {
       toast.warning(response?.message || "簽核處理失敗");
       return;
@@ -190,6 +209,14 @@ onBeforeUnmount(() => void destroyForm());
                 <button type="button" :class="['btn', actionType === 'APPROVE' ? 'btn-success' : 'btn-outline-success']" @click="actionType = 'APPROVE'">核准</button>
                 <button v-if="detail.allowReturn" type="button" :class="['btn', actionType === 'RETURN' ? 'btn-warning' : 'btn-outline-warning']" @click="actionType = 'RETURN'">退回</button>
                 <button v-if="detail.allowReject" type="button" :class="['btn', actionType === 'REJECT' ? 'btn-danger' : 'btn-outline-danger']" @click="actionType = 'REJECT'">駁回</button>
+                <button
+                  v-if="detail.allowTransfer"
+                  type="button"
+                  :class="['btn', actionType === 'TRANSFER' ? 'btn-info' : 'btn-outline-info']"
+                  @click="actionType = 'TRANSFER'"
+                >
+                  轉派
+                </button>
                 </template>
               </div>
               <div v-if="actionType === 'RETURN'" class="mb-3">
@@ -197,6 +224,19 @@ onBeforeUnmount(() => void destroyForm());
                 <select v-model="targetTaskDefKey" class="form-select">
                   <option value="">請選擇</option>
                   <option v-for="target in detail.returnTargets" :key="target.taskDefKey" :value="target.taskDefKey">{{ target.taskName }}</option>
+                </select>
+              </div>
+              <div v-if="actionType === 'TRANSFER'" class="mb-3">
+                <label class="form-label">轉派對象</label>
+                <select v-model="targetAccount" class="form-select">
+                  <option value="">請選擇</option>
+                  <option
+                    v-for="option in transferOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
                 </select>
               </div>
               <div class="mb-3">

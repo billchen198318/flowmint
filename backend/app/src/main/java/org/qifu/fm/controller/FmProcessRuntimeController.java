@@ -17,6 +17,7 @@ import org.qifu.fm.dto.command.FmRequestWithdrawRequest;
 import org.qifu.fm.dto.command.FmRequestCancelRequest;
 import org.qifu.fm.dto.command.FmTaskActionRequest;
 import org.qifu.fm.dto.command.FmTaskLoadRequest;
+import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.view.FmProcessStartCatalogView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
@@ -26,6 +27,7 @@ import org.qifu.fm.dto.view.FmRequestTrackView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
+import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
 import org.qifu.fm.logic.IFmRequestTrackingLogicService;
 import org.qifu.fm.logic.IFmTaskRuntimeLogicService;
@@ -163,6 +165,41 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 				initDefaultJsonResult();
 		try {
 			setDefaultResponseJsonResult(taskRuntimeLogicService.action(
+					tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/transfer-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> transferOptions(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskLoadRequest request) {
+		DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("轉派選項參數不可為空");
+			}
+			setDefaultResponseJsonResult(taskRuntimeLogicService.transferOptions(
+					tenantId, request.taskId()), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/transfer")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>> transfer(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmTaskTransferRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result =
+				initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("轉派參數不可為空");
+			}
+			setDefaultResponseJsonResult(taskRuntimeLogicService.transfer(
 					tenantId, request), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);

@@ -94,6 +94,8 @@ POST   /api/fm/requests/submit
 POST   /api/fm/requests/tasks/inbox
 POST   /api/fm/requests/tasks/load
 POST   /api/fm/requests/tasks/action
+POST   /api/fm/requests/tasks/transfer-options
+POST   /api/fm/requests/tasks/transfer
 POST   /api/fm/requests/mine
 POST   /api/fm/requests/mine/load
 POST   /api/fm/requests/mine/withdraw
@@ -109,6 +111,7 @@ POST   /api/fm/requests/mine/cancel
 - `tasks/inbox` 只回傳登入者為 assignee 或 candidate 的有效待辦；Tenant 與登入帳號不可由 body 覆寫。
 - `tasks/load` 回傳唯讀 Form.io 表單、送單資料、節點政策、合法退回目標及歷次稽核動作，並重新檢查 Task 權限。
 - `tasks/action` 首版接受 `APPROVE`、`RETURN`、`REJECT`。退回目標必須是同一流程已完成的前置 User Task；駁回會終止 Flowable instance；所有動作都建立不可變表單快照與 `fm_task_action`。
+- `tasks/transfer-options` 只對目前可處理且節點允許轉派的 Task 回傳同 Tenant 有效員工；`tasks/transfer` 會再次檢查 Task 權限、`ALLOW_TRANSFER`、目標員工與 Tenant membership，移除原候選人並設定新 assignee，同時建立 `TRANSFER` Action 與新的 Assignment Snapshot。
 - `mine` 回傳登入者本人申請或由登入者代發起的流程，包含狀態與目前 User Task 名稱。
 - `mine/load` 僅允許表單 Owner 或實際發起人查看，回傳完整 Action 軌跡及各次不可變表單快照。
 - `mine/withdraw` 僅允許表單 Owner 撤回 `RUNNING` 流程，原因必填；成功時終止 Flowable instance，將流程與表單狀態轉為 `CANCELLED`，並建立不可變 `WITHDRAW` 快照與 Action。
