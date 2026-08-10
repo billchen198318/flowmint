@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
@@ -24,6 +24,24 @@ const loading = ref(false);
 const submitting = ref(false);
 const result = ref<any>(null);
 const idempotencyKey = ref("");
+const activeTenant = computed(() => tenants.value.find(
+  (item: any) => item.tenantId === tenantId.value,
+));
+const runningRequests = computed(() => myRequests.value.filter(
+  (item: any) => item.instanceStatus === "RUNNING",
+));
+const completedRequests = computed(() => myRequests.value.filter(
+  (item: any) => item.instanceStatus === "COMPLETED",
+));
+const statCards = computed(() => [
+  { label: "我的待辦", value: inbox.value.length, icon: "bi-inbox", tone: "primary", anchor: "inbox" },
+  { label: "進行中", value: runningRequests.value.length, icon: "bi-hourglass-split", tone: "warning", anchor: "requests" },
+  { label: "已完成", value: completedRequests.value.length, icon: "bi-check2-circle", tone: "success", anchor: "requests" },
+  { label: "可發起流程", value: processes.value.length, icon: "bi-send-plus", tone: "info", anchor: "start" },
+]);
+const formatDate = (value: string | null) => value
+  ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
+  : "—";
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
@@ -189,154 +207,106 @@ onBeforeUnmount(() => void destroyForm());
 </script>
 
 <template>
-  <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+  <div class="container-fluid workspace-page">
+    <section class="workspace-hero mb-4">
       <div>
-        <h2 class="mb-1">工作台</h2>
-        <div class="text-muted">選擇您可發起的流程並填寫正式表單。</div>
+        <div class="eyebrow">FLOWMINT WORKSPACE</div>
+        <h1 class="h2 mb-2">我的工作台</h1>
+        <p class="mb-0 text-secondary">處理待辦、追蹤申請，或發起新的流程。</p>
       </div>
-      <span class="badge text-bg-light border">發起人：{{ baseStore.userId }}</span>
-    </div>
+      <div class="hero-context">
+        <span class="context-label">目前身分</span>
+        <strong>{{ baseStore.userId }}</strong>
+        <span v-if="activeTenant" class="context-tenant">{{ activeTenant.tenantName }}</span>
+      </div>
+    </section>
 
-    <div class="card mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <div>
-          <strong>我的待辦</strong>
-          <span class="badge rounded-pill text-bg-primary ms-2">{{ inbox.length }}</span>
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="loadInbox">
-          <i class="bi bi-arrow-clockwise"></i> 重新整理
-        </button>
+    <section class="row g-3 mb-4" aria-label="工作統計">
+      <div v-for="card in statCards" :key="card.label" class="col-6 col-xl-3">
+        <a :href="`#${card.anchor}`" class="stat-card text-decoration-none">
+          <span :class="['stat-icon', `tone-${card.tone}`]"><i :class="['bi', card.icon]"></i></span>
+          <span><small>{{ card.label }}</small><strong>{{ card.value }}</strong></span>
+        </a>
       </div>
-      <div v-if="inbox.length" class="list-group list-group-flush">
-        <NuxtLink
-          v-for="task in inbox"
-          :key="task.taskId"
-          :to="{ path: `/tasks/${task.taskId}`, query: { tenant: tenantId } }"
-          class="list-group-item list-group-item-action py-3"
-        >
-          <div class="d-flex justify-content-between gap-3">
-            <div>
-              <div class="fw-semibold">{{ task.processName }}・{{ task.taskName }}</div>
-              <div class="small text-muted mt-1">
-                申請人：{{ task.applicantAccount }}　流程編號：{{ task.businessKey }}
-              </div>
-            </div>
-            <i class="bi bi-chevron-right text-muted align-self-center"></i>
-          </div>
-        </NuxtLink>
-      </div>
-      <div v-else class="card-body text-center text-muted py-4">
-        <i class="bi bi-check2-circle fs-3 d-block mb-2"></i>
-        目前沒有待處理事項
-      </div>
-    </div>
+    </section>
 
-    <div class="card mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <div>
-          <strong>我的申請</strong>
-          <span class="badge rounded-pill text-bg-secondary ms-2">{{ myRequests.length }}</span>
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @click="loadMyRequests">
-          <i class="bi bi-arrow-clockwise"></i> 重新整理
-        </button>
-      </div>
-      <div v-if="myRequests.length" class="list-group list-group-flush">
-        <NuxtLink
-          v-for="request in myRequests.slice(0, 10)"
-          :key="request.processInstanceId"
-          :to="{ path: `/requests/${request.processInstanceId}`, query: { tenant: tenantId } }"
-          class="list-group-item list-group-item-action py-3"
-        >
-          <div class="d-flex justify-content-between align-items-center gap-3">
-            <div>
-              <div class="fw-semibold">{{ request.processName }}・{{ request.formName }}</div>
-              <div class="small text-muted mt-1">
-                申請人：{{ request.applicantAccount }}　目前節點：{{ request.currentTaskNames?.join('、') || '—' }}
-              </div>
-            </div>
-            <span :class="['badge', request.instanceStatus === 'RUNNING' ? 'text-bg-primary' : request.instanceStatus === 'COMPLETED' ? 'text-bg-success' : 'text-bg-secondary']">
-              {{ request.instanceStatus }}
-            </span>
+    <div class="row g-4">
+      <div class="col-12 col-xl-7">
+        <div id="inbox" class="card workspace-card mb-4">
+          <div class="card-header workspace-card-header">
+            <div><strong>我的待辦</strong><span class="count-pill ms-2">{{ inbox.length }}</span></div>
+            <button type="button" class="btn btn-sm btn-light" aria-label="重新整理待辦" @click="loadInbox"><i class="bi bi-arrow-clockwise"></i></button>
           </div>
-        </NuxtLink>
-      </div>
-      <div v-else class="card-body text-center text-muted py-4">
-        尚無申請紀錄
-      </div>
-    </div>
+          <div v-if="inbox.length" class="list-group list-group-flush">
+            <NuxtLink v-for="task in inbox.slice(0, 8)" :key="task.taskId"
+              :to="{ path: `/tasks/${task.taskId}`, query: { tenant: tenantId } }"
+              class="list-group-item list-group-item-action workspace-list-item">
+              <span class="list-icon tone-primary"><i class="bi bi-person-check"></i></span>
+              <span class="flex-grow-1 min-width-0">
+                <strong class="d-block text-truncate">{{ task.processName }} · {{ task.taskName }}</strong>
+                <small class="text-secondary">申請人 {{ task.applicantAccount }} · {{ task.businessKey }}</small>
+              </span>
+              <span class="text-end d-none d-md-block"><small class="text-secondary">{{ formatDate(task.createdDate) }}</small><i class="bi bi-chevron-right ms-3"></i></span>
+            </NuxtLink>
+          </div>
+          <div v-else class="empty-state"><i class="bi bi-check2-circle"></i><strong>待辦已清空</strong><span>目前沒有需要你處理的工作。</span></div>
+        </div>
 
-    <div class="card mb-4">
-      <div class="card-body">
-        <div class="row g-3 align-items-end">
-          <div class="col-lg-4">
-            <label class="form-label">公司</label>
-            <select v-model="tenantId" class="form-select">
-              <option value="">請選擇公司</option>
-              <option v-for="tenant in tenants" :key="tenant.tenantId" :value="tenant.tenantId">
-                {{ tenant.tenantName }}（{{ tenant.tenantCode }}）
-              </option>
-            </select>
+        <div id="requests" class="card workspace-card mb-4">
+          <div class="card-header workspace-card-header">
+            <div><strong>我的申請</strong><span class="count-pill ms-2">{{ myRequests.length }}</span></div>
+            <button type="button" class="btn btn-sm btn-light" aria-label="重新整理申請" @click="loadMyRequests"><i class="bi bi-arrow-clockwise"></i></button>
           </div>
-          <div class="col-lg-4">
-            <label class="form-label">申請人帳號</label>
-            <div class="input-group">
-              <input v-model.trim="applicantAccount" class="form-control" @keyup.enter="loadCatalog" />
-              <button type="button" class="btn btn-outline-secondary" @click="loadCatalog">套用</button>
-            </div>
-            <div class="form-text">替他人申請時，系統會檢查有效的代申請授權。</div>
+          <div v-if="myRequests.length" class="list-group list-group-flush">
+            <NuxtLink v-for="request in myRequests.slice(0, 10)" :key="request.processInstanceId"
+              :to="{ path: `/requests/${request.processInstanceId}`, query: { tenant: tenantId } }"
+              class="list-group-item list-group-item-action workspace-list-item">
+              <span class="list-icon tone-warning"><i class="bi bi-file-earmark-text"></i></span>
+              <span class="flex-grow-1 min-width-0">
+                <strong class="d-block text-truncate">{{ request.processName }} · {{ request.formName }}</strong>
+                <small class="text-secondary">{{ request.businessKey }} · {{ request.currentTaskNames?.join('、') || '流程已結束' }}</small>
+              </span>
+              <span :class="['status-pill', `status-${request.instanceStatus?.toLowerCase()}`]">{{ request.instanceStatus }}</span>
+            </NuxtLink>
           </div>
-          <div class="col-lg-4">
-            <label class="form-label">可發起流程</label>
-            <select v-model="processDefId" class="form-select" @change="loadStart">
-              <option value="">請選擇流程</option>
-              <option v-for="process in processes" :key="process.processDefId" :value="process.processDefId">
-                {{ process.processName }}（v{{ process.versionNo }}）
-              </option>
-            </select>
-          </div>
+          <div v-else class="empty-state"><i class="bi bi-journal-text"></i><strong>尚無申請紀錄</strong><span>從右側選擇流程開始第一筆申請。</span></div>
         </div>
-        <div v-if="!loading && tenantId && applicantAccount && !processes.length" class="alert alert-secondary mt-3 mb-0">
-          此申請人目前沒有可發起的流程。
+      </div>
+
+      <div class="col-12 col-xl-5">
+        <div id="start" class="card workspace-card start-card">
+          <div class="card-header workspace-card-header"><div><strong>發起新申請</strong><div class="small text-secondary mt-1">系統只顯示你實際有權限發起的流程</div></div></div>
+          <div class="card-body p-4">
+            <div class="mb-3"><label class="form-label">公司</label><select v-model="tenantId" class="form-select"><option value="">請選擇公司</option><option v-for="tenant in tenants" :key="tenant.tenantId" :value="tenant.tenantId">{{ tenant.tenantName }}（{{ tenant.tenantCode }}）</option></select></div>
+            <div class="mb-3"><label class="form-label">申請人帳號</label><div class="input-group"><input v-model.trim="applicantAccount" class="form-control" @keyup.enter="loadCatalog" /><button type="button" class="btn btn-outline-primary" @click="loadCatalog">套用</button></div><div class="form-text">代申請時，系統會重新驗證有效授權。</div></div>
+            <div><label class="form-label">流程</label><select v-model="processDefId" class="form-select" @change="loadStart"><option value="">請選擇流程</option><option v-for="process in processes" :key="process.processDefId" :value="process.processDefId">{{ process.processName }}（v{{ process.versionNo }}）</option></select></div>
+            <div v-if="!loading && tenantId && applicantAccount && !processes.length" class="empty-inline mt-3"><i class="bi bi-info-circle"></i>目前沒有可發起的流程。</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div v-if="loading" class="text-center py-5 text-muted">
-      <span class="spinner-border spinner-border-sm me-2"></span>載入中…
-    </div>
+    <div v-if="loading" class="text-center py-5 text-secondary"><span class="spinner-border spinner-border-sm me-2"></span>載入中</div>
 
-    <div v-if="startData" class="card">
-      <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <strong>{{ startData.processName }}</strong>
-        <select v-if="startData.forms?.length > 1" v-model="selectedForm" class="form-select form-select-sm form-selector">
-          <option v-for="item in startData.forms" :key="`${item.formId}:${item.formVersionNo}`" :value="item">
-            {{ item.formName }}（v{{ item.formVersionNo }}）
-          </option>
-        </select>
-        <span v-else class="text-muted small">{{ selectedForm?.formName }}</span>
-      </div>
-      <div class="card-body">
-        <div ref="formHost" class="runtime-form"></div>
-        <div class="d-flex justify-content-end mt-4">
-          <button type="button" class="btn btn-primary" :disabled="submitting || !!result" @click="submit">
-            <span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>
-            送出申請
-          </button>
-        </div>
-        <div v-if="result" class="alert alert-success mt-4 mb-0">
-          <strong>送出成功</strong>
-          <div>流程編號：{{ result.processInstanceId }}</div>
-          <div>表單資料編號：{{ result.formDataId }}</div>
-          <div>狀態：{{ result.instanceStatus }}</div>
-        </div>
-      </div>
+    <div v-if="startData" class="card workspace-card mt-4">
+      <div class="card-header workspace-card-header"><strong>{{ startData.processName }}</strong><select v-if="startData.forms?.length > 1" v-model="selectedForm" class="form-select form-select-sm form-selector"><option v-for="item in startData.forms" :key="`${item.formId}:${item.formVersionNo}`" :value="item">{{ item.formName }}（v{{ item.formVersionNo }}）</option></select><span v-else class="text-secondary small">{{ selectedForm?.formName }}</span></div>
+      <div class="card-body p-4"><div ref="formHost" class="runtime-form"></div><div class="d-flex justify-content-end mt-4"><button type="button" class="btn btn-primary px-4" :disabled="submitting || !!result" @click="submit"><span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>送出申請</button></div><div v-if="result" class="alert alert-success mt-4 mb-0"><strong>申請已送出</strong><div class="mt-2">流程編號：{{ result.processInstanceId }}</div><div>表單資料編號：{{ result.formDataId }}</div><div>狀態：{{ result.instanceStatus }}</div></div></div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.runtime-form { min-height: 160px; }
-.form-selector { width: min(100%, 360px); }
+.workspace-page { max-width: 1500px; padding-bottom: 3rem; color: #172033; }
+.workspace-hero { display: flex; justify-content: space-between; align-items: center; gap: 2rem; padding: 1.5rem 1.75rem; border: 1px solid #e3e9f2; border-radius: 1.25rem; background: linear-gradient(135deg, #fff 0%, #f4f8ff 58%, #edf7f5 100%); }
+.eyebrow { margin-bottom: .45rem; color: #4263eb; font-size: .72rem; font-weight: 800; letter-spacing: .14em; }
+.hero-context { display: grid; min-width: 210px; padding: .85rem 1rem; border-radius: .9rem; background: rgba(255,255,255,.82); box-shadow: 0 8px 24px rgba(31,45,61,.07); }
+.context-label { color: #788397; font-size: .72rem; }.context-tenant { color: #526076; font-size: .82rem; }
+.stat-card { display: flex; align-items: center; gap: 1rem; height: 100%; padding: 1.15rem; border: 1px solid #e5eaf1; border-radius: 1rem; background: #fff; color: inherit; box-shadow: 0 8px 26px rgba(35,49,72,.055); transition: transform .18s ease, box-shadow .18s ease; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(35,49,72,.1); }.stat-card small,.stat-card strong { display:block; }.stat-card small { color:#778296; }.stat-card strong { font-size:1.7rem; line-height:1.15; }
+.stat-icon,.list-icon { display:grid; place-items:center; flex:0 0 auto; border-radius:.8rem; }.stat-icon { width:46px; height:46px; font-size:1.2rem; }.list-icon { width:38px; height:38px; }
+.tone-primary { color:#3451b2; background:#eaf0ff; }.tone-warning { color:#9a6700; background:#fff3d6; }.tone-success { color:#18794e; background:#e9f9ef; }.tone-info { color:#087e8b; background:#e4f7f8; }
+.workspace-card { overflow:hidden; border:1px solid #e5eaf1; border-radius:1rem; box-shadow:0 8px 28px rgba(35,49,72,.055); }.workspace-card-header { display:flex; justify-content:space-between; align-items:center; min-height:64px; padding:.9rem 1.15rem; border-bottom:1px solid #edf0f5; background:#fff; }.count-pill { padding:.15rem .5rem; border-radius:999px; background:#eef2f8; color:#536178; font-size:.75rem; }
+.workspace-list-item { display:flex; align-items:center; gap:.9rem; padding:1rem 1.15rem; border-color:#edf0f5; }.min-width-0 { min-width:0; }.status-pill { flex:0 0 auto; padding:.28rem .55rem; border-radius:999px; font-size:.72rem; font-weight:700; background:#eef1f5; color:#5c6677; }.status-running { background:#eaf0ff; color:#3451b2; }.status-completed { background:#e9f9ef; color:#18794e; }.status-rejected { background:#fff0f0; color:#c52f2f; }
+.empty-state { display:flex; flex-direction:column; align-items:center; padding:2.5rem 1rem; color:#7a8699; }.empty-state i { margin-bottom:.5rem; font-size:2rem; }.empty-state strong { color:#4e5b70; }.empty-state span { margin-top:.25rem; font-size:.85rem; }.empty-inline { padding:.8rem; border-radius:.7rem; background:#f5f7fa; color:#68758a; font-size:.88rem; }.start-card { position:sticky; top:1rem; }.runtime-form { min-height:160px; }.form-selector { width:min(100%,360px); }
+@media (max-width: 767.98px) { .workspace-hero { align-items:flex-start; flex-direction:column; }.hero-context { width:100%; }.stat-card { padding:.9rem; }.stat-card strong { font-size:1.4rem; } }
 </style>
