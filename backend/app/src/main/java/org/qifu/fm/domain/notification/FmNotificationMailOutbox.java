@@ -19,6 +19,7 @@ import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmNotificationService;
 import org.qifu.util.SimpleUtils;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 @Component
 public class FmNotificationMailOutbox {
@@ -28,6 +29,7 @@ public class FmNotificationMailOutbox {
 	private final ISysMailHelperService<TbSysMailHelper, String> mailHelperService;
 	private final Supplier<String> defaultMailFrom;
 
+	@Autowired
 	public FmNotificationMailOutbox(
 			IFmEmployeeService employeeService,
 			IFmNotificationService notificationService,

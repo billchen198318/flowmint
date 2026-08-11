@@ -1,0 +1,55 @@
+-- FlowMint FM_PROG008D - 流程營運程式註冊
+-- 僅註冊實際存在的 UI 頁面，不配置角色權限，可重複執行。
+-- 匯入後請由 QIFU4 權限管理將 Query Program 授予 FLOWMINT_OPERATIONS。
+
+START TRANSACTION;
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG008D', 'FH. FlowMint 流程營運',
+       '/', 'N', 'N', 0, 0,
+       'CORE', 'FOLDER', 'ORGANIZATION', 'activity',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM tb_sys_prog WHERE PROG_ID = 'FM_PROG008D'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG008D0001Q', 'FH01 - 流程實例監控',
+       '#/operations/processes', 'N', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'diagram-3',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM tb_sys_prog WHERE PROG_ID = 'FM_PROG008D0001Q'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG008D0002Q', 'FH02 - 指派異常處理',
+       '#/operations/incidents', 'N', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'exclamation-triangle',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM tb_sys_prog WHERE PROG_ID = 'FM_PROG008D0002Q'
+);
+
+INSERT INTO tb_sys_prog
+    (OID, PROG_ID, NAME, URL, EDIT_MODE, IS_DIALOG, DIALOG_W, DIALOG_H,
+     PROG_SYSTEM, ITEM_TYPE, ICON, FONT_ICON_CLASS_ID,
+     CUSERID, CDATE, UUSERID, UDATE)
+SELECT UUID(), 'FM_PROG008D0004Q', 'FH04 - 流程營運報表',
+       '#/operations/reports', 'N', 'N', 0, 0,
+       'CORE', 'ITEM', 'ORGANIZATION', 'bar-chart-line',
+       'admin', CURRENT_TIMESTAMP, NULL, NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM tb_sys_prog WHERE PROG_ID = 'FM_PROG008D0004Q'
+);
+
+COMMIT;

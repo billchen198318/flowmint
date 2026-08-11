@@ -2,6 +2,7 @@ package org.qifu.fm.domain.notification;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
@@ -20,8 +21,27 @@ import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmNotification;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmNotificationService;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 class FmNotificationMailOutboxTest {
+
+	@Test
+	void springContextSelectsProductionConstructor() {
+		try (AnnotationConfigApplicationContext context =
+				new AnnotationConfigApplicationContext()) {
+			context.registerBean(IFmEmployeeService.class,
+					() -> mock(IFmEmployeeService.class));
+			context.registerBean(IFmNotificationService.class,
+					() -> mock(IFmNotificationService.class));
+			@SuppressWarnings("rawtypes")
+			Class<ISysMailHelperService> mailServiceType = ISysMailHelperService.class;
+			context.registerBean(mailServiceType,
+					() -> mock(ISysMailHelperService.class));
+			context.register(FmNotificationMailOutbox.class);
+			context.refresh();
+			assertNotNull(context.getBean(FmNotificationMailOutbox.class));
+		}
+	}
 
 	@Test
 	void writesQifuMailHelperForEmployeeWithEmail() throws Exception {
