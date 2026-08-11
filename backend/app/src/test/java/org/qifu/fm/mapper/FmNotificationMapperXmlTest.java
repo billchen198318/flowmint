@@ -23,6 +23,8 @@ class FmNotificationMapperXmlTest {
 		assertTrue(configuration.hasStatement(namespace + "markRead"));
 		assertTrue(configuration.hasStatement(namespace + "markAllRead"));
 		assertTrue(configuration.hasStatement(namespace + "insertIfAbsent"));
+		assertTrue(configuration.hasStatement(namespace + "findPendingEmail"));
+		assertTrue(configuration.hasStatement(namespace + "markDelivered"));
 	}
 
 	private void parse(Configuration configuration, String resource) throws Exception {

@@ -56,12 +56,14 @@ public class FmNotificationMailOutbox {
 			return false;
 		}
 		FmNotification emailNotification = emailNotification(source);
+		String mailDate = SimpleUtils.getStrYMD("");
+		String mailId = mailHelperService.findForMaxMailIdComplete(mailDate);
+		emailNotification.setProviderMessageId(mailId);
 		if (!notificationService.insertIfAbsent(emailNotification)) {
 			return false;
 		}
 		TbSysMailHelper mail = new TbSysMailHelper();
-		String mailDate = SimpleUtils.getStrYMD("");
-		mail.setMailId(mailHelperService.findForMaxMailIdComplete(mailDate));
+		mail.setMailId(mailId);
 		mail.setMailFrom(defaultMailFrom.get());
 		mail.setMailTo(employee.getEmail().trim());
 		mail.setSubject(source.getSubject());

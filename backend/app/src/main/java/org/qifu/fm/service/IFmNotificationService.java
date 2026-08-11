@@ -18,4 +18,9 @@ public interface IFmNotificationService extends IBaseService<FmNotification, Str
 	int markAllRead(String tenantId, String recipientAccount, Date readDate);
 
 	boolean insertIfAbsent(FmNotification notification);
+
+	List<FmNotification> findPendingEmail(int limit);
+
+	boolean markDelivered(String tenantId, String notificationId,
+			String providerMessageId, Date sentDate);
 }

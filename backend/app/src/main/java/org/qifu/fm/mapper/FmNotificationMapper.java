@@ -19,4 +19,8 @@ public interface FmNotificationMapper extends IBaseMapper<FmNotification, String
 	int markAllRead(Map<String, Object> paramMap);
 
 	int insertIfAbsent(FmNotification notification);
+
+	List<FmNotification> findPendingEmail(Map<String, Object> paramMap);
+
+	int markDelivered(Map<String, Object> paramMap);
 }

@@ -18,6 +18,7 @@
     <result column="SENT_DATE" jdbcType="TIMESTAMP" property="sentDate" />
     <result column="READ_DATE" jdbcType="TIMESTAMP" property="readDate" />
     <result column="LAST_ERROR" jdbcType="VARCHAR" property="lastError" />
+    <result column="PROVIDER_MESSAGE_ID" jdbcType="VARCHAR" property="providerMessageId" />
     <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
     <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
     <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
@@ -27,7 +28,7 @@
     OID, TENANT_ID, NOTIFICATION_ID, RECIPIENT_ACCOUNT, CHANNEL_TYPE,
     EVENT_TYPE, SUBJECT, CONTENT_TEXT, REFERENCE_TYPE, REFERENCE_ID,
     DELIVERY_STATUS, RETRY_COUNT, NEXT_RETRY_DATE, SENT_DATE, READ_DATE,
-    LAST_ERROR, CUSERID, CDATE, UUSERID, UDATE
+    LAST_ERROR, PROVIDER_MESSAGE_ID, CUSERID, CDATE, UUSERID, UDATE
   </sql>
   <sql id="baseConditions">
     <if test="tenantId != null and tenantId != ''">AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}</if>
@@ -62,7 +63,7 @@
       <if test="subject != null">SUBJECT,</if><if test="contentText != null">CONTENT_TEXT,</if><if test="referenceType != null">REFERENCE_TYPE,</if>
       <if test="referenceId != null">REFERENCE_ID,</if><if test="deliveryStatus != null">DELIVERY_STATUS,</if><if test="retryCount != null">RETRY_COUNT,</if>
       <if test="nextRetryDate != null">NEXT_RETRY_DATE,</if><if test="sentDate != null">SENT_DATE,</if><if test="readDate != null">READ_DATE,</if>
-      <if test="lastError != null">LAST_ERROR,</if><if test="cuserid != null">CUSERID,</if><if test="cdate != null">CDATE,</if>
+      <if test="lastError != null">LAST_ERROR,</if><if test="providerMessageId != null">PROVIDER_MESSAGE_ID,</if><if test="cuserid != null">CUSERID,</if><if test="cdate != null">CDATE,</if>
       <if test="uuserid != null">UUSERID,</if><if test="udate != null">UDATE,</if>
     </trim>
     <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
@@ -71,13 +72,13 @@
       <if test="subject != null">#{subject,jdbcType=VARCHAR},</if><if test="contentText != null">#{contentText,jdbcType=LONGVARCHAR},</if><if test="referenceType != null">#{referenceType,jdbcType=VARCHAR},</if>
       <if test="referenceId != null">#{referenceId,jdbcType=VARCHAR},</if><if test="deliveryStatus != null">#{deliveryStatus,jdbcType=VARCHAR},</if><if test="retryCount != null">#{retryCount,jdbcType=INTEGER},</if>
       <if test="nextRetryDate != null">#{nextRetryDate,jdbcType=TIMESTAMP},</if><if test="sentDate != null">#{sentDate,jdbcType=TIMESTAMP},</if><if test="readDate != null">#{readDate,jdbcType=TIMESTAMP},</if>
-      <if test="lastError != null">#{lastError,jdbcType=VARCHAR},</if><if test="cuserid != null">#{cuserid,jdbcType=VARCHAR},</if><if test="cdate != null">#{cdate,jdbcType=TIMESTAMP},</if>
+      <if test="lastError != null">#{lastError,jdbcType=VARCHAR},</if><if test="providerMessageId != null">#{providerMessageId,jdbcType=VARCHAR},</if><if test="cuserid != null">#{cuserid,jdbcType=VARCHAR},</if><if test="cdate != null">#{cdate,jdbcType=TIMESTAMP},</if>
       <if test="uuserid != null">#{uuserid,jdbcType=VARCHAR},</if><if test="udate != null">#{udate,jdbcType=TIMESTAMP},</if>
     </trim>
   </insert>
   <update id="update" parameterType="org.qifu.fm.entity.FmNotification">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
-    <set><if test="deliveryStatus != null">DELIVERY_STATUS = #{deliveryStatus,jdbcType=VARCHAR},</if><if test="retryCount != null">RETRY_COUNT = #{retryCount,jdbcType=INTEGER},</if><if test="nextRetryDate != null">NEXT_RETRY_DATE = #{nextRetryDate,jdbcType=TIMESTAMP},</if><if test="sentDate != null">SENT_DATE = #{sentDate,jdbcType=TIMESTAMP},</if><if test="readDate != null">READ_DATE = #{readDate,jdbcType=TIMESTAMP},</if><if test="lastError != null">LAST_ERROR = #{lastError,jdbcType=VARCHAR},</if><if test="uuserid != null">UUSERID = #{uuserid,jdbcType=VARCHAR},</if><if test="udate != null">UDATE = #{udate,jdbcType=TIMESTAMP},</if></set>
+    <set><if test="deliveryStatus != null">DELIVERY_STATUS = #{deliveryStatus,jdbcType=VARCHAR},</if><if test="retryCount != null">RETRY_COUNT = #{retryCount,jdbcType=INTEGER},</if><if test="nextRetryDate != null">NEXT_RETRY_DATE = #{nextRetryDate,jdbcType=TIMESTAMP},</if><if test="sentDate != null">SENT_DATE = #{sentDate,jdbcType=TIMESTAMP},</if><if test="readDate != null">READ_DATE = #{readDate,jdbcType=TIMESTAMP},</if><if test="lastError != null">LAST_ERROR = #{lastError,jdbcType=VARCHAR},</if><if test="providerMessageId != null">PROVIDER_MESSAGE_ID = #{providerMessageId,jdbcType=VARCHAR},</if><if test="uuserid != null">UUSERID = #{uuserid,jdbcType=VARCHAR},</if><if test="udate != null">UDATE = #{udate,jdbcType=TIMESTAMP},</if></set>
     WHERE OID = #{oid,jdbcType=CHAR}
   </update>
   <delete id="delete" parameterType="java.lang.String">DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification WHERE OID = #{oid,jdbcType=CHAR}</delete>
@@ -102,14 +103,14 @@
     INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
         (OID, TENANT_ID, NOTIFICATION_ID, RECIPIENT_ACCOUNT, CHANNEL_TYPE,
          EVENT_TYPE, SUBJECT, CONTENT_TEXT, REFERENCE_TYPE, REFERENCE_ID,
-         DELIVERY_STATUS, RETRY_COUNT, SENT_DATE, CUSERID, CDATE)
+         DELIVERY_STATUS, RETRY_COUNT, SENT_DATE, PROVIDER_MESSAGE_ID, CUSERID, CDATE)
     SELECT #{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR},
            #{notificationId,jdbcType=VARCHAR}, #{recipientAccount,jdbcType=VARCHAR},
            #{channelType,jdbcType=VARCHAR}, #{eventType,jdbcType=VARCHAR},
            #{subject,jdbcType=VARCHAR}, #{contentText,jdbcType=LONGVARCHAR},
            #{referenceType,jdbcType=VARCHAR}, #{referenceId,jdbcType=VARCHAR},
            #{deliveryStatus,jdbcType=VARCHAR}, #{retryCount,jdbcType=INTEGER},
-           #{sentDate,jdbcType=TIMESTAMP}, #{cuserid,jdbcType=VARCHAR},
+           #{sentDate,jdbcType=TIMESTAMP}, #{providerMessageId,jdbcType=VARCHAR}, #{cuserid,jdbcType=VARCHAR},
            #{cdate,jdbcType=TIMESTAMP}
      WHERE NOT EXISTS (
            SELECT 1
@@ -117,4 +118,21 @@
             WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
               AND NOTIFICATION_ID = #{notificationId,jdbcType=VARCHAR})
   </insert>
+  <select id="findPendingEmail" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
+     WHERE CHANNEL_TYPE = 'EMAIL' AND DELIVERY_STATUS = 'PENDING'
+       AND PROVIDER_MESSAGE_ID IS NOT NULL
+     ORDER BY CDATE
+     LIMIT #{limit,jdbcType=INTEGER}
+  </select>
+  <update id="markDelivered" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
+       SET DELIVERY_STATUS = 'SENT', SENT_DATE = #{sentDate,jdbcType=TIMESTAMP},
+           UUSERID = 'mail-sync', UDATE = #{sentDate,jdbcType=TIMESTAMP}
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND NOTIFICATION_ID = #{notificationId,jdbcType=VARCHAR}
+       AND PROVIDER_MESSAGE_ID = #{providerMessageId,jdbcType=VARCHAR}
+       AND CHANNEL_TYPE = 'EMAIL' AND DELIVERY_STATUS = 'PENDING'
+  </update>
 </mapper>

@@ -61,6 +61,25 @@ public class FmNotificationServiceImpl extends BaseService<FmNotification, Strin
 		return mapper.insertIfAbsent(notification) == 1;
 	}
 
+	@Override
+	public List<FmNotification> findPendingEmail(int limit) {
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("limit", limit);
+		return mapper.findPendingEmail(parameters);
+	}
+
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public boolean markDelivered(String tenantId, String notificationId,
+			String providerMessageId, Date sentDate) {
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("tenantId", tenantId);
+		parameters.put("notificationId", notificationId);
+		parameters.put("providerMessageId", providerMessageId);
+		parameters.put("sentDate", sentDate);
+		return mapper.markDelivered(parameters) == 1;
+	}
+
 	private Map<String, Object> identity(String tenantId, String account) {
 		Map<String, Object> result = new HashMap<>();
 		result.put("tenantId", tenantId);

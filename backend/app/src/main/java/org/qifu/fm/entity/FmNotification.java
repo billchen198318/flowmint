@@ -29,6 +29,7 @@ public class FmNotification implements Serializable {
 	private Date sentDate;
 	private Date readDate;
 	private String lastError;
+	private String providerMessageId;
 	private String cuserid;
 	private Date cdate;
 	private String uuserid;
@@ -67,6 +68,8 @@ public class FmNotification implements Serializable {
 	public void setReadDate(Date readDate) { this.readDate = readDate; }
 	public String getLastError() { return lastError; }
 	public void setLastError(String lastError) { this.lastError = lastError; }
+	public String getProviderMessageId() { return providerMessageId; }
+	public void setProviderMessageId(String providerMessageId) { this.providerMessageId = providerMessageId; }
 	@CreateUserField(name = "cuserid")
 	public String getCuserid() { return cuserid; }
 	public void setCuserid(String cuserid) { this.cuserid = cuserid; }
