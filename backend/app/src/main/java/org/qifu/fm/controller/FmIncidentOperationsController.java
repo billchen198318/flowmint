@@ -8,10 +8,13 @@ import org.qifu.fm.dto.command.FmIncidentQueryRequest;
 import org.qifu.fm.dto.command.FmIncidentReassignRequest;
 import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
+import org.qifu.fm.dto.command.FmProcessMonitorRequest;
 import org.qifu.fm.dto.view.FmAssignmentIncidentView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.dto.view.FmProcessMonitorView;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
+import org.qifu.fm.logic.IFmProcessMonitorLogicService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,10 +29,29 @@ import org.springframework.web.bind.annotation.RestController;
 public class FmIncidentOperationsController extends CoreApiSupport {
 
     private final IFmIncidentOperationsLogicService operationsLogicService;
+    private final IFmProcessMonitorLogicService processMonitorLogicService;
 
     public FmIncidentOperationsController(
-            IFmIncidentOperationsLogicService operationsLogicService) {
+            IFmIncidentOperationsLogicService operationsLogicService,
+            IFmProcessMonitorLogicService processMonitorLogicService) {
         this.operationsLogicService = operationsLogicService;
+        this.processMonitorLogicService = processMonitorLogicService;
+    }
+
+    @PostMapping("/process-instances")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessMonitorView>>>
+            processInstances(
+                    @RequestHeader("X-FlowMint-Tenant") String tenantId,
+                    @RequestBody(required = false) FmProcessMonitorRequest request) {
+        DefaultControllerJsonResultObj<List<FmProcessMonitorView>> result =
+                initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(processMonitorLogicService.find(
+                    tenantId, request), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
     }
 
     @PostMapping("/incidents")

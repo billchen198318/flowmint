@@ -29,7 +29,7 @@ class FmIncidentOperationsControllerContractTest {
                 .collect(Collectors.toSet());
         assertEquals(Set.of("/incidents", "/incidents/reassign",
                 "/incidents/reassign-options", "/incidents/retry",
-                "/process-instances/terminate"), paths);
+                "/process-instances", "/process-instances/terminate"), paths);
     }
 
     @Test
