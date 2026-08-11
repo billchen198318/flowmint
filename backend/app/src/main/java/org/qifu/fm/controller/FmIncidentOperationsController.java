@@ -9,10 +9,12 @@ import org.qifu.fm.dto.command.FmIncidentReassignRequest;
 import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
 import org.qifu.fm.dto.command.FmProcessMonitorRequest;
+import org.qifu.fm.dto.command.FmProcessMonitorLoadRequest;
 import org.qifu.fm.dto.view.FmAssignmentIncidentView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmProcessMonitorView;
+import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
 import org.qifu.fm.logic.IFmProcessMonitorLogicService;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +50,22 @@ public class FmIncidentOperationsController extends CoreApiSupport {
         try {
             setDefaultResponseJsonResult(processMonitorLogicService.find(
                     tenantId, request), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/process-instances/load")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessMonitorDetailView>>
+            loadProcessInstance(
+                    @RequestHeader("X-FlowMint-Tenant") String tenantId,
+                    @RequestBody FmProcessMonitorLoadRequest request) {
+        DefaultControllerJsonResultObj<FmProcessMonitorDetailView> result =
+                initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(processMonitorLogicService.load(
+                    tenantId, request.processInstanceId()), result);
         } catch (Exception exception) {
             exceptionResult(result, exception);
         }

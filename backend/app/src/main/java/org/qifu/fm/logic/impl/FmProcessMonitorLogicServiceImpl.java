@@ -13,15 +13,25 @@ import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessMonitorRequest;
 import org.qifu.fm.dto.view.FmProcessMonitorView;
+import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
+import org.qifu.fm.dto.view.FmFormSnapshotView;
+import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.entity.FmFormData;
+import org.qifu.fm.entity.FmFormSnapshot;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessInstance;
+import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.logic.IFmProcessMonitorLogicService;
 import org.qifu.fm.service.IFmFormDataService;
+import org.qifu.fm.service.IFmFormSnapshotService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessInstanceService;
+import org.qifu.fm.service.IFmTaskActionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @Transactional(readOnly = true)
@@ -34,16 +44,74 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 	private final IFmProcessInstanceService processInstanceService;
 	private final IFmProcessDefService processDefService;
 	private final IFmFormDataService formDataService;
+	private final IFmTaskActionService taskActionService;
+	private final IFmFormSnapshotService formSnapshotService;
+	private final ObjectMapper objectMapper;
 
 	public FmProcessMonitorLogicServiceImpl(
 			TaskService taskService,
 			IFmProcessInstanceService processInstanceService,
 			IFmProcessDefService processDefService,
-			IFmFormDataService formDataService) {
+			IFmFormDataService formDataService,
+			IFmTaskActionService taskActionService,
+			IFmFormSnapshotService formSnapshotService,
+			ObjectMapper objectMapper) {
 		this.taskService = taskService;
 		this.processInstanceService = processInstanceService;
 		this.processDefService = processDefService;
 		this.formDataService = formDataService;
+		this.taskActionService = taskActionService;
+		this.formSnapshotService = formSnapshotService;
+		this.objectMapper = objectMapper;
+	}
+
+	@Override
+	public DefaultResult<FmProcessMonitorDetailView> load(
+			String tenantId, String processInstanceId) throws ServiceException {
+		requireOperator();
+		if (StringUtils.isAnyBlank(tenantId, processInstanceId)) {
+			throw new ServiceException("Tenant and process instance are required");
+		}
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("tenantId", tenantId);
+		parameters.put("processInstanceId", processInstanceId);
+		FmProcessInstance process = processInstanceService.selectListByParams(parameters)
+				.getValue().stream().findFirst()
+				.orElseThrow(() -> new ServiceException("Process instance not found"));
+		FmProcessMonitorView processView = view(process,
+				processDef(tenantId, process.getProcessDefId()),
+				formData(tenantId, process.getFormDataId()));
+		List<FmTaskActionView> actions = taskActionService
+				.selectListByParams(parameters, "ACTION_DATE", "ASC").getValue().stream()
+				.map(this::actionView).toList();
+		List<FmFormSnapshotView> snapshots = formSnapshotService
+				.selectListByParams(parameters, "SNAPSHOT_DATE", "ASC").getValue().stream()
+				.map(this::snapshotView).toList();
+		return success(new FmProcessMonitorDetailView(processView, actions, snapshots));
+	}
+
+	private FmTaskActionView actionView(FmTaskAction action) {
+		return new FmTaskActionView(action.getActionType(), action.getOutcome(),
+				action.getActorAccount(), action.getCommentText(), action.getReason(),
+				action.getActionDate());
+	}
+
+	private FmFormSnapshotView snapshotView(FmFormSnapshot snapshot) {
+		return new FmFormSnapshotView(snapshot.getFormSnapshotId(), snapshot.getTaskId(),
+				snapshot.getActionType(), snapshot.getRevisionNo(), snapshot.getContentSha256(),
+				snapshot.getSnapshotDate(), parseData(snapshot.getDataContent()));
+	}
+
+	private Map<String, Object> parseData(String content) {
+		if (StringUtils.isBlank(content)) {
+			return Map.of();
+		}
+		try {
+			return objectMapper.readValue(content,
+					new TypeReference<Map<String, Object>>() { });
+		} catch (Exception exception) {
+			throw new IllegalStateException("Invalid form snapshot JSON", exception);
+		}
 	}
 
 	@Override

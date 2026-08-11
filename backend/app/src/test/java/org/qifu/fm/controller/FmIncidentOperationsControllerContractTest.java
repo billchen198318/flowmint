@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.qifu.fm.dto.command.FmIncidentReassignRequest;
 import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
+import org.qifu.fm.dto.command.FmProcessMonitorLoadRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -29,7 +30,8 @@ class FmIncidentOperationsControllerContractTest {
                 .collect(Collectors.toSet());
         assertEquals(Set.of("/incidents", "/incidents/reassign",
                 "/incidents/reassign-options", "/incidents/retry",
-                "/process-instances", "/process-instances/terminate"), paths);
+                "/process-instances", "/process-instances/load",
+                "/process-instances/terminate"), paths);
     }
 
     @Test
@@ -52,5 +54,15 @@ class FmIncidentOperationsControllerContractTest {
                 .collect(Collectors.toSet());
         assertEquals(Set.of("incidentId", "reason"), retry);
         assertEquals(Set.of("processInstanceId", "reason"), terminate);
+    }
+
+    @Test
+    void monitorDetailBodyCannotOverrideTenantOrActor() {
+        Set<String> components = Arrays.stream(FmProcessMonitorLoadRequest.class
+                .getRecordComponents()).map(component -> component.getName())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("processInstanceId"), components);
+        assertFalse(components.contains("tenantId"));
+        assertFalse(components.contains("actor"));
     }
 }

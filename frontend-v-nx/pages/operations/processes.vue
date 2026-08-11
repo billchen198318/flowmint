@@ -12,6 +12,8 @@ const tenantId = ref(String(route.query.tenant || ""));
 const status = ref("RUNNING");
 const keyword = ref("");
 const loading = ref(false);
+const detailLoading = ref(false);
+const detail = ref<any | null>(null);
 const counts = computed(() => ({
   total: processes.value.length,
   running: processes.value.filter((item) => item.instanceStatus === "RUNNING").length,
@@ -44,8 +46,23 @@ const load = async () => {
     loading.value = false;
   }
 };
+const loadDetail = async (processInstanceId: string) => {
+  detailLoading.value = true;
+  detail.value = null;
+  try {
+    const response: any = await useApi("/fm/operations/process-instances/load", {
+      method: "POST",
+      body: { processInstanceId },
+      headers: { "X-FlowMint-Tenant": tenantId.value },
+    });
+    if (!ok(response)) return toast.warning(response?.message || "無法載入流程稽核明細");
+    detail.value = response.value;
+  } finally {
+    detailLoading.value = false;
+  }
+};
 
-watch([tenantId, status], load);
+watch([tenantId, status], () => { detail.value = null; load(); });
 onMounted(async () => { await loadTenants(); await load(); });
 </script>
 
@@ -62,17 +79,40 @@ onMounted(async () => { await loadTenants(); await load(); });
       <div class="col-lg-2 d-grid"><button class="btn btn-primary" :disabled="loading" @click="load">查詢</button></div>
     </div></div>
     <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
-      <thead><tr><th>狀態</th><th>流程／單號</th><th>申請人／發起人</th><th>目前節點</th><th>開始／結束</th></tr></thead>
+      <thead><tr><th>狀態</th><th>流程／單號</th><th>申請人／發起人</th><th>目前節點</th><th>開始／結束</th><th></th></tr></thead>
       <tbody>
-        <tr v-if="!loading && !processes.length"><td colspan="5" class="text-center text-muted py-5">沒有符合條件的流程實例</td></tr>
+        <tr v-if="!loading && !processes.length"><td colspan="6" class="text-center text-muted py-5">沒有符合條件的流程實例</td></tr>
         <tr v-for="item in processes" :key="item.processInstanceId">
           <td><span class="badge text-bg-secondary">{{ item.instanceStatus }}</span></td>
           <td><strong>{{ item.processName }} v{{ item.processVersionNo }}</strong><div class="small text-muted">{{ item.businessKey }}<br />{{ item.processInstanceId }}</div></td>
           <td>{{ item.ownerAccount }}<div class="small text-muted">發起：{{ item.initiatorAccount }}</div></td>
           <td>{{ item.currentTaskNames?.join("、") || "-" }}</td>
           <td>{{ formatDate(item.startDate) }}<div class="small text-muted">{{ formatDate(item.endDate) }}</div></td>
+          <td><button class="btn btn-sm btn-outline-primary" :disabled="detailLoading" @click="loadDetail(item.processInstanceId)">查看稽核</button></td>
         </tr>
       </tbody>
     </table></div></div>
+    <div v-if="detail" class="card border-0 shadow-sm mt-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <div><strong>稽核軌跡</strong><span class="text-muted ms-2">{{ detail.process.businessKey }}</span></div>
+        <button class="btn-close" aria-label="關閉" @click="detail = null"></button>
+      </div>
+      <div class="card-body">
+        <h5>任務動作</h5>
+        <div v-if="!detail.actions?.length" class="text-muted mb-4">尚無任務動作</div>
+        <div v-for="(action, index) in detail.actions" :key="`${action.actionDate}-${index}`" class="border-start border-primary ps-3 pb-3">
+          <strong>{{ action.actionType }}<span v-if="action.outcome"> · {{ action.outcome }}</span></strong>
+          <div class="small text-muted">{{ action.actorAccount || "系統" }} · {{ formatDate(action.actionDate) }}</div>
+          <div v-if="action.comment || action.reason" class="mt-1">{{ action.comment || action.reason }}</div>
+        </div>
+        <h5 class="mt-3">表單快照</h5>
+        <div v-if="!detail.snapshots?.length" class="text-muted">尚無表單快照</div>
+        <details v-for="snapshot in detail.snapshots" :key="snapshot.formSnapshotId" class="border rounded p-3 mb-2">
+          <summary><strong>{{ snapshot.actionType }}</strong> · revision {{ snapshot.revisionNo }} · {{ formatDate(snapshot.snapshotDate) }}</summary>
+          <div class="small text-muted mt-2">SHA-256: {{ snapshot.contentSha256 }}</div>
+          <pre class="bg-light rounded p-3 mt-2 mb-0 overflow-auto">{{ JSON.stringify(snapshot.formData, null, 2) }}</pre>
+        </details>
+      </div>
+    </div>
   </main>
 </template>
