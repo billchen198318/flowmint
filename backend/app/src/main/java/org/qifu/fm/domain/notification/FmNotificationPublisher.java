@@ -77,6 +77,40 @@ public class FmNotificationPublisher {
 		return inserted;
 	}
 
+	public int taskDeadline(String tenantId, String taskId, String taskName,
+			String eventType, Iterable<String> recipientAccounts, Date now)
+			throws ServiceException {
+		if (!Set.of("TASK_DUE_SOON", "TASK_OVERDUE").contains(eventType)) {
+			throw new IllegalArgumentException("Unsupported task deadline event");
+		}
+		int inserted = 0;
+		for (String recipient : distinctRecipients(recipientAccounts)) {
+			var template = templateCatalog.render(eventType, taskId, taskName);
+			FmNotification notification = new FmNotification();
+			notification.setOid(UUID.randomUUID().toString());
+			notification.setTenantId(tenantId);
+			notification.setNotificationId(deterministicId(
+					tenantId, eventType, taskId, recipient));
+			notification.setRecipientAccount(recipient);
+			notification.setChannelType("IN_APP");
+			notification.setEventType(eventType);
+			notification.setSubject(template.subject());
+			notification.setContentText(template.content());
+			notification.setReferenceType("TASK");
+			notification.setReferenceId(taskId);
+			notification.setDeliveryStatus("SENT");
+			notification.setRetryCount(0);
+			notification.setSentDate(now);
+			notification.setCuserid("SYSTEM");
+			notification.setCdate(now);
+			if (notificationService.insertIfAbsent(notification)) {
+				inserted++;
+			}
+			mailOutbox.enqueue(notification);
+		}
+		return inserted;
+	}
+
 	private Set<String> distinctRecipients(Iterable<String> recipientAccounts) {
 		Set<String> recipients = new LinkedHashSet<>();
 		recipientAccounts.forEach(account -> {

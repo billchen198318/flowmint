@@ -10,5 +10,7 @@ public record FmTaskPolicyView(
         String allowReturn,
         String allowTransfer,
         String allowAddSign,
-        String commentRequired) {
+        String commentRequired,
+        Integer dueHours,
+        Integer reminderBeforeHours) {
 }

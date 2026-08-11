@@ -1,12 +1,14 @@
 package org.qifu.fm.logic.impl;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.engine.TaskService;
+import org.flowable.task.api.Task;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
@@ -141,15 +143,24 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 
 	private FmProcessMonitorView view(FmProcessInstance process,
 			FmProcessDef processDef, FmFormData formData) {
-		List<String> tasks = "RUNNING".equals(process.getInstanceStatus())
+		List<Task> activeTasks = "RUNNING".equals(process.getInstanceStatus())
 				? taskService.createTaskQuery()
-						.processInstanceId(process.getProcessInstanceId()).list().stream()
-						.map(value -> value.getName()).distinct().toList()
+						.processInstanceId(process.getProcessInstanceId()).list()
 				: List.of();
+		List<String> taskNames = activeTasks.stream().map(Task::getName).distinct().toList();
+		Date now = new Date();
+		Date nearestDueDate = activeTasks.stream().map(Task::getDueDate)
+				.filter(java.util.Objects::nonNull).min(Date::compareTo).orElse(null);
+		int overdueTaskCount = (int) activeTasks.stream().map(Task::getDueDate)
+				.filter(java.util.Objects::nonNull).filter(value -> !value.after(now)).count();
+		Date elapsedEnd = process.getEndDate() == null ? now : process.getEndDate();
+		long elapsedMinutes = Math.max(0L,
+				(elapsedEnd.getTime() - process.getStartDate().getTime()) / 60000L);
 		return new FmProcessMonitorView(process.getProcessInstanceId(),
 				process.getBusinessKey(), processDef.getProcessName(),
 				process.getProcessVersionNo(), formData.getOwnerAccount(),
-				process.getInitiatorAccount(), process.getInstanceStatus(), tasks,
+				process.getInitiatorAccount(), process.getInstanceStatus(), taskNames,
+				nearestDueDate, overdueTaskCount, elapsedMinutes,
 				process.getStartDate(), process.getEndDate());
 	}
 

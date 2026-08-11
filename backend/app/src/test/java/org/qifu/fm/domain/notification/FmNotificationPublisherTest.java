@@ -78,6 +78,27 @@ class FmNotificationPublisherTest {
 		verify(mailOutbox, times(2)).enqueue(any());
 	}
 
+	@Test
+	void createsDistinctDueSoonAndOverdueEventsOnlyOnce() throws Exception {
+		IFmNotificationService service = mock(IFmNotificationService.class);
+		when(service.insertIfAbsent(any())).thenReturn(true, false, true);
+		FmNotificationPublisher publisher = publisher(
+				service, mock(FmNotificationMailOutbox.class));
+
+		publisher.taskDeadline("T001", "TASK-1", "財務簽核", "TASK_DUE_SOON",
+				java.util.List.of("alice"), new Date(1000));
+		publisher.taskDeadline("T001", "TASK-1", "財務簽核", "TASK_DUE_SOON",
+				java.util.List.of("alice"), new Date(2000));
+		publisher.taskDeadline("T001", "TASK-1", "財務簽核", "TASK_OVERDUE",
+				java.util.List.of("alice"), new Date(3000));
+
+		ArgumentCaptor<FmNotification> captor = ArgumentCaptor.forClass(FmNotification.class);
+		verify(service, times(3)).insertIfAbsent(captor.capture());
+		assertEquals(captor.getAllValues().get(0).getNotificationId(),
+				captor.getAllValues().get(1).getNotificationId());
+		assertEquals("TASK_OVERDUE", captor.getAllValues().get(2).getEventType());
+	}
+
 	private FmNotificationPublisher publisher(
 			IFmNotificationService service, FmNotificationMailOutbox mailOutbox) {
 		FmNotificationTemplateCatalog templates = mock(FmNotificationTemplateCatalog.class);

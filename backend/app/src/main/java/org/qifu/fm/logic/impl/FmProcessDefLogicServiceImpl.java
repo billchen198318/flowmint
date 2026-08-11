@@ -468,7 +468,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                                 policy.getAllowReturn(),
                                 policy.getAllowTransfer(),
                                 policy.getAllowAddSign(),
-                                policy.getCommentRequired())).toList(),
+                                policy.getCommentRequired(),
+                                policy.getDueHours(),
+                                policy.getReminderBeforeHours())).toList(),
                         assignmentRules(value).stream().map(rule -> new FmTaskAssignmentRuleView(
                                 rule.getTaskDefKey(), rule.getRuleSeq(), rule.getResolverType(),
                                 rule.getResolverConfig(), rule.getFallbackConfig(),
@@ -690,13 +692,23 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 || !isYesNo(command.allowReject())
                 || !isYesNo(command.allowReturn())
                 || !isYesNo(command.allowTransfer())
-                || !isYesNo(command.allowAddSign())) {
+                || !isYesNo(command.allowAddSign())
+                || !validSla(command.dueHours(), command.reminderBeforeHours())) {
             throw new ServiceException("User Task 政策設定不正確或同一節點重複設定");
         }
     }
 
     private boolean isYesNo(String value) {
         return "Y".equals(value) || "N".equals(value);
+    }
+
+    private boolean validSla(Integer dueHours, Integer reminderBeforeHours) {
+        if (dueHours == null) {
+            return reminderBeforeHours == null;
+        }
+        return dueHours >= 1 && dueHours <= 8760
+                && (reminderBeforeHours == null
+                        || (reminderBeforeHours >= 0 && reminderBeforeHours < dueHours));
     }
 
     private FmTaskPolicy newTaskPolicy(
@@ -717,6 +729,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         policy.setAllowTransfer(command.allowTransfer());
         policy.setAllowAddSign(command.allowAddSign());
         policy.setCommentRequired(command.commentRequired());
+        policy.setDueHours(command.dueHours());
+        policy.setReminderBeforeHours(command.reminderBeforeHours());
         policy.setCuserid(UserUtils.getCurrentUser().getUserId());
         policy.setCdate(new Date());
         return policy;
@@ -735,7 +749,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 source.getAllowReturn(),
                 source.getAllowTransfer(),
                 source.getAllowAddSign(),
-                source.getCommentRequired());
+                source.getCommentRequired(),
+                source.getDueHours(),
+                source.getReminderBeforeHours());
         return newTaskPolicy(version, command);
     }
 

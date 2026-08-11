@@ -16,6 +16,8 @@
     <result column="ALLOW_TRANSFER" jdbcType="CHAR" property="allowTransfer" />
     <result column="ALLOW_ADD_SIGN" jdbcType="CHAR" property="allowAddSign" />
     <result column="COMMENT_REQUIRED" jdbcType="VARCHAR" property="commentRequired" />
+    <result column="DUE_HOURS" jdbcType="INTEGER" property="dueHours" />
+    <result column="REMINDER_BEFORE_HOURS" jdbcType="INTEGER" property="reminderBeforeHours" />
     <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
     <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
     <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
@@ -37,6 +39,8 @@
     ALLOW_TRANSFER,
     ALLOW_ADD_SIGN,
     COMMENT_REQUIRED,
+    DUE_HOURS,
+    REMINDER_BEFORE_HOURS,
     CUSERID,
     CDATE,
     UUSERID,
@@ -138,6 +142,12 @@
       <if test="commentRequired != null">
         COMMENT_REQUIRED,
       </if>
+      <if test="dueHours != null">
+        DUE_HOURS,
+      </if>
+      <if test="reminderBeforeHours != null">
+        REMINDER_BEFORE_HOURS,
+      </if>
       <if test="cuserid != null">
         CUSERID,
       </if>
@@ -194,6 +204,12 @@
       <if test="commentRequired != null">
         #{commentRequired,jdbcType=VARCHAR},
       </if>
+      <if test="dueHours != null">
+        #{dueHours,jdbcType=INTEGER},
+      </if>
+      <if test="reminderBeforeHours != null">
+        #{reminderBeforeHours,jdbcType=INTEGER},
+      </if>
       <if test="cuserid != null">
         #{cuserid,jdbcType=VARCHAR},
       </if>
@@ -238,6 +254,12 @@
       </if>
       <if test="commentRequired != null">
         COMMENT_REQUIRED = #{commentRequired,jdbcType=VARCHAR},
+      </if>
+      <if test="dueHours != null">
+        DUE_HOURS = #{dueHours,jdbcType=INTEGER},
+      </if>
+      <if test="reminderBeforeHours != null">
+        REMINDER_BEFORE_HOURS = #{reminderBeforeHours,jdbcType=INTEGER},
       </if>
       <if test="uuserid != null">
         UUSERID = #{uuserid,jdbcType=VARCHAR},

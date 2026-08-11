@@ -70,6 +70,7 @@ public class FmTaskAssignmentListener implements TaskListener {
         try {
             RuntimeContext context = context(task);
             FmTaskPolicy policy = policy(context, task.getTaskDefinitionKey());
+            applyDueDate(task, policy);
             if ("APPLICANT_CORRECTION".equals(policy.getAssignmentMode())) {
                 Date now = new Date();
                 task.setAssignee(context.initiatorAccount());
@@ -268,6 +269,13 @@ public class FmTaskAssignmentListener implements TaskListener {
                 task.setAssignee(account);
             }
             default -> throw new ServiceException("不支援的 User Task 派送方式");
+        }
+    }
+
+    private void applyDueDate(DelegateTask task, FmTaskPolicy policy) {
+        if (policy.getDueHours() != null) {
+            task.setDueDate(Date.from(java.time.Instant.now().plus(
+                    policy.getDueHours(), java.time.temporal.ChronoUnit.HOURS)));
         }
     }
 

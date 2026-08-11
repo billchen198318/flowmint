@@ -12,6 +12,9 @@ public record FmProcessMonitorView(
 		String initiatorAccount,
 		String instanceStatus,
 		List<String> currentTaskNames,
+		Date nearestDueDate,
+		Integer overdueTaskCount,
+		Long elapsedMinutes,
 		Date startDate,
 		Date endDate) {
 }

@@ -3980,6 +3980,8 @@ CREATE TABLE `fm_task_policy` (
   `ALLOW_TRANSFER` char(1) NOT NULL DEFAULT 'N',
   `ALLOW_ADD_SIGN` char(1) NOT NULL DEFAULT 'N',
   `COMMENT_REQUIRED` varchar(30) NOT NULL DEFAULT 'ON_REJECT_RETURN',
+  `DUE_HOURS` int(11) DEFAULT NULL,
+  `REMINDER_BEFORE_HOURS` int(11) DEFAULT NULL,
   `CUSERID` varchar(24) NOT NULL,
   `CDATE` datetime(3) NOT NULL,
   `UUSERID` varchar(24) DEFAULT NULL,
@@ -3990,7 +3992,9 @@ CREATE TABLE `fm_task_policy` (
   CONSTRAINT `CK_FM_TP_SELF` CHECK (`SELF_APPROVAL_POLICY` in ('ALLOW','SKIP_TO_NEXT','REQUIRE_ALTERNATE','INCIDENT')),
   CONSTRAINT `CK_FM_TP_DUP` CHECK (`DUPLICATE_POLICY` in ('KEEP_EACH_LEVEL','MERGE_CONSECUTIVE','SKIP_ALREADY_APPROVED')),
   CONSTRAINT `CK_FM_TP_YN` CHECK (`ALLOW_REJECT` in ('Y','N') and `ALLOW_RETURN` in ('Y','N') and `ALLOW_TRANSFER` in ('Y','N') and `ALLOW_ADD_SIGN` in ('Y','N')),
-  CONSTRAINT `CK_FM_TP_COMMENT` CHECK (`COMMENT_REQUIRED` in ('NEVER','ALWAYS','ON_REJECT_RETURN'))
+  CONSTRAINT `CK_FM_TP_COMMENT` CHECK (`COMMENT_REQUIRED` in ('NEVER','ALWAYS','ON_REJECT_RETURN')),
+  CONSTRAINT `CK_FM_TP_DUE_HOURS` CHECK (`DUE_HOURS` is null or `DUE_HOURS` between 1 and 8760),
+  CONSTRAINT `CK_FM_TP_REMINDER_HOURS` CHECK (`REMINDER_BEFORE_HOURS` is null or `DUE_HOURS` is not null and `REMINDER_BEFORE_HOURS` >= 0 and `REMINDER_BEFORE_HOURS` < `DUE_HOURS`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -4002,8 +4006,8 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_task_policy` WRITE;
 /*!40000 ALTER TABLE `fm_task_policy` DISABLE KEYS */;
 INSERT INTO `fm_task_policy` VALUES
-('b7085a8e-8eec-11f1-b60a-57063a30b007','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599',1,'Activity_0hmr9ef','單位主官','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','Y','Y','ON_REJECT_RETURN','admin','2026-08-03 11:37:55.941',NULL,NULL),
-('b708f6cf-8eec-11f1-b60a-f1f023582e58','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599',1,'Activity_1vyy7nj','直屬主管','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','Y','Y','ON_REJECT_RETURN','admin','2026-08-03 11:37:55.944',NULL,NULL);
+('b7085a8e-8eec-11f1-b60a-57063a30b007','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599',1,'Activity_0hmr9ef','單位主官','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','Y','Y','ON_REJECT_RETURN',NULL,NULL,'admin','2026-08-03 11:37:55.941',NULL,NULL),
+('b708f6cf-8eec-11f1-b60a-f1f023582e58','A01','b7c74ae2-2133-4f33-a2d9-c7f87d5d5599',1,'Activity_1vyy7nj','直屬主管','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','Y','Y','ON_REJECT_RETURN',NULL,NULL,'admin','2026-08-03 11:37:55.944',NULL,NULL);
 /*!40000 ALTER TABLE `fm_task_policy` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -5320,10 +5324,12 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `tb_sys_template` WRITE;
 /*!40000 ALTER TABLE `tb_sys_template` DISABLE KEYS */;
 INSERT INTO `tb_sys_template` VALUES
-('6474804c-958a-11f1-a8f5-005056c00001','FMTASKASG','你有新的流程待辦','${taskName}','FlowMint 待辦指派通知','system','2026-08-11 21:41:18',NULL,NULL),
-('64748c36-958a-11f1-a8f5-005056c00001','FMPROCMP','你的流程已完成','流程編號：${referenceId}','FlowMint 流程完成通知','system','2026-08-11 21:41:18',NULL,NULL),
-('64748e3d-958a-11f1-a8f5-005056c00001','FMPROREJ','你的流程已駁回','流程編號：${referenceId}','FlowMint 流程駁回通知','system','2026-08-11 21:41:18',NULL,NULL),
-('64748e8f-958a-11f1-a8f5-005056c00001','FMPROCAN','流程已取消','流程編號：${referenceId}','FlowMint 流程撤回或取消通知','system','2026-08-11 21:41:18',NULL,NULL);
+('39882be1-958e-11f1-a8f5-005056c00001','FMTASKASG','你有新的流程待辦','${taskName}','FlowMint 待辦指派通知','system','2026-08-11 22:08:44',NULL,NULL),
+('39882eee-958e-11f1-a8f5-005056c00001','FMPROCMP','你的流程已完成','流程編號：${referenceId}','FlowMint 流程完成通知','system','2026-08-11 22:08:44',NULL,NULL),
+('39882f5a-958e-11f1-a8f5-005056c00001','FMPROREJ','你的流程已駁回','流程編號：${referenceId}','FlowMint 流程駁回通知','system','2026-08-11 22:08:44',NULL,NULL),
+('39882f8d-958e-11f1-a8f5-005056c00001','FMPROCAN','流程已取消','流程編號：${referenceId}','FlowMint 流程撤回或取消通知','system','2026-08-11 22:08:44',NULL,NULL),
+('39882fbb-958e-11f1-a8f5-005056c00001','FMTASKDUE','流程待辦即將到期','${taskName}','FlowMint 待辦期限提前提醒','system','2026-08-11 22:08:44',NULL,NULL),
+('39882fe0-958e-11f1-a8f5-005056c00001','FMTASKOVD','流程待辦已逾時','${taskName}','FlowMint 待辦逾時通知','system','2026-08-11 22:08:44',NULL,NULL);
 /*!40000 ALTER TABLE `tb_sys_template` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -5359,10 +5365,12 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `tb_sys_template_param` WRITE;
 /*!40000 ALTER TABLE `tb_sys_template_param` DISABLE KEYS */;
 INSERT INTO `tb_sys_template_param` VALUES
-('66ebbf15-958a-11f1-a8f5-005056c00001','FMTASKASG','N','taskName','taskName','system','2026-08-11 21:41:22',NULL,NULL),
-('66ebc667-958a-11f1-a8f5-005056c00001','FMPROCMP','N','referenceId','referenceId','system','2026-08-11 21:41:22',NULL,NULL),
-('66ebc709-958a-11f1-a8f5-005056c00001','FMPROREJ','N','referenceId','referenceId','system','2026-08-11 21:41:22',NULL,NULL),
-('66ebc732-958a-11f1-a8f5-005056c00001','FMPROCAN','N','referenceId','referenceId','system','2026-08-11 21:41:22',NULL,NULL);
+('398a32e0-958e-11f1-a8f5-005056c00001','FMTASKASG','N','taskName','taskName','system','2026-08-11 22:08:44',NULL,NULL),
+('398a36e6-958e-11f1-a8f5-005056c00001','FMPROCMP','N','referenceId','referenceId','system','2026-08-11 22:08:44',NULL,NULL),
+('398a3816-958e-11f1-a8f5-005056c00001','FMPROREJ','N','referenceId','referenceId','system','2026-08-11 22:08:44',NULL,NULL),
+('398a3871-958e-11f1-a8f5-005056c00001','FMPROCAN','N','referenceId','referenceId','system','2026-08-11 22:08:44',NULL,NULL),
+('398a38c1-958e-11f1-a8f5-005056c00001','FMTASKDUE','N','taskName','taskName','system','2026-08-11 22:08:44',NULL,NULL),
+('398a390d-958e-11f1-a8f5-005056c00001','FMTASKOVD','N','taskName','taskName','system','2026-08-11 22:08:44',NULL,NULL);
 /*!40000 ALTER TABLE `tb_sys_template_param` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -5518,4 +5526,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-11 21:48:14
+-- Dump completed on 2026-08-11 22:09:10

@@ -48,6 +48,8 @@ public class FmNotificationTemplateCatalog {
 			case "PROCESS_COMPLETED" -> "FMPROCMP";
 			case "PROCESS_REJECTED" -> "FMPROREJ";
 			case "PROCESS_CANCELLED" -> "FMPROCAN";
+			case "TASK_DUE_SOON" -> "FMTASKDUE";
+			case "TASK_OVERDUE" -> "FMTASKOVD";
 			default -> "FMPROCHG";
 		};
 	}
@@ -55,6 +57,14 @@ public class FmNotificationTemplateCatalog {
 	private TemplateText fallback(String eventType, String referenceId, String taskName) {
 		if ("TASK_ASSIGNED".equals(eventType)) {
 			return new TemplateText("你有新的流程待辦",
+					StringUtils.defaultIfBlank(taskName, "流程待辦"));
+		}
+		if ("TASK_DUE_SOON".equals(eventType)) {
+			return new TemplateText("流程待辦即將到期",
+					StringUtils.defaultIfBlank(taskName, "流程待辦"));
+		}
+		if ("TASK_OVERDUE".equals(eventType)) {
+			return new TemplateText("流程待辦已逾時",
 					StringUtils.defaultIfBlank(taskName, "流程待辦"));
 		}
 		String title = switch (eventType) {

@@ -167,6 +167,8 @@ const ensureSelectedTaskPolicy = () => {
     allowTransfer: "N",
     allowAddSign: "N",
     commentRequired: "ON_REJECT_RETURN",
+    dueHours: null,
+    reminderBeforeHours: null,
   });
 };
 const selectedFormValue = computed(() => {
@@ -719,6 +721,33 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="ALWAYS">每次操作必填</option>
                       <option value="ON_REJECT_RETURN">駁回／退回時必填</option>
                     </select>
+                  </div>
+                  <div class="row g-2 mb-3">
+                    <div class="col-6">
+                      <label class="form-label">處理期限（小時）</label>
+                      <input
+                        v-model.number="selectedTaskPolicy.dueHours"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        type="number"
+                        min="1"
+                        max="8760"
+                        class="form-control"
+                        placeholder="不設定期限"
+                      />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">提前提醒（小時）</label>
+                      <input
+                        v-model.number="selectedTaskPolicy.reminderBeforeHours"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT' || !selectedTaskPolicy.dueHours"
+                        type="number"
+                        min="0"
+                        :max="Math.max(0, Number(selectedTaskPolicy.dueHours || 1) - 1)"
+                        class="form-control"
+                        placeholder="只在逾時時提醒"
+                      />
+                    </div>
+                    <div class="form-text">期限依 Task 建立時間以曆時小時計算；未設定期限時不執行提醒。</div>
                   </div>
                   <div class="row g-2">
                     <div
