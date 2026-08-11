@@ -63,10 +63,12 @@ const loadEmployees = async () =>
 watch(
   () => form.value.tenantId,
   async () => {
-    if (!props.edit) form.value.orgUnitId = "";
-    form.value.employeeId = "";
+    if (!props.edit) {
+      form.value.orgUnitId = "";
+      form.value.employeeId = "";
+      employees.value = [];
+    }
     await loadUnits();
-    employees.value = [];
   },
 );
 watch(

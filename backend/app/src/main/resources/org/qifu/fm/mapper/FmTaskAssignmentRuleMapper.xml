@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTaskAssignmentRuleMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmTaskAssignmentRule">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="PROCESS_DEF_ID" jdbcType="VARCHAR" property="processDefId" />
+    <result column="PROCESS_VERSION_NO" jdbcType="INTEGER" property="processVersionNo" />
+    <result column="TASK_DEF_KEY" jdbcType="VARCHAR" property="taskDefKey" />
+    <result column="RULE_SEQ" jdbcType="INTEGER" property="ruleSeq" />
+    <result column="RESOLVER_TYPE" jdbcType="VARCHAR" property="resolverType" />
+    <result column="RESOLVER_CONFIG" jdbcType="LONGVARCHAR" property="resolverConfig" />
+    <result column="FALLBACK_CONFIG" jdbcType="LONGVARCHAR" property="fallbackConfig" />
+    <result column="MAX_RESULTS" jdbcType="INTEGER" property="maxResults" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    PROCESS_DEF_ID,
+    PROCESS_VERSION_NO,
+    TASK_DEF_KEY,
+    RULE_SEQ,
+    RESOLVER_TYPE,
+    RESOLVER_CONFIG,
+    FALLBACK_CONFIG,
+    MAX_RESULTS,
+    STATUS,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="processDefId != null and processDefId != ''">
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+    </if>
+    <if test="processVersionNo != null">
+      AND PROCESS_VERSION_NO = #{processVersionNo,jdbcType=INTEGER}
+    </if>
+    <if test="taskDefKey != null and taskDefKey != ''">
+      AND TASK_DEF_KEY = #{taskDefKey,jdbcType=VARCHAR}
+    </if>
+    <if test="resolverType != null and resolverType != ''">
+      AND RESOLVER_TYPE = #{resolverType,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTaskAssignmentRule">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID,
+      </if>
+      <if test="processVersionNo != null">
+        PROCESS_VERSION_NO,
+      </if>
+      <if test="taskDefKey != null">
+        TASK_DEF_KEY,
+      </if>
+      <if test="ruleSeq != null">
+        RULE_SEQ,
+      </if>
+      <if test="resolverType != null">
+        RESOLVER_TYPE,
+      </if>
+      <if test="resolverConfig != null">
+        RESOLVER_CONFIG,
+      </if>
+      <if test="fallbackConfig != null">
+        FALLBACK_CONFIG,
+      </if>
+      <if test="maxResults != null">
+        MAX_RESULTS,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="processVersionNo != null">
+        #{processVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="taskDefKey != null">
+        #{taskDefKey,jdbcType=VARCHAR},
+      </if>
+      <if test="ruleSeq != null">
+        #{ruleSeq,jdbcType=INTEGER},
+      </if>
+      <if test="resolverType != null">
+        #{resolverType,jdbcType=VARCHAR},
+      </if>
+      <if test="resolverConfig != null">
+        #{resolverConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="fallbackConfig != null">
+        #{fallbackConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="maxResults != null">
+        #{maxResults,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmTaskAssignmentRule">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    <set>
+      <if test="resolverType != null">
+        RESOLVER_TYPE = #{resolverType,jdbcType=VARCHAR},
+      </if>
+      <if test="resolverConfig != null">
+        RESOLVER_CONFIG = #{resolverConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="fallbackConfig != null">
+        FALLBACK_CONFIG = #{fallbackConfig,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="maxResults != null">
+        MAX_RESULTS = #{maxResults,jdbcType=INTEGER},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmTaskAssignmentRule">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <select id="selectByVersion" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+      AND PROCESS_VERSION_NO = #{processVersionNo,jdbcType=INTEGER}
+    ORDER BY TASK_DEF_KEY, RULE_SEQ
+  </select>
+
+  <delete id="deleteByVersion" parameterType="java.util.HashMap">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_rule
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+      AND PROCESS_VERSION_NO = #{processVersionNo,jdbcType=INTEGER}
+  </delete>
+</mapper>

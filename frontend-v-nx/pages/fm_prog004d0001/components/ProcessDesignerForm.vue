@@ -8,6 +8,7 @@ import "bpmn-js/dist/assets/bpmn-font/css/bpmn.css";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import Toolbar from "@/components/Toolbar.vue";
+import ApprovalAuthorityPanel from "./ApprovalAuthorityPanel.vue";
 import {
   checkInvalid,
   escapeQifuHtmlMsg,
@@ -28,6 +29,14 @@ const selectedVersion = ref<any>(null);
 const publishedForms = ref<any[]>([]);
 const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
+const previewAccount = ref("");
+const previewFormData = ref("{}");
+const resolverPreview = ref<any[]>([]);
+const resolverAccounts = ref<any[]>([]);
+const approvalGroups = ref<any[]>([]);
+const approvalLevels = ref<any[]>([]);
+const orgTitles = ref<any[]>([]);
+const orgDuties = ref<any[]>([]);
 let modeler: any = null;
 const newForm = () => ({
   oid: "",
@@ -65,6 +74,75 @@ const selectedTaskPolicy = computed(() =>
     (item: any) => item.taskDefKey === selectedTask.value?.id,
   ),
 );
+const selectedAssignmentRule = computed(() =>
+  selectedVersion.value?.assignmentRules?.find(
+    (item: any) => item.taskDefKey === selectedTask.value?.id && item.ruleSeq === 1,
+  ),
+);
+const ruleConfig = () => {
+  try {
+    return JSON.parse(selectedAssignmentRule.value?.resolverConfig || "{}");
+  } catch {
+    return {};
+  }
+};
+const selectedFixedAccounts = computed({
+  get: () => ruleConfig().accounts || [],
+  set: (accounts: string[]) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ accounts });
+  },
+});
+const selectedApprovalGroup = computed({
+  get: () => ruleConfig().approvalGroupId || "",
+  set: (approvalGroupId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalGroupId });
+  },
+});
+const selectedApprovalLevel = computed({
+  get: () => ruleConfig().approvalLevelId || "",
+  set: (approvalLevelId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalLevelId });
+  },
+});
+const selectedOrgTitle = computed({
+  get: () => ruleConfig().titleId || "",
+  set: (titleId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ titleId });
+  },
+});
+const selectedOrgDuty = computed({
+  get: () => ruleConfig().dutyId || "",
+  set: (dutyId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ dutyId });
+  },
+});
+const selectedApprovalAuthority = computed({
+  get: () => ruleConfig().approvalAuthorityId || "",
+  set: (approvalAuthorityId: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalAuthorityId });
+  },
+});
+const ensureSelectedAssignmentRule = () => {
+  if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT") return;
+  selectedVersion.value.assignmentRules ||= [];
+  if (!selectedAssignmentRule.value) {
+    selectedVersion.value.assignmentRules.push({
+      taskDefKey: selectedTask.value.id,
+      ruleSeq: 1,
+      resolverType: "DIRECT_MANAGER",
+      resolverConfig: "{}",
+      fallbackConfig: null,
+      maxResults: 100,
+      status: "ACTIVE",
+    });
+  }
+};
 const ensureSelectedTaskPolicy = () => {
   if (
     !selectedTask.value ||
@@ -89,12 +167,18 @@ const ensureSelectedTaskPolicy = () => {
     allowTransfer: "N",
     allowAddSign: "N",
     commentRequired: "ON_REJECT_RETURN",
+    dueHours: null,
+    reminderBeforeHours: null,
   });
 };
 const selectedFormValue = computed(() => {
   const rule = selectedTaskRule.value;
   return rule ? `${rule.formId}::${rule.formVersionNo}` : "";
 });
+const selectedPublishedForm = computed(() => publishedForms.value.find(
+  (item: any) => item.formId === selectedTaskRule.value?.formId
+    && item.formVersionNo === selectedTaskRule.value?.formVersionNo,
+));
 const loadPublishedForms = async () => {
   if (!form.value.tenantId) return;
   const response = await post("/published-form-options", {
@@ -102,11 +186,28 @@ const loadPublishedForms = async () => {
   });
   publishedForms.value = response.data?.value || [];
 };
+const loadResolverOptions = async () => {
+  if (!form.value.tenantId) return;
+  const [accountResponse, groupResponse, levelResponse, titleResponse, dutyResponse] =
+    await Promise.all([
+    post("/resolver-account-options", { tenantId: form.value.tenantId }),
+    post("/approval-group-options", { tenantId: form.value.tenantId }),
+    post("/approval-level-options", { tenantId: form.value.tenantId }),
+    post("/org-title-options", { tenantId: form.value.tenantId }),
+    post("/org-duty-options", { tenantId: form.value.tenantId }),
+  ]);
+  resolverAccounts.value = accountResponse.data?.value || [];
+  approvalGroups.value = groupResponse.data?.value || [];
+  approvalLevels.value = levelResponse.data?.value || [];
+  orgTitles.value = titleResponse.data?.value || [];
+  orgDuties.value = dutyResponse.data?.value || [];
+};
 const bindModelerEvents = () => {
   const selectElement = (element: any) => {
     selectedElement.value = element || null;
     selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
     ensureSelectedTaskPolicy();
+    ensureSelectedAssignmentRule();
   };
   modeler.get("eventBus").on("selection.changed", (event: any) => {
     selectElement(event.newSelection?.[0]);
@@ -160,6 +261,13 @@ const currentTaskPolicies = () => {
     taskKeys.has(item.taskDefKey),
   );
 };
+const currentAssignmentRules = () => {
+  if (!modeler || !selectedVersion.value) return [];
+  const taskKeys = new Set(modeler.get("elementRegistry")
+    .filter((item: any) => is(item, "bpmn:UserTask")).map((item: any) => item.id));
+  return (selectedVersion.value.assignmentRules || []).filter((item: any) =>
+    taskKeys.has(item.taskDefKey));
+};
 const openVersion = async (version: any) => {
   selectedVersion.value = version;
   selectedElement.value = null;
@@ -177,6 +285,7 @@ const openVersion = async (version: any) => {
 const apply = async (value: any) => {
   form.value = value;
   await loadPublishedForms();
+  await loadResolverOptions();
   const draft = value.versions?.find(
     (item: any) => item.versionStatus === "DRAFT",
   );
@@ -232,6 +341,7 @@ const save = async () => {
       draftOid && modeler ? (await modeler.saveXML({ format: true })).xml : "";
     const draftTaskForms = draftOid ? currentTaskForms() : [];
     const draftTaskPolicies = draftOid ? currentTaskPolicies() : [];
+    const draftAssignmentRules = draftOid ? currentAssignmentRules() : [];
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
     if (!showResponse(response)) return;
@@ -248,6 +358,7 @@ const save = async () => {
         bpmnXml: draftXml,
         taskForms: draftTaskForms,
         taskPolicies: draftTaskPolicies,
+        assignmentRules: draftAssignmentRules,
       });
       if (showResponse(response)) await apply(response.data.value);
     }
@@ -277,6 +388,7 @@ const publish = async () => {
       bpmnXml: xml,
       taskForms: currentTaskForms(),
       taskPolicies: currentTaskPolicies(),
+      assignmentRules: currentAssignmentRules(),
     });
     if (!responseOk(response)) {
       showResponse(response);
@@ -286,6 +398,34 @@ const publish = async () => {
       oid: selectedVersion.value.oid,
     });
     if (showResponse(response)) await apply(response.data.value);
+  } finally {
+    hideLoading();
+  }
+};
+const previewResolvers = async () => {
+  if (!selectedVersion.value || !previewAccount.value.trim()) {
+    toast.warning("請輸入測試申請人的帳號");
+    return;
+  }
+  let formData: Record<string, unknown>;
+  try {
+    formData = JSON.parse(previewFormData.value || "{}");
+  } catch {
+    toast.warning("測試表單資料不是有效的 JSON");
+    return;
+  }
+  showLoading();
+  try {
+    const response = await post("/resolver-preview", {
+      versionOid: selectedVersion.value.oid,
+      initiatorAccount: previewAccount.value.trim(),
+      variables: { form: formData },
+    });
+    if (!responseOk(response)) {
+      showResponse(response);
+      return;
+    }
+    resolverPreview.value = response.data?.value || [];
   } finally {
     hideLoading();
   }
@@ -303,6 +443,7 @@ onMounted(async () => {
   tenants.value = (await post("/tenant-options")).data?.value || [];
   if (!props.edit && tenants.value.length === 1)
     form.value.tenantId = tenants.value[0].value;
+  if (!props.edit) await loadResolverOptions();
   await load();
 });
 onBeforeUnmount(() => modeler?.destroy());
@@ -539,6 +680,7 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="CANDIDATE">候選人承接</option>
                       <option value="ALL">全員會簽</option>
                       <option value="SEQUENTIAL">依序簽核</option>
+                      <option value="APPLICANT_CORRECTION">申請人補件</option>
                     </select>
                   </div>
                   <div class="mb-3">
@@ -580,6 +722,33 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="ON_REJECT_RETURN">駁回／退回時必填</option>
                     </select>
                   </div>
+                  <div class="row g-2 mb-3">
+                    <div class="col-6">
+                      <label class="form-label">處理期限（小時）</label>
+                      <input
+                        v-model.number="selectedTaskPolicy.dueHours"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        type="number"
+                        min="1"
+                        max="8760"
+                        class="form-control"
+                        placeholder="不設定期限"
+                      />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">提前提醒（小時）</label>
+                      <input
+                        v-model.number="selectedTaskPolicy.reminderBeforeHours"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT' || !selectedTaskPolicy.dueHours"
+                        type="number"
+                        min="0"
+                        :max="Math.max(0, Number(selectedTaskPolicy.dueHours || 1) - 1)"
+                        class="form-control"
+                        placeholder="只在逾時時提醒"
+                      />
+                    </div>
+                    <div class="form-text">期限依 Task 建立時間以曆時小時計算；未設定期限時不執行提醒。</div>
+                  </div>
                   <div class="row g-2">
                     <div
                       v-for="action in [
@@ -606,6 +775,113 @@ onBeforeUnmount(() => modeler?.destroy());
                       >
                         {{ action[1] }}
                       </label>
+                    </div>
+                  </div>
+                </template>
+                <template v-if="selectedAssignmentRule && selectedTaskPolicy?.assignmentMode !== 'APPLICANT_CORRECTION'">
+                  <hr />
+                  <h6>簽核人規則</h6>
+                  <div class="mb-3">
+                    <label class="form-label">解析方式</label>
+                    <select v-model="selectedAssignmentRule.resolverType"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'" class="form-select">
+                      <option value="DIRECT_MANAGER">申請人的直屬主管</option>
+                      <option value="INITIATOR_ORG_HEAD">申請人所屬單位主管</option>
+                      <option value="PARENT_ORG_HEAD">上一層單位主管</option>
+                      <option value="NEXT_HIGHER_LEVEL_HEAD">下一個較高層級主管</option>
+                      <option value="ROOT_ORG_HEAD">最高層單位主管</option>
+                      <option value="MANAGER_CHAIN">逐級直屬主管</option>
+                      <option value="LEVEL_HEAD_CHAIN">逐級單位主管</option>
+                      <option value="FIXED_ACCOUNT">指定帳號</option>
+                      <option value="APPROVAL_GROUP">簽核群組</option>
+                      <option value="TARGET_LEVEL_HEAD">指定層級主管</option>
+                      <option value="ORG_TITLE">組織職稱</option>
+                      <option value="ORG_DUTY">組織職務</option>
+                      <option value="APPROVAL_AUTHORITY">簽核權限</option>
+                    </select>
+                  </div>
+                  <div v-if="selectedAssignmentRule.resolverType === 'FIXED_ACCOUNT'"
+                    class="mb-3">
+                    <label class="form-label">指定帳號</label>
+                    <select v-model="selectedFixedAccounts" multiple
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select" size="6">
+                      <option v-for="item in resolverAccounts" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <div class="form-text">按住 Ctrl 可選擇多個帳號。</div>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'APPROVAL_GROUP'"
+                    class="mb-3">
+                    <label class="form-label">簽核群組</label>
+                    <select v-model="selectedApprovalGroup"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇簽核群組</option>
+                      <option v-for="item in approvalGroups" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'TARGET_LEVEL_HEAD'"
+                    class="mb-3">
+                    <label class="form-label">目標簽核層級</label>
+                    <select v-model="selectedApprovalLevel"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇簽核層級</option>
+                      <option v-for="item in approvalLevels" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'ORG_TITLE'"
+                    class="mb-3">
+                    <label class="form-label">組織職稱</label>
+                    <select v-model="selectedOrgTitle"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇職稱</option>
+                      <option v-for="item in orgTitles" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <div class="form-text">解析申請人主要部門中具有此職稱的有效任職者。</div>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'ORG_DUTY'"
+                    class="mb-3">
+                    <label class="form-label">組織職務</label>
+                    <select v-model="selectedOrgDuty"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇職務</option>
+                      <option v-for="item in orgDuties" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <div v-if="!orgDuties.length" class="form-text text-warning">
+                      此 Tenant 尚未建立組織職務資料。
+                    </div>
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'APPROVAL_AUTHORITY'"
+                    class="mb-3">
+                    <ApprovalAuthorityPanel v-model="selectedApprovalAuthority"
+                      :tenant-id="form.tenantId" :process-def-id="form.processDefId"
+                      :form-id="selectedTaskRule?.formId"
+                      :schema-content="selectedPublishedForm?.schemaContent"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      :accounts="resolverAccounts" :groups="approvalGroups"
+                      :levels="approvalLevels" :titles="orgTitles" :duties="orgDuties" />
+                  </div>
+                  <div class="row g-2">
+                    <div class="col-6">
+                      <label class="form-label">最多結果數</label>
+                      <input v-model.number="selectedAssignmentRule.maxResults" type="number"
+                        min="1" max="1000" :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        class="form-control" />
+                    </div>
+                    <div class="col-6">
+                      <label class="form-label">狀態</label>
+                      <select v-model="selectedAssignmentRule.status"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'" class="form-select">
+                        <option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option>
+                      </select>
                     </div>
                   </div>
                 </template>
@@ -645,6 +921,42 @@ onBeforeUnmount(() => modeler?.destroy());
         ><small class="text-muted"
           >SHA-256：{{ selectedVersion.bpmnSha256 }}</small
         >
+      </div>
+      <div v-if="selectedVersion" class="card mt-3">
+        <div class="card-header">簽核人解析預覽</div>
+        <div class="card-body">
+          <div class="input-group mb-3">
+            <span class="input-group-text">測試申請人帳號</span>
+            <input v-model="previewAccount" class="form-control"
+              placeholder="例如 tester" @keyup.enter="previewResolvers" />
+            <button type="button" class="btn btn-outline-primary"
+              @click="previewResolvers">開始預覽</button>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">測試表單資料</label>
+            <textarea v-model="previewFormData" rows="3" class="form-control"
+              placeholder='例如 {"totalAmount": 100000, "category": "資訊設備"}'></textarea>
+          </div>
+          <div class="form-text mb-3">預覽使用已儲存的簽核人規則；修改規則後請先儲存草稿。</div>
+          <div v-if="resolverPreview.length" class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>節點</th><th>Resolver</th><th>結果</th><th>簽核人</th><th>說明</th></tr></thead>
+              <tbody>
+                <tr v-for="item in resolverPreview"
+                  :key="`${item.taskDefKey}-${item.ruleSeq}`">
+                  <td>{{ item.taskDefKey }}</td>
+                  <td>{{ item.resolverType }}</td>
+                  <td><span class="badge"
+                    :class="item.resultStatus === 'RESOLVED' ? 'text-bg-success' : 'text-bg-warning'">
+                    {{ item.resultStatus }}</span></td>
+                  <td>{{ (item.candidates || []).map((candidate: any) =>
+                    `${candidate.displayName} (${candidate.account})`).join('、') || '—' }}</td>
+                  <td>{{ item.message }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>

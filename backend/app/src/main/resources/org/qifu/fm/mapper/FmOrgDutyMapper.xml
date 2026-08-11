@@ -33,6 +33,9 @@
   </select>
 
   <sql id="baseConditions">
+    <if test="dutyId != null and dutyId != ''">
+      AND DUTY_ID = #{dutyId,jdbcType=VARCHAR}
+    </if>
     <if test="tenantId != null and tenantId != ''">
       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
     </if>

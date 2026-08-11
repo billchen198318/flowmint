@@ -24,8 +24,10 @@
     VALUES (#{oid},#{tenantId},#{processDefId},#{processVersionNo},#{taskDefKey},#{formId},#{formVersionNo},#{fieldPolicy},#{cuserid},#{cdate})
   </insert>
   <select id="selectPublishedFormOptions" resultType="org.qifu.fm.dto.view.FmPublishedFormOptionView">
-    SELECT d.FORM_ID formId,v.VERSION_NO formVersionNo,
-           CONCAT(d.FORM_CODE,' - ',d.FORM_NAME,' (v',v.VERSION_NO,')') label
+    SELECT d.FORM_ID formId,
+           v.VERSION_NO formVersionNo,
+           CONCAT(d.FORM_CODE,' - ',d.FORM_NAME,' (v',v.VERSION_NO,')') label,
+           v.SCHEMA_CONTENT schemaContent
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def d
     JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_version v
       ON v.TENANT_ID=d.TENANT_ID AND v.FORM_ID=d.FORM_ID

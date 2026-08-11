@@ -10,6 +10,7 @@
     <result column="VERSION_STATUS" jdbcType="VARCHAR" property="versionStatus" />
     <result column="SCHEMA_CONTENT" jdbcType="LONGVARCHAR" property="schemaContent" />
     <result column="UI_SCHEMA_CONTENT" jdbcType="LONGVARCHAR" property="uiSchemaContent" />
+    <result column="CUSTOM_SCRIPT_CONTENT" jdbcType="LONGVARCHAR" property="customScriptContent" />
     <result column="CONTENT_SHA256" jdbcType="CHAR" property="contentSha256" />
     <result column="PUBLISHED_BY" jdbcType="VARCHAR" property="publishedBy" />
     <result column="PUBLISHED_DATE" jdbcType="TIMESTAMP" property="publishedDate" />
@@ -27,6 +28,7 @@
     VERSION_STATUS,
     SCHEMA_CONTENT,
     UI_SCHEMA_CONTENT,
+    CUSTOM_SCRIPT_CONTENT,
     CONTENT_SHA256,
     PUBLISHED_BY,
     PUBLISHED_DATE,
@@ -107,6 +109,9 @@
       <if test="uiSchemaContent != null">
         UI_SCHEMA_CONTENT,
       </if>
+      <if test="customScriptContent != null">
+        CUSTOM_SCRIPT_CONTENT,
+      </if>
       <if test="contentSha256 != null">
         CONTENT_SHA256,
       </if>
@@ -151,6 +156,9 @@
       <if test="uiSchemaContent != null">
         #{uiSchemaContent,jdbcType=LONGVARCHAR},
       </if>
+      <if test="customScriptContent != null">
+        #{customScriptContent,jdbcType=LONGVARCHAR},
+      </if>
       <if test="contentSha256 != null">
         #{contentSha256,jdbcType=CHAR},
       </if>
@@ -186,6 +194,9 @@
       </if>
       <if test="uiSchemaContent != null">
         UI_SCHEMA_CONTENT = #{uiSchemaContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="customScriptContent != null">
+        CUSTOM_SCRIPT_CONTENT = #{customScriptContent,jdbcType=LONGVARCHAR},
       </if>
       <if test="contentSha256 != null">
         CONTENT_SHA256 = #{contentSha256,jdbcType=CHAR},

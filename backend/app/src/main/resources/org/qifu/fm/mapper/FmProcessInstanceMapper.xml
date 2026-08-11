@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmProcessInstanceMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmProcessInstance">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId" />
+    <result column="PROCESS_DEF_ID" jdbcType="VARCHAR" property="processDefId" />
+    <result column="PROCESS_VERSION_NO" jdbcType="INTEGER" property="processVersionNo" />
+    <result column="FLOWABLE_PROCESS_DEF_ID" jdbcType="VARCHAR" property="flowableProcessDefId" />
+    <result column="BUSINESS_KEY" jdbcType="VARCHAR" property="businessKey" />
+    <result column="FORM_DATA_ID" jdbcType="VARCHAR" property="formDataId" />
+    <result column="INITIATOR_ACCOUNT" jdbcType="VARCHAR" property="initiatorAccount" />
+    <result column="INITIATOR_ORG_UNIT_ID" jdbcType="VARCHAR" property="initiatorOrgUnitId" />
+    <result column="INSTANCE_STATUS" jdbcType="VARCHAR" property="instanceStatus" />
+    <result column="START_DATE" jdbcType="TIMESTAMP" property="startDate" />
+    <result column="END_DATE" jdbcType="TIMESTAMP" property="endDate" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    PROCESS_INSTANCE_ID,
+    PROCESS_DEF_ID,
+    PROCESS_VERSION_NO,
+    FLOWABLE_PROCESS_DEF_ID,
+    BUSINESS_KEY,
+    FORM_DATA_ID,
+    INITIATOR_ACCOUNT,
+    INITIATOR_ORG_UNIT_ID,
+    INSTANCE_STATUS,
+    START_DATE,
+    END_DATE,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="processInstanceId != null and processInstanceId != ''">
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+    </if>
+    <if test="processDefId != null and processDefId != ''">
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+    </if>
+    <if test="businessKey != null and businessKey != ''">
+      AND BUSINESS_KEY = #{businessKey,jdbcType=VARCHAR}
+    </if>
+    <if test="initiatorAccount != null and initiatorAccount != ''">
+      AND INITIATOR_ACCOUNT = #{initiatorAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="instanceStatus != null and instanceStatus != ''">
+      AND INSTANCE_STATUS = #{instanceStatus,jdbcType=VARCHAR}
+    </if>
+    <if test="keywordLike != null and keywordLike != ''">
+      AND (
+        PROCESS_INSTANCE_ID LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR BUSINESS_KEY LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR INITIATOR_ACCOUNT LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR EXISTS (
+          SELECT 1
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+          WHERE pd.TENANT_ID = fm_process_instance.TENANT_ID
+            AND pd.PROCESS_DEF_ID = fm_process_instance.PROCESS_DEF_ID
+            AND pd.PROCESS_NAME LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data fd
+          WHERE fd.TENANT_ID = fm_process_instance.TENANT_ID
+            AND fd.FORM_DATA_ID = fm_process_instance.FORM_DATA_ID
+            AND fd.OWNER_ACCOUNT LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        )
+      )
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmProcessInstance">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID,
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID,
+      </if>
+      <if test="processVersionNo != null">
+        PROCESS_VERSION_NO,
+      </if>
+      <if test="flowableProcessDefId != null">
+        FLOWABLE_PROCESS_DEF_ID,
+      </if>
+      <if test="businessKey != null">
+        BUSINESS_KEY,
+      </if>
+      <if test="formDataId != null">
+        FORM_DATA_ID,
+      </if>
+      <if test="initiatorAccount != null">
+        INITIATOR_ACCOUNT,
+      </if>
+      <if test="initiatorOrgUnitId != null">
+        INITIATOR_ORG_UNIT_ID,
+      </if>
+      <if test="instanceStatus != null">
+        INSTANCE_STATUS,
+      </if>
+      <if test="startDate != null">
+        START_DATE,
+      </if>
+      <if test="endDate != null">
+        END_DATE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="processVersionNo != null">
+        #{processVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="flowableProcessDefId != null">
+        #{flowableProcessDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="businessKey != null">
+        #{businessKey,jdbcType=VARCHAR},
+      </if>
+      <if test="formDataId != null">
+        #{formDataId,jdbcType=VARCHAR},
+      </if>
+      <if test="initiatorAccount != null">
+        #{initiatorAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="initiatorOrgUnitId != null">
+        #{initiatorOrgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="instanceStatus != null">
+        #{instanceStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="startDate != null">
+        #{startDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="endDate != null">
+        #{endDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmProcessInstance">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    <set>
+      <if test="instanceStatus != null">
+        INSTANCE_STATUS = #{instanceStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="endDate != null">
+        END_DATE = #{endDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmProcessInstance">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <update id="updateStatus" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    SET INSTANCE_STATUS = #{targetStatus,jdbcType=VARCHAR},
+        END_DATE = #{endDate,jdbcType=TIMESTAMP},
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+        UDATE = #{udate,jdbcType=TIMESTAMP}
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+      AND INSTANCE_STATUS = #{currentStatus,jdbcType=VARCHAR}
+  </update>
+
+  <select id="selectOperationsSummary" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsProcessSummary">
+    SELECT COUNT(*) AS totalProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'RUNNING' THEN 1 ELSE 0 END), 0)
+               AS runningProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'COMPLETED' THEN 1 ELSE 0 END), 0)
+               AS completedProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'REJECTED' THEN 1 ELSE 0 END), 0)
+               AS rejectedProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'CANCELLED' THEN 1 ELSE 0 END), 0)
+               AS cancelledProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'TERMINATED' THEN 1 ELSE 0 END), 0)
+               AS terminatedProcesses,
+           COALESCE(ROUND(AVG(CASE WHEN INSTANCE_STATUS = 'COMPLETED'
+               THEN TIMESTAMPDIFF(MINUTE, START_DATE, END_DATE) END)), 0)
+               AS averageCompletedMinutes
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+       AND START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+  </select>
+
+  <select id="selectOperationsDailySummary" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsDailySummary">
+    SELECT reportDate,
+           SUM(startedProcesses) AS startedProcesses,
+           SUM(completedProcesses) AS completedProcesses,
+           COALESCE(ROUND(SUM(completedMinutes)
+               / NULLIF(SUM(completedDurationCount), 0)), 0)
+               AS averageCompletedMinutes
+      FROM (
+        SELECT DATE_FORMAT(START_DATE, '%Y-%m-%d') AS reportDate,
+               1 AS startedProcesses, 0 AS completedProcesses,
+               0 AS completedMinutes, 0 AS completedDurationCount
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+         WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+           AND START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+           AND START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+        UNION ALL
+        SELECT DATE_FORMAT(END_DATE, '%Y-%m-%d') AS reportDate,
+               0 AS startedProcesses, 1 AS completedProcesses,
+               TIMESTAMPDIFF(MINUTE, START_DATE, END_DATE) AS completedMinutes,
+               1 AS completedDurationCount
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+         WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+           AND INSTANCE_STATUS = 'COMPLETED'
+           AND END_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+           AND END_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+      ) daily
+     GROUP BY reportDate
+     ORDER BY reportDate
+  </select>
+
+  <select id="selectOperationsProcessRanking" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsProcessRanking">
+    SELECT pi.PROCESS_DEF_ID AS processDefId,
+           pd.PROCESS_NAME AS processName,
+           COUNT(*) AS startedProcesses,
+           COALESCE(SUM(CASE WHEN pi.INSTANCE_STATUS = 'COMPLETED'
+               THEN 1 ELSE 0 END), 0) AS completedProcesses,
+           COALESCE(ROUND(AVG(CASE WHEN pi.INSTANCE_STATUS = 'COMPLETED'
+               THEN TIMESTAMPDIFF(MINUTE, pi.START_DATE, pi.END_DATE) END)), 0)
+               AS averageCompletedMinutes
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance pi
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+        ON pd.TENANT_ID = pi.TENANT_ID
+       AND pd.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+     WHERE pi.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND pi.START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+       AND pi.START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+     GROUP BY pi.PROCESS_DEF_ID, pd.PROCESS_NAME
+     ORDER BY startedProcesses DESC, pd.PROCESS_NAME
+     LIMIT 20
+  </select>
+
+  <select id="selectOperationsTaskRanking" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsTaskRanking">
+    SELECT pi.PROCESS_DEF_ID AS processDefId,
+           pd.PROCESS_NAME AS processName,
+           action.TASK_DEF_KEY AS taskDefKey,
+           COALESCE(tp.TASK_NAME, action.TASK_DEF_KEY) AS taskName,
+           COUNT(*) AS completedTasks,
+           ROUND(AVG(TIMESTAMPDIFF(MINUTE,
+               assigned.assignedDate, action.ACTION_DATE))) AS averageHandlingMinutes,
+           MAX(TIMESTAMPDIFF(MINUTE,
+               assigned.assignedDate, action.ACTION_DATE)) AS maximumHandlingMinutes
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action action
+      JOIN (
+        SELECT TENANT_ID, TASK_ID, MIN(RESOLVED_DATE) AS assignedDate
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+         WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+           AND TASK_ID IS NOT NULL
+         GROUP BY TENANT_ID, TASK_ID
+      ) assigned
+        ON assigned.TENANT_ID = action.TENANT_ID
+       AND assigned.TASK_ID = action.TASK_ID
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance pi
+        ON pi.TENANT_ID = action.TENANT_ID
+       AND pi.PROCESS_INSTANCE_ID = action.PROCESS_INSTANCE_ID
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+        ON pd.TENANT_ID = pi.TENANT_ID
+       AND pd.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+      LEFT JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy tp
+        ON tp.TENANT_ID = pi.TENANT_ID
+       AND tp.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+       AND tp.PROCESS_VERSION_NO = pi.PROCESS_VERSION_NO
+       AND tp.TASK_DEF_KEY = action.TASK_DEF_KEY
+     WHERE action.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND action.ACTION_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+       AND action.ACTION_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+       AND action.ACTION_TYPE IN ('APPROVE', 'REJECT', 'RETURN', 'RESUBMIT')
+       AND action.ACTION_DATE &gt;= assigned.assignedDate
+     GROUP BY pi.PROCESS_DEF_ID, pd.PROCESS_NAME,
+              action.TASK_DEF_KEY, COALESCE(tp.TASK_NAME, action.TASK_DEF_KEY)
+     ORDER BY averageHandlingMinutes DESC, completedTasks DESC
+     LIMIT 20
+  </select>
+</mapper>

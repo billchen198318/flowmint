@@ -27,6 +27,8 @@ public class FmTaskPolicy implements Serializable {
     private String allowTransfer;
     private String allowAddSign;
     private String commentRequired;
+    private Integer dueHours;
+    private Integer reminderBeforeHours;
     private String cuserid;
     private Date cdate;
     private String uuserid;
@@ -143,6 +145,22 @@ public class FmTaskPolicy implements Serializable {
 
     public void setCommentRequired(String commentRequired) {
         this.commentRequired = commentRequired;
+    }
+
+    public Integer getDueHours() {
+        return dueHours;
+    }
+
+    public void setDueHours(Integer dueHours) {
+        this.dueHours = dueHours;
+    }
+
+    public Integer getReminderBeforeHours() {
+        return reminderBeforeHours;
+    }
+
+    public void setReminderBeforeHours(Integer reminderBeforeHours) {
+        this.reminderBeforeHours = reminderBeforeHours;
     }
 
     @CreateUserField(name = "cuserid")

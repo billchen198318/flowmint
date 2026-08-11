@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTaskAssignmentSnapshotDtlMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmTaskAssignmentSnapshotDtl">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="ASSIGNMENT_SNAPSHOT_ID" jdbcType="VARCHAR" property="assignmentSnapshotId" />
+    <result column="RESULT_SEQ" jdbcType="INTEGER" property="resultSeq" />
+    <result column="RESULT_TYPE" jdbcType="VARCHAR" property="resultType" />
+    <result column="RESULT_ACCOUNT" jdbcType="VARCHAR" property="resultAccount" />
+    <result column="PRINCIPAL_ACCOUNT" jdbcType="VARCHAR" property="principalAccount" />
+    <result column="ORG_UNIT_ID" jdbcType="VARCHAR" property="orgUnitId" />
+    <result column="ORG_UNIT_NAME" jdbcType="VARCHAR" property="orgUnitName" />
+    <result column="APPROVAL_LEVEL_ID" jdbcType="VARCHAR" property="approvalLevelId" />
+    <result column="LEVEL_CODE" jdbcType="VARCHAR" property="levelCode" />
+    <result column="LEVEL_NAME" jdbcType="VARCHAR" property="levelName" />
+    <result column="LEVEL_ORDER" jdbcType="INTEGER" property="levelOrder" />
+    <result column="RESOLUTION_PATH" jdbcType="LONGVARCHAR" property="resolutionPath" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    ASSIGNMENT_SNAPSHOT_ID,
+    RESULT_SEQ,
+    RESULT_TYPE,
+    RESULT_ACCOUNT,
+    PRINCIPAL_ACCOUNT,
+    ORG_UNIT_ID,
+    ORG_UNIT_NAME,
+    APPROVAL_LEVEL_ID,
+    LEVEL_CODE,
+    LEVEL_NAME,
+    LEVEL_ORDER,
+    RESOLUTION_PATH,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="assignmentSnapshotId != null and assignmentSnapshotId != ''">
+      AND ASSIGNMENT_SNAPSHOT_ID = #{assignmentSnapshotId,jdbcType=VARCHAR}
+    </if>
+    <if test="resultSeq != null">
+      AND RESULT_SEQ = #{resultSeq,jdbcType=INTEGER}
+    </if>
+    <if test="resultType != null and resultType != ''">
+      AND RESULT_TYPE = #{resultType,jdbcType=VARCHAR}
+    </if>
+    <if test="resultAccount != null and resultAccount != ''">
+      AND RESULT_ACCOUNT = #{resultAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="principalAccount != null and principalAccount != ''">
+      AND PRINCIPAL_ACCOUNT = #{principalAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="orgUnitId != null and orgUnitId != ''">
+      AND ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}
+    </if>
+    <if test="orgUnitName != null and orgUnitName != ''">
+      AND ORG_UNIT_NAME = #{orgUnitName,jdbcType=VARCHAR}
+    </if>
+    <if test="approvalLevelId != null and approvalLevelId != ''">
+      AND APPROVAL_LEVEL_ID = #{approvalLevelId,jdbcType=VARCHAR}
+    </if>
+    <if test="levelCode != null and levelCode != ''">
+      AND LEVEL_CODE = #{levelCode,jdbcType=VARCHAR}
+    </if>
+    <if test="levelName != null and levelName != ''">
+      AND LEVEL_NAME = #{levelName,jdbcType=VARCHAR}
+    </if>
+    <if test="levelOrder != null">
+      AND LEVEL_ORDER = #{levelOrder,jdbcType=INTEGER}
+    </if>
+    <if test="resolutionPath != null and resolutionPath != ''">
+      AND RESOLUTION_PATH = #{resolutionPath,jdbcType=LONGVARCHAR}
+    </if>
+    <if test="cuserid != null and cuserid != ''">
+      AND CUSERID = #{cuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="cdate != null">
+      AND CDATE = #{cdate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="uuserid != null and uuserid != ''">
+      AND UUSERID = #{uuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="udate != null">
+      AND UDATE = #{udate,jdbcType=TIMESTAMP}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot_dtl
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot_dtl
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot_dtl
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap"
+          resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot_dtl
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTaskAssignmentSnapshotDtl">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot_dtl
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="assignmentSnapshotId != null">
+        ASSIGNMENT_SNAPSHOT_ID,
+      </if>
+      <if test="resultSeq != null">
+        RESULT_SEQ,
+      </if>
+      <if test="resultType != null">
+        RESULT_TYPE,
+      </if>
+      <if test="resultAccount != null">
+        RESULT_ACCOUNT,
+      </if>
+      <if test="principalAccount != null">
+        PRINCIPAL_ACCOUNT,
+      </if>
+      <if test="orgUnitId != null">
+        ORG_UNIT_ID,
+      </if>
+      <if test="orgUnitName != null">
+        ORG_UNIT_NAME,
+      </if>
+      <if test="approvalLevelId != null">
+        APPROVAL_LEVEL_ID,
+      </if>
+      <if test="levelCode != null">
+        LEVEL_CODE,
+      </if>
+      <if test="levelName != null">
+        LEVEL_NAME,
+      </if>
+      <if test="levelOrder != null">
+        LEVEL_ORDER,
+      </if>
+      <if test="resolutionPath != null">
+        RESOLUTION_PATH,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentSnapshotId != null">
+        #{assignmentSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="resultSeq != null">
+        #{resultSeq,jdbcType=INTEGER},
+      </if>
+      <if test="resultType != null">
+        #{resultType,jdbcType=VARCHAR},
+      </if>
+      <if test="resultAccount != null">
+        #{resultAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="principalAccount != null">
+        #{principalAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="orgUnitId != null">
+        #{orgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="orgUnitName != null">
+        #{orgUnitName,jdbcType=VARCHAR},
+      </if>
+      <if test="approvalLevelId != null">
+        #{approvalLevelId,jdbcType=VARCHAR},
+      </if>
+      <if test="levelCode != null">
+        #{levelCode,jdbcType=VARCHAR},
+      </if>
+      <if test="levelName != null">
+        #{levelName,jdbcType=VARCHAR},
+      </if>
+      <if test="levelOrder != null">
+        #{levelOrder,jdbcType=INTEGER},
+      </if>
+      <if test="resolutionPath != null">
+        #{resolutionPath,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmTaskAssignmentSnapshotDtl">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot_dtl
+    <set>
+      <if test="tenantId != null">
+        TENANT_ID = #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentSnapshotId != null">
+        ASSIGNMENT_SNAPSHOT_ID = #{assignmentSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="resultSeq != null">
+        RESULT_SEQ = #{resultSeq,jdbcType=INTEGER},
+      </if>
+      <if test="resultType != null">
+        RESULT_TYPE = #{resultType,jdbcType=VARCHAR},
+      </if>
+      <if test="resultAccount != null">
+        RESULT_ACCOUNT = #{resultAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="principalAccount != null">
+        PRINCIPAL_ACCOUNT = #{principalAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="orgUnitId != null">
+        ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR},
+      </if>
+      <if test="orgUnitName != null">
+        ORG_UNIT_NAME = #{orgUnitName,jdbcType=VARCHAR},
+      </if>
+      <if test="approvalLevelId != null">
+        APPROVAL_LEVEL_ID = #{approvalLevelId,jdbcType=VARCHAR},
+      </if>
+      <if test="levelCode != null">
+        LEVEL_CODE = #{levelCode,jdbcType=VARCHAR},
+      </if>
+      <if test="levelName != null">
+        LEVEL_NAME = #{levelName,jdbcType=VARCHAR},
+      </if>
+      <if test="levelOrder != null">
+        LEVEL_ORDER = #{levelOrder,jdbcType=INTEGER},
+      </if>
+      <if test="resolutionPath != null">
+        RESOLUTION_PATH = #{resolutionPath,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="cuserid != null">
+        CUSERID = #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        CDATE = #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmTaskAssignmentSnapshotDtl">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot_dtl
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+</mapper>
+

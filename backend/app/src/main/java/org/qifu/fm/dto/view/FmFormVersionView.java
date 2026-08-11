@@ -8,6 +8,7 @@ public record FmFormVersionView(
         String versionStatus,
         String schemaContent,
         String uiSchemaContent,
+        String customScriptContent,
         String contentSha256,
         String publishedBy,
         Date publishedDate) {

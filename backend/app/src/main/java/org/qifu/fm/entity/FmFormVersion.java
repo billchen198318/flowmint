@@ -20,6 +20,7 @@ public class FmFormVersion implements Serializable {
     private String versionStatus;
     private String schemaContent;
     private String uiSchemaContent;
+    private String customScriptContent;
     private String contentSha256;
     private String publishedBy;
     private Date publishedDate;
@@ -83,6 +84,14 @@ public class FmFormVersion implements Serializable {
 
     public void setUiSchemaContent(String uiSchemaContent) {
         this.uiSchemaContent = uiSchemaContent;
+    }
+
+    public String getCustomScriptContent() {
+        return customScriptContent;
+    }
+
+    public void setCustomScriptContent(String customScriptContent) {
+        this.customScriptContent = customScriptContent;
     }
 
     public String getContentSha256() {

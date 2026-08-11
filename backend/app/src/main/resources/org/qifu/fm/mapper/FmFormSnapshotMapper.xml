@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmFormSnapshotMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmFormSnapshot">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="FORM_SNAPSHOT_ID" jdbcType="VARCHAR" property="formSnapshotId" />
+    <result column="FORM_DATA_ID" jdbcType="VARCHAR" property="formDataId" />
+    <result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId" />
+    <result column="TASK_ID" jdbcType="VARCHAR" property="taskId" />
+    <result column="ACTION_TYPE" jdbcType="VARCHAR" property="actionType" />
+    <result column="FORM_VERSION_NO" jdbcType="INTEGER" property="formVersionNo" />
+    <result column="REVISION_NO" jdbcType="INTEGER" property="revisionNo" />
+    <result column="DATA_CONTENT" jdbcType="LONGVARCHAR" property="dataContent" />
+    <result column="CONTENT_SHA256" jdbcType="CHAR" property="contentSha256" />
+    <result column="SNAPSHOT_DATE" jdbcType="TIMESTAMP" property="snapshotDate" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    FORM_SNAPSHOT_ID,
+    FORM_DATA_ID,
+    PROCESS_INSTANCE_ID,
+    TASK_ID,
+    ACTION_TYPE,
+    FORM_VERSION_NO,
+    REVISION_NO,
+    DATA_CONTENT,
+    CONTENT_SHA256,
+    SNAPSHOT_DATE,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="formSnapshotId != null and formSnapshotId != ''">
+      AND FORM_SNAPSHOT_ID = #{formSnapshotId,jdbcType=VARCHAR}
+    </if>
+    <if test="formDataId != null and formDataId != ''">
+      AND FORM_DATA_ID = #{formDataId,jdbcType=VARCHAR}
+    </if>
+    <if test="processInstanceId != null and processInstanceId != ''">
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+    </if>
+    <if test="taskId != null and taskId != ''">
+      AND TASK_ID = #{taskId,jdbcType=VARCHAR}
+    </if>
+    <if test="actionType != null and actionType != ''">
+      AND ACTION_TYPE = #{actionType,jdbcType=VARCHAR}
+    </if>
+    <if test="formVersionNo != null">
+      AND FORM_VERSION_NO = #{formVersionNo,jdbcType=INTEGER}
+    </if>
+    <if test="revisionNo != null">
+      AND REVISION_NO = #{revisionNo,jdbcType=INTEGER}
+    </if>
+    <if test="dataContent != null and dataContent != ''">
+      AND DATA_CONTENT = #{dataContent,jdbcType=LONGVARCHAR}
+    </if>
+    <if test="contentSha256 != null and contentSha256 != ''">
+      AND CONTENT_SHA256 = #{contentSha256,jdbcType=CHAR}
+    </if>
+    <if test="snapshotDate != null">
+      AND SNAPSHOT_DATE = #{snapshotDate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="cuserid != null and cuserid != ''">
+      AND CUSERID = #{cuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="cdate != null">
+      AND CDATE = #{cdate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="uuserid != null and uuserid != ''">
+      AND UUSERID = #{uuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="udate != null">
+      AND UDATE = #{udate,jdbcType=TIMESTAMP}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_snapshot
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_snapshot
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_snapshot
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap"
+          resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_snapshot
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmFormSnapshot">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_snapshot
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="formSnapshotId != null">
+        FORM_SNAPSHOT_ID,
+      </if>
+      <if test="formDataId != null">
+        FORM_DATA_ID,
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID,
+      </if>
+      <if test="taskId != null">
+        TASK_ID,
+      </if>
+      <if test="actionType != null">
+        ACTION_TYPE,
+      </if>
+      <if test="formVersionNo != null">
+        FORM_VERSION_NO,
+      </if>
+      <if test="revisionNo != null">
+        REVISION_NO,
+      </if>
+      <if test="dataContent != null">
+        DATA_CONTENT,
+      </if>
+      <if test="contentSha256 != null">
+        CONTENT_SHA256,
+      </if>
+      <if test="snapshotDate != null">
+        SNAPSHOT_DATE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="formSnapshotId != null">
+        #{formSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="formDataId != null">
+        #{formDataId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskId != null">
+        #{taskId,jdbcType=VARCHAR},
+      </if>
+      <if test="actionType != null">
+        #{actionType,jdbcType=VARCHAR},
+      </if>
+      <if test="formVersionNo != null">
+        #{formVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="revisionNo != null">
+        #{revisionNo,jdbcType=INTEGER},
+      </if>
+      <if test="dataContent != null">
+        #{dataContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="contentSha256 != null">
+        #{contentSha256,jdbcType=CHAR},
+      </if>
+      <if test="snapshotDate != null">
+        #{snapshotDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmFormSnapshot">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_snapshot
+    <set>
+      <if test="tenantId != null">
+        TENANT_ID = #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="formSnapshotId != null">
+        FORM_SNAPSHOT_ID = #{formSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="formDataId != null">
+        FORM_DATA_ID = #{formDataId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskId != null">
+        TASK_ID = #{taskId,jdbcType=VARCHAR},
+      </if>
+      <if test="actionType != null">
+        ACTION_TYPE = #{actionType,jdbcType=VARCHAR},
+      </if>
+      <if test="formVersionNo != null">
+        FORM_VERSION_NO = #{formVersionNo,jdbcType=INTEGER},
+      </if>
+      <if test="revisionNo != null">
+        REVISION_NO = #{revisionNo,jdbcType=INTEGER},
+      </if>
+      <if test="dataContent != null">
+        DATA_CONTENT = #{dataContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="contentSha256 != null">
+        CONTENT_SHA256 = #{contentSha256,jdbcType=CHAR},
+      </if>
+      <if test="snapshotDate != null">
+        SNAPSHOT_DATE = #{snapshotDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        CUSERID = #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        CDATE = #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmFormSnapshot">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_snapshot
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+</mapper>
+

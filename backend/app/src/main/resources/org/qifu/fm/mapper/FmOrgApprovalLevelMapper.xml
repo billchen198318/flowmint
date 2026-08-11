@@ -24,6 +24,9 @@
     <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_approval_level WHERE OID = #{oid,jdbcType=CHAR}
   </select>
   <sql id="conditions">
+    <if test="approvalLevelId!=null and approvalLevelId!=''">
+      AND APPROVAL_LEVEL_ID=#{approvalLevelId,jdbcType=VARCHAR}
+    </if>
     <if test="tenantId!=null and tenantId!=''">
       AND TENANT_ID=#{tenantId,jdbcType=VARCHAR}
     </if>

@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTaskActionMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmTaskAction">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="TASK_ACTION_ID" jdbcType="VARCHAR" property="taskActionId" />
+    <result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId" />
+    <result column="TASK_ID" jdbcType="VARCHAR" property="taskId" />
+    <result column="TASK_DEF_KEY" jdbcType="VARCHAR" property="taskDefKey" />
+    <result column="ACTION_TYPE" jdbcType="VARCHAR" property="actionType" />
+    <result column="OUTCOME" jdbcType="VARCHAR" property="outcome" />
+    <result column="ACTOR_ACCOUNT" jdbcType="VARCHAR" property="actorAccount" />
+    <result column="PRINCIPAL_ACCOUNT" jdbcType="VARCHAR" property="principalAccount" />
+    <result column="FROM_ACCOUNT" jdbcType="VARCHAR" property="fromAccount" />
+    <result column="TO_ACCOUNT" jdbcType="VARCHAR" property="toAccount" />
+    <result column="FORM_SNAPSHOT_ID" jdbcType="VARCHAR" property="formSnapshotId" />
+    <result column="ASSIGNMENT_SNAPSHOT_ID" jdbcType="VARCHAR" property="assignmentSnapshotId" />
+    <result column="COMMENT_TEXT" jdbcType="VARCHAR" property="commentText" />
+    <result column="REASON" jdbcType="VARCHAR" property="reason" />
+    <result column="CONTEXT_DATA" jdbcType="LONGVARCHAR" property="contextData" />
+    <result column="ACTION_DATE" jdbcType="TIMESTAMP" property="actionDate" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    TASK_ACTION_ID,
+    PROCESS_INSTANCE_ID,
+    TASK_ID,
+    TASK_DEF_KEY,
+    ACTION_TYPE,
+    OUTCOME,
+    ACTOR_ACCOUNT,
+    PRINCIPAL_ACCOUNT,
+    FROM_ACCOUNT,
+    TO_ACCOUNT,
+    FORM_SNAPSHOT_ID,
+    ASSIGNMENT_SNAPSHOT_ID,
+    COMMENT_TEXT,
+    REASON,
+    CONTEXT_DATA,
+    ACTION_DATE,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="taskActionId != null and taskActionId != ''">
+      AND TASK_ACTION_ID = #{taskActionId,jdbcType=VARCHAR}
+    </if>
+    <if test="processInstanceId != null and processInstanceId != ''">
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+    </if>
+    <if test="taskId != null and taskId != ''">
+      AND TASK_ID = #{taskId,jdbcType=VARCHAR}
+    </if>
+    <if test="taskDefKey != null and taskDefKey != ''">
+      AND TASK_DEF_KEY = #{taskDefKey,jdbcType=VARCHAR}
+    </if>
+    <if test="actionType != null and actionType != ''">
+      AND ACTION_TYPE = #{actionType,jdbcType=VARCHAR}
+    </if>
+    <if test="outcome != null and outcome != ''">
+      AND OUTCOME = #{outcome,jdbcType=VARCHAR}
+    </if>
+    <if test="actorAccount != null and actorAccount != ''">
+      AND ACTOR_ACCOUNT = #{actorAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="principalAccount != null and principalAccount != ''">
+      AND PRINCIPAL_ACCOUNT = #{principalAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="fromAccount != null and fromAccount != ''">
+      AND FROM_ACCOUNT = #{fromAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="toAccount != null and toAccount != ''">
+      AND TO_ACCOUNT = #{toAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="formSnapshotId != null and formSnapshotId != ''">
+      AND FORM_SNAPSHOT_ID = #{formSnapshotId,jdbcType=VARCHAR}
+    </if>
+    <if test="assignmentSnapshotId != null and assignmentSnapshotId != ''">
+      AND ASSIGNMENT_SNAPSHOT_ID = #{assignmentSnapshotId,jdbcType=VARCHAR}
+    </if>
+    <if test="commentText != null and commentText != ''">
+      AND COMMENT_TEXT = #{commentText,jdbcType=VARCHAR}
+    </if>
+    <if test="reason != null and reason != ''">
+      AND REASON = #{reason,jdbcType=VARCHAR}
+    </if>
+    <if test="contextData != null and contextData != ''">
+      AND CONTEXT_DATA = #{contextData,jdbcType=LONGVARCHAR}
+    </if>
+    <if test="actionDate != null">
+      AND ACTION_DATE = #{actionDate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="cuserid != null and cuserid != ''">
+      AND CUSERID = #{cuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="cdate != null">
+      AND CDATE = #{cdate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="uuserid != null and uuserid != ''">
+      AND UUSERID = #{uuserid,jdbcType=VARCHAR}
+    </if>
+    <if test="udate != null">
+      AND UDATE = #{udate,jdbcType=TIMESTAMP}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap"
+          resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTaskAction">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="taskActionId != null">
+        TASK_ACTION_ID,
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID,
+      </if>
+      <if test="taskId != null">
+        TASK_ID,
+      </if>
+      <if test="taskDefKey != null">
+        TASK_DEF_KEY,
+      </if>
+      <if test="actionType != null">
+        ACTION_TYPE,
+      </if>
+      <if test="outcome != null">
+        OUTCOME,
+      </if>
+      <if test="actorAccount != null">
+        ACTOR_ACCOUNT,
+      </if>
+      <if test="principalAccount != null">
+        PRINCIPAL_ACCOUNT,
+      </if>
+      <if test="fromAccount != null">
+        FROM_ACCOUNT,
+      </if>
+      <if test="toAccount != null">
+        TO_ACCOUNT,
+      </if>
+      <if test="formSnapshotId != null">
+        FORM_SNAPSHOT_ID,
+      </if>
+      <if test="assignmentSnapshotId != null">
+        ASSIGNMENT_SNAPSHOT_ID,
+      </if>
+      <if test="commentText != null">
+        COMMENT_TEXT,
+      </if>
+      <if test="reason != null">
+        REASON,
+      </if>
+      <if test="contextData != null">
+        CONTEXT_DATA,
+      </if>
+      <if test="actionDate != null">
+        ACTION_DATE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskActionId != null">
+        #{taskActionId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskId != null">
+        #{taskId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskDefKey != null">
+        #{taskDefKey,jdbcType=VARCHAR},
+      </if>
+      <if test="actionType != null">
+        #{actionType,jdbcType=VARCHAR},
+      </if>
+      <if test="outcome != null">
+        #{outcome,jdbcType=VARCHAR},
+      </if>
+      <if test="actorAccount != null">
+        #{actorAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="principalAccount != null">
+        #{principalAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="fromAccount != null">
+        #{fromAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="toAccount != null">
+        #{toAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="formSnapshotId != null">
+        #{formSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentSnapshotId != null">
+        #{assignmentSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="commentText != null">
+        #{commentText,jdbcType=VARCHAR},
+      </if>
+      <if test="reason != null">
+        #{reason,jdbcType=VARCHAR},
+      </if>
+      <if test="contextData != null">
+        #{contextData,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="actionDate != null">
+        #{actionDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmTaskAction">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action
+    <set>
+      <if test="tenantId != null">
+        TENANT_ID = #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskActionId != null">
+        TASK_ACTION_ID = #{taskActionId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskId != null">
+        TASK_ID = #{taskId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskDefKey != null">
+        TASK_DEF_KEY = #{taskDefKey,jdbcType=VARCHAR},
+      </if>
+      <if test="actionType != null">
+        ACTION_TYPE = #{actionType,jdbcType=VARCHAR},
+      </if>
+      <if test="outcome != null">
+        OUTCOME = #{outcome,jdbcType=VARCHAR},
+      </if>
+      <if test="actorAccount != null">
+        ACTOR_ACCOUNT = #{actorAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="principalAccount != null">
+        PRINCIPAL_ACCOUNT = #{principalAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="fromAccount != null">
+        FROM_ACCOUNT = #{fromAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="toAccount != null">
+        TO_ACCOUNT = #{toAccount,jdbcType=VARCHAR},
+      </if>
+      <if test="formSnapshotId != null">
+        FORM_SNAPSHOT_ID = #{formSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="assignmentSnapshotId != null">
+        ASSIGNMENT_SNAPSHOT_ID = #{assignmentSnapshotId,jdbcType=VARCHAR},
+      </if>
+      <if test="commentText != null">
+        COMMENT_TEXT = #{commentText,jdbcType=VARCHAR},
+      </if>
+      <if test="reason != null">
+        REASON = #{reason,jdbcType=VARCHAR},
+      </if>
+      <if test="contextData != null">
+        CONTEXT_DATA = #{contextData,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="actionDate != null">
+        ACTION_DATE = #{actionDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        CUSERID = #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        CDATE = #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmTaskAction">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+</mapper>
+
