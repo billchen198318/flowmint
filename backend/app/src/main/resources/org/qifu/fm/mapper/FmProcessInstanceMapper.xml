@@ -262,4 +262,26 @@
       AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
       AND INSTANCE_STATUS = #{currentStatus,jdbcType=VARCHAR}
   </update>
+
+  <select id="selectOperationsSummary" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsProcessSummary">
+    SELECT COUNT(*) AS totalProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'RUNNING' THEN 1 ELSE 0 END), 0)
+               AS runningProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'COMPLETED' THEN 1 ELSE 0 END), 0)
+               AS completedProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'REJECTED' THEN 1 ELSE 0 END), 0)
+               AS rejectedProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'CANCELLED' THEN 1 ELSE 0 END), 0)
+               AS cancelledProcesses,
+           COALESCE(SUM(CASE WHEN INSTANCE_STATUS = 'TERMINATED' THEN 1 ELSE 0 END), 0)
+               AS terminatedProcesses,
+           COALESCE(ROUND(AVG(CASE WHEN INSTANCE_STATUS = 'COMPLETED'
+               THEN TIMESTAMPDIFF(MINUTE, START_DATE, END_DATE) END)), 0)
+               AS averageCompletedMinutes
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+       AND START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+  </select>
 </mapper>

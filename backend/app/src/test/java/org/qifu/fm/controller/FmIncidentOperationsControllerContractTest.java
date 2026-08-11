@@ -12,6 +12,7 @@ import org.qifu.fm.dto.command.FmIncidentReassignRequest;
 import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
 import org.qifu.fm.dto.command.FmProcessMonitorLoadRequest;
+import org.qifu.fm.dto.command.FmOperationsReportRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -31,7 +32,7 @@ class FmIncidentOperationsControllerContractTest {
         assertEquals(Set.of("/incidents", "/incidents/reassign",
                 "/incidents/reassign-options", "/incidents/retry",
                 "/process-instances", "/process-instances/load",
-                "/process-instances/terminate"), paths);
+                "/process-instances/terminate", "/reports/summary"), paths);
     }
 
     @Test
@@ -62,6 +63,16 @@ class FmIncidentOperationsControllerContractTest {
                 .getRecordComponents()).map(component -> component.getName())
                 .collect(Collectors.toSet());
         assertEquals(Set.of("processInstanceId"), components);
+        assertFalse(components.contains("tenantId"));
+        assertFalse(components.contains("actor"));
+    }
+
+    @Test
+    void reportBodyCannotOverrideTenantOrActor() {
+        Set<String> components = Arrays.stream(FmOperationsReportRequest.class
+                .getRecordComponents()).map(component -> component.getName())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("startDate", "endDate"), components);
         assertFalse(components.contains("tenantId"));
         assertFalse(components.contains("actor"));
     }

@@ -16,9 +16,11 @@ import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessMonitorRequest;
+import org.qifu.fm.dto.command.FmOperationsReportRequest;
 import org.qifu.fm.dto.view.FmProcessMonitorView;
 import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
 import org.qifu.fm.dto.view.FmProcessMonitorPageView;
+import org.qifu.fm.dto.view.FmOperationsReportView;
 import org.qifu.fm.dto.view.FmFormSnapshotView;
 import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.entity.FmFormData;
@@ -68,6 +70,62 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 		this.taskActionService = taskActionService;
 		this.formSnapshotService = formSnapshotService;
 		this.objectMapper = objectMapper;
+	}
+
+	@Override
+	public DefaultResult<FmOperationsReportView> report(
+			String tenantId, FmOperationsReportRequest request) throws ServiceException {
+		requireOperator();
+		if (StringUtils.isBlank(tenantId)) {
+			throw new ServiceException("Tenant is required");
+		}
+		java.time.LocalDate endDay = parseDate(
+				request == null ? null : request.endDate(), java.time.LocalDate.now());
+		java.time.LocalDate startDay = parseDate(
+				request == null ? null : request.startDate(), endDay.minusDays(29));
+		if (startDay.isAfter(endDay) || startDay.isBefore(endDay.minusDays(365))) {
+			throw new ServiceException("報表日期區間必須介於 1 至 366 天");
+		}
+		java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+		Date startDate = Date.from(startDay.atStartOfDay(zone).toInstant());
+		Date endExclusive = Date.from(endDay.plusDays(1).atStartOfDay(zone).toInstant());
+		var summary = processInstanceService.operationsSummary(
+				tenantId, startDate, endExclusive);
+		Date now = new Date();
+		long overdue = taskService.createTaskQuery()
+				.processVariableValueEquals(
+						org.qifu.fm.flowable.FmTaskAssignmentListener.VARIABLE_TENANT_ID,
+						tenantId)
+				.taskDueBefore(now).count();
+		long dueSoon = taskService.createTaskQuery()
+				.processVariableValueEquals(
+						org.qifu.fm.flowable.FmTaskAssignmentListener.VARIABLE_TENANT_ID,
+						tenantId)
+				.taskDueAfter(now)
+				.taskDueBefore(Date.from(now.toInstant().plus(24,
+						java.time.temporal.ChronoUnit.HOURS))).count();
+		return success(new FmOperationsReportView(startDate,
+				Date.from(endDay.atTime(23, 59, 59).atZone(zone).toInstant()),
+				number(summary.getTotalProcesses()), number(summary.getRunningProcesses()),
+				number(summary.getCompletedProcesses()), number(summary.getRejectedProcesses()),
+				number(summary.getCancelledProcesses()), number(summary.getTerminatedProcesses()),
+				number(summary.getAverageCompletedMinutes()), overdue, dueSoon));
+	}
+
+	private java.time.LocalDate parseDate(String value, java.time.LocalDate defaultValue)
+			throws ServiceException {
+		if (StringUtils.isBlank(value)) {
+			return defaultValue;
+		}
+		try {
+			return java.time.LocalDate.parse(value);
+		} catch (java.time.format.DateTimeParseException exception) {
+			throw new ServiceException("報表日期格式必須為 yyyy-MM-dd");
+		}
+	}
+
+	private long number(Long value) {
+		return value == null ? 0L : value;
 	}
 
 	@Override

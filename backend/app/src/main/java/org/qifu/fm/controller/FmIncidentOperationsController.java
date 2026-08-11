@@ -10,12 +10,14 @@ import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
 import org.qifu.fm.dto.command.FmProcessMonitorRequest;
 import org.qifu.fm.dto.command.FmProcessMonitorLoadRequest;
+import org.qifu.fm.dto.command.FmOperationsReportRequest;
 import org.qifu.fm.dto.view.FmAssignmentIncidentView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmProcessMonitorView;
 import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
 import org.qifu.fm.dto.view.FmProcessMonitorPageView;
+import org.qifu.fm.dto.view.FmOperationsReportView;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
 import org.qifu.fm.logic.IFmProcessMonitorLogicService;
 import org.springframework.http.ResponseEntity;
@@ -50,6 +52,21 @@ public class FmIncidentOperationsController extends CoreApiSupport {
                 initDefaultJsonResult();
         try {
             setDefaultResponseJsonResult(processMonitorLogicService.find(
+                    tenantId, request), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/reports/summary")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmOperationsReportView>> report(
+            @RequestHeader("X-FlowMint-Tenant") String tenantId,
+            @RequestBody(required = false) FmOperationsReportRequest request) {
+        DefaultControllerJsonResultObj<FmOperationsReportView> result =
+                initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(processMonitorLogicService.report(
                     tenantId, request), result);
         } catch (Exception exception) {
             exceptionResult(result, exception);

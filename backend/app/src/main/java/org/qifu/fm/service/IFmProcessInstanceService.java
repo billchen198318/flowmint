@@ -4,6 +4,7 @@ import java.util.Date;
 
 import org.qifu.base.service.IBaseService;
 import org.qifu.fm.entity.FmProcessInstance;
+import org.qifu.fm.model.FmOperationsProcessSummary;
 
 public interface IFmProcessInstanceService extends IBaseService<FmProcessInstance, String> {
 
@@ -14,4 +15,7 @@ public interface IFmProcessInstanceService extends IBaseService<FmProcessInstanc
             String targetStatus,
             Date endDate,
             String updateAccount);
+
+    FmOperationsProcessSummary operationsSummary(
+            String tenantId, Date startDate, Date endDate);
 }
