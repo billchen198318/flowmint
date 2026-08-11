@@ -20,6 +20,7 @@ import org.qifu.fm.dto.view.FmRequestTrackDetailView;
 import org.qifu.fm.dto.view.FmRequestTrackView;
 import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
+import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormSnapshot;
@@ -62,6 +63,7 @@ public class FmRequestTrackingLogicServiceImpl
     private final IFmFormSnapshotService formSnapshotService;
     private final IFmRuntimeAuditLogicService auditLogicService;
     private final ObjectMapper objectMapper;
+    private final FmNotificationPublisher notificationPublisher;
 
     public FmRequestTrackingLogicServiceImpl(
             TaskService taskService,
@@ -75,6 +77,7 @@ public class FmRequestTrackingLogicServiceImpl
             IFmTaskActionService taskActionService,
             IFmFormSnapshotService formSnapshotService,
             IFmRuntimeAuditLogicService auditLogicService,
+            FmNotificationPublisher notificationPublisher,
             ObjectMapper objectMapper) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
@@ -87,6 +90,7 @@ public class FmRequestTrackingLogicServiceImpl
         this.taskActionService = taskActionService;
         this.formSnapshotService = formSnapshotService;
         this.auditLogicService = auditLogicService;
+        this.notificationPublisher = notificationPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -217,6 +221,10 @@ public class FmRequestTrackingLogicServiceImpl
         formData.setUuserid(account);
         formData.setUdate(now);
         formDataService.update(formData);
+        notificationPublisher.processStatusChanged(
+                tenantId, processInstanceId, "CANCELLED",
+                List.of(formData.getOwnerAccount(), process.getInitiatorAccount()),
+                account, now);
         return success(new FmTaskActionResultView(
                 null, actionType, processInstanceId, "CANCELLED"));
     }

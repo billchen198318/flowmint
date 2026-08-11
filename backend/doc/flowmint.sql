@@ -5317,6 +5317,11 @@ CREATE TABLE `tb_sys_template` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `tb_sys_template` WRITE;
 /*!40000 ALTER TABLE `tb_sys_template` DISABLE KEYS */;
+INSERT INTO `tb_sys_template` VALUES
+('6474804c-958a-11f1-a8f5-005056c00001','FMTASKASG','你有新的流程待辦','${taskName}','FlowMint 待辦指派通知','system','2026-08-11 21:41:18',NULL,NULL),
+('64748c36-958a-11f1-a8f5-005056c00001','FMPROCMP','你的流程已完成','流程編號：${referenceId}','FlowMint 流程完成通知','system','2026-08-11 21:41:18',NULL,NULL),
+('64748e3d-958a-11f1-a8f5-005056c00001','FMPROREJ','你的流程已駁回','流程編號：${referenceId}','FlowMint 流程駁回通知','system','2026-08-11 21:41:18',NULL,NULL),
+('64748e8f-958a-11f1-a8f5-005056c00001','FMPROCAN','流程已取消','流程編號：${referenceId}','FlowMint 流程撤回或取消通知','system','2026-08-11 21:41:18',NULL,NULL);
 /*!40000 ALTER TABLE `tb_sys_template` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -5351,6 +5356,11 @@ CREATE TABLE `tb_sys_template_param` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `tb_sys_template_param` WRITE;
 /*!40000 ALTER TABLE `tb_sys_template_param` DISABLE KEYS */;
+INSERT INTO `tb_sys_template_param` VALUES
+('66ebbf15-958a-11f1-a8f5-005056c00001','FMTASKASG','N','taskName','taskName','system','2026-08-11 21:41:22',NULL,NULL),
+('66ebc667-958a-11f1-a8f5-005056c00001','FMPROCMP','N','referenceId','referenceId','system','2026-08-11 21:41:22',NULL,NULL),
+('66ebc709-958a-11f1-a8f5-005056c00001','FMPROREJ','N','referenceId','referenceId','system','2026-08-11 21:41:22',NULL,NULL),
+('66ebc732-958a-11f1-a8f5-005056c00001','FMPROCAN','N','referenceId','referenceId','system','2026-08-11 21:41:22',NULL,NULL);
 /*!40000 ALTER TABLE `tb_sys_template_param` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -5506,4 +5516,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-09 15:41:27
+-- Dump completed on 2026-08-11 21:42:58

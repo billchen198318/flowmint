@@ -13,6 +13,8 @@ const baseStore = useBaseStore();
 const tenants = ref<any[]>([]);
 const processes = ref<any[]>([]);
 const inbox = ref<any[]>([]);
+const notifications = ref<any[]>([]);
+const unreadNotificationCount = ref(0);
 const myRequests = ref<any[]>([]);
 const startData = ref<any>(null);
 const selectedForm = ref<any>(null);
@@ -35,6 +37,7 @@ const completedRequests = computed(() => myRequests.value.filter(
 ));
 const statCards = computed(() => [
   { label: "我的待辦", value: inbox.value.length, icon: "bi-inbox", tone: "primary", anchor: "inbox" },
+  { label: "未讀通知", value: unreadNotificationCount.value, icon: "bi-bell", tone: "info", anchor: "notifications" },
   { label: "進行中", value: runningRequests.value.length, icon: "bi-hourglass-split", tone: "warning", anchor: "requests" },
   { label: "已完成", value: completedRequests.value.length, icon: "bi-check2-circle", tone: "success", anchor: "requests" },
   { label: "可發起流程", value: processes.value.length, icon: "bi-send-plus", tone: "info", anchor: "start" },
@@ -52,6 +55,8 @@ const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
 const runtimePost = (path: string, body: any = {}, headers: any = {}) =>
   useApi(`/fm/requests${path}`, { method: "POST", body, headers });
+const notificationPost = (path: string, body: any = {}) =>
+  useApi(`/fm/notifications${path}`, { method: "POST", body, headers: tenantHeaders() });
 const tenantHeaders = () => ({ "X-FlowMint-Tenant": tenantId.value });
 const showError = (response: any, fallback: string) => {
   toast.warning(response?.message || fallback);
@@ -144,6 +149,28 @@ const loadMyRequests = async () => {
   if (!ok(response)) return showError(response, "無法載入我的申請");
   myRequests.value = response.value || [];
 };
+const loadNotifications = async () => {
+  notifications.value = [];
+  unreadNotificationCount.value = 0;
+  if (!tenantId.value) return;
+  const response: any = await notificationPost("/inbox");
+  if (!ok(response)) return showError(response, "無法載入通知");
+  notifications.value = response.value?.notifications || [];
+  unreadNotificationCount.value = response.value?.unreadCount || 0;
+};
+const markNotificationRead = async (notification: any) => {
+  if (notification.readDate) return;
+  const response: any = await notificationPost("/read", {
+    notificationId: notification.notificationId,
+  });
+  if (!ok(response)) return showError(response, "無法更新通知");
+  await loadNotifications();
+};
+const markAllNotificationsRead = async () => {
+  const response: any = await notificationPost("/read-all");
+  if (!ok(response)) return showError(response, "無法更新通知");
+  await loadNotifications();
+};
 const loadStart = async () => {
   startData.value = null;
   selectedForm.value = null;
@@ -197,7 +224,7 @@ const submit = async () => {
 };
 
 watch(tenantId, async () => {
-  await Promise.all([loadCatalog(), loadInbox(), loadMyRequests()]);
+  await Promise.all([loadCatalog(), loadInbox(), loadMyRequests(), loadNotifications()]);
 });
 watch(selectedForm, renderForm);
 onMounted(async () => {
@@ -250,6 +277,29 @@ onBeforeUnmount(() => void destroyForm());
             </NuxtLink>
           </div>
           <div v-else class="empty-state"><i class="bi bi-check2-circle"></i><strong>待辦已清空</strong><span>目前沒有需要你處理的工作。</span></div>
+        </div>
+
+        <div id="notifications" class="card workspace-card mb-4">
+          <div class="card-header workspace-card-header">
+            <div><strong>通知中心</strong><span class="count-pill ms-2">{{ unreadNotificationCount }} 未讀</span></div>
+            <div class="d-flex gap-2">
+              <button v-if="unreadNotificationCount" type="button" class="btn btn-sm btn-outline-secondary" @click="markAllNotificationsRead">全部已讀</button>
+              <button type="button" class="btn btn-sm btn-light" aria-label="重新整理通知" @click="loadNotifications"><i class="bi bi-arrow-clockwise"></i></button>
+            </div>
+          </div>
+          <div v-if="notifications.length" class="list-group list-group-flush">
+            <button v-for="notification in notifications.slice(0, 10)" :key="notification.notificationId"
+              type="button" class="list-group-item list-group-item-action workspace-list-item text-start"
+              @click="markNotificationRead(notification)">
+              <span :class="['list-icon', notification.readDate ? 'tone-muted' : 'tone-info']"><i class="bi bi-bell"></i></span>
+              <span class="flex-grow-1 min-width-0">
+                <strong class="d-block text-truncate">{{ notification.subject }}</strong>
+                <small class="text-secondary">{{ notification.contentText }}</small>
+              </span>
+              <span class="text-end d-none d-md-block"><small class="text-secondary">{{ formatDate(notification.createdDate) }}</small><span v-if="!notification.readDate" class="unread-dot ms-3"></span></span>
+            </button>
+          </div>
+          <div v-else class="empty-state"><i class="bi bi-bell-slash"></i><strong>目前沒有通知</strong><span>流程指派與狀態通知會顯示在這裡。</span></div>
         </div>
 
         <div id="requests" class="card workspace-card mb-4">
@@ -305,6 +355,7 @@ onBeforeUnmount(() => void destroyForm());
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(35,49,72,.1); }.stat-card small,.stat-card strong { display:block; }.stat-card small { color:#778296; }.stat-card strong { font-size:1.7rem; line-height:1.15; }
 .stat-icon,.list-icon { display:grid; place-items:center; flex:0 0 auto; border-radius:.8rem; }.stat-icon { width:46px; height:46px; font-size:1.2rem; }.list-icon { width:38px; height:38px; }
 .tone-primary { color:#3451b2; background:#eaf0ff; }.tone-warning { color:#9a6700; background:#fff3d6; }.tone-success { color:#18794e; background:#e9f9ef; }.tone-info { color:#087e8b; background:#e4f7f8; }
+.tone-muted { color:#778296; background:#eef1f5; }.unread-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#087e8b; }
 .workspace-card { overflow:hidden; border:1px solid #e5eaf1; border-radius:1rem; box-shadow:0 8px 28px rgba(35,49,72,.055); }.workspace-card-header { display:flex; justify-content:space-between; align-items:center; min-height:64px; padding:.9rem 1.15rem; border-bottom:1px solid #edf0f5; background:#fff; }.count-pill { padding:.15rem .5rem; border-radius:999px; background:#eef2f8; color:#536178; font-size:.75rem; }
 .workspace-list-item { display:flex; align-items:center; gap:.9rem; padding:1rem 1.15rem; border-color:#edf0f5; }.min-width-0 { min-width:0; }.status-pill { flex:0 0 auto; padding:.28rem .55rem; border-radius:999px; font-size:.72rem; font-weight:700; background:#eef1f5; color:#5c6677; }.status-running { background:#eaf0ff; color:#3451b2; }.status-completed { background:#e9f9ef; color:#18794e; }.status-rejected { background:#fff0f0; color:#c52f2f; }
 .empty-state { display:flex; flex-direction:column; align-items:center; padding:2.5rem 1rem; color:#7a8699; }.empty-state i { margin-bottom:.5rem; font-size:2rem; }.empty-state strong { color:#4e5b70; }.empty-state span { margin-top:.25rem; font-size:.85rem; }.empty-inline { padding:.8rem; border-radius:.7rem; background:#f5f7fa; color:#68758a; font-size:.88rem; }.start-card { position:sticky; top:1rem; }.runtime-form { min-height:160px; }.form-selector { width:min(100%,360px); }

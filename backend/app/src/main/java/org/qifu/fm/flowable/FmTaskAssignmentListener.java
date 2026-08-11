@@ -15,6 +15,7 @@ import org.flowable.task.service.delegate.TaskListener;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
 import org.qifu.fm.domain.incident.FmAssignmentIncidentRecorder;
+import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
@@ -45,6 +46,7 @@ public class FmTaskAssignmentListener implements TaskListener {
     private final IFmRuntimeAuditLogicService runtimeAuditService;
     private final ObjectMapper objectMapper;
     private final FmAssignmentIncidentRecorder incidentRecorder;
+    private final FmNotificationPublisher notificationPublisher;
 
     public FmTaskAssignmentListener(
             IFmTaskAssignmentRuleService assignmentRuleService,
@@ -52,12 +54,14 @@ public class FmTaskAssignmentListener implements TaskListener {
             IFmAssignmentResolverService assignmentResolverService,
             IFmRuntimeAuditLogicService runtimeAuditService,
             FmAssignmentIncidentRecorder incidentRecorder,
+            FmNotificationPublisher notificationPublisher,
             ObjectMapper objectMapper) {
         this.assignmentRuleService = assignmentRuleService;
         this.taskPolicyService = taskPolicyService;
         this.assignmentResolverService = assignmentResolverService;
         this.runtimeAuditService = runtimeAuditService;
         this.incidentRecorder = incidentRecorder;
+        this.notificationPublisher = notificationPublisher;
         this.objectMapper = objectMapper;
     }
 
@@ -67,6 +71,7 @@ public class FmTaskAssignmentListener implements TaskListener {
             RuntimeContext context = context(task);
             FmTaskPolicy policy = policy(context, task.getTaskDefinitionKey());
             if ("APPLICANT_CORRECTION".equals(policy.getAssignmentMode())) {
+                Date now = new Date();
                 task.setAssignee(context.initiatorAccount());
                 runtimeAuditService.recordAssignmentSnapshot(
                         new FmAssignmentSnapshotCommand(
@@ -75,13 +80,18 @@ public class FmTaskAssignmentListener implements TaskListener {
                                 task.getTaskDefinitionKey(), "APPLICANT",
                                 context.initiatorAccount(), context.initiatorOrgUnitId(),
                                 "{\"source\":\"FORM_OWNER\"}", "ASSIGNEE", List.of()),
-                        new Date());
+                        now);
+                notificationPublisher.taskAssigned(
+                        context.tenantId(), task.getId(), task.getName(),
+                        List.of(context.initiatorAccount()),
+                        context.initiatorAccount(), now);
                 return;
             }
             ResolvedAssignment resolved = resolveAssignment(
                     context,
                     task.getTaskDefinitionKey());
             applyAssignment(task, policy, resolved.accounts());
+            Date now = new Date();
             runtimeAuditService.recordAssignmentSnapshot(
                     new FmAssignmentSnapshotCommand(
                             context.tenantId(),
@@ -96,7 +106,10 @@ public class FmTaskAssignmentListener implements TaskListener {
                             "CANDIDATE".equals(policy.getAssignmentMode())
                                     ? "CANDIDATE" : "ASSIGNEE",
                             resolved.candidates()),
-                    new Date());
+                    now);
+            notificationPublisher.taskAssigned(
+                    context.tenantId(), task.getId(), task.getName(),
+                    resolved.accounts(), context.initiatorAccount(), now);
         } catch (ServiceException exception) {
             RuntimeContext context = context(task);
             String incidentId = incidentRecorder.record(

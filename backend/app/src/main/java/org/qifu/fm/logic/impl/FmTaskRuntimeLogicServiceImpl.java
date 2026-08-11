@@ -36,6 +36,7 @@ import org.qifu.fm.dto.view.FmTaskHistoryView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
 import org.qifu.fm.domain.runtime.FmDelegationScopeEvaluator;
+import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormDef;
@@ -99,6 +100,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final FmFormSubmissionValidator formSubmissionValidator;
     private final ObjectMapper objectMapper;
     private final FmDelegationScopeEvaluator delegationScopeEvaluator;
+    private final FmNotificationPublisher notificationPublisher;
 
     public FmTaskRuntimeLogicServiceImpl(
             TaskService taskService,
@@ -119,6 +121,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmRuntimeAuditLogicService auditLogicService,
             FmFormSubmissionValidator formSubmissionValidator,
+            FmNotificationPublisher notificationPublisher,
             ObjectMapper objectMapper) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
@@ -138,6 +141,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.assignmentRuleService = assignmentRuleService;
         this.auditLogicService = auditLogicService;
         this.formSubmissionValidator = formSubmissionValidator;
+        this.notificationPublisher = notificationPublisher;
         this.objectMapper = objectMapper;
         this.delegationScopeEvaluator = new FmDelegationScopeEvaluator(objectMapper);
     }
@@ -232,6 +236,12 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 assignmentSnapshot,
                 now);
         String status = executeAction(request, task, process, formData, account, now);
+        if (Set.of("COMPLETED", "REJECTED").contains(status)) {
+            notificationPublisher.processStatusChanged(
+                    tenantId, process.getProcessInstanceId(), status,
+                    List.of(formData.getOwnerAccount(), process.getInitiatorAccount()),
+                    account, now);
+        }
         return success(new FmTaskActionResultView(
                 task.getId(), request.actionType(),
                 process.getProcessInstanceId(), status));
