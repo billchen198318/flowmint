@@ -237,12 +237,14 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 		QueryResult<List<FmProcessInstance>> query = processInstanceService
 				.findPage(parameters, pageOf);
 		List<FmProcessMonitorView> values = new ArrayList<>();
-		for (FmProcessInstance process : query.getValue()) {
+		List<FmProcessInstance> processes = query.getValue() == null
+				? List.of() : query.getValue();
+		for (FmProcessInstance process : processes) {
 			FmFormData formData = formData(tenantId, process.getFormDataId());
 			FmProcessDef processDef = processDef(tenantId, process.getProcessDefId());
 			values.add(view(process, processDef, formData));
 		}
-		PageOf resultPage = query.getPageOf();
+		PageOf resultPage = pageOf;
 		return success(new FmProcessMonitorPageView(List.copyOf(values),
 				resultPage.getLongValue(resultPage.getCountSize()),
 				resultPage.getIntegerValue(resultPage.getSize()),
