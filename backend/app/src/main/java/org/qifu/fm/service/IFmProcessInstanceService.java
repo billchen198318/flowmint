@@ -5,6 +5,8 @@ import java.util.Date;
 import org.qifu.base.service.IBaseService;
 import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.model.FmOperationsProcessSummary;
+import org.qifu.fm.model.FmOperationsDailySummary;
+import java.util.List;
 
 public interface IFmProcessInstanceService extends IBaseService<FmProcessInstance, String> {
 
@@ -17,5 +19,8 @@ public interface IFmProcessInstanceService extends IBaseService<FmProcessInstanc
             String updateAccount);
 
     FmOperationsProcessSummary operationsSummary(
+            String tenantId, Date startDate, Date endDate);
+
+    List<FmOperationsDailySummary> operationsDailySummary(
             String tenantId, Date startDate, Date endDate);
 }

@@ -284,4 +284,35 @@
        AND START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
        AND START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
   </select>
+
+  <select id="selectOperationsDailySummary" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsDailySummary">
+    SELECT reportDate,
+           SUM(startedProcesses) AS startedProcesses,
+           SUM(completedProcesses) AS completedProcesses,
+           COALESCE(ROUND(SUM(completedMinutes)
+               / NULLIF(SUM(completedDurationCount), 0)), 0)
+               AS averageCompletedMinutes
+      FROM (
+        SELECT DATE_FORMAT(START_DATE, '%Y-%m-%d') AS reportDate,
+               1 AS startedProcesses, 0 AS completedProcesses,
+               0 AS completedMinutes, 0 AS completedDurationCount
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+         WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+           AND START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+           AND START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+        UNION ALL
+        SELECT DATE_FORMAT(END_DATE, '%Y-%m-%d') AS reportDate,
+               0 AS startedProcesses, 1 AS completedProcesses,
+               TIMESTAMPDIFF(MINUTE, START_DATE, END_DATE) AS completedMinutes,
+               1 AS completedDurationCount
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+         WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+           AND INSTANCE_STATUS = 'COMPLETED'
+           AND END_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+           AND END_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+      ) daily
+     GROUP BY reportDate
+     ORDER BY reportDate
+  </select>
 </mapper>

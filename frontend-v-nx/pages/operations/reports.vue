@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { toast } from "vue3-toastify";
 
@@ -10,6 +10,8 @@ const tenants = ref<any[]>([]);
 const tenantId = ref(String(route.query.tenant || ""));
 const report = ref<any | null>(null);
 const loading = ref(false);
+const maxTrend = computed(() => Math.max(1, ...(report.value?.dailyTrend || [])
+  .flatMap((item: any) => [item.startedProcesses, item.completedProcesses])));
 const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 const endDate = ref(isoDate(new Date()));
 const start = new Date();
@@ -81,6 +83,15 @@ onMounted(async () => { await loadTenants(); await load(); });
       <div class="card border-0 shadow-sm"><div class="card-header bg-white"><strong>結案狀態分布</strong></div><div class="card-body row g-3 text-center">
         <div v-for="item in [['完成', report.completedProcesses], ['駁回', report.rejectedProcesses], ['取消', report.cancelledProcesses], ['管理員終止', report.terminatedProcesses]]" :key="String(item[0])" class="col-6 col-lg-3"><div class="fs-3 fw-semibold">{{ item[1] }}</div><div class="text-muted">{{ item[0] }}</div></div>
       </div></div>
+      <div class="card border-0 shadow-sm mt-4"><div class="card-header bg-white"><strong>每日流程趨勢</strong></div><div class="table-responsive"><table class="table align-middle mb-0">
+        <thead><tr><th>日期</th><th style="min-width: 180px">起單</th><th style="min-width: 180px">完成</th><th>當日完成平均耗時</th></tr></thead>
+        <tbody><tr v-for="item in report.dailyTrend" :key="item.reportDate">
+          <td>{{ item.reportDate }}</td>
+          <td><div class="d-flex align-items-center gap-2"><span style="width: 2.5rem">{{ item.startedProcesses }}</span><div class="progress flex-grow-1" style="height: 8px"><div class="progress-bar" :style="{ width: `${item.startedProcesses / maxTrend * 100}%` }"></div></div></div></td>
+          <td><div class="d-flex align-items-center gap-2"><span style="width: 2.5rem">{{ item.completedProcesses }}</span><div class="progress flex-grow-1" style="height: 8px"><div class="progress-bar bg-success" :style="{ width: `${item.completedProcesses / maxTrend * 100}%` }"></div></div></div></td>
+          <td>{{ item.completedProcesses ? formatDuration(item.averageCompletedMinutes) : "-" }}</td>
+        </tr></tbody>
+      </table></div></div>
     </template>
   </main>
 </template>

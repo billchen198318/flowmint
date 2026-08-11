@@ -21,6 +21,7 @@ import org.qifu.fm.dto.view.FmProcessMonitorView;
 import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
 import org.qifu.fm.dto.view.FmProcessMonitorPageView;
 import org.qifu.fm.dto.view.FmOperationsReportView;
+import org.qifu.fm.dto.view.FmOperationsDailyReportView;
 import org.qifu.fm.dto.view.FmFormSnapshotView;
 import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.entity.FmFormData;
@@ -91,6 +92,19 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 		Date endExclusive = Date.from(endDay.plusDays(1).atStartOfDay(zone).toInstant());
 		var summary = processInstanceService.operationsSummary(
 				tenantId, startDate, endExclusive);
+		Map<String, org.qifu.fm.model.FmOperationsDailySummary> dailyByDate =
+				processInstanceService.operationsDailySummary(tenantId, startDate, endExclusive)
+						.stream().collect(java.util.stream.Collectors.toMap(
+								org.qifu.fm.model.FmOperationsDailySummary::getReportDate,
+								value -> value));
+		List<FmOperationsDailyReportView> dailyTrend = startDay.datesUntil(
+				endDay.plusDays(1)).map(day -> {
+			var value = dailyByDate.get(day.toString());
+			return new FmOperationsDailyReportView(day.toString(),
+					value == null ? 0L : number(value.getStartedProcesses()),
+					value == null ? 0L : number(value.getCompletedProcesses()),
+					value == null ? 0L : number(value.getAverageCompletedMinutes()));
+		}).toList();
 		Date now = new Date();
 		long overdue = taskService.createTaskQuery()
 				.processVariableValueEquals(
@@ -109,7 +123,7 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 				number(summary.getTotalProcesses()), number(summary.getRunningProcesses()),
 				number(summary.getCompletedProcesses()), number(summary.getRejectedProcesses()),
 				number(summary.getCancelledProcesses()), number(summary.getTerminatedProcesses()),
-				number(summary.getAverageCompletedMinutes()), overdue, dueSoon));
+				number(summary.getAverageCompletedMinutes()), overdue, dueSoon, dailyTrend));
 	}
 
 	private java.time.LocalDate parseDate(String value, java.time.LocalDate defaultValue)
