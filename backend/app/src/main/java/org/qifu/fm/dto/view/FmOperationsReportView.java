@@ -16,5 +16,6 @@ public record FmOperationsReportView(
         Long overdueTasks,
         Long dueSoonTasks,
         List<FmOperationsDailyReportView> dailyTrend,
-        List<FmOperationsProcessRankingView> processRanking) {
+        List<FmOperationsProcessRankingView> processRanking,
+        List<FmOperationsTaskRankingView> taskRanking) {
 }

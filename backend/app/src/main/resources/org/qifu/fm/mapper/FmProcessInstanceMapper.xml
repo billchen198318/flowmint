@@ -337,4 +337,47 @@
      ORDER BY startedProcesses DESC, pd.PROCESS_NAME
      LIMIT 20
   </select>
+
+  <select id="selectOperationsTaskRanking" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsTaskRanking">
+    SELECT pi.PROCESS_DEF_ID AS processDefId,
+           pd.PROCESS_NAME AS processName,
+           action.TASK_DEF_KEY AS taskDefKey,
+           COALESCE(tp.TASK_NAME, action.TASK_DEF_KEY) AS taskName,
+           COUNT(*) AS completedTasks,
+           ROUND(AVG(TIMESTAMPDIFF(MINUTE,
+               assigned.assignedDate, action.ACTION_DATE))) AS averageHandlingMinutes,
+           MAX(TIMESTAMPDIFF(MINUTE,
+               assigned.assignedDate, action.ACTION_DATE)) AS maximumHandlingMinutes
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action action
+      JOIN (
+        SELECT TENANT_ID, TASK_ID, MIN(RESOLVED_DATE) AS assignedDate
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_assignment_snapshot
+         WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+           AND TASK_ID IS NOT NULL
+         GROUP BY TENANT_ID, TASK_ID
+      ) assigned
+        ON assigned.TENANT_ID = action.TENANT_ID
+       AND assigned.TASK_ID = action.TASK_ID
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance pi
+        ON pi.TENANT_ID = action.TENANT_ID
+       AND pi.PROCESS_INSTANCE_ID = action.PROCESS_INSTANCE_ID
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+        ON pd.TENANT_ID = pi.TENANT_ID
+       AND pd.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+      LEFT JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_policy tp
+        ON tp.TENANT_ID = pi.TENANT_ID
+       AND tp.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+       AND tp.PROCESS_VERSION_NO = pi.PROCESS_VERSION_NO
+       AND tp.TASK_DEF_KEY = action.TASK_DEF_KEY
+     WHERE action.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND action.ACTION_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+       AND action.ACTION_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+       AND action.ACTION_TYPE IN ('APPROVE', 'REJECT', 'RETURN', 'RESUBMIT')
+       AND action.ACTION_DATE &gt;= assigned.assignedDate
+     GROUP BY pi.PROCESS_DEF_ID, pd.PROCESS_NAME,
+              action.TASK_DEF_KEY, COALESCE(tp.TASK_NAME, action.TASK_DEF_KEY)
+     ORDER BY averageHandlingMinutes DESC, completedTasks DESC
+     LIMIT 20
+  </select>
 </mapper>

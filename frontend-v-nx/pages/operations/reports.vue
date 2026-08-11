@@ -104,6 +104,16 @@ onMounted(async () => { await loadTenants(); await load(); });
           </tr>
         </tbody>
       </table></div></div>
+      <div class="card border-0 shadow-sm mt-4"><div class="card-header bg-white"><strong>節點處理耗時排名（前 20 名）</strong></div><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>#</th><th>流程／節點</th><th>完成樣本</th><th>平均處理時間</th><th>最長處理時間</th></tr></thead>
+        <tbody>
+          <tr v-if="!report.taskRanking?.length"><td colspan="5" class="text-center text-muted py-4">此區間沒有已完成節點資料</td></tr>
+          <tr v-for="(item, index) in report.taskRanking" :key="`${item.processDefId}-${item.taskDefKey}`">
+            <td>{{ index + 1 }}</td><td><strong>{{ item.taskName }}</strong><div class="small text-muted">{{ item.processName }} · {{ item.taskDefKey }}</div></td>
+            <td>{{ item.completedTasks }}</td><td>{{ formatDuration(item.averageHandlingMinutes) }}</td><td>{{ formatDuration(item.maximumHandlingMinutes) }}</td>
+          </tr>
+        </tbody>
+      </table></div></div>
     </template>
   </main>
 </template>
