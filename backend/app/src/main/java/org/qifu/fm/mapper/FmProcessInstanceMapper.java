@@ -7,6 +7,7 @@ import org.qifu.base.mapper.IBaseMapper;
 import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.model.FmOperationsProcessSummary;
 import org.qifu.fm.model.FmOperationsDailySummary;
+import org.qifu.fm.model.FmOperationsProcessRanking;
 import java.util.List;
 
 @Mapper
@@ -17,5 +18,8 @@ public interface FmProcessInstanceMapper extends IBaseMapper<FmProcessInstance, 
     FmOperationsProcessSummary selectOperationsSummary(Map<String, Object> parameters);
 
     List<FmOperationsDailySummary> selectOperationsDailySummary(
+            Map<String, Object> parameters);
+
+    List<FmOperationsProcessRanking> selectOperationsProcessRanking(
             Map<String, Object> parameters);
 }

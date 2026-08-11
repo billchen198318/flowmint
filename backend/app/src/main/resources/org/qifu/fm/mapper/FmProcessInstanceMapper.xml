@@ -315,4 +315,26 @@
      GROUP BY reportDate
      ORDER BY reportDate
   </select>
+
+  <select id="selectOperationsProcessRanking" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmOperationsProcessRanking">
+    SELECT pi.PROCESS_DEF_ID AS processDefId,
+           pd.PROCESS_NAME AS processName,
+           COUNT(*) AS startedProcesses,
+           COALESCE(SUM(CASE WHEN pi.INSTANCE_STATUS = 'COMPLETED'
+               THEN 1 ELSE 0 END), 0) AS completedProcesses,
+           COALESCE(ROUND(AVG(CASE WHEN pi.INSTANCE_STATUS = 'COMPLETED'
+               THEN TIMESTAMPDIFF(MINUTE, pi.START_DATE, pi.END_DATE) END)), 0)
+               AS averageCompletedMinutes
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance pi
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+        ON pd.TENANT_ID = pi.TENANT_ID
+       AND pd.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+     WHERE pi.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND pi.START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+       AND pi.START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+     GROUP BY pi.PROCESS_DEF_ID, pd.PROCESS_NAME
+     ORDER BY startedProcesses DESC, pd.PROCESS_NAME
+     LIMIT 20
+  </select>
 </mapper>

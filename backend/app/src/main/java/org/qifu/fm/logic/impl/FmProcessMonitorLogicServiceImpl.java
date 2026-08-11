@@ -22,6 +22,7 @@ import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
 import org.qifu.fm.dto.view.FmProcessMonitorPageView;
 import org.qifu.fm.dto.view.FmOperationsReportView;
 import org.qifu.fm.dto.view.FmOperationsDailyReportView;
+import org.qifu.fm.dto.view.FmOperationsProcessRankingView;
 import org.qifu.fm.dto.view.FmFormSnapshotView;
 import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.entity.FmFormData;
@@ -105,6 +106,17 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 					value == null ? 0L : number(value.getCompletedProcesses()),
 					value == null ? 0L : number(value.getAverageCompletedMinutes()));
 		}).toList();
+		List<FmOperationsProcessRankingView> processRanking = processInstanceService
+				.operationsProcessRanking(tenantId, startDate, endExclusive).stream()
+				.map(value -> {
+					long started = number(value.getStartedProcesses());
+					long completed = number(value.getCompletedProcesses());
+					double rate = started == 0 ? 0D
+							: Math.round(completed * 1000D / started) / 10D;
+					return new FmOperationsProcessRankingView(value.getProcessDefId(),
+							value.getProcessName(), started, completed, rate,
+							number(value.getAverageCompletedMinutes()));
+				}).toList();
 		Date now = new Date();
 		long overdue = taskService.createTaskQuery()
 				.processVariableValueEquals(
@@ -123,7 +135,8 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 				number(summary.getTotalProcesses()), number(summary.getRunningProcesses()),
 				number(summary.getCompletedProcesses()), number(summary.getRejectedProcesses()),
 				number(summary.getCancelledProcesses()), number(summary.getTerminatedProcesses()),
-				number(summary.getAverageCompletedMinutes()), overdue, dueSoon, dailyTrend));
+				number(summary.getAverageCompletedMinutes()), overdue, dueSoon,
+				dailyTrend, processRanking));
 	}
 
 	private java.time.LocalDate parseDate(String value, java.time.LocalDate defaultValue)

@@ -92,6 +92,18 @@ onMounted(async () => { await loadTenants(); await load(); });
           <td>{{ item.completedProcesses ? formatDuration(item.averageCompletedMinutes) : "-" }}</td>
         </tr></tbody>
       </table></div></div>
+      <div class="card border-0 shadow-sm mt-4"><div class="card-header bg-white"><strong>流程使用與完成排名（前 20 名）</strong></div><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+        <thead><tr><th>#</th><th>流程</th><th>起單量</th><th>完成量</th><th style="min-width: 180px">完成率</th><th>平均完成耗時</th></tr></thead>
+        <tbody>
+          <tr v-if="!report.processRanking?.length"><td colspan="6" class="text-center text-muted py-4">此區間沒有流程資料</td></tr>
+          <tr v-for="(item, index) in report.processRanking" :key="item.processDefId">
+            <td>{{ index + 1 }}</td><td><strong>{{ item.processName }}</strong><div class="small text-muted">{{ item.processDefId }}</div></td>
+            <td>{{ item.startedProcesses }}</td><td>{{ item.completedProcesses }}</td>
+            <td><div class="d-flex align-items-center gap-2"><span style="width: 3.5rem">{{ item.completionRate.toFixed(1) }}%</span><div class="progress flex-grow-1" style="height: 8px"><div class="progress-bar bg-success" :style="{ width: `${item.completionRate}%` }"></div></div></div></td>
+            <td>{{ item.completedProcesses ? formatDuration(item.averageCompletedMinutes) : "-" }}</td>
+          </tr>
+        </tbody>
+      </table></div></div>
     </template>
   </main>
 </template>
