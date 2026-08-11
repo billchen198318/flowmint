@@ -60,6 +60,27 @@
     <if test="instanceStatus != null and instanceStatus != ''">
       AND INSTANCE_STATUS = #{instanceStatus,jdbcType=VARCHAR}
     </if>
+    <if test="keywordLike != null and keywordLike != ''">
+      AND (
+        PROCESS_INSTANCE_ID LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR BUSINESS_KEY LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR INITIATOR_ACCOUNT LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR EXISTS (
+          SELECT 1
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+          WHERE pd.TENANT_ID = fm_process_instance.TENANT_ID
+            AND pd.PROCESS_DEF_ID = fm_process_instance.PROCESS_DEF_ID
+            AND pd.PROCESS_NAME LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        )
+        OR EXISTS (
+          SELECT 1
+          FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data fd
+          WHERE fd.TENANT_ID = fm_process_instance.TENANT_ID
+            AND fd.FORM_DATA_ID = fm_process_instance.FORM_DATA_ID
+            AND fd.OWNER_ACCOUNT LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        )
+      )
+    </if>
   </sql>
 
   <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">

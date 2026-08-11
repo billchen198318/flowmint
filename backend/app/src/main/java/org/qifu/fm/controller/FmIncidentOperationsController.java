@@ -15,6 +15,7 @@ import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmProcessMonitorView;
 import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
+import org.qifu.fm.dto.view.FmProcessMonitorPageView;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
 import org.qifu.fm.logic.IFmProcessMonitorLogicService;
 import org.springframework.http.ResponseEntity;
@@ -41,11 +42,11 @@ public class FmIncidentOperationsController extends CoreApiSupport {
     }
 
     @PostMapping("/process-instances")
-    public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessMonitorView>>>
+    public ResponseEntity<DefaultControllerJsonResultObj<FmProcessMonitorPageView>>
             processInstances(
                     @RequestHeader("X-FlowMint-Tenant") String tenantId,
                     @RequestBody(required = false) FmProcessMonitorRequest request) {
-        DefaultControllerJsonResultObj<List<FmProcessMonitorView>> result =
+        DefaultControllerJsonResultObj<FmProcessMonitorPageView> result =
                 initDefaultJsonResult();
         try {
             setDefaultResponseJsonResult(processMonitorLogicService.find(

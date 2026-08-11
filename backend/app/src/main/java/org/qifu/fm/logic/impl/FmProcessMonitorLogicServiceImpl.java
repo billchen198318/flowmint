@@ -11,11 +11,14 @@ import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
+import org.qifu.base.model.PageOf;
+import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessMonitorRequest;
 import org.qifu.fm.dto.view.FmProcessMonitorView;
 import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
+import org.qifu.fm.dto.view.FmProcessMonitorPageView;
 import org.qifu.fm.dto.view.FmFormSnapshotView;
 import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.entity.FmFormData;
@@ -117,28 +120,44 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 	}
 
 	@Override
-	public DefaultResult<List<FmProcessMonitorView>> find(
+	public DefaultResult<FmProcessMonitorPageView> find(
 			String tenantId, FmProcessMonitorRequest request) throws ServiceException {
 		requireOperator();
 		String status = request == null ? null : StringUtils.trimToNull(request.status());
 		String keyword = request == null ? null : StringUtils.trimToNull(request.keyword());
-		if (StringUtils.isBlank(tenantId) || (status != null && !STATUSES.contains(status))) {
+		int page = request == null || request.page() == null ? 1 : request.page();
+		int pageSize = request == null || request.pageSize() == null ? 30 : request.pageSize();
+		if (StringUtils.isBlank(tenantId) || (status != null && !STATUSES.contains(status))
+				|| page < 1 || !List.of(10, 30, 50, 100).contains(pageSize)) {
 			throw new ServiceException("流程監控查詢條件不正確");
 		}
 		Map<String, Object> parameters = new HashMap<>();
 		parameters.put("tenantId", tenantId);
 		parameters.put("instanceStatus", status);
+		parameters.put("keywordLike", keyword == null ? null : escapedLike(keyword));
+		PageOf pageOf = new PageOf();
+		pageOf.setSelect(String.valueOf(page));
+		pageOf.setShowRow(String.valueOf(pageSize));
+		pageOf.orderBy("START_DATE").sortTypeDesc();
+		QueryResult<List<FmProcessInstance>> query = processInstanceService
+				.findPage(parameters, pageOf);
 		List<FmProcessMonitorView> values = new ArrayList<>();
-		for (FmProcessInstance process : processInstanceService.selectListByParams(
-				parameters, "START_DATE", "DESC").getValue()) {
+		for (FmProcessInstance process : query.getValue()) {
 			FmFormData formData = formData(tenantId, process.getFormDataId());
 			FmProcessDef processDef = processDef(tenantId, process.getProcessDefId());
-			FmProcessMonitorView view = view(process, processDef, formData);
-			if (keyword == null || matches(view, keyword)) {
-				values.add(view);
-			}
+			values.add(view(process, processDef, formData));
 		}
-		return success(List.copyOf(values));
+		PageOf resultPage = query.getPageOf();
+		return success(new FmProcessMonitorPageView(List.copyOf(values),
+				resultPage.getLongValue(resultPage.getCountSize()),
+				resultPage.getIntegerValue(resultPage.getSize()),
+				resultPage.getIntegerValue(resultPage.getSelect()),
+				resultPage.getIntegerValue(resultPage.getShowRow())));
+	}
+
+	private String escapedLike(String keyword) {
+		return "%" + keyword.replace("\\", "\\\\")
+				.replace("%", "\\%").replace("_", "\\_") + "%";
 	}
 
 	private FmProcessMonitorView view(FmProcessInstance process,
@@ -162,14 +181,6 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 				process.getInitiatorAccount(), process.getInstanceStatus(), taskNames,
 				nearestDueDate, overdueTaskCount, elapsedMinutes,
 				process.getStartDate(), process.getEndDate());
-	}
-
-	private boolean matches(FmProcessMonitorView value, String keyword) {
-		String normalized = keyword.toLowerCase(java.util.Locale.ROOT);
-		return List.of(value.processInstanceId(), value.businessKey(), value.processName(),
-				value.ownerAccount(), value.initiatorAccount()).stream()
-				.filter(java.util.Objects::nonNull)
-				.anyMatch(item -> item.toLowerCase(java.util.Locale.ROOT).contains(normalized));
 	}
 
 	private FmFormData formData(String tenantId, String formDataId)

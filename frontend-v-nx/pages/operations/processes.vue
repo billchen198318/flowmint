@@ -11,6 +11,10 @@ const processes = ref<any[]>([]);
 const tenantId = ref(String(route.query.tenant || ""));
 const status = ref("RUNNING");
 const keyword = ref("");
+const page = ref(1);
+const pageSize = ref(30);
+const totalCount = ref(0);
+const totalPages = ref(1);
 const loading = ref(false);
 const detailLoading = ref(false);
 const detail = ref<any | null>(null);
@@ -43,17 +47,31 @@ const load = async () => {
   try {
     const response: any = await useApi("/fm/operations/process-instances", {
       method: "POST",
-      body: { status: status.value || null, keyword: keyword.value.trim() || null },
+      body: {
+        status: status.value || null,
+        keyword: keyword.value.trim() || null,
+        page: page.value,
+        pageSize: pageSize.value,
+      },
       headers: { "X-FlowMint-Tenant": tenantId.value },
     });
     if (!ok(response)) {
       processes.value = [];
       return toast.warning(response?.message || "無法載入流程實例");
     }
-    processes.value = response.value || [];
+    processes.value = response.value?.items || [];
+    totalCount.value = response.value?.totalCount || 0;
+    totalPages.value = Math.max(1, response.value?.totalPages || 1);
+    page.value = response.value?.page || 1;
   } finally {
     loading.value = false;
   }
+};
+const search = () => { page.value = 1; load(); };
+const changePage = (target: number) => {
+  if (target < 1 || target > totalPages.value || target === page.value) return;
+  page.value = target;
+  load();
 };
 const loadDetail = async (processInstanceId: string) => {
   detailLoading.value = true;
@@ -71,7 +89,7 @@ const loadDetail = async (processInstanceId: string) => {
   }
 };
 
-watch([tenantId, status], () => { detail.value = null; load(); });
+watch([tenantId, status, pageSize], () => { detail.value = null; page.value = 1; load(); });
 onMounted(async () => { await loadTenants(); await load(); });
 </script>
 
@@ -84,8 +102,8 @@ onMounted(async () => { await loadTenants(); await load(); });
     <div class="card border-0 shadow-sm mb-4"><div class="card-body row g-3 align-items-end">
       <div class="col-lg-4"><label class="form-label">Tenant</label><select v-model="tenantId" class="form-select"><option v-for="tenant in tenants" :key="tenant.tenantId" :value="tenant.tenantId">{{ tenant.tenantCode }} - {{ tenant.tenantName }}</option></select></div>
       <div class="col-lg-3"><label class="form-label">流程狀態</label><select v-model="status" class="form-select"><option value="RUNNING">執行中</option><option value="COMPLETED">已完成</option><option value="REJECTED">已駁回</option><option value="CANCELLED">已取消</option><option value="TERMINATED">已終止</option><option value="">全部</option></select></div>
-      <div class="col-lg-3"><label class="form-label">關鍵字</label><input v-model.trim="keyword" class="form-control" placeholder="流程編號、單號、名稱或帳號" @keyup.enter="load" /></div>
-      <div class="col-lg-2 d-grid"><button class="btn btn-primary" :disabled="loading" @click="load">查詢</button></div>
+      <div class="col-lg-3"><label class="form-label">關鍵字</label><input v-model.trim="keyword" class="form-control" placeholder="流程編號、單號、名稱或帳號" @keyup.enter="search" /></div>
+      <div class="col-lg-2 d-grid"><button class="btn btn-primary" :disabled="loading" @click="search">查詢</button></div>
     </div></div>
     <div class="card border-0 shadow-sm"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
       <thead><tr><th>狀態</th><th>流程／單號</th><th>申請人／發起人</th><th>目前節點／期限</th><th>耗時</th><th>開始／結束</th><th></th></tr></thead>
@@ -102,6 +120,16 @@ onMounted(async () => { await loadTenants(); await load(); });
         </tr>
       </tbody>
     </table></div></div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
+      <div class="text-muted small">共 {{ totalCount }} 筆，第 {{ page }}／{{ totalPages }} 頁</div>
+      <div class="d-flex align-items-center gap-2">
+        <select v-model.number="pageSize" class="form-select form-select-sm" style="width: auto">
+          <option :value="10">每頁 10 筆</option><option :value="30">每頁 30 筆</option><option :value="50">每頁 50 筆</option><option :value="100">每頁 100 筆</option>
+        </select>
+        <button class="btn btn-sm btn-outline-secondary" :disabled="page <= 1 || loading" @click="changePage(page - 1)">上一頁</button>
+        <button class="btn btn-sm btn-outline-secondary" :disabled="page >= totalPages || loading" @click="changePage(page + 1)">下一頁</button>
+      </div>
+    </div>
     <div v-if="detail" class="card border-0 shadow-sm mt-4">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <div><strong>稽核軌跡</strong><span class="text-muted ms-2">{{ detail.process.businessKey }}</span></div>
