@@ -8,12 +8,15 @@ import java.nio.file.StandardCopyOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HexFormat;
-import java.util.UUID;
 import java.util.Date;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
@@ -68,6 +71,24 @@ public class FmAttachmentStorageService {
             } catch (IOException failure) {
                 throw new ServiceException("附件移至正式目錄失敗");
             }
+        }
+    }
+
+    public Path restoreTemporary(
+            String tenantId, String sessionId, String fileOid, Path formalPath)
+            throws ServiceException {
+        validateSegment("Tenant", tenantId);
+        validateSegment("Upload Session", sessionId);
+        validateSegment("File OID", fileOid);
+        Path source = formalPath.toAbsolutePath().normalize();
+        if (!source.startsWith(root)) throw new ServiceException("正式附件路徑不合法");
+        Path target = resolveInsideRoot(
+                tenantId, "temporary", sessionId, fileOid + ".bin");
+        try {
+            Files.createDirectories(target.getParent());
+            return Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            throw new ServiceException("交易回滾時無法還原暫存附件");
         }
     }
 
@@ -127,6 +148,54 @@ public class FmAttachmentStorageService {
         } catch (IOException exception) {
             throw new ServiceException("找不到附件實體檔案");
         }
+    }
+
+    public List<FormalFile> findFormalFilesOlderThan(Instant cutoff, int maximum)
+            throws ServiceException {
+        List<FormalFile> result = new ArrayList<>();
+        if (!Files.exists(root)) return result;
+        try (var paths = Files.walk(root, 5)) {
+            paths.filter(Files::isRegularFile)
+                    .filter(path -> path.toString().contains("attachments"))
+                    .filter(path -> path.getFileName().toString().endsWith(".bin"))
+                    .filter(path -> modifiedBefore(path, cutoff))
+                    .limit(maximum)
+                    .forEach(path -> addFormalFile(result, path));
+            return result;
+        } catch (IOException exception) {
+            throw new ServiceException("無法掃描正式附件目錄");
+        }
+    }
+
+    public Path quarantine(FormalFile file) throws ServiceException {
+        Path source = file.path().toAbsolutePath().normalize();
+        if (!source.startsWith(root)) throw new ServiceException("孤兒附件路徑不合法");
+        Path target = resolveInsideRoot(file.tenantId(), "orphaned",
+                System.currentTimeMillis() + "-" + source.getFileName());
+        try {
+            Files.createDirectories(target.getParent());
+            return Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            throw new ServiceException("無法隔離孤兒附件");
+        }
+    }
+
+    private boolean modifiedBefore(Path path, Instant cutoff) {
+        try {
+            return Files.getLastModifiedTime(path).toInstant().isBefore(cutoff);
+        } catch (IOException exception) {
+            return false;
+        }
+    }
+
+    private void addFormalFile(List<FormalFile> result, Path path) {
+        Path relative = root.relativize(path.toAbsolutePath().normalize());
+        if (relative.getNameCount() < 5 || !"attachments".equals(relative.getName(1).toString())) {
+            return;
+        }
+        String name = path.getFileName().toString();
+        result.add(new FormalFile(relative.getName(0).toString(),
+                StringUtils.removeEnd(name, ".bin"), path));
     }
 
     private StoredFile write(Path target, String fileOid, InputStream content, long declaredSize)
@@ -189,6 +258,9 @@ public class FmAttachmentStorageService {
             Path path,
             long size,
             String sha256) {
+    }
+
+    public record FormalFile(String tenantId, String fileOid, Path path) {
     }
 
     private static final class SizeLimitedInputStream extends InputStream {

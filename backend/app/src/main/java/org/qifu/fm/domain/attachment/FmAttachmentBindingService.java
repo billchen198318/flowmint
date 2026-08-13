@@ -1,5 +1,6 @@
 package org.qifu.fm.domain.attachment;
 
+import java.nio.file.Path;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -7,12 +8,19 @@ import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 public class FmAttachmentBindingService {
+
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(FmAttachmentBindingService.class);
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final FmAttachmentStorageService storageService;
@@ -62,10 +70,15 @@ public class FmAttachmentBindingService {
         if (files.stream().anyMatch(file -> !"CLEAN".equals(file.get("SCAN_STATUS")))) {
             throw new ServiceException("附件尚未通過安全檢查，無法送出表單");
         }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("附件正式綁定必須在資料庫交易中執行");
+        }
 
         for (Map<String, Object> file : files) {
             String fileOid = String.valueOf(file.get("FILE_OID"));
-            storageService.promote(tenantId, uploadSessionId, fileOid);
+            Path formalPath = storageService.promote(tenantId, uploadSessionId, fileOid);
+            registerRollbackCompensation(
+                    tenantId, uploadSessionId, fileOid, formalPath);
             MapSqlParameterSource fileParameters = new MapSqlParameterSource()
                     .addValues(sessionParameters.getValues())
                     .addValue("oid", UUID.randomUUID().toString())
@@ -100,5 +113,25 @@ public class FmAttachmentBindingService {
                  WHERE TENANT_ID = :tenantId
                    AND UPLOAD_SESSION_ID = :uploadSessionId
                 """, sessionParameters);
+    }
+
+    void registerRollbackCompensation(
+            String tenantId, String uploadSessionId, String fileOid, Path formalPath) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status != TransactionSynchronization.STATUS_ROLLED_BACK) return;
+                        try {
+                            storageService.restoreTemporary(
+                                    tenantId, uploadSessionId, fileOid, formalPath);
+                        } catch (ServiceException exception) {
+                            LOGGER.error(
+                                    "Unable to restore attachment after transaction rollback: "
+                                            + "tenant={}, uploadBatch={}, fileOid={}",
+                                    tenantId, uploadSessionId, fileOid, exception);
+                        }
+                    }
+                });
     }
 }

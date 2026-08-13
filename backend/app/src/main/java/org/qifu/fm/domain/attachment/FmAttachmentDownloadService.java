@@ -15,13 +15,17 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
 @Service
 public class FmAttachmentDownloadService {
 
     private static final String ATTACHMENT_SELECT = """
-            SELECT a.ATTACHMENT_ID, a.FIELD_KEY, a.FILE_OID, a.FILE_NAME,
+            SELECT a.TENANT_ID, a.ATTACHMENT_ID, a.FIELD_KEY, a.FILE_OID, a.FILE_NAME,
                    a.CONTENT_TYPE, a.FILE_SIZE, a.CDATE,
-                   fd.OWNER_ACCOUNT, pi.INITIATOR_ACCOUNT, pi.PROCESS_INSTANCE_ID
+                   fd.OWNER_ACCOUNT, pi.INITIATOR_ACCOUNT, pi.PROCESS_INSTANCE_ID,
+                   pi.PROCESS_DEF_ID, pi.PROCESS_VERSION_NO
               FROM fm_attachment a
               JOIN fm_form_data fd
                 ON fd.TENANT_ID = a.TENANT_ID
@@ -36,14 +40,17 @@ public class FmAttachmentDownloadService {
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final FmAttachmentStorageService storageService;
     private final TaskService taskService;
+    private final ObjectMapper objectMapper;
 
     public FmAttachmentDownloadService(
             NamedParameterJdbcTemplate jdbcTemplate,
             FmAttachmentStorageService storageService,
-            TaskService taskService) {
+            TaskService taskService,
+            ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
         this.storageService = storageService;
         this.taskService = taskService;
+        this.objectMapper = objectMapper;
     }
 
     public List<FmAttachmentView> listByProcess(String tenantId, String processInstanceId)
@@ -60,7 +67,7 @@ public class FmAttachmentDownloadService {
                  WHERE pi.TENANT_ID = :tenantId
                    AND pi.PROCESS_INSTANCE_ID = :processInstanceId
                 """, parameters);
-        authorize(processes, account);
+        authorizeProcess(processes, account);
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 ATTACHMENT_SELECT + " AND pi.PROCESS_INSTANCE_ID = :processInstanceId"
                         + " ORDER BY a.FIELD_KEY, a.CDATE, a.OID",
@@ -74,7 +81,17 @@ public class FmAttachmentDownloadService {
         Task task = taskService.createTaskQuery()
                 .taskId(taskId).taskCandidateOrAssigned(account).singleResult();
         if (task == null) throw new ServiceException("找不到待辦或沒有附件檢視權限");
-        return listByProcess(tenantId, task.getProcessInstanceId());
+        MapSqlParameterSource parameters = parameters(tenantId)
+                .addValue("processInstanceId", task.getProcessInstanceId());
+        List<FmAttachmentView> attachments = jdbcTemplate.queryForList(
+                ATTACHMENT_SELECT + " AND pi.PROCESS_INSTANCE_ID = :processInstanceId"
+                        + " ORDER BY a.FIELD_KEY, a.CDATE, a.OID",
+                parameters).stream().map(this::view).toList();
+        String fieldPolicy = taskFieldPolicy(
+                tenantId, task.getProcessInstanceId(), task.getTaskDefinitionKey());
+        return attachments.stream()
+                .filter(value -> fieldVisible(fieldPolicy, value.fieldKey()))
+                .toList();
     }
 
     public DownloadFile download(String tenantId, String attachmentId)
@@ -130,6 +147,7 @@ public class FmAttachmentDownloadService {
     private void authorize(List<Map<String, Object>> rows, String account)
             throws ServiceException {
         if (rows.isEmpty()) throw new ServiceException("找不到附件或沒有檢視權限");
+        if (UserUtils.isAdmin() || UserUtils.hasRole("FLOWMINT_OPERATIONS")) return;
         Map<String, Object> row = rows.get(0);
         if (account.equals(row.get("OWNER_ACCOUNT"))
                 || account.equals(row.get("INITIATOR_ACCOUNT"))) return;
@@ -139,6 +157,24 @@ public class FmAttachmentDownloadService {
                 .taskCandidateOrAssigned(account)
                 .active().listPage(0, 1).stream().findFirst().orElse(null);
         if (task == null) throw new ServiceException("找不到附件或沒有檢視權限");
+        String policy = taskFieldPolicy(
+                String.valueOf(row.get("TENANT_ID")),
+                processInstanceId,
+                task.getTaskDefinitionKey());
+        if (!fieldVisible(policy, String.valueOf(row.get("FIELD_KEY")))) {
+            throw new ServiceException("此待辦欄位不允許檢視附件");
+        }
+    }
+
+    private void authorizeProcess(List<Map<String, Object>> rows, String account)
+            throws ServiceException {
+        if (rows.isEmpty()) throw new ServiceException("找不到申請單或沒有附件檢視權限");
+        if (UserUtils.isAdmin() || UserUtils.hasRole("FLOWMINT_OPERATIONS")) return;
+        Map<String, Object> row = rows.get(0);
+        if (!account.equals(row.get("OWNER_ACCOUNT"))
+                && !account.equals(row.get("INITIATOR_ACCOUNT"))) {
+            throw new ServiceException("沒有申請單附件檢視權限");
+        }
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
@@ -155,6 +191,38 @@ public class FmAttachmentDownloadService {
                 String.valueOf(row.get("FIELD_KEY")), String.valueOf(row.get("FILE_NAME")),
                 String.valueOf(row.get("CONTENT_TYPE")),
                 ((Number) row.get("FILE_SIZE")).longValue());
+    }
+
+    private String taskFieldPolicy(
+            String tenantId, String processInstanceId, String taskDefKey)
+            throws ServiceException {
+        List<String> policies = jdbcTemplate.queryForList("""
+                SELECT r.FIELD_POLICY
+                  FROM fm_process_instance pi
+                  JOIN fm_task_form_rule r
+                    ON r.TENANT_ID = pi.TENANT_ID
+                   AND r.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+                   AND r.PROCESS_VERSION_NO = pi.PROCESS_VERSION_NO
+                 WHERE pi.TENANT_ID = :tenantId
+                   AND pi.PROCESS_INSTANCE_ID = :processInstanceId
+                   AND r.TASK_DEF_KEY = :taskDefKey
+                """, new MapSqlParameterSource()
+                        .addValue("tenantId", tenantId)
+                        .addValue("processInstanceId", processInstanceId)
+                        .addValue("taskDefKey", taskDefKey), String.class);
+        if (policies.size() != 1) throw new ServiceException("找不到待辦欄位權限設定");
+        return policies.get(0);
+    }
+
+    boolean fieldVisible(String fieldPolicy, String fieldKey) throws ServiceException {
+        try {
+            JsonNode policy = objectMapper.readTree(fieldPolicy);
+            String defaultPolicy = policy.path("default").asText("READ");
+            String value = policy.path("fields").path(fieldKey).asText(defaultPolicy);
+            return !"HIDDEN".equalsIgnoreCase(value) && !"NONE".equalsIgnoreCase(value);
+        } catch (RuntimeException exception) {
+            throw new ServiceException("待辦欄位權限設定格式錯誤");
+        }
     }
 
     public record DownloadFile(
