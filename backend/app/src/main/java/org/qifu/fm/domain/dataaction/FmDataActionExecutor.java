@@ -171,7 +171,14 @@ public class FmDataActionExecutor {
 		}
 	}
 
-	private String toLowerCamel(String value) {
+	static String toLowerCamel(String value) {
+		if (!value.contains("_")) {
+			boolean mixedCase = value.chars().anyMatch(Character::isLowerCase)
+					&& value.chars().anyMatch(Character::isUpperCase);
+			return mixedCase
+					? Character.toLowerCase(value.charAt(0)) + value.substring(1)
+					: value.toLowerCase(Locale.ROOT);
+		}
 		String[] segments = value.toLowerCase(Locale.ROOT).split("_");
 		StringBuilder result = new StringBuilder(segments[0]);
 		for (int index = 1; index < segments.length; index++) {

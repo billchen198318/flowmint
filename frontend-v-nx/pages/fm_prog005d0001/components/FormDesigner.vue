@@ -41,6 +41,8 @@ const {
 let designerInstance: any = null;
 let detachDataActionBridge: (() => void) | null = null;
 let detachCustomJavascript: (() => Promise<void>) | null = null;
+let runCustomJavascript: ((lifecycle: any, additions?: any) => Promise<any>) | null = null;
+const previewSubmission = ref<Record<string, unknown>>({});
 let designerSequence = 0;
 const newForm = () => ({
   oid: "",
@@ -120,6 +122,7 @@ const destroyDesigner = () => {
   detachDataActionBridge = null;
   void detachCustomJavascript?.();
   detachCustomJavascript = null;
+  runCustomJavascript = null;
   designerInstance?.destroy?.(true);
   designerInstance = null;
   if (designerHost.value) designerHost.value.innerHTML = "";
@@ -136,6 +139,10 @@ const renderDesigner = async () => {
   detachDataActionBridge = null;
   await detachCustomJavascript?.();
   detachCustomJavascript = null;
+  runCustomJavascript = null;
+  if (designerMode.value === "preview" && designerInstance?.submission?.data) {
+    previewSubmission.value = structuredClone(designerInstance.submission.data);
+  }
   designerInstance?.destroy?.(true);
   designerInstance = null;
   designerHost.value.innerHTML = "";
@@ -158,6 +165,7 @@ const renderDesigner = async () => {
           basic: { title: "基本元件", weight: 0, default: true },
           advanced: { title: "進階元件", weight: 10 },
           data: { title: "資料與 API", weight: 20 },
+          resource: false,
           premium: false,
           layout: { title: "版面配置", weight: 30 },
         },
@@ -177,6 +185,9 @@ const renderDesigner = async () => {
         noAlerts: true,
         noDefaultSubmitButton: true,
       });
+      if (designerMode.value === "preview" && Object.keys(previewSubmission.value).length) {
+        designerInstance.submission = { data: structuredClone(previewSubmission.value) };
+      }
       detachDataActionBridge = attachDataActionBridge(
         designerInstance,
         form.value.tenantId,
@@ -192,11 +203,37 @@ const renderDesigner = async () => {
         mode: "DESIGNER_PREVIEW",
       });
       detachCustomJavascript = scriptRuntime.detach;
+      runCustomJavascript = scriptRuntime.run;
     }
   } catch (error: any) {
     toast.error(error?.message || "載入 Form.io 設計器失敗");
   } finally {
     if (sequence === designerSequence) designerLoading.value = false;
+  }
+};
+const resetPreview = async () => {
+  previewSubmission.value = {};
+  clearConsole();
+  await renderDesigner();
+};
+const validatePreview = async () => {
+  if (!designerInstance) return;
+  if (!designerInstance.checkValidity(null, true)) {
+    toast.warning("請完成表單必填欄位");
+    return;
+  }
+  try {
+    const result = await runCustomJavascript?.("beforeSubmit");
+    if (result === false || (result && result.valid === false)) {
+      toast.warning(result?.message || "表單送出前檢核未通過");
+      return;
+    }
+    previewSubmission.value = structuredClone(
+      designerInstance.submission?.data || {},
+    );
+    toast.success("試跑驗證通過（未送出資料）");
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "試跑驗證失敗");
   }
 };
 const syncSchemaFromDesigner = () => {
@@ -214,6 +251,9 @@ const syncSchemaFromDesigner = () => {
 const setDesignerMode = (mode: "design" | "preview" | "javascript") => {
   if (mode === designerMode.value) return;
   if (designerMode.value === "design") syncSchemaFromDesigner();
+  if (designerMode.value === "preview" && designerInstance?.submission?.data) {
+    previewSubmission.value = structuredClone(designerInstance.submission.data);
+  }
   designerMode.value = mode;
   void renderDesigner();
 };
@@ -566,6 +606,14 @@ onBeforeUnmount(destroyDesigner);
             ref="designerHost"
             class="formio-designer"
           ></div>
+          <div v-if="designerMode === 'preview'" class="d-flex flex-wrap gap-2 mt-3">
+            <button type="button" class="btn btn-primary" @click="validatePreview">
+              <i class="bi bi-check2-circle"></i> 驗證送出
+            </button>
+            <button type="button" class="btn btn-outline-secondary" @click="resetPreview">
+              <i class="bi bi-arrow-counterclockwise"></i> 重設試跑
+            </button>
+          </div>
           <FormCustomJavascriptEditor
             v-if="designerMode === 'javascript'"
             :model-value="selectedVersion.customScriptContent || ''"
@@ -575,7 +623,7 @@ onBeforeUnmount(destroyDesigner);
             "
           />
           <div
-            v-if="designerMode === 'javascript' && consoleEntries.length"
+            v-if="designerMode !== 'design' && consoleEntries.length"
             class="mt-3 border rounded p-3 bg-dark text-light script-console"
           >
             <div class="d-flex justify-content-between mb-2">

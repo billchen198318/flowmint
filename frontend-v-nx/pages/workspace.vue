@@ -50,6 +50,7 @@ const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
 let detachDataActionBridge: (() => void) | null = null;
 let detachCustomJavascript: (() => Promise<void>) | null = null;
+let runCustomJavascript: ((lifecycle: any, additions?: any) => Promise<any>) | null = null;
 
 const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
@@ -66,6 +67,7 @@ const destroyForm = async () => {
   detachDataActionBridge = null;
   await detachCustomJavascript?.();
   detachCustomJavascript = null;
+  runCustomJavascript = null;
   formInstance?.destroy?.(true);
   formInstance = null;
   if (formHost.value) formHost.value.innerHTML = "";
@@ -101,6 +103,7 @@ const renderForm = async () => {
     mode: "RUNTIME_START",
   });
   detachCustomJavascript = script.detach;
+  runCustomJavascript = script.run;
 };
 const loadTenants = async () => {
   const response: any = await runtimePost("/start/tenants");
@@ -202,6 +205,24 @@ const submit = async () => {
     toast.warning("請完成表單必填欄位");
     return;
   }
+  const formData = formInstance.submission?.data || {};
+  try {
+    const validation = await runCustomJavascript?.("beforeSubmit");
+    if (validation === false || (validation && validation.valid === false)) {
+      toast.warning(validation?.message || "表單送出前檢核未通過");
+      return;
+    }
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : "表單送出前檢核失敗");
+    return;
+  }
+  const selectedApplicantAccount = String(
+    formData.applicantAccount || applicantAccount.value,
+  ).trim();
+  if (!selectedApplicantAccount) {
+    toast.warning("請選擇申請人");
+    return;
+  }
   submitting.value = true;
   try {
     const response: any = await runtimePost(
@@ -210,13 +231,18 @@ const submit = async () => {
         processDefId: processDefId.value,
         formId: selectedForm.value.formId,
         formVersionNo: selectedForm.value.formVersionNo,
-        applicantAccount: applicantAccount.value.trim(),
-        formData: formInstance.submission?.data || {},
+        applicantAccount: selectedApplicantAccount,
+        formData,
       },
       { ...tenantHeaders(), "Idempotency-Key": idempotencyKey.value },
     );
     if (!ok(response)) return showError(response, "送出失敗");
     result.value = response.value;
+    try {
+      await runCustomJavascript?.("afterSubmit", { response: response.value });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "送出後處理失敗");
+    }
     toast.success("表單已送出");
   } finally {
     submitting.value = false;

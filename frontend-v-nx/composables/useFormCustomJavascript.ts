@@ -55,6 +55,12 @@ const refreshSubmission = async (form: FormioRuntime) => {
   else await form.redraw?.();
 };
 
+const refreshComponent = async (form: FormioRuntime, key: string) => {
+  const component = form.getComponent?.(key);
+  if (component?.redraw) await component.redraw();
+  else await form.redraw?.();
+};
+
 export const compileFormCustomJavascript = async (
   scriptContent?: string,
 ): Promise<FormCustomScriptModule> => {
@@ -100,9 +106,9 @@ export const useFormCustomJavascript = () => {
     const axios = getAxiosInstance();
     let destroyed = false;
     let handlingChange = false;
-    const data =
+    let data =
       options.form.submission?.data || ({} as Record<string, unknown>);
-    const submission = options.form.submission || { data };
+    let submission = options.form.submission || { data };
     submission.data = data;
     options.form.submission = submission;
 
@@ -119,7 +125,30 @@ export const useFormCustomJavascript = () => {
       getValue: (path) => getPath(data, path),
       setValue: async (path, value) => {
         setFormDataPath(data, path, value);
-        await refreshSubmission(options.form);
+        const topLevelKey = path.split(".").filter(Boolean)[0];
+        const component = topLevelKey
+          ? options.form.getComponent?.(topLevelKey)
+          : null;
+        if (component?.setValue) component.setValue(data[topLevelKey], {
+          modified: true,
+          noUpdateEvent: true,
+        });
+      },
+      setSelectOptions: async (key, items) => {
+        const component = options.form.getComponent?.(key);
+        if (!component) return;
+        component.component.data = component.component.data || {};
+        component.component.data.values = items.map((item) => ({ ...item }));
+        if (component.setItems) component.setItems(items, false);
+        else if (component.triggerUpdate) await component.triggerUpdate(null, true);
+        else await refreshComponent(options.form, key);
+      },
+      setComponentDisabled: async (key, disabled) => {
+        const component = options.form.getComponent?.(key);
+        if (!component) return;
+        component.component.disabled = disabled;
+        component.disabled = disabled;
+        await refreshComponent(options.form, key);
       },
       getComponent: (key) => options.form.getComponent?.(key),
       redraw: async () => {
@@ -173,6 +202,12 @@ export const useFormCustomJavascript = () => {
       if (destroyed || handlingChange) return;
       handlingChange = true;
       try {
+        data = changed?.data || options.form.submission?.data || data;
+        submission = options.form.submission || { data };
+        submission.data = data;
+        options.form.submission = submission;
+        context.data = data;
+        context.submission = submission;
         await run("onFieldChange", { changed: changed?.changed || changed });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "onFieldChange 執行失敗");

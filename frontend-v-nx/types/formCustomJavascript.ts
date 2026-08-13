@@ -36,6 +36,11 @@ export interface FormCustomScriptContext {
   axios: AxiosInstance;
   getValue: (path: string) => unknown;
   setValue: (path: string, value: unknown) => Promise<void>;
+  setSelectOptions: (
+    key: string,
+    items: Array<{ label: string; value: unknown; disabled?: boolean }>,
+  ) => Promise<void>;
+  setComponentDisabled: (key: string, disabled: boolean) => Promise<void>;
   getComponent: (key: string) => any;
   redraw: () => Promise<void>;
   executeDataAction: (
