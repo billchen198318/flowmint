@@ -7,5 +7,6 @@ public record FmProcessSubmitRequest(
 		String formId,
 		Integer formVersionNo,
 		String applicantAccount,
-		Map<String, Object> formData) {
+		Map<String, Object> formData,
+		String uploadSessionId) {
 }

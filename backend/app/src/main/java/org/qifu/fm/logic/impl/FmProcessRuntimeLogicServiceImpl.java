@@ -20,6 +20,7 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
+import org.qifu.fm.domain.attachment.FmAttachmentBindingService;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator.StartSubject;
 import org.qifu.fm.domain.runtime.FmProcessStartProxyEvaluator;
@@ -90,6 +91,7 @@ public class FmProcessRuntimeLogicServiceImpl
     private final IFmRuntimeAuditLogicService runtimeAuditService;
     private final RuntimeService runtimeService;
     private final ObjectMapper objectMapper;
+    private final FmAttachmentBindingService attachmentBindingService;
 
     public FmProcessRuntimeLogicServiceImpl(
             IFmProcessVersionService processVersionService,
@@ -111,7 +113,8 @@ public class FmProcessRuntimeLogicServiceImpl
             FmFormSubmissionValidator formSubmissionValidator,
             IFmRuntimeAuditLogicService runtimeAuditService,
             RuntimeService runtimeService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            FmAttachmentBindingService attachmentBindingService) {
         this.processVersionService = processVersionService;
         this.processDefService = processDefService;
         this.formVersionService = formVersionService;
@@ -132,6 +135,7 @@ public class FmProcessRuntimeLogicServiceImpl
         this.runtimeAuditService = runtimeAuditService;
         this.runtimeService = runtimeService;
         this.objectMapper = objectMapper;
+        this.attachmentBindingService = attachmentBindingService;
     }
 
     @Override
@@ -303,6 +307,9 @@ public class FmProcessRuntimeLogicServiceImpl
                 starterAccount,
                 command.applicantAccount(),
                 now);
+        attachmentBindingService.bind(
+                command.tenantId(), command.uploadSessionId(), starterAccount,
+                command.formId(), command.formVersionNo(), formData.getFormDataId(), now);
         return success(new FmProcessSubmitView(
                 businessKey,
                 formData.getFormDataId(),

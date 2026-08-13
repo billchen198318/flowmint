@@ -26,6 +26,10 @@ const loading = ref(false);
 const submitting = ref(false);
 const result = ref<any>(null);
 const idempotencyKey = ref("");
+const uploadSessionId = ref("");
+const attachmentFields = ref<any[]>([]);
+const attachmentFiles = ref<Record<string, any[]>>({});
+const uploadingField = ref("");
 const activeTenant = computed(() => tenants.value.find(
   (item: any) => item.tenantId === tenantId.value,
 ));
@@ -59,6 +63,8 @@ const runtimePost = (path: string, body: any = {}, headers: any = {}) =>
 const notificationPost = (path: string, body: any = {}) =>
   useApi(`/fm/notifications${path}`, { method: "POST", body, headers: tenantHeaders() });
 const tenantHeaders = () => ({ "X-FlowMint-Tenant": tenantId.value });
+const attachmentPost = (path: string, body: any) =>
+  useApi(`/fm/attachments${path}`, { method: "POST", body, headers: tenantHeaders() });
 const showError = (response: any, fallback: string) => {
   toast.warning(response?.message || fallback);
 };
@@ -70,6 +76,9 @@ const destroyForm = async () => {
   runCustomJavascript = null;
   formInstance?.destroy?.(true);
   formInstance = null;
+  attachmentFields.value = [];
+  attachmentFiles.value = {};
+  uploadSessionId.value = "";
   if (formHost.value) formHost.value.innerHTML = "";
 };
 const renderForm = async () => {
@@ -78,10 +87,33 @@ const renderForm = async () => {
   if (!formHost.value || !selectedForm.value) return;
   const { Formio } = await import("@formio/js");
   const schema = JSON.parse(selectedForm.value.schemaContent || "{}");
+  const collectFileFields = (components: any[] = []): any[] => components.flatMap((item: any) => [
+    ...(item.type === "file" ? [item] : []),
+    ...collectFileFields(item.components || []),
+    ...(item.columns || []).flatMap((column: any) => collectFileFields(column.components || [])),
+    ...(item.rows || []).flatMap((row: any[]) => row.flatMap(
+      (cell: any) => collectFileFields(cell.components || []),
+    )),
+  ]);
+  attachmentFields.value = collectFileFields(schema.components || []);
+  attachmentFiles.value = {};
+  uploadSessionId.value = "";
+  attachmentFields.value.forEach((field: any) => {
+    field.hidden = true;
+    attachmentFiles.value[field.key] = [];
+  });
   formInstance = await Formio.createForm(formHost.value, schema, {
     noAlerts: true,
     noDefaultSubmitButton: true,
   });
+  if (attachmentFields.value.length) {
+    const response: any = await attachmentPost("/sessions", {
+      formId: selectedForm.value.formId,
+      formVersionNo: selectedForm.value.formVersionNo,
+    });
+    if (!ok(response)) showError(response, "無法建立附件上傳階段");
+    else uploadSessionId.value = response.value?.uploadSessionId || "";
+  }
   let uiSchema: any = { engine: "FORMIO", version: 1 };
   try {
     uiSchema = JSON.parse(selectedForm.value.uiSchemaContent || "{}");
@@ -104,6 +136,38 @@ const renderForm = async () => {
   });
   detachCustomJavascript = script.detach;
   runCustomJavascript = script.run;
+};
+const uploadAttachment = async (field: any, event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file || !uploadSessionId.value) return;
+  uploadingField.value = field.key;
+  try {
+    const body = new FormData();
+    body.append("uploadSessionId", uploadSessionId.value);
+    body.append("fieldKey", field.key);
+    body.append("file", file);
+    const response: any = await attachmentPost("/sessions/files", body);
+    if (!ok(response)) return showError(response, "附件上傳失敗");
+    attachmentFiles.value[field.key].push(response.value);
+    formInstance.submission.data[field.key] = attachmentFiles.value[field.key]
+      .map((item: any) => item.attachmentId);
+    toast.success("附件已上傳");
+  } finally {
+    uploadingField.value = "";
+    input.value = "";
+  }
+};
+const deleteAttachment = async (field: any, attachment: any) => {
+  const response: any = await attachmentPost("/sessions/files/delete", {
+    uploadSessionId: uploadSessionId.value,
+    attachmentId: attachment.attachmentId,
+  });
+  if (!ok(response)) return showError(response, "附件刪除失敗");
+  attachmentFiles.value[field.key] = attachmentFiles.value[field.key]
+    .filter((item: any) => item.attachmentId !== attachment.attachmentId);
+  formInstance.submission.data[field.key] = attachmentFiles.value[field.key]
+    .map((item: any) => item.attachmentId);
 };
 const loadTenants = async () => {
   const response: any = await runtimePost("/start/tenants");
@@ -205,6 +269,12 @@ const submit = async () => {
     toast.warning("請完成表單必填欄位");
     return;
   }
+  const missingAttachment = attachmentFields.value.find((field: any) =>
+    field.validate?.required && !attachmentFiles.value[field.key]?.length);
+  if (missingAttachment) {
+    toast.warning(`${missingAttachment.label || missingAttachment.key} 為必填附件`);
+    return;
+  }
   const formData = formInstance.submission?.data || {};
   try {
     const validation = await runCustomJavascript?.("beforeSubmit");
@@ -233,6 +303,7 @@ const submit = async () => {
         formVersionNo: selectedForm.value.formVersionNo,
         applicantAccount: selectedApplicantAccount,
         formData,
+        uploadSessionId: uploadSessionId.value || null,
       },
       { ...tenantHeaders(), "Idempotency-Key": idempotencyKey.value },
     );
@@ -366,7 +437,28 @@ onBeforeUnmount(() => void destroyForm());
 
     <div v-if="startData" class="card workspace-card mt-4">
       <div class="card-header workspace-card-header"><strong>{{ startData.processName }}</strong><select v-if="startData.forms?.length > 1" v-model="selectedForm" class="form-select form-select-sm form-selector"><option v-for="item in startData.forms" :key="`${item.formId}:${item.formVersionNo}`" :value="item">{{ item.formName }}（v{{ item.formVersionNo }}）</option></select><span v-else class="text-secondary small">{{ selectedForm?.formName }}</span></div>
-      <div class="card-body p-4"><div ref="formHost" class="runtime-form"></div><div class="d-flex justify-content-end mt-4"><button type="button" class="btn btn-primary px-4" :disabled="submitting || !!result" @click="submit"><span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>送出申請</button></div><div v-if="result" class="alert alert-success mt-4 mb-0"><strong>申請已送出</strong><div class="mt-2">流程編號：{{ result.processInstanceId }}</div><div>表單資料編號：{{ result.formDataId }}</div><div>狀態：{{ result.instanceStatus }}</div></div></div>
+      <div class="card-body p-4"><div ref="formHost" class="runtime-form"></div>
+        <div v-if="attachmentFields.length" class="mt-4">
+          <div v-for="field in attachmentFields" :key="field.key" class="border rounded p-3 mb-3">
+            <label class="form-label fw-semibold">
+              {{ field.label || field.key }}
+              <span v-if="field.validate?.required" class="text-danger">*</span>
+            </label>
+            <input class="form-control" type="file" accept=".pdf,.jpg,.jpeg,.png"
+              :disabled="!uploadSessionId || uploadingField === field.key || !!result"
+              @change="uploadAttachment(field, $event)">
+            <div class="form-text">支援 PDF、JPEG、PNG；檔案儲存在 FlowMint 系統附件目錄。</div>
+            <ul v-if="attachmentFiles[field.key]?.length" class="list-group mt-2">
+              <li v-for="file in attachmentFiles[field.key]" :key="file.attachmentId"
+                class="list-group-item d-flex justify-content-between align-items-center">
+                <span>{{ file.fileName }}（{{ file.fileSize }} bytes）</span>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                  :disabled="!!result" @click="deleteAttachment(field, file)">刪除</button>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end mt-4"><button type="button" class="btn btn-primary px-4" :disabled="submitting || !!result" @click="submit"><span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>送出申請</button></div><div v-if="result" class="alert alert-success mt-4 mb-0"><strong>申請已送出</strong><div class="mt-2">流程編號：{{ result.processInstanceId }}</div><div>表單資料編號：{{ result.formDataId }}</div><div>狀態：{{ result.instanceStatus }}</div></div></div>
     </div>
   </div>
 </template>

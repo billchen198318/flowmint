@@ -23,6 +23,7 @@ const targetTaskDefKey = ref("");
 const targetAccount = ref("");
 const transferOptions = ref<any[]>([]);
 const delegationId = ref("");
+const attachments = ref<any[]>([]);
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
@@ -88,6 +89,11 @@ const load = async () => {
       return;
     }
     detail.value = response.value;
+    const attachmentResponse: any = await useApi(
+      `/fm/attachments/tasks/${route.params.id}`,
+      { headers: { "X-FlowMint-Tenant": tenantId } },
+    );
+    attachments.value = ok(attachmentResponse) ? attachmentResponse.value || [] : [];
     actionType.value = response.value?.addSignTask
       ? "ADD_SIGN_COMPLETE"
       : response.value?.delegatedTask ? "RESOLVE"
@@ -108,6 +114,22 @@ const load = async () => {
     await renderForm();
   } finally {
     loading.value = false;
+  }
+};
+const downloadAttachment = async (attachment: any) => {
+  try {
+    const content: any = await useApi(
+      `/fm/attachments/${attachment.attachmentId}/download`,
+      { responseType: "blob", headers: { "X-FlowMint-Tenant": tenantId } },
+    );
+    const url = URL.createObjectURL(content);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = attachment.fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    toast.warning("附件下載失敗");
   }
 };
 const submitAction = async () => {
@@ -238,6 +260,17 @@ onBeforeUnmount(() => void destroyForm());
         </div>
 
         <div class="col-xl-4">
+          <div v-if="attachments.length" class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3"><strong>附件</strong></div>
+            <div class="list-group list-group-flush">
+              <button v-for="file in attachments" :key="file.attachmentId" type="button"
+                class="list-group-item list-group-item-action text-start"
+                @click="downloadAttachment(file)">
+                <i class="bi bi-paperclip me-2"></i>{{ file.fileName }}
+                <span class="d-block small text-muted ms-4">{{ file.fieldKey }} · {{ file.fileSize }} bytes</span>
+              </button>
+            </div>
+          </div>
           <div class="card border-0 shadow-sm action-card">
             <div class="card-header bg-white py-3"><strong>簽核處理</strong></div>
             <div class="card-body">

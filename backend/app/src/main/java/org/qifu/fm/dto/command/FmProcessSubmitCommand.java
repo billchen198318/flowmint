@@ -9,5 +9,6 @@ public record FmProcessSubmitCommand(
         Integer formVersionNo,
         String businessKey,
         String applicantAccount,
-        Map<String, Object> formData) {
+        Map<String, Object> formData,
+        String uploadSessionId) {
 }
