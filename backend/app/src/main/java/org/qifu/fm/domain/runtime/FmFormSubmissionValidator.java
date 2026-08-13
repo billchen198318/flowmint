@@ -226,7 +226,7 @@ public class FmFormSubmissionValidator {
     }
 
     private boolean isTextType(String type) {
-        return List.of("day", "datetime", "email", "password", "phoneNumber",
+        return List.of("day", "datetime", "email", "input", "password", "phoneNumber",
                 "textfield", "textarea", "time", "url").contains(type);
     }
 

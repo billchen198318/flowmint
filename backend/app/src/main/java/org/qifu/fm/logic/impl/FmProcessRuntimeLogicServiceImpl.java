@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -260,9 +261,10 @@ public class FmProcessRuntimeLogicServiceImpl
         authorizeProxy(
                 command.tenantId(), command.processDefId(),
                 command.applicantAccount(), starterAccount);
-        FmEmployeeOrgAssignment assignment = primaryAssignment(
+        FmEmployeeOrgAssignment assignment = selectedOrPrimaryAssignment(
                 command.tenantId(),
-                applicant.getEmployeeId());
+                applicant,
+                command.formData());
         authorizeStart(
                 command.tenantId(), command.processDefId(),
                 processVersion, applicant);
@@ -453,6 +455,40 @@ public class FmProcessRuntimeLogicServiceImpl
                 .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("申請人沒有有效的主要任職配置"));
+    }
+
+    private FmEmployeeOrgAssignment selectedOrPrimaryAssignment(
+            String tenantId,
+            FmEmployee applicant,
+            Map<String, Object> formData) throws ServiceException {
+        String formApplicantAccount = StringUtils.trimToNull(
+                Objects.toString(formData.get("applicantAccount"), null));
+        if (formApplicantAccount != null
+                && !applicant.getAccount().equals(formApplicantAccount)) {
+            throw new ServiceException("表單申請人與送單申請人不一致");
+        }
+        String assignmentId = StringUtils.trimToNull(
+                Objects.toString(formData.get("applicantAssignmentId"), null));
+        if (assignmentId == null) {
+            return primaryAssignment(tenantId, applicant.getEmployeeId());
+        }
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("employeeId", applicant.getEmployeeId());
+        parameters.put("employeeOrgAssignmentId", assignmentId);
+        FmEmployeeOrgAssignment assignment = assignmentService
+                .selectListByParams(parameters).getValue().stream()
+                .filter(value -> isEffective(
+                        value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst()
+                .orElseThrow(() -> new ServiceException(
+                        "申請部門不是申請人的有效任職"));
+        String submittedOrgUnitId = StringUtils.trimToNull(
+                Objects.toString(formData.get("applicantOrgId"), null));
+        if (submittedOrgUnitId != null
+                && !assignment.getOrgUnitId().equals(submittedOrgUnitId)) {
+            throw new ServiceException("申請部門與所選任職不一致");
+        }
+        return assignment;
     }
 
     private void authorizeStart(

@@ -86,4 +86,19 @@ class FmFormSubmissionValidatorTest {
 
         assertThrows(ServiceException.class, () -> validator.validate(SCHEMA, data));
     }
+
+    @Test
+    void validatesNativeDateInputAsText() {
+        String schema = """
+                {"components":[
+                  {"type":"input","inputType":"date","key":"requestDate",
+                   "label":"申請日期","validate":{"required":true}}
+                ]}
+                """;
+
+        assertDoesNotThrow(() -> validator.validate(
+                schema, Map.of("requestDate", "2026-08-13")));
+        assertThrows(ServiceException.class, () -> validator.validate(
+                schema, Map.of("requestDate", 20260813)));
+    }
 }
