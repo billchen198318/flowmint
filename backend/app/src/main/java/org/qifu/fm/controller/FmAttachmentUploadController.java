@@ -61,6 +61,22 @@ public class FmAttachmentUploadController extends CoreApiSupport {
                 .body(file.content());
     }
 
+    @PostMapping("/{attachmentId}/delete")
+    public ResponseEntity<DefaultControllerJsonResultObj<Boolean>> deleteFormal(
+            @RequestHeader("X-FlowMint-Tenant") String tenantId,
+            @PathVariable String attachmentId) {
+        DefaultControllerJsonResultObj<Boolean> result = initDefaultJsonResult();
+        try {
+            DefaultResult<Boolean> value = new DefaultResult<>();
+            value.setSuccess(org.qifu.base.model.YesNoKeyProvide.YES);
+            value.setValue(downloadService.delete(tenantId, attachmentId));
+            setDefaultResponseJsonResult(value, result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/processes/{processInstanceId}")
     public ResponseEntity<DefaultControllerJsonResultObj<List<FmAttachmentView>>> listByProcess(
             @RequestHeader("X-FlowMint-Tenant") String tenantId,

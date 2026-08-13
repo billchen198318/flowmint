@@ -32,7 +32,7 @@ class FmAttachmentUploadControllerContractTest {
                 .collect(Collectors.toSet());
         assertEquals(Set.of(
                 "/sessions", "/sessions/files", "/sessions/files/list",
-                "/sessions/files/delete"), paths);
+                "/sessions/files/delete", "/{attachmentId}/delete"), paths);
     }
 
     @Test

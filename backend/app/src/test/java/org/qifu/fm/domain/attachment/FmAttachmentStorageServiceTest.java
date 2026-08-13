@@ -57,4 +57,32 @@ class FmAttachmentStorageServiceTest {
         assertThrows(ServiceException.class, () -> service.storeTemporary(
                 "A01", "session", new ByteArrayInputStream(new byte[3]), 4));
     }
+
+    @Test
+    void recognizesOfficeAndArchiveSignatures() throws Exception {
+        FmAttachmentStorageService service =
+                new FmAttachmentStorageService(temporaryDirectory, 1024);
+        Path ole = temporaryDirectory.resolve("legacy-office.bin");
+        Files.write(ole, new byte[] {
+                (byte) 0xd0, (byte) 0xcf, 0x11, (byte) 0xe0,
+                (byte) 0xa1, (byte) 0xb1, 0x1a, (byte) 0xe1});
+        Path zip = temporaryDirectory.resolve("openxml.bin");
+        Files.write(zip, new byte[] {'P', 'K', 0x03, 0x04, 0, 0, 0, 0});
+        Path sevenZip = temporaryDirectory.resolve("archive.7z.bin");
+        Files.write(sevenZip, new byte[] {
+                0x37, 0x7a, (byte) 0xbc, (byte) 0xaf, 0x27, 0x1c, 0, 0});
+        Path rar = temporaryDirectory.resolve("archive.rar.bin");
+        Files.write(rar, new byte[] {
+                0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x01, 0x00});
+
+        assertTrue(service.hasExpectedSignature(ole, "doc"));
+        assertTrue(service.hasExpectedSignature(ole, "xls"));
+        assertTrue(service.hasExpectedSignature(ole, "ppt"));
+        assertTrue(service.hasExpectedSignature(zip, "docx"));
+        assertTrue(service.hasExpectedSignature(zip, "xlsx"));
+        assertTrue(service.hasExpectedSignature(zip, "pptx"));
+        assertTrue(service.hasExpectedSignature(zip, "zip"));
+        assertTrue(service.hasExpectedSignature(sevenZip, "7z"));
+        assertTrue(service.hasExpectedSignature(rar, "rar"));
+    }
 }

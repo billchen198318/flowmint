@@ -71,21 +71,36 @@ public class FmAttachmentStorageService {
         }
     }
 
-    public boolean hasExpectedSignature(Path path, String contentType) throws ServiceException {
+    public boolean hasExpectedSignature(Path path, String extension) throws ServiceException {
         try (InputStream input = Files.newInputStream(path)) {
             byte[] header = input.readNBytes(8);
-            return switch (contentType) {
-                case "application/pdf" -> startsWith(header,
+            return switch (extension) {
+                case "pdf" -> startsWith(header,
                         new byte[] {'%', 'P', 'D', 'F', '-'});
-                case "image/jpeg" -> startsWith(header,
+                case "jpg", "jpeg" -> startsWith(header,
                         new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff});
-                case "image/png" -> startsWith(header, new byte[] {
+                case "png" -> startsWith(header, new byte[] {
                         (byte) 0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a});
+                case "bmp" -> startsWith(header, new byte[] {'B', 'M'});
+                case "doc", "xls", "ppt" -> startsWith(header, new byte[] {
+                        (byte) 0xd0, (byte) 0xcf, 0x11, (byte) 0xe0,
+                        (byte) 0xa1, (byte) 0xb1, 0x1a, (byte) 0xe1});
+                case "docx", "xlsx", "pptx", "zip" -> zipSignature(header);
+                case "7z" -> startsWith(header, new byte[] {
+                        0x37, 0x7a, (byte) 0xbc, (byte) 0xaf, 0x27, 0x1c});
+                case "rar" -> startsWith(header, new byte[] {
+                        0x52, 0x61, 0x72, 0x21, 0x1a, 0x07});
                 default -> false;
             };
         } catch (IOException exception) {
             throw new ServiceException("無法檢查附件內容");
         }
+    }
+
+    private boolean zipSignature(byte[] header) {
+        return startsWith(header, new byte[] {'P', 'K', 0x03, 0x04})
+                || startsWith(header, new byte[] {'P', 'K', 0x05, 0x06})
+                || startsWith(header, new byte[] {'P', 'K', 0x07, 0x08});
     }
 
     public void deleteTemporary(String tenantId, String sessionId, String fileOid)

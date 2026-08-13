@@ -13,6 +13,7 @@ import org.qifu.fm.dto.view.FmAttachmentView;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class FmAttachmentDownloadService {
@@ -89,6 +90,41 @@ public class FmAttachmentDownloadService {
                 String.valueOf(row.get("FILE_OID")), (Date) row.get("CDATE"));
         return new DownloadFile(String.valueOf(row.get("FILE_NAME")),
                 String.valueOf(row.get("CONTENT_TYPE")), content);
+    }
+
+    @Transactional
+    public boolean delete(String tenantId, String attachmentId) throws ServiceException {
+        String account = currentAccount(tenantId);
+        MapSqlParameterSource parameters = parameters(tenantId)
+                .addValue("attachmentId", attachmentId)
+                .addValue("account", account)
+                .addValue("now", new Date());
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                ATTACHMENT_SELECT + " AND a.ATTACHMENT_ID = :attachmentId", parameters);
+        if (rows.isEmpty()) throw new ServiceException("找不到可刪除的附件");
+        Map<String, Object> row = rows.get(0);
+        if (!account.equals(row.get("OWNER_ACCOUNT"))
+                && !account.equals(row.get("INITIATOR_ACCOUNT"))) {
+            throw new ServiceException("沒有附件刪除權限");
+        }
+        Integer running = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM fm_process_instance
+                 WHERE TENANT_ID = :tenantId
+                   AND PROCESS_INSTANCE_ID = :processInstanceId
+                   AND INSTANCE_STATUS = 'RUNNING'
+                """, parameters.addValue(
+                        "processInstanceId", row.get("PROCESS_INSTANCE_ID")), Integer.class);
+        if (running == null || running != 1) {
+            throw new ServiceException("流程已結束，附件不可刪除");
+        }
+        return jdbcTemplate.update("""
+                UPDATE fm_attachment
+                   SET STATUS = 'DELETED', UUSERID = :account, UDATE = :now
+                 WHERE TENANT_ID = :tenantId
+                   AND ATTACHMENT_ID = :attachmentId
+                   AND STATUS = 'ACTIVE'
+                """, parameters) == 1;
     }
 
     private void authorize(List<Map<String, Object>> rows, String account)

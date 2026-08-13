@@ -27,9 +27,12 @@ const submitting = ref(false);
 const result = ref<any>(null);
 const idempotencyKey = ref("");
 const uploadSessionId = ref("");
+const uploadBatchExpiresDate = ref("");
 const attachmentFields = ref<any[]>([]);
 const attachmentFiles = ref<Record<string, any[]>>({});
 const uploadingField = ref("");
+const attachmentDirty = computed(() => Object.values(attachmentFiles.value)
+  .some((files: any[]) => files.length > 0) && !result.value);
 const activeTenant = computed(() => tenants.value.find(
   (item: any) => item.tenantId === tenantId.value,
 ));
@@ -79,6 +82,7 @@ const destroyForm = async () => {
   attachmentFields.value = [];
   attachmentFiles.value = {};
   uploadSessionId.value = "";
+  uploadBatchExpiresDate.value = "";
   if (formHost.value) formHost.value.innerHTML = "";
 };
 const renderForm = async () => {
@@ -106,14 +110,7 @@ const renderForm = async () => {
     noAlerts: true,
     noDefaultSubmitButton: true,
   });
-  if (attachmentFields.value.length) {
-    const response: any = await attachmentPost("/sessions", {
-      formId: selectedForm.value.formId,
-      formVersionNo: selectedForm.value.formVersionNo,
-    });
-    if (!ok(response)) showError(response, "無法建立附件上傳階段");
-    else uploadSessionId.value = response.value?.uploadSessionId || "";
-  }
+  if (attachmentFields.value.length) await createUploadBatch(false);
   let uiSchema: any = { engine: "FORMIO", version: 1 };
   try {
     uiSchema = JSON.parse(selectedForm.value.uiSchemaContent || "{}");
@@ -137,10 +134,57 @@ const renderForm = async () => {
   detachCustomJavascript = script.detach;
   runCustomJavascript = script.run;
 };
+const createUploadBatch = async (expired: boolean) => {
+  const response: any = await attachmentPost("/sessions", {
+      formId: selectedForm.value.formId,
+      formVersionNo: selectedForm.value.formVersionNo,
+  });
+  if (!ok(response)) {
+    showError(response, "無法建立附件上傳批次");
+    return false;
+  }
+  uploadSessionId.value = response.value?.uploadSessionId || "";
+  uploadBatchExpiresDate.value = response.value?.expiresDate || "";
+  if (expired) {
+    attachmentFiles.value = Object.fromEntries(
+      attachmentFields.value.map((field: any) => [field.key, []]),
+    );
+    attachmentFields.value.forEach((field: any) => {
+      if (formInstance?.submission?.data) formInstance.submission.data[field.key] = [];
+    });
+    toast.warning("附件上傳批次已逾期，已建立新批次，請重新上傳附件");
+  }
+  return true;
+};
 const uploadAttachment = async (field: any, event: Event) => {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
-  if (!file || !uploadSessionId.value) return;
+  if (!file) return;
+  if (!uploadSessionId.value
+    || (uploadBatchExpiresDate.value
+      && new Date(uploadBatchExpiresDate.value).getTime() <= Date.now())) {
+    if (!await createUploadBatch(true)) return;
+  }
+  const maximum = parseFileSize(field.fileMaxSize || "8MB");
+  if (file.size > maximum) {
+    toast.warning(`${field.label || field.key} 單檔不可超過 ${field.fileMaxSize || "8MB"}`);
+    input.value = "";
+    return;
+  }
+  const maxFiles = Number(field.maxNumberOfFiles || (field.multiple ? 10 : 1));
+  if ((attachmentFiles.value[field.key]?.length || 0) >= maxFiles) {
+    toast.warning(`${field.label || field.key} 最多上傳 ${maxFiles} 個附件`);
+    input.value = "";
+    return;
+  }
+  const totalMaximum = parseFileSize(field.flowmintMaxTotalSize || "20MB");
+  const currentTotal = (attachmentFiles.value[field.key] || [])
+    .reduce((sum: number, item: any) => sum + Number(item.fileSize || 0), 0);
+  if (currentTotal + file.size > totalMaximum) {
+    toast.warning(`${field.label || field.key} 附件總容量不可超過 ${field.flowmintMaxTotalSize || "20MB"}`);
+    input.value = "";
+    return;
+  }
   uploadingField.value = field.key;
   try {
     const body = new FormData();
@@ -148,7 +192,12 @@ const uploadAttachment = async (field: any, event: Event) => {
     body.append("fieldKey", field.key);
     body.append("file", file);
     const response: any = await attachmentPost("/sessions/files", body);
-    if (!ok(response)) return showError(response, "附件上傳失敗");
+    if (!ok(response)) {
+      if (String(response?.message || "").includes("不存在或已過期")) {
+        await createUploadBatch(true);
+      } else showError(response, "附件上傳失敗");
+      return;
+    }
     attachmentFiles.value[field.key].push(response.value);
     formInstance.submission.data[field.key] = attachmentFiles.value[field.key]
       .map((item: any) => item.attachmentId);
@@ -157,6 +206,31 @@ const uploadAttachment = async (field: any, event: Event) => {
     uploadingField.value = "";
     input.value = "";
   }
+};
+const parseFileSize = (value: string) => {
+  const normalized = String(value).trim().toUpperCase().replaceAll(" ", "");
+  if (normalized.endsWith("MB")) return Number.parseInt(normalized) * 1024 * 1024;
+  if (normalized.endsWith("KB")) return Number.parseInt(normalized) * 1024;
+  return Number.parseInt(normalized) || 8 * 1024 * 1024;
+};
+const acceptedFileTypes = (field: any) => {
+  const allowed = [
+    ".pdf", ".jpg", ".jpeg", ".png", ".bmp",
+    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".zip", ".7z", ".rar",
+  ];
+  const values = (field.fileTypes || []).flatMap((item: any) =>
+    String(typeof item === "string" ? item : item.value || "").split(/[, ]+/));
+  const safe = values.map((value: string) => value.trim().toLowerCase())
+    .filter((value: string) => allowed.includes(
+      value.startsWith(".") ? value : `.${value}`,
+    ));
+  return safe.length ? safe.join(",") : allowed.join(",");
+};
+const beforeUnload = (event: BeforeUnloadEvent) => {
+  if (!attachmentDirty.value) return;
+  event.preventDefault();
+  event.returnValue = "";
 };
 const deleteAttachment = async (field: any, attachment: any) => {
   const response: any = await attachmentPost("/sessions/files/delete", {
@@ -325,9 +399,13 @@ watch(tenantId, async () => {
 });
 watch(selectedForm, renderForm);
 onMounted(async () => {
+  window.addEventListener("beforeunload", beforeUnload);
   await loadTenants();
 });
-onBeforeUnmount(() => void destroyForm());
+onBeforeUnmount(() => {
+  window.removeEventListener("beforeunload", beforeUnload);
+  void destroyForm();
+});
 </script>
 
 <template>
@@ -444,10 +522,14 @@ onBeforeUnmount(() => void destroyForm());
               {{ field.label || field.key }}
               <span v-if="field.validate?.required" class="text-danger">*</span>
             </label>
-            <input class="form-control" type="file" accept=".pdf,.jpg,.jpeg,.png"
+            <input class="form-control" type="file" :accept="acceptedFileTypes(field)"
               :disabled="!uploadSessionId || uploadingField === field.key || !!result"
               @change="uploadAttachment(field, $event)">
-            <div class="form-text">支援 PDF、JPEG、PNG；檔案儲存在 FlowMint 系統附件目錄。</div>
+            <div class="form-text">
+              格式 {{ acceptedFileTypes(field) }}；單檔上限 {{ field.fileMaxSize || '8MB' }}；
+              最多 {{ field.maxNumberOfFiles || (field.multiple ? 10 : 1) }} 個。
+              總容量上限 {{ field.flowmintMaxTotalSize || '20MB' }}。
+            </div>
             <ul v-if="attachmentFiles[field.key]?.length" class="list-group mt-2">
               <li v-for="file in attachmentFiles[field.key]" :key="file.attachmentId"
                 class="list-group-item d-flex justify-content-between align-items-center">

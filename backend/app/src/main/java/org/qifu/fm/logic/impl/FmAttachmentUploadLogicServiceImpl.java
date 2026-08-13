@@ -26,36 +26,50 @@ import org.qifu.fm.service.IFmAttachmentUploadFileService;
 import org.qifu.fm.service.IFmAttachmentUploadSessionService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmTenantAccountService;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 public class FmAttachmentUploadLogicServiceImpl
         implements IFmAttachmentUploadLogicService {
 
     private static final long SESSION_LIFETIME_MILLIS = 24L * 60L * 60L * 1000L;
-    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
-            "application/pdf", "image/jpeg", "image/png");
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "jpg", "jpeg", "png");
+    private static final int ACCOUNT_UPLOADS_PER_MINUTE = 30;
+    private static final int TENANT_UPLOADS_PER_MINUTE = 200;
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            "pdf", "jpg", "jpeg", "png", "bmp",
+            "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+            "zip", "7z", "rar");
 
     private final IFmAttachmentUploadSessionService sessionService;
     private final IFmAttachmentUploadFileService fileService;
     private final IFmFormVersionService formVersionService;
     private final IFmTenantAccountService tenantAccountService;
     private final FmAttachmentStorageService storageService;
+    private final ObjectMapper objectMapper;
+    private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public FmAttachmentUploadLogicServiceImpl(
             IFmAttachmentUploadSessionService sessionService,
             IFmAttachmentUploadFileService fileService,
             IFmFormVersionService formVersionService,
             IFmTenantAccountService tenantAccountService,
-            FmAttachmentStorageService storageService) {
+            FmAttachmentStorageService storageService,
+            ObjectMapper objectMapper,
+            NamedParameterJdbcTemplate jdbcTemplate) {
         this.sessionService = sessionService;
         this.fileService = fileService;
         this.formVersionService = formVersionService;
         this.tenantAccountService = tenantAccountService;
         this.storageService = storageService;
+        this.objectMapper = objectMapper;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
@@ -87,8 +101,12 @@ public class FmAttachmentUploadLogicServiceImpl
             String tenantId, String sessionId, String fieldKey, MultipartFile file)
             throws ServiceException {
         String account = currentAccount(tenantId);
-        requireSession(tenantId, sessionId, account);
-        validateUpload(fieldKey, file);
+        FmAttachmentUploadSession session = requireSession(tenantId, sessionId, account);
+        validateUploadRate(tenantId, account);
+        AttachmentRule rule = attachmentRule(session, fieldKey);
+        validateUpload(fieldKey, file, rule);
+        validateFileCount(tenantId, sessionId, fieldKey, rule.maxFiles());
+        validateTotalSize(tenantId, sessionId, fieldKey, file.getSize(), rule.maxTotalSize());
         FmAttachmentStorageService.StoredFile stored;
         try {
             stored = storageService.storeTemporary(
@@ -110,7 +128,9 @@ public class FmAttachmentUploadLogicServiceImpl
             value.setFileSize(stored.size());
             value.setContentSha256(stored.sha256());
             value.setFileStatus("TEMPORARY");
-            if (!storageService.hasExpectedSignature(stored.path(), value.getContentType())) {
+            String extension = StringUtils.substringAfterLast(
+                    value.getFileName(), ".").toLowerCase(Locale.ROOT);
+            if (!storageService.hasExpectedSignature(stored.path(), extension)) {
                 storageService.deleteTemporary(tenantId, sessionId, stored.fileOid());
                 throw new ServiceException("附件內容與檔案類型不符");
             }
@@ -169,7 +189,7 @@ public class FmAttachmentUploadLogicServiceImpl
         Date now = new Date();
         return sessionService.selectListByParams(parameters).getValue().stream()
                 .filter(value -> value.getExpiresDate() != null && value.getExpiresDate().after(now))
-                .findFirst().orElseThrow(() -> new ServiceException("Upload Session 不存在或已過期"));
+                .findFirst().orElseThrow(() -> new ServiceException("附件上傳批次不存在或已過期"));
     }
 
     private void validateFormVersion(String tenantId, String formId, Integer versionNo)
@@ -188,7 +208,8 @@ public class FmAttachmentUploadLogicServiceImpl
         }
     }
 
-    private void validateUpload(String fieldKey, MultipartFile file) throws ServiceException {
+    private void validateUpload(
+            String fieldKey, MultipartFile file, AttachmentRule rule) throws ServiceException {
         if (StringUtils.isBlank(fieldKey) || fieldKey.length() > 100) {
             throw new ServiceException("附件欄位不合法");
         }
@@ -198,8 +219,173 @@ public class FmAttachmentUploadLogicServiceImpl
         String contentType = StringUtils.defaultString(file.getContentType())
                 .toLowerCase(Locale.ROOT);
         if (!ALLOWED_EXTENSIONS.contains(extension)
-                || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
-            throw new ServiceException("只允許 PDF、JPG、JPEG、PNG 附件");
+                || !rule.extensions().contains(extension)
+                || !extensionMatchesContentType(extension, contentType)) {
+            throw new ServiceException("附件格式或 Content-Type 不在允許範圍內");
+        }
+        if (file.getSize() > rule.maxFileSize()) {
+            throw new ServiceException("附件大小超過此欄位設定上限");
+        }
+    }
+
+    private boolean extensionMatchesContentType(String extension, String contentType) {
+        return switch (extension) {
+            case "pdf" -> "application/pdf".equals(contentType);
+            case "jpg", "jpeg" -> "image/jpeg".equals(contentType);
+            case "png" -> "image/png".equals(contentType);
+            case "bmp" -> Set.of("image/bmp", "image/x-ms-bmp").contains(contentType);
+            case "doc" -> "application/msword".equals(contentType);
+            case "xls" -> "application/vnd.ms-excel".equals(contentType);
+            case "ppt" -> "application/vnd.ms-powerpoint".equals(contentType);
+            case "docx" -> ("application/vnd.openxmlformats-officedocument"
+                    + ".wordprocessingml.document").equals(contentType);
+            case "xlsx" -> ("application/vnd.openxmlformats-officedocument"
+                    + ".spreadsheetml.sheet").equals(contentType);
+            case "pptx" -> ("application/vnd.openxmlformats-officedocument"
+                    + ".presentationml.presentation").equals(contentType);
+            case "zip" -> Set.of("application/zip", "application/x-zip-compressed")
+                    .contains(contentType);
+            case "7z" -> Set.of("application/x-7z-compressed", "application/octet-stream")
+                    .contains(contentType);
+            case "rar" -> Set.of("application/vnd.rar", "application/x-rar-compressed",
+                    "application/octet-stream").contains(contentType);
+            default -> false;
+        };
+    }
+
+    private AttachmentRule attachmentRule(
+            FmAttachmentUploadSession session, String fieldKey) throws ServiceException {
+        FmFormVersion version = findFormVersion(
+                session.getTenantId(), session.getFormId(), session.getFormVersionNo());
+        try {
+            JsonNode component = findComponent(
+                    objectMapper.readTree(version.getSchemaContent()).path("components"), fieldKey);
+            if (component == null || !"file".equals(component.path("type").asText())) {
+                throw new ServiceException("指定欄位不是此表單版本的附件元件");
+            }
+            Set<String> extensions = configuredExtensions(component.path("fileTypes"));
+            long maximum = configuredMaximumSize(component.path("fileMaxSize").asText(""));
+            int maxFiles = component.path("maxNumberOfFiles").asInt(
+                    component.path("multiple").asBoolean(false) ? 10 : 1);
+            if (maxFiles < 1 || maxFiles > 20) {
+                throw new ServiceException("附件數量設定必須介於 1 至 20");
+            }
+            long maximumTotal = configuredMaximumSize(
+                    component.path("flowmintMaxTotalSize").asText(
+                            Math.min(maximum * maxFiles, 50L * 1024L * 1024L) + ""));
+            if (maximumTotal < maximum || maximumTotal > 50L * 1024L * 1024L) {
+                throw new ServiceException("附件總容量上限不得小於單檔上限且不可超過 50MB");
+            }
+            return new AttachmentRule(extensions, maximum, maxFiles, maximumTotal);
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw new ServiceException("無法讀取附件欄位設定");
+        }
+    }
+
+    private JsonNode findComponent(JsonNode components, String fieldKey) {
+        for (JsonNode component : components) {
+            if (fieldKey.equals(component.path("key").asText())) return component;
+            JsonNode found = findComponent(component.path("components"), fieldKey);
+            if (found != null) return found;
+            for (JsonNode column : component.path("columns")) {
+                found = findComponent(column.path("components"), fieldKey);
+                if (found != null) return found;
+            }
+            for (JsonNode row : component.path("rows")) {
+                for (JsonNode cell : row) {
+                    found = findComponent(cell.path("components"), fieldKey);
+                    if (found != null) return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    private Set<String> configuredExtensions(JsonNode fileTypes) {
+        Set<String> configured = new java.util.HashSet<>();
+        for (JsonNode fileType : fileTypes) {
+            String value = fileType.isTextual()
+                    ? fileType.asText() : fileType.path("value").asText("");
+            for (String token : value.toLowerCase(Locale.ROOT).split("[, ]+")) {
+                String extension = StringUtils.removeStart(token.trim(), ".");
+                if (ALLOWED_EXTENSIONS.contains(extension)) configured.add(extension);
+            }
+        }
+        return configured.isEmpty() ? ALLOWED_EXTENSIONS : Set.copyOf(configured);
+    }
+
+    private long configuredMaximumSize(String value) throws ServiceException {
+        if (StringUtils.isBlank(value)) return 8L * 1024L * 1024L;
+        String normalized = value.trim().toUpperCase(Locale.ROOT).replace(" ", "");
+        try {
+            if (normalized.endsWith("MB")) {
+                return Long.parseLong(StringUtils.removeEnd(normalized, "MB")) * 1024L * 1024L;
+            }
+            if (normalized.endsWith("KB")) {
+                return Long.parseLong(StringUtils.removeEnd(normalized, "KB")) * 1024L;
+            }
+            return Long.parseLong(normalized);
+        } catch (NumberFormatException exception) {
+            throw new ServiceException("附件大小設定格式錯誤，請使用 KB 或 MB");
+        }
+    }
+
+    private void validateFileCount(
+            String tenantId, String sessionId, String fieldKey, int maximum)
+            throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("uploadSessionId", sessionId);
+        parameters.put("fieldKey", fieldKey);
+        parameters.put("fileStatus", "TEMPORARY");
+        if (fileService.count(parameters) >= maximum) {
+            throw new ServiceException("附件數量已達此欄位設定上限");
+        }
+    }
+
+    private void validateTotalSize(
+            String tenantId, String sessionId, String fieldKey,
+            long incomingSize, long maximum) throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("uploadSessionId", sessionId);
+        parameters.put("fieldKey", fieldKey);
+        parameters.put("fileStatus", "TEMPORARY");
+        long currentSize = fileService.selectListByParams(parameters).getValue().stream()
+                .map(FmAttachmentUploadFile::getFileSize)
+                .filter(java.util.Objects::nonNull)
+                .mapToLong(Long::longValue)
+                .sum();
+        if (currentSize + incomingSize > maximum) {
+            throw new ServiceException("附件總容量超過此欄位設定上限");
+        }
+    }
+
+    private void validateUploadRate(String tenantId, String account) throws ServiceException {
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("tenantId", tenantId)
+                .addValue("account", account);
+        Map<String, Object> counts = jdbcTemplate.queryForMap("""
+                SELECT COUNT(*) AS TENANT_COUNT,
+                       SUM(CASE WHEN s.OWNER_ACCOUNT = :account THEN 1 ELSE 0 END)
+                           AS ACCOUNT_COUNT
+                  FROM fm_attachment_upload_file f
+                  JOIN fm_attachment_upload_session s
+                    ON s.TENANT_ID = f.TENANT_ID
+                   AND s.UPLOAD_SESSION_ID = f.UPLOAD_SESSION_ID
+                 WHERE f.TENANT_ID = :tenantId
+                   AND f.CDATE >= DATE_SUB(NOW(3), INTERVAL 1 MINUTE)
+                """, parameters);
+        long tenantCount = ((Number) counts.get("TENANT_COUNT")).longValue();
+        Number accountValue = (Number) counts.get("ACCOUNT_COUNT");
+        long accountCount = accountValue == null ? 0 : accountValue.longValue();
+        if (accountCount >= ACCOUNT_UPLOADS_PER_MINUTE) {
+            throw new ServiceException("附件上傳過於頻繁，請稍後再試");
+        }
+        if (tenantCount >= TENANT_UPLOADS_PER_MINUTE) {
+            throw new ServiceException("Tenant 附件上傳量已達每分鐘上限，請稍後再試");
         }
     }
 
@@ -243,5 +429,22 @@ public class FmAttachmentUploadLogicServiceImpl
         result.setSuccess(YesNoKeyProvide.YES);
         result.setValue(value);
         return result;
+    }
+
+    private FmFormVersion findFormVersion(
+            String tenantId, String formId, Integer versionNo) throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("formId", formId);
+        parameters.put("versionNo", versionNo);
+        return formVersionService.selectListByParams(parameters).getValue().stream()
+                .findFirst().orElseThrow(() -> new ServiceException("找不到表單版本"));
+    }
+
+    private record AttachmentRule(
+            Set<String> extensions,
+            long maxFileSize,
+            int maxFiles,
+            long maxTotalSize) {
     }
 }

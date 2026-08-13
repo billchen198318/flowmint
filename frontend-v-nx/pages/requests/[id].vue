@@ -92,6 +92,21 @@ const downloadAttachment = async (attachment: any) => {
     toast.warning("附件下載失敗");
   }
 };
+const deleteAttachment = async (attachment: any) => {
+  if (!window.confirm(`確定刪除附件「${attachment.fileName}」？`)) return;
+  const response: any = await useApi(
+    `/fm/attachments/${attachment.attachmentId}/delete`,
+    { method: "POST", headers: { "X-FlowMint-Tenant": tenantId } },
+  );
+  if (!ok(response)) {
+    toast.warning(response?.message || "附件刪除失敗");
+    return;
+  }
+  attachments.value = attachments.value.filter(
+    (file: any) => file.attachmentId !== attachment.attachmentId,
+  );
+  toast.success("附件已刪除");
+};
 const withdraw = async () => {
   const reason = withdrawReason.value.trim();
   if (!reason) {
@@ -188,12 +203,21 @@ onBeforeUnmount(destroyForm);
           <div v-if="attachments.length" class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white py-3"><strong>附件</strong></div>
             <div class="list-group list-group-flush">
-              <button v-for="file in attachments" :key="file.attachmentId" type="button"
-                class="list-group-item list-group-item-action text-start"
-                @click="downloadAttachment(file)">
-                <i class="bi bi-paperclip me-2"></i>{{ file.fileName }}
-                <span class="d-block small text-muted ms-4">{{ file.fieldKey }} · {{ file.fileSize }} bytes</span>
-              </button>
+              <div v-for="file in attachments" :key="file.attachmentId"
+                class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                <button type="button" class="btn btn-link text-start text-decoration-none p-0"
+                  @click="downloadAttachment(file)">
+                  <i class="bi bi-paperclip me-2"></i>{{ file.fileName }}
+                  <span class="d-block small text-muted ms-4">{{ file.fieldKey }} · {{ file.fileSize }} bytes</span>
+                </button>
+                <button
+                  v-if="detail.request.instanceStatus === 'RUNNING'
+                    && [detail.request.applicantAccount, detail.request.starterAccount].includes(baseStore.userId)"
+                  type="button" class="btn btn-sm btn-outline-danger"
+                  @click="deleteAttachment(file)">
+                  刪除
+                </button>
+              </div>
             </div>
           </div>
           <div

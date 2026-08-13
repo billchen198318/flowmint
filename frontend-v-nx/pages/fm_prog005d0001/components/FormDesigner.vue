@@ -72,6 +72,39 @@ const showResponse = (response: any) => {
   return true;
 };
 const emptyFormioSchema = () => ({ display: "form", components: [] as any[] });
+const normalizeAttachmentComponents = (components: any[] = [], preview = false) => {
+  components.forEach((component: any) => {
+    if (component.type === "file") {
+      component.storage = "url";
+      component.url = "";
+      component.fileTypes = Array.isArray(component.fileTypes) && component.fileTypes.length
+        ? component.fileTypes
+        : [
+            { label: "PDF", value: ".pdf" },
+            { label: "JPEG", value: ".jpg,.jpeg" },
+            { label: "圖片", value: ".png,.bmp" },
+            { label: "Word", value: ".doc,.docx" },
+            { label: "Excel", value: ".xls,.xlsx" },
+            { label: "PowerPoint", value: ".ppt,.pptx" },
+            { label: "壓縮檔", value: ".zip,.7z,.rar" },
+          ];
+      component.fileMaxSize = component.fileMaxSize || "8MB";
+      component.maxNumberOfFiles = Number(component.maxNumberOfFiles
+        || (component.multiple ? 10 : 1));
+      component.flowmintMaxTotalSize = component.flowmintMaxTotalSize || "20MB";
+      if (preview) {
+        component.disabled = true;
+        component.description = "設計器試跑不寫入實體附件；請至正式 Workspace 測試上傳。";
+      }
+    }
+    normalizeAttachmentComponents(component.components || [], preview);
+    (component.columns || []).forEach((column: any) =>
+      normalizeAttachmentComponents(column.components || [], preview));
+    (component.rows || []).forEach((row: any[]) => row.forEach((cell: any) =>
+      normalizeAttachmentComponents(cell.components || [], preview)));
+  });
+  return components;
+};
 const legacyComponent = (key: string, definition: any, required: string[]) => {
   let type = "textfield";
   if (definition?.type === "boolean") type = "checkbox";
@@ -154,6 +187,10 @@ const renderDesigner = async () => {
     const { Formio } = await import("@formio/js");
     if (sequence !== designerSequence || !designerHost.value) return;
     const schema = parseFormioSchema(selectedVersion.value.schemaContent);
+    normalizeAttachmentComponents(
+      schema.components,
+      designerMode.value === "preview",
+    );
     if (
       selectedVersion.value.versionStatus === "DRAFT" &&
       designerMode.value === "design"
@@ -172,6 +209,7 @@ const renderDesigner = async () => {
       });
       designerInstance.on("change", (changedSchema: any) => {
         if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+        normalizeAttachmentComponents(changedSchema.components);
         selectedVersion.value.schemaContent = JSON.stringify(
           changedSchema,
           null,
@@ -606,6 +644,22 @@ onBeforeUnmount(destroyDesigner);
             ref="designerHost"
             class="formio-designer"
           ></div>
+          <div
+            v-if="designerMode === 'design'"
+            class="alert alert-info mt-3 mb-0"
+          >
+            <strong>附件欄位設定：</strong>
+            加入「File」元件後，請在元件設定中配置必填、Multiple、File Types、
+            File Maximum Size、Maximum Number of Files，並可在 Custom Properties
+            設定 <code>flowmintMaxTotalSize</code>（例如 <code>20MB</code>）。FlowMint 目前允許
+            PDF、Office、圖片與常用壓縮檔；前端與後端都會依發布版本的設定驗證。
+          </div>
+          <div
+            v-if="designerMode === 'preview'"
+            class="alert alert-warning mt-3 mb-0"
+          >
+            試跑模式不會上傳實體附件，請在 Workspace 正式申請畫面測試附件上傳。
+          </div>
           <div v-if="designerMode === 'preview'" class="d-flex flex-wrap gap-2 mt-3">
             <button type="button" class="btn btn-primary" @click="validatePreview">
               <i class="bi bi-check2-circle"></i> 驗證送出
