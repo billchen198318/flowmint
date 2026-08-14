@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +31,7 @@ public class FmAttachmentStorageService {
     private final Path root;
     private final long maxFileSize;
 
+    @Autowired
     public FmAttachmentStorageService(Environment environment) {
         this(Path.of(environment.getRequiredProperty("base.uploadDir")),
                 environment.getProperty("page.maxUploadSize", Long.class,

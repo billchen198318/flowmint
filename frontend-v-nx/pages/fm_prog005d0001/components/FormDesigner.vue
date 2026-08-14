@@ -98,10 +98,14 @@ const normalizeAttachmentComponents = (components: any[] = [], preview = false) 
       }
     }
     normalizeAttachmentComponents(component.components || [], preview);
-    (component.columns || []).forEach((column: any) =>
-      normalizeAttachmentComponents(column.components || [], preview));
-    (component.rows || []).forEach((row: any[]) => row.forEach((cell: any) =>
-      normalizeAttachmentComponents(cell.components || [], preview)));
+    (Array.isArray(component.columns) ? component.columns : []).forEach(
+      (column: any) => normalizeAttachmentComponents(column.components || [], preview),
+    );
+    (Array.isArray(component.rows) ? component.rows : []).forEach((row: any[]) =>
+      (Array.isArray(row) ? row : []).forEach((cell: any) =>
+        normalizeAttachmentComponents(cell.components || [], preview),
+      ),
+    );
   });
   return components;
 };

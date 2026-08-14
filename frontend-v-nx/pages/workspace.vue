@@ -94,10 +94,14 @@ const renderForm = async () => {
   const collectFileFields = (components: any[] = []): any[] => components.flatMap((item: any) => [
     ...(item.type === "file" ? [item] : []),
     ...collectFileFields(item.components || []),
-    ...(item.columns || []).flatMap((column: any) => collectFileFields(column.components || [])),
-    ...(item.rows || []).flatMap((row: any[]) => row.flatMap(
-      (cell: any) => collectFileFields(cell.components || []),
-    )),
+    ...(Array.isArray(item.columns) ? item.columns : []).flatMap((column: any) =>
+      collectFileFields(column.components || []),
+    ),
+    ...(Array.isArray(item.rows) ? item.rows : []).flatMap((row: any[]) =>
+      (Array.isArray(row) ? row : []).flatMap((cell: any) =>
+        collectFileFields(cell.components || []),
+      ),
+    ),
   ]);
   attachmentFields.value = collectFileFields(schema.components || []);
   attachmentFiles.value = {};

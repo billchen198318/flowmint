@@ -32,9 +32,16 @@ const collectFields = (components: any[], values: any[]) => {
       });
     }
     collectFields(component?.components, values);
-    for (const column of component?.columns || []) collectFields(column?.components, values);
-    for (const row of component?.rows || [])
-      for (const cell of row || []) collectFields(cell?.components, values);
+    for (const column of Array.isArray(component?.columns)
+      ? component.columns
+      : []) {
+      collectFields(column?.components, values);
+    }
+    for (const row of Array.isArray(component?.rows) ? component.rows : []) {
+      for (const cell of Array.isArray(row) ? row : []) {
+        collectFields(cell?.components, values);
+      }
+    }
   }
 };
 const fields = computed(() => {

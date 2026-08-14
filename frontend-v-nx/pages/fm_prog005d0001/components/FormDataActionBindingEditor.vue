@@ -81,11 +81,15 @@ const collectButtonEvents = (components: any[], events: Set<string>) => {
       events.add(component.event);
     }
     collectButtonEvents(component?.components || [], events);
-    for (const column of component?.columns || []) {
+    for (const column of Array.isArray(component?.columns)
+      ? component.columns
+      : []) {
       collectButtonEvents(column?.components || [], events);
     }
-    for (const row of component?.rows || []) {
-      for (const cell of row || []) collectButtonEvents(cell?.components || [], events);
+    for (const row of Array.isArray(component?.rows) ? component.rows : []) {
+      for (const cell of Array.isArray(row) ? row : []) {
+        collectButtonEvents(cell?.components || [], events);
+      }
     }
   }
 };
