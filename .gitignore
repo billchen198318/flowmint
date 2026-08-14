@@ -12,6 +12,7 @@
 /frontend-v-nx/node_modules/
 /myBatisGenerator
 /backend/myBatisGenerator
+/.sonarlint/
 
 /backend/base/build/*
 /backend/core/build/*
