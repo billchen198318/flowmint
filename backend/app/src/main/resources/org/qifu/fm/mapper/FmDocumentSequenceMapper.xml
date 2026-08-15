@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmDocumentSequenceMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmDocumentSequence">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="DOCUMENT_TYPE" jdbcType="VARCHAR" property="documentType" />
+    <result column="PERIOD_KEY" jdbcType="VARCHAR" property="periodKey" />
+    <result column="CURRENT_NO" jdbcType="BIGINT" property="currentNo" />
+    <result column="LOCK_VERSION" jdbcType="BIGINT" property="lockVersion" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    DOCUMENT_TYPE,
+    PERIOD_KEY,
+    CURRENT_NO,
+    LOCK_VERSION,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="documentType != null and documentType != ''">
+      AND DOCUMENT_TYPE = #{documentType,jdbcType=VARCHAR}
+    </if>
+    <if test="periodKey != null and periodKey != ''">
+      AND PERIOD_KEY = #{periodKey,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmDocumentSequence">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="documentType != null">
+        DOCUMENT_TYPE,
+      </if>
+      <if test="periodKey != null">
+        PERIOD_KEY,
+      </if>
+      <if test="currentNo != null">
+        CURRENT_NO,
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="documentType != null">
+        #{documentType,jdbcType=VARCHAR},
+      </if>
+      <if test="periodKey != null">
+        #{periodKey,jdbcType=VARCHAR},
+      </if>
+      <if test="currentNo != null">
+        #{currentNo,jdbcType=BIGINT},
+      </if>
+      <if test="lockVersion != null">
+        #{lockVersion,jdbcType=BIGINT},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmDocumentSequence">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    <set>
+      <if test="currentNo != null">
+        CURRENT_NO = #{currentNo,jdbcType=BIGINT},
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION = #{lockVersion,jdbcType=BIGINT},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmDocumentSequence">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <select id="selectForUpdate" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT
+    <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND DOCUMENT_TYPE = #{documentType,jdbcType=VARCHAR}
+      AND PERIOD_KEY = #{periodKey,jdbcType=VARCHAR}
+    FOR UPDATE
+  </select>
+
+  <insert id="insertInitial" parameterType="org.qifu.fm.entity.FmDocumentSequence">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="documentType != null">
+        DOCUMENT_TYPE,
+      </if>
+      <if test="periodKey != null">
+        PERIOD_KEY,
+      </if>
+      <if test="currentNo != null">
+        CURRENT_NO,
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="documentType != null">
+        #{documentType,jdbcType=VARCHAR},
+      </if>
+      <if test="periodKey != null">
+        #{periodKey,jdbcType=VARCHAR},
+      </if>
+      <if test="currentNo != null">
+        #{currentNo,jdbcType=BIGINT},
+      </if>
+      <if test="lockVersion != null">
+        #{lockVersion,jdbcType=BIGINT},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+    ON DUPLICATE KEY UPDATE OID = OID
+  </insert>
+
+  <update id="increment" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_document_sequence
+    <set>
+      CURRENT_NO = CURRENT_NO + 1,
+      LOCK_VERSION = LOCK_VERSION + 1,
+      UUSERID = #{account,jdbcType=VARCHAR},
+      UDATE = #{now,jdbcType=TIMESTAMP}
+    </set>
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND LOCK_VERSION = #{lockVersion,jdbcType=BIGINT}
+  </update>
+
+</mapper>

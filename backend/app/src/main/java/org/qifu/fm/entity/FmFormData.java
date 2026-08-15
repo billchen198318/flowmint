@@ -19,6 +19,8 @@ public class FmFormData implements Serializable {
     private String formId;
     private Integer formVersionNo;
     private String businessKey;
+    private String documentNumber;
+    private String idempotencyKey;
     private String ownerAccount;
     private String ownerOrgUnitId;
     private String dataContent;
@@ -78,6 +80,22 @@ public class FmFormData implements Serializable {
 
     public void setBusinessKey(String businessKey) {
         this.businessKey = businessKey;
+    }
+
+    public String getDocumentNumber() {
+        return documentNumber;
+    }
+
+    public void setDocumentNumber(String documentNumber) {
+        this.documentNumber = documentNumber;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
     }
 
     public String getOwnerAccount() {

@@ -783,6 +783,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         return new FmTaskInboxView(
                 task.getId(), task.getTaskDefinitionKey(), task.getName(),
                 process.getProcessInstanceId(), process.getBusinessKey(),
+                process.getDocumentNumber(),
                 definition.getProcessName(), data.getOwnerAccount(),
                 task.getCreateTime(), task.getDueDate());
     }

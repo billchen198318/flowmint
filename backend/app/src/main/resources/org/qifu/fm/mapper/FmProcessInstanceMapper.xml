@@ -9,6 +9,7 @@
     <result column="PROCESS_VERSION_NO" jdbcType="INTEGER" property="processVersionNo" />
     <result column="FLOWABLE_PROCESS_DEF_ID" jdbcType="VARCHAR" property="flowableProcessDefId" />
     <result column="BUSINESS_KEY" jdbcType="VARCHAR" property="businessKey" />
+    <result column="DOCUMENT_NUMBER" jdbcType="VARCHAR" property="documentNumber" />
     <result column="FORM_DATA_ID" jdbcType="VARCHAR" property="formDataId" />
     <result column="INITIATOR_ACCOUNT" jdbcType="VARCHAR" property="initiatorAccount" />
     <result column="INITIATOR_ORG_UNIT_ID" jdbcType="VARCHAR" property="initiatorOrgUnitId" />
@@ -29,6 +30,7 @@
     PROCESS_VERSION_NO,
     FLOWABLE_PROCESS_DEF_ID,
     BUSINESS_KEY,
+    DOCUMENT_NUMBER,
     FORM_DATA_ID,
     INITIATOR_ACCOUNT,
     INITIATOR_ORG_UNIT_ID,
@@ -54,6 +56,9 @@
     <if test="businessKey != null and businessKey != ''">
       AND BUSINESS_KEY = #{businessKey,jdbcType=VARCHAR}
     </if>
+    <if test="documentNumber != null and documentNumber != ''">
+      AND DOCUMENT_NUMBER = #{documentNumber,jdbcType=VARCHAR}
+    </if>
     <if test="initiatorAccount != null and initiatorAccount != ''">
       AND INITIATOR_ACCOUNT = #{initiatorAccount,jdbcType=VARCHAR}
     </if>
@@ -64,6 +69,7 @@
       AND (
         PROCESS_INSTANCE_ID LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
         OR BUSINESS_KEY LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR DOCUMENT_NUMBER LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
         OR INITIATOR_ACCOUNT LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
         OR EXISTS (
           SELECT 1
@@ -142,6 +148,9 @@
       <if test="businessKey != null">
         BUSINESS_KEY,
       </if>
+      <if test="documentNumber != null">
+        DOCUMENT_NUMBER,
+      </if>
       <if test="formDataId != null">
         FORM_DATA_ID,
       </if>
@@ -194,6 +203,9 @@
       </if>
       <if test="businessKey != null">
         #{businessKey,jdbcType=VARCHAR},
+      </if>
+      <if test="documentNumber != null">
+        #{documentNumber,jdbcType=VARCHAR},
       </if>
       <if test="formDataId != null">
         #{formDataId,jdbcType=VARCHAR},

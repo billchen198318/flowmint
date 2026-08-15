@@ -20,8 +20,10 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
+import org.qifu.fm.domain.runtime.FmDocumentNumberService;
 import org.qifu.fm.domain.attachment.FmAttachmentBindingService;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator;
+import org.qifu.fm.domain.runtime.FmSystemFormFields;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator.StartSubject;
 import org.qifu.fm.domain.runtime.FmProcessStartProxyEvaluator;
 import org.qifu.fm.dto.command.FmProcessSubmitCommand;
@@ -92,6 +94,7 @@ public class FmProcessRuntimeLogicServiceImpl
     private final RuntimeService runtimeService;
     private final ObjectMapper objectMapper;
     private final FmAttachmentBindingService attachmentBindingService;
+    private final FmDocumentNumberService documentNumberService;
 
     public FmProcessRuntimeLogicServiceImpl(
             IFmProcessVersionService processVersionService,
@@ -114,7 +117,8 @@ public class FmProcessRuntimeLogicServiceImpl
             IFmRuntimeAuditLogicService runtimeAuditService,
             RuntimeService runtimeService,
             ObjectMapper objectMapper,
-            FmAttachmentBindingService attachmentBindingService) {
+            FmAttachmentBindingService attachmentBindingService,
+            FmDocumentNumberService documentNumberService) {
         this.processVersionService = processVersionService;
         this.processDefService = processDefService;
         this.formVersionService = formVersionService;
@@ -136,6 +140,7 @@ public class FmProcessRuntimeLogicServiceImpl
         this.runtimeService = runtimeService;
         this.objectMapper = objectMapper;
         this.attachmentBindingService = attachmentBindingService;
+        this.documentNumberService = documentNumberService;
     }
 
     @Override
@@ -272,19 +277,21 @@ public class FmProcessRuntimeLogicServiceImpl
         authorizeStart(
                 command.tenantId(), command.processDefId(),
                 processVersion, applicant);
-        String businessKey = StringUtils.defaultIfBlank(
-                command.businessKey(),
-                UUID.randomUUID().toString());
-        FmProcessSubmitView existing = existingSubmission(
-                command, businessKey, starterAccount);
+        FmProcessSubmitView existing = existingSubmission(command, starterAccount);
         if (existing != null) {
             return success(existing);
         }
+        FmProcessDef processDef = activeProcessDef(
+                command.tenantId(), command.processDefId());
         Date now = new Date();
+        String businessKey = UUID.randomUUID().toString();
+        String documentNumber = nextDocumentNumber(
+                processDef, command.tenantId(), starterAccount, now);
         FmFormData formData = insertFormData(
                 command,
                 assignment,
                 businessKey,
+                documentNumber,
                 now);
         ProcessInstance flowableInstance = runtimeService.startProcessInstanceById(
                 processVersion.getFlowableProcessDefId(),
@@ -298,6 +305,7 @@ public class FmProcessRuntimeLogicServiceImpl
                 formData,
                 flowableInstance,
                 businessKey,
+                documentNumber,
                 starterAccount,
                 now);
         runtimeAuditService.recordSubmit(
@@ -312,6 +320,7 @@ public class FmProcessRuntimeLogicServiceImpl
                 command.formId(), command.formVersionNo(), formData.getFormDataId(), now);
         return success(new FmProcessSubmitView(
                 businessKey,
+                documentNumber,
                 formData.getFormDataId(),
                 processInstance.getProcessInstanceId(),
                 processInstance.getInstanceStatus()));
@@ -323,6 +332,7 @@ public class FmProcessRuntimeLogicServiceImpl
                         command.tenantId(),
                         command.processDefId(),
                         command.formId(),
+                        command.idempotencyKey(),
                         command.applicantAccount())
                 || command.formVersionNo() == null
                 || command.formData() == null) {
@@ -371,6 +381,25 @@ public class FmProcessRuntimeLogicServiceImpl
         return processDefService.selectListByParams(parameters).getValue().stream()
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("找不到可發起的流程主檔"));
+    }
+
+    private String nextDocumentNumber(
+            FmProcessDef processDef, String tenantId, String account, Date now)
+            throws ServiceException {
+        if (StringUtils.isBlank(processDef.getDocumentType())) {
+            return null;
+        }
+        Map<String, Object> parameters = activeParameters(tenantId);
+        FmTenant tenant = tenantService.selectListByParams(parameters).getValue().stream()
+                .findFirst()
+                .orElseThrow(() -> new ServiceException("找不到啟用的 Tenant"));
+        return documentNumberService.nextNumber(
+                tenantId,
+                tenant.getTenantCode(),
+                tenant.getDefaultTimezone(),
+                processDef.getDocumentType(),
+                account,
+                now);
     }
 
     private List<FmProcessStartFormView> startForms(
@@ -469,13 +498,14 @@ public class FmProcessRuntimeLogicServiceImpl
             FmEmployee applicant,
             Map<String, Object> formData) throws ServiceException {
         String formApplicantAccount = StringUtils.trimToNull(
-                Objects.toString(formData.get("applicantAccount"), null));
+                Objects.toString(formData.get(FmSystemFormFields.APPLICANT_ACCOUNT), null));
         if (formApplicantAccount != null
                 && !applicant.getAccount().equals(formApplicantAccount)) {
             throw new ServiceException("表單申請人與送單申請人不一致");
         }
         String assignmentId = StringUtils.trimToNull(
-                Objects.toString(formData.get("applicantAssignmentId"), null));
+                Objects.toString(
+                        formData.get(FmSystemFormFields.APPLICANT_ASSIGNMENT_ID), null));
         if (assignmentId == null) {
             return primaryAssignment(tenantId, applicant.getEmployeeId());
         }
@@ -490,7 +520,7 @@ public class FmProcessRuntimeLogicServiceImpl
                 .orElseThrow(() -> new ServiceException(
                         "申請部門不是申請人的有效任職"));
         String submittedOrgUnitId = StringUtils.trimToNull(
-                Objects.toString(formData.get("applicantOrgId"), null));
+                Objects.toString(formData.get(FmSystemFormFields.APPLICANT_ORG_ID), null));
         if (submittedOrgUnitId != null
                 && !assignment.getOrgUnitId().equals(submittedOrgUnitId)) {
             throw new ServiceException("申請部門與所選任職不一致");
@@ -555,22 +585,27 @@ public class FmProcessRuntimeLogicServiceImpl
 
     private FmProcessSubmitView existingSubmission(
             FmProcessSubmitCommand command,
-            String businessKey,
             String starterAccount) throws ServiceException {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", command.tenantId());
-        parameters.put("businessKey", businessKey);
+        parameters.put("idempotencyKey", command.idempotencyKey());
         List<FmFormData> formDataValues = formDataService
                 .selectListByParams(parameters).getValue();
-        List<FmProcessInstance> processValues = processInstanceService
-                .selectListByParams(parameters).getValue();
-        if (formDataValues.isEmpty() && processValues.isEmpty()) {
+        if (formDataValues.isEmpty()) {
             return null;
         }
-        if (formDataValues.size() != 1 || processValues.size() != 1) {
-            throw new ServiceException("Idempotency key 已被不完整的資料佔用");
+        if (formDataValues.size() != 1) {
+            throw new ServiceException("Idempotency-Key 對應到多筆表單資料");
         }
         FmFormData formData = formDataValues.getFirst();
+        parameters.clear();
+        parameters.put("tenantId", command.tenantId());
+        parameters.put("businessKey", formData.getBusinessKey());
+        List<FmProcessInstance> processValues = processInstanceService
+                .selectListByParams(parameters).getValue();
+        if (processValues.size() != 1) {
+            throw new ServiceException("Idempotency key 已被不完整的資料佔用");
+        }
         FmProcessInstance process = processValues.getFirst();
         boolean sameRequest = command.formId().equals(formData.getFormId())
                 && command.formVersionNo().equals(formData.getFormVersionNo())
@@ -583,7 +618,8 @@ public class FmProcessRuntimeLogicServiceImpl
                     "Idempotency key 已由另一筆不同的送單請求使用");
         }
         return new FmProcessSubmitView(
-                businessKey,
+                formData.getBusinessKey(),
+                formData.getDocumentNumber(),
                 formData.getFormDataId(),
                 process.getProcessInstanceId(),
                 process.getInstanceStatus());
@@ -602,6 +638,7 @@ public class FmProcessRuntimeLogicServiceImpl
             FmProcessSubmitCommand command,
             FmEmployeeOrgAssignment assignment,
             String businessKey,
+            String documentNumber,
             Date now) {
         FmFormData value = new FmFormData();
         value.setTenantId(command.tenantId());
@@ -609,6 +646,8 @@ public class FmProcessRuntimeLogicServiceImpl
         value.setFormId(command.formId());
         value.setFormVersionNo(command.formVersionNo());
         value.setBusinessKey(businessKey);
+        value.setDocumentNumber(documentNumber);
+        value.setIdempotencyKey(command.idempotencyKey());
         value.setOwnerAccount(command.applicantAccount());
         value.setOwnerOrgUnitId(assignment.getOrgUnitId());
         value.setDataContent(objectMapper.writeValueAsString(command.formData()));
@@ -652,6 +691,7 @@ public class FmProcessRuntimeLogicServiceImpl
             FmFormData formData,
             ProcessInstance flowableInstance,
             String businessKey,
+            String documentNumber,
             String starterAccount,
             Date now) {
         FmProcessInstance value = new FmProcessInstance();
@@ -661,6 +701,7 @@ public class FmProcessRuntimeLogicServiceImpl
         value.setProcessVersionNo(processVersion.getVersionNo());
         value.setFlowableProcessDefId(processVersion.getFlowableProcessDefId());
         value.setBusinessKey(businessKey);
+        value.setDocumentNumber(documentNumber);
         value.setFormDataId(formData.getFormDataId());
         value.setInitiatorAccount(starterAccount);
         value.setInitiatorOrgUnitId(assignment.getOrgUnitId());

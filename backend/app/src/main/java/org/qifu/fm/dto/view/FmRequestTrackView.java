@@ -6,6 +6,7 @@ import java.util.List;
 public record FmRequestTrackView(
         String processInstanceId,
         String businessKey,
+        String documentNumber,
         String processName,
         String formName,
         String applicantAccount,

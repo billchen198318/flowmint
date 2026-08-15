@@ -19,6 +19,7 @@ public class FmProcessDef implements Serializable {
 	private String processKey;
 	private String processName;
 	private String category;
+	private String documentType;
 	private Integer currentVersionNo;
 	private String status;
 	private String description;
@@ -74,6 +75,14 @@ public class FmProcessDef implements Serializable {
 
 	public void setCategory(String category) {
 		this.category = category;
+	}
+
+	public String getDocumentType() {
+		return documentType;
+	}
+
+	public void setDocumentType(String documentType) {
+		this.documentType = documentType;
 	}
 
 	public Integer getCurrentVersionNo() {

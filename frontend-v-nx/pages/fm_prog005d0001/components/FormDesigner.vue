@@ -17,6 +17,10 @@ import {
   useFormCustomJavascript,
 } from "@/composables/useFormCustomJavascript";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
+import {
+  FLOWMINT_DOCUMENT_NUMBER_KEY,
+  FLOWMINT_SYSTEM_FIELDS,
+} from "@/composables/useFlowmintSystemFields";
 import type { FormDataActionUiSchema } from "@/types/formDataAction";
 import { PageConstants } from "../config";
 import FormCustomJavascriptEditor from "./FormCustomJavascriptEditor.vue";
@@ -153,6 +157,78 @@ const parseUiSchema = (content: string): FormDataActionUiSchema => {
 };
 const normalizedUiSchemaContent = () =>
   JSON.stringify(parseUiSchema(selectedVersion.value?.uiSchemaContent), null, 2);
+const containsComponentKey = (components: any[] = [], key: string): boolean =>
+  components.some((component: any) =>
+    component?.key === key ||
+    containsComponentKey(component?.components || [], key) ||
+    (Array.isArray(component?.columns) && component.columns.some((column: any) =>
+      containsComponentKey(column?.components || [], key))) ||
+    (Array.isArray(component?.rows) && component.rows.some((row: any[]) =>
+      (Array.isArray(row) ? row : []).some((cell: any) =>
+        containsComponentKey(cell?.components || [], key)))),
+  );
+const addDocumentNumberField = async () => {
+  if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+  if (designerMode.value === "design") syncSchemaFromDesigner();
+  const schema = parseFormioSchema(selectedVersion.value.schemaContent);
+  if (containsComponentKey(schema.components, FLOWMINT_DOCUMENT_NUMBER_KEY)) {
+    toast.info("表單已包含共用單據編號欄位 documentNumber");
+    return;
+  }
+  schema.components.unshift({
+    type: "textfield",
+    key: FLOWMINT_DOCUMENT_NUMBER_KEY,
+    label: "單據編號",
+    description: "送出後由 FlowMint 依流程的單據類型與編號規則自動產生。",
+    input: true,
+    disabled: true,
+    persistent: false,
+    clearOnHide: false,
+    tableView: true,
+  });
+  selectedVersion.value.schemaContent = JSON.stringify(schema, null, 2);
+  toast.success("已加入共用單據編號欄位；可修改標籤，但請保留 key=documentNumber");
+  await renderDesigner();
+};
+const addApplicantContextFields = async () => {
+  if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+  if (designerMode.value === "design") syncSchemaFromDesigner();
+  const schema = parseFormioSchema(selectedVersion.value.schemaContent);
+  const definitions = [
+    {
+      type: "textfield",
+      key: FLOWMINT_SYSTEM_FIELDS.applicantAccount,
+      label: "申請人帳號",
+      description: "由 FlowMint 起單情境帶入，送出時由後端重新驗證。",
+      input: true,
+      disabled: true,
+      persistent: true,
+      tableView: true,
+    },
+    {
+      type: "hidden",
+      key: FLOWMINT_SYSTEM_FIELDS.applicantAssignmentId,
+      input: true,
+      persistent: true,
+    },
+    {
+      type: "hidden",
+      key: FLOWMINT_SYSTEM_FIELDS.applicantOrgId,
+      input: true,
+      persistent: true,
+    },
+  ];
+  const additions = definitions.filter((definition) =>
+    !containsComponentKey(schema.components, definition.key));
+  if (!additions.length) {
+    toast.info("表單已包含申請人情境系統欄位");
+    return;
+  }
+  schema.components.unshift(...additions);
+  selectedVersion.value.schemaContent = JSON.stringify(schema, null, 2);
+  toast.success(`已加入 ${additions.length} 個申請人情境系統欄位`);
+  await renderDesigner();
+};
 const destroyDesigner = () => {
   designerSequence += 1;
   detachDataActionBridge?.();
@@ -637,6 +713,24 @@ onBeforeUnmount(destroyDesigner);
               @click="setDesignerMode('javascript')"
             >
               <i class="bi bi-code-slash"></i> JavaScript
+            </button>
+          </div>
+          <div
+            v-if="selectedVersion.versionStatus === 'DRAFT' && designerMode === 'design'"
+            class="alert alert-primary d-flex flex-wrap justify-content-between align-items-center gap-2"
+          >
+            <div>
+              <strong>FlowMint 系統欄位：單據編號</strong>
+              <div class="small">
+                使用固定欄位代碼 <code>documentNumber</code>。送出後由系統依流程的
+                <code>DOCUMENT_TYPE</code> 與編號規則產生；標籤可改成請購單編號、請款單編號等。
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" @click="addDocumentNumberField">
+              <i class="bi bi-plus-circle me-1"></i>加入單據編號欄位
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" @click="addApplicantContextFields">
+              <i class="bi bi-person-plus me-1"></i>加入申請人情境欄位
             </button>
           </div>
           <div v-if="designerLoading" class="designer-loading text-muted">

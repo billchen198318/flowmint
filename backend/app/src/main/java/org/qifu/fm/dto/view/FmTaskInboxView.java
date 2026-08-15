@@ -8,6 +8,7 @@ public record FmTaskInboxView(
         String taskName,
         String processInstanceId,
         String businessKey,
+        String documentNumber,
         String processName,
         String applicantAccount,
         Date createdDate,

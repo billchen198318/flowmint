@@ -8,6 +8,8 @@
     <result column="FORM_ID" jdbcType="VARCHAR" property="formId" />
     <result column="FORM_VERSION_NO" jdbcType="INTEGER" property="formVersionNo" />
     <result column="BUSINESS_KEY" jdbcType="VARCHAR" property="businessKey" />
+    <result column="DOCUMENT_NUMBER" jdbcType="VARCHAR" property="documentNumber" />
+    <result column="IDEMPOTENCY_KEY" jdbcType="VARCHAR" property="idempotencyKey" />
     <result column="OWNER_ACCOUNT" jdbcType="VARCHAR" property="ownerAccount" />
     <result column="OWNER_ORG_UNIT_ID" jdbcType="VARCHAR" property="ownerOrgUnitId" />
     <result column="DATA_CONTENT" jdbcType="LONGVARCHAR" property="dataContent" />
@@ -28,6 +30,8 @@
     FORM_ID,
     FORM_VERSION_NO,
     BUSINESS_KEY,
+    DOCUMENT_NUMBER,
+    IDEMPOTENCY_KEY,
     OWNER_ACCOUNT,
     OWNER_ORG_UNIT_ID,
     DATA_CONTENT,
@@ -53,6 +57,12 @@
     </if>
     <if test="businessKey != null and businessKey != ''">
       AND BUSINESS_KEY = #{businessKey,jdbcType=VARCHAR}
+    </if>
+    <if test="documentNumber != null and documentNumber != ''">
+      AND DOCUMENT_NUMBER = #{documentNumber,jdbcType=VARCHAR}
+    </if>
+    <if test="idempotencyKey != null and idempotencyKey != ''">
+      AND IDEMPOTENCY_KEY = #{idempotencyKey,jdbcType=VARCHAR}
     </if>
     <if test="ownerAccount != null and ownerAccount != ''">
       AND OWNER_ACCOUNT = #{ownerAccount,jdbcType=VARCHAR}
@@ -118,6 +128,12 @@
       <if test="businessKey != null">
         BUSINESS_KEY,
       </if>
+      <if test="documentNumber != null">
+        DOCUMENT_NUMBER,
+      </if>
+      <if test="idempotencyKey != null">
+        IDEMPOTENCY_KEY,
+      </if>
       <if test="ownerAccount != null">
         OWNER_ACCOUNT,
       </if>
@@ -170,6 +186,12 @@
       </if>
       <if test="businessKey != null">
         #{businessKey,jdbcType=VARCHAR},
+      </if>
+      <if test="documentNumber != null">
+        #{documentNumber,jdbcType=VARCHAR},
+      </if>
+      <if test="idempotencyKey != null">
+        #{idempotencyKey,jdbcType=VARCHAR},
       </if>
       <if test="ownerAccount != null">
         #{ownerAccount,jdbcType=VARCHAR},

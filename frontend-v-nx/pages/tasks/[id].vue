@@ -5,6 +5,10 @@ import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
+import {
+  withFlowmintSystemFields,
+  withoutFlowmintDisplayFields,
+} from "@/composables/useFlowmintSystemFields";
 import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
@@ -57,7 +61,12 @@ const renderForm = async () => {
     JSON.parse(detail.value.schemaContent || "{}"),
     { readOnly: !detail.value.correctionTask, noAlerts: true, noDefaultSubmitButton: true },
   );
-  formInstance.submission = { data: detail.value.formData || {} };
+  formInstance.submission = {
+    data: withFlowmintSystemFields(
+      detail.value.formData,
+      detail.value.task?.documentNumber,
+    ),
+  };
   let uiSchema: any = { engine: "FORMIO", version: 1 };
   try {
     uiSchema = JSON.parse(detail.value.uiSchemaContent || "{}");
@@ -159,7 +168,7 @@ const submitAction = async () => {
   acting.value = true;
   try {
     const editedFormData = actionType.value === "RESUBMIT"
-      ? (await formInstance?.submit?.())?.data
+      ? withoutFlowmintDisplayFields((await formInstance?.submit?.())?.data)
       : null;
     const response: any = actionType.value === "TRANSFER"
       ? await post("/tasks/transfer", {
@@ -233,8 +242,8 @@ onBeforeUnmount(() => void destroyForm());
               <div class="text-muted">申請人：{{ detail.task.applicantAccount }}</div>
             </div>
             <div class="text-end small text-muted">
-              <div>流程編號</div>
-              <div class="font-monospace text-body">{{ detail.task.businessKey }}</div>
+              <div>{{ detail.task.documentNumber ? '單據編號' : '流程識別碼' }}</div>
+              <div class="font-monospace text-body">{{ detail.task.documentNumber || detail.task.businessKey }}</div>
             </div>
           </div>
         </div>

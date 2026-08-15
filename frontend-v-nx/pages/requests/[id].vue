@@ -5,6 +5,7 @@ import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
 import { useBaseStore } from "@/store/baseStore";
+import { withFlowmintSystemFields } from "@/composables/useFlowmintSystemFields";
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
 
@@ -40,7 +41,9 @@ const renderData = async (data: any) => {
     JSON.parse(detail.value.schemaContent || "{}"),
     { readOnly: true, noAlerts: true, noDefaultSubmitButton: true },
   );
-  formInstance.submission = { data: data || {} };
+  formInstance.submission = {
+    data: withFlowmintSystemFields(data, detail.value.request?.documentNumber),
+  };
 };
 const selectSnapshot = async (snapshot: any) => {
   selectedSnapshot.value = snapshot;

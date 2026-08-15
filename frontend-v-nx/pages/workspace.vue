@@ -5,6 +5,10 @@ import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
 import { useBaseStore } from "@/store/baseStore";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
+import {
+  FLOWMINT_SYSTEM_FIELDS,
+  withoutFlowmintDisplayFields,
+} from "@/composables/useFlowmintSystemFields";
 import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
@@ -114,6 +118,13 @@ const renderForm = async () => {
     noAlerts: true,
     noDefaultSubmitButton: true,
   });
+  formInstance.submission = {
+    data: {
+      ...(formInstance.submission?.data || {}),
+      [FLOWMINT_SYSTEM_FIELDS.applicantAccount]: applicantAccount.value.trim(),
+      [FLOWMINT_SYSTEM_FIELDS.documentNumber]: "",
+    },
+  };
   if (attachmentFields.value.length) await createUploadBatch(false);
   let uiSchema: any = { engine: "FORMIO", version: 1 };
   try {
@@ -353,7 +364,7 @@ const submit = async () => {
     toast.warning(`${missingAttachment.label || missingAttachment.key} 為必填附件`);
     return;
   }
-  const formData = formInstance.submission?.data || {};
+  const renderedFormData = formInstance.submission?.data || {};
   try {
     const validation = await runCustomJavascript?.("beforeSubmit");
     if (validation === false || (validation && validation.valid === false)) {
@@ -365,7 +376,7 @@ const submit = async () => {
     return;
   }
   const selectedApplicantAccount = String(
-    formData.applicantAccount || applicantAccount.value,
+    renderedFormData[FLOWMINT_SYSTEM_FIELDS.applicantAccount] || applicantAccount.value,
   ).trim();
   if (!selectedApplicantAccount) {
     toast.warning("請選擇申請人");
@@ -373,6 +384,7 @@ const submit = async () => {
   }
   submitting.value = true;
   try {
+    const formData = withoutFlowmintDisplayFields(renderedFormData);
     const response: any = await runtimePost(
       "/submit",
       {
@@ -450,7 +462,7 @@ onBeforeUnmount(() => {
               <span class="list-icon tone-primary"><i class="bi bi-person-check"></i></span>
               <span class="flex-grow-1 min-width-0">
                 <strong class="d-block text-truncate">{{ task.processName }} · {{ task.taskName }}</strong>
-                <small class="text-secondary">申請人 {{ task.applicantAccount }} · {{ task.businessKey }}</small>
+                <small class="text-secondary">申請人 {{ task.applicantAccount }} · {{ task.documentNumber || task.businessKey }}</small>
               </span>
               <span class="text-end d-none d-md-block"><small class="text-secondary">{{ formatDate(task.createdDate) }}</small><i class="bi bi-chevron-right ms-3"></i></span>
             </NuxtLink>
@@ -493,7 +505,7 @@ onBeforeUnmount(() => {
               <span class="list-icon tone-warning"><i class="bi bi-file-earmark-text"></i></span>
               <span class="flex-grow-1 min-width-0">
                 <strong class="d-block text-truncate">{{ request.processName }} · {{ request.formName }}</strong>
-                <small class="text-secondary">{{ request.businessKey }} · {{ request.currentTaskNames?.join('、') || '流程已結束' }}</small>
+                <small class="text-secondary">{{ request.documentNumber || request.businessKey }} · {{ request.currentTaskNames?.join('、') || '流程已結束' }}</small>
               </span>
               <span :class="['status-pill', `status-${request.instanceStatus?.toLowerCase()}`]">{{ request.instanceStatus }}</span>
             </NuxtLink>
@@ -544,7 +556,7 @@ onBeforeUnmount(() => {
             </ul>
           </div>
         </div>
-        <div class="d-flex justify-content-end mt-4"><button type="button" class="btn btn-primary px-4" :disabled="submitting || !!result" @click="submit"><span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>送出申請</button></div><div v-if="result" class="alert alert-success mt-4 mb-0"><strong>申請已送出</strong><div class="mt-2">流程編號：{{ result.processInstanceId }}</div><div>表單資料編號：{{ result.formDataId }}</div><div>狀態：{{ result.instanceStatus }}</div></div></div>
+        <div class="d-flex justify-content-end mt-4"><button type="button" class="btn btn-primary px-4" :disabled="submitting || !!result" @click="submit"><span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>送出申請</button></div><div v-if="result" class="alert alert-success mt-4 mb-0"><strong>申請已送出</strong><div v-if="result.documentNumber" class="mt-2">單據編號：{{ result.documentNumber }}</div><div :class="result.documentNumber ? '' : 'mt-2'">流程編號：{{ result.processInstanceId }}</div><div>表單資料編號：{{ result.formDataId }}</div><div>狀態：{{ result.instanceStatus }}</div></div></div>
     </div>
   </div>
 </template>
