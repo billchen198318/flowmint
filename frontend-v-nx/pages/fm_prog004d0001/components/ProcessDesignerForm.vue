@@ -215,6 +215,7 @@ const loadResolverOptions = async () => {
 };
 const bindModelerEvents = () => {
   const selectElement = (element: any) => {
+    element = element?.labelTarget || element;
     selectedElement.value = element || null;
     selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
     selectedFlow.value = is(element, "bpmn:SequenceFlow") ? element : null;

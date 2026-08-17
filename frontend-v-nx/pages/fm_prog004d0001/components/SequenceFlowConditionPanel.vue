@@ -26,6 +26,18 @@ const rawExpression = ref("");
 const structured = ref(true);
 const isConditionalGateway = (element: any) =>
   is(element, "bpmn:ExclusiveGateway") || is(element, "bpmn:InclusiveGateway");
+const endpointLabel = (side: "source" | "target") => {
+  const diagramElement = props.element?.[side];
+  const businessObject =
+    diagramElement?.businessObject ||
+    props.element?.businessObject?.[`${side}Ref`];
+  return (
+    businessObject?.name?.trim?.() ||
+    businessObject?.id ||
+    diagramElement?.id ||
+    (side === "source" ? "未識別起點" : "未識別終點")
+  );
+};
 
 const collectFields = (
   components: any[] = [],
@@ -218,7 +230,7 @@ const apply = () => {
     <div class="mb-3">
       <label class="form-label">連線</label>
       <input
-        :value="`${element?.source?.businessObject?.name || element?.source?.id} → ${element?.target?.businessObject?.name || element?.target?.id}`"
+        :value="`${endpointLabel('source')} → ${endpointLabel('target')}`"
         disabled
         class="form-control"
       />
