@@ -9,6 +9,7 @@ import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import Toolbar from "@/components/Toolbar.vue";
 import ApprovalAuthorityPanel from "./ApprovalAuthorityPanel.vue";
+import SequenceFlowConditionPanel from "./SequenceFlowConditionPanel.vue";
 import {
   checkInvalid,
   escapeQifuHtmlMsg,
@@ -29,6 +30,7 @@ const selectedVersion = ref<any>(null);
 const publishedForms = ref<any[]>([]);
 const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
+const selectedFlow = ref<any>(null);
 const previewAccount = ref("");
 const previewFormData = ref("{}");
 const resolverPreview = ref<any[]>([]);
@@ -179,6 +181,15 @@ const selectedPublishedForm = computed(() => publishedForms.value.find(
   (item: any) => item.formId === selectedTaskRule.value?.formId
     && item.formVersionNo === selectedTaskRule.value?.formVersionNo,
 ));
+const conditionSchemaContent = computed(() => {
+  const taskForm = selectedVersion.value?.taskForms?.[0];
+  if (!taskForm) return "";
+  return publishedForms.value.find(
+    (item: any) =>
+      item.formId === taskForm.formId &&
+      item.formVersionNo === taskForm.formVersionNo,
+  )?.schemaContent;
+});
 const loadPublishedForms = async () => {
   if (!form.value.tenantId) return;
   const response = await post("/published-form-options", {
@@ -206,6 +217,7 @@ const bindModelerEvents = () => {
   const selectElement = (element: any) => {
     selectedElement.value = element || null;
     selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
+    selectedFlow.value = is(element, "bpmn:SequenceFlow") ? element : null;
     ensureSelectedTaskPolicy();
     ensureSelectedAssignmentRule();
   };
@@ -218,6 +230,8 @@ const bindModelerEvents = () => {
   modeler.get("eventBus").on("element.changed", (event: any) => {
     if (selectedTask.value?.id === event.element?.id)
       selectedTask.value = event.element;
+    if (selectedFlow.value?.id === event.element?.id)
+      selectedFlow.value = event.element;
   });
 };
 const changeSelectedForm = (event: Event) => {
@@ -268,10 +282,96 @@ const currentAssignmentRules = () => {
   return (selectedVersion.value.assignmentRules || []).filter((item: any) =>
     taskKeys.has(item.taskDefKey));
 };
+const conditionFieldKeys = () => {
+  const keys = new Set<string>();
+  const collect = (components: any[] = [], insideGrid = false) => {
+    for (const component of components) {
+      const nestedGrid = insideGrid || component?.type === "datagrid";
+      if (component?.key && component?.input !== false && !insideGrid)
+        keys.add(component.key);
+      collect(component?.components, nestedGrid);
+      for (const column of Array.isArray(component?.columns)
+        ? component.columns
+        : [])
+        collect(column?.components, nestedGrid);
+      for (const row of Array.isArray(component?.rows) ? component.rows : [])
+        for (const cell of Array.isArray(row) ? row : [])
+          collect(cell?.components, nestedGrid);
+    }
+  };
+  try {
+    collect(JSON.parse(conditionSchemaContent.value || "{}").components || []);
+  } catch {
+    return new Set<string>();
+  }
+  return keys;
+};
+const validateSequenceFlows = () => {
+  if (!modeler) return true;
+  const fieldKeys = conditionFieldKeys();
+  const elements = modeler.get("elementRegistry").getAll();
+  for (const gateway of elements.filter(
+    (item: any) =>
+      is(item, "bpmn:ExclusiveGateway") || is(item, "bpmn:InclusiveGateway"),
+  )) {
+    const outgoing = gateway.outgoing || [];
+    if (outgoing.length <= 1) continue;
+    if (outgoing.length > 1 && !gateway.businessObject?.default) {
+      toast.warning(`${gateway.businessObject?.name || gateway.id} 必須設定 Default Flow`);
+      return false;
+    }
+    for (const flow of outgoing) {
+      const businessObject = flow.businessObject;
+      const isDefault = gateway.businessObject?.default?.id === flow.id;
+      const body = businessObject?.conditionExpression?.body?.trim() || "";
+      if (isDefault && body) {
+        toast.warning(`${businessObject?.name || flow.id} 是 Default Flow，不可同時設定條件`);
+        return false;
+      }
+      if (!isDefault && !body) {
+        toast.warning(`${businessObject?.name || flow.id} 尚未設定分流條件`);
+        return false;
+      }
+      for (const fieldName of body.matchAll(/flowmintFormData\.([A-Za-z][A-Za-z0-9_]*)/g)) {
+        if (!fieldKeys.has(fieldName[1])) {
+          toast.warning(`${businessObject?.name || flow.id} 引用了不存在的表單欄位 ${fieldName[1]}`);
+          return false;
+        }
+      }
+    }
+  }
+  return true;
+};
+const ensureSequenceFlowLabels = () => {
+  if (!modeler || selectedVersion.value?.versionStatus !== "DRAFT") return;
+  const modeling = modeler.get("modeling");
+  const flows = modeler
+    .get("elementRegistry")
+    .filter((item: any) => is(item, "bpmn:SequenceFlow"));
+  for (const flow of flows) {
+    if (flow.businessObject?.name) continue;
+    const isDefault = flow.source?.businessObject?.default?.id === flow.id;
+    const body = flow.businessObject?.conditionExpression?.body || "";
+    if (!isDefault && !body) continue;
+    const readable = isDefault
+      ? "其他／預設"
+      : body
+          .replace(/^\$\{/, "")
+          .replace(/\}$/, "")
+          .replaceAll("flowmintFormData.", "")
+          .replaceAll(" == ", " = ")
+          .replaceAll(" && ", " 且 ")
+          .replaceAll(" || ", " 或 ");
+    modeling.updateProperties(flow, {
+      name: readable.length > 80 ? `${readable.slice(0, 77)}…` : readable,
+    });
+  }
+};
 const openVersion = async (version: any) => {
   selectedVersion.value = version;
   selectedElement.value = null;
   selectedTask.value = null;
+  selectedFlow.value = null;
   await nextTick();
   if (!modeler && canvas.value) {
     modeler = new BpmnModeler({ container: canvas.value });
@@ -279,6 +379,7 @@ const openVersion = async (version: any) => {
   }
   if (modeler && version?.bpmnXml) {
     await modeler.importXML(version.bpmnXml);
+    ensureSequenceFlowLabels();
     modeler.get("canvas").zoom("fit-viewport");
   }
 };
@@ -330,7 +431,7 @@ const validate = () => {
   return true;
 };
 const save = async () => {
-  if (!validate()) return;
+  if (!validate() || !validateSequenceFlows()) return;
   showLoading();
   try {
     const draftOid =
@@ -380,6 +481,7 @@ const createVersion = async () => {
 const publish = async () => {
   if (!selectedVersion.value || selectedVersion.value.versionStatus !== "DRAFT")
     return;
+  if (!validateSequenceFlows()) return;
   showLoading();
   try {
     const xml = (await modeler.saveXML({ format: true })).xml;
@@ -468,8 +570,8 @@ onBeforeUnmount(() => modeler?.destroy());
     <div class="card-body">
       <div class="alert alert-info">
         草稿可反覆儲存；「發布草稿」會先保存畫布、由 Flowable 驗證
-        XML，再建立正式部署。請點選 UserTask，於右側設定顯示表單及 Task
-        Policy；一個 UserTask 只能選一張同 Tenant
+        XML，再建立正式部署。請點選 UserTask 設定顯示表單及 Task
+        Policy；點選 Gateway 出線可設定表單欄位分流條件與 Default Flow。一個 UserTask 只能選一張同 Tenant
         已發布的表單。已發布版本只能檢視，請按「建立新版本」複製最新版後再修改。
       </div>
       <div class="row g-3">
@@ -613,20 +715,29 @@ onBeforeUnmount(() => modeler?.destroy());
         </div>
         <div class="col-lg-3">
           <div class="card h-100 task-property-panel">
-            <div class="card-header">UserTask 節點屬性</div>
+            <div class="card-header">
+              {{ selectedFlow ? "流程條件" : "UserTask 節點屬性" }}
+            </div>
             <div class="card-body">
-              <div v-if="!selectedTask" class="text-muted">
+              <SequenceFlowConditionPanel
+                v-if="selectedFlow"
+                :key="selectedFlow.id"
+                :element="selectedFlow"
+                :modeler="modeler"
+                :schema-content="conditionSchemaContent"
+                :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+              />
+              <div v-else-if="!selectedTask" class="text-muted">
                 <template v-if="selectedElement">
                   目前選取「{{
                     selectedElement.businessObject?.$type ||
                     selectedElement.type ||
                     "未知節點"
-                  }}」，此處只接受 UserTask。請使用扳手將一般 Task 轉換成
-                  UserTask 後再設定。
+                  }}」。請選取 UserTask 設定簽核人與表單，或選取
+                  Sequence Flow 設定分流條件。
                 </template>
                 <template v-else>
-                  請在左側流程圖點選一個
-                  UserTask，再設定該簽核節點要顯示的表單。
+                  請在左側流程圖點選 UserTask 或 Sequence Flow。
                 </template>
               </div>
               <template v-else>

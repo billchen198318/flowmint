@@ -47,6 +47,8 @@ let detachDataActionBridge: (() => void) | null = null;
 let detachCustomJavascript: (() => Promise<void>) | null = null;
 let runCustomJavascript: ((lifecycle: any, additions?: any) => Promise<any>) | null = null;
 const previewSubmission = ref<Record<string, unknown>>({});
+const cloneSubmissionData = (value: unknown): Record<string, unknown> =>
+  JSON.parse(JSON.stringify(value ?? {}));
 let designerSequence = 0;
 const newForm = () => ({
   oid: "",
@@ -254,7 +256,7 @@ const renderDesigner = async () => {
   detachCustomJavascript = null;
   runCustomJavascript = null;
   if (designerMode.value === "preview" && designerInstance?.submission?.data) {
-    previewSubmission.value = structuredClone(designerInstance.submission.data);
+    previewSubmission.value = cloneSubmissionData(designerInstance.submission.data);
   }
   designerInstance?.destroy?.(true);
   designerInstance = null;
@@ -304,7 +306,9 @@ const renderDesigner = async () => {
         noDefaultSubmitButton: true,
       });
       if (designerMode.value === "preview" && Object.keys(previewSubmission.value).length) {
-        designerInstance.submission = { data: structuredClone(previewSubmission.value) };
+        designerInstance.submission = {
+          data: cloneSubmissionData(previewSubmission.value),
+        };
       }
       detachDataActionBridge = attachDataActionBridge(
         designerInstance,
@@ -346,7 +350,7 @@ const validatePreview = async () => {
       toast.warning(result?.message || "表單送出前檢核未通過");
       return;
     }
-    previewSubmission.value = structuredClone(
+    previewSubmission.value = cloneSubmissionData(
       designerInstance.submission?.data || {},
     );
     toast.success("試跑驗證通過（未送出資料）");
@@ -370,7 +374,7 @@ const setDesignerMode = (mode: "design" | "preview" | "javascript") => {
   if (mode === designerMode.value) return;
   if (designerMode.value === "design") syncSchemaFromDesigner();
   if (designerMode.value === "preview" && designerInstance?.submission?.data) {
-    previewSubmission.value = structuredClone(designerInstance.submission.data);
+    previewSubmission.value = cloneSubmissionData(designerInstance.submission.data);
   }
   designerMode.value = mode;
   void renderDesigner();
