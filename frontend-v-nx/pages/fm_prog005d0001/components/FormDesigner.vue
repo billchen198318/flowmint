@@ -704,7 +704,8 @@ onBeforeUnmount(destroyDesigner);
               ]"
               @click="setDesignerMode('preview')"
             >
-              <i class="bi bi-play-circle"></i> 試跑
+              <i class="bi bi-play-circle"></i>
+              {{ selectedVersion.versionStatus === 'DRAFT' ? '試跑' : '唯讀預覽' }}
             </button>
             <button
               type="button"
@@ -760,9 +761,21 @@ onBeforeUnmount(destroyDesigner);
             v-if="designerMode === 'preview'"
             class="alert alert-warning mt-3 mb-0"
           >
-            試跑模式不會上傳實體附件，請在 Workspace 正式申請畫面測試附件上傳。
+            <template v-if="selectedVersion.versionStatus === 'DRAFT'">
+              試跑資料不會儲存或送出，也不會上傳實體附件；請在 Workspace
+              正式申請畫面測試附件上傳。
+            </template>
+            <template v-else>
+              此版本已發布或退役，僅供唯讀預覽；若要修改或試跑調整內容，請建立或選擇草稿版本。
+            </template>
           </div>
-          <div v-if="designerMode === 'preview'" class="d-flex flex-wrap gap-2 mt-3">
+          <div
+            v-if="
+              designerMode === 'preview' &&
+              selectedVersion.versionStatus === 'DRAFT'
+            "
+            class="d-flex flex-wrap gap-2 mt-3"
+          >
             <button type="button" class="btn btn-primary" @click="validatePreview">
               <i class="bi bi-check2-circle"></i> 驗證送出
             </button>
