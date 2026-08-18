@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmAttachmentUploadFileMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmAttachmentUploadFile">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="ATTACHMENT_ID" jdbcType="VARCHAR" property="attachmentId" />
+    <result column="UPLOAD_SESSION_ID" jdbcType="VARCHAR" property="uploadSessionId" />
+    <result column="FIELD_KEY" jdbcType="VARCHAR" property="fieldKey" />
+    <result column="FILE_OID" jdbcType="CHAR" property="fileOid" />
+    <result column="FILE_NAME" jdbcType="VARCHAR" property="fileName" />
+    <result column="CONTENT_TYPE" jdbcType="VARCHAR" property="contentType" />
+    <result column="FILE_SIZE" jdbcType="BIGINT" property="fileSize" />
+    <result column="CONTENT_SHA256" jdbcType="CHAR" property="contentSha256" />
+    <result column="FILE_STATUS" jdbcType="VARCHAR" property="fileStatus" />
+    <result column="SCAN_STATUS" jdbcType="VARCHAR" property="scanStatus" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, ATTACHMENT_ID, UPLOAD_SESSION_ID, FIELD_KEY, FILE_OID,
+    FILE_NAME, CONTENT_TYPE, FILE_SIZE, CONTENT_SHA256, FILE_STATUS,
+    SCAN_STATUS, CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="attachmentId != null and attachmentId != ''">
+      AND ATTACHMENT_ID = #{attachmentId,jdbcType=VARCHAR}
+    </if>
+    <if test="uploadSessionId != null and uploadSessionId != ''">
+      AND UPLOAD_SESSION_ID = #{uploadSessionId,jdbcType=VARCHAR}
+    </if>
+    <if test="fieldKey != null and fieldKey != ''">
+      AND FIELD_KEY = #{fieldKey,jdbcType=VARCHAR}
+    </if>
+    <if test="fileStatus != null and fileStatus != ''">
+      AND FILE_STATUS = #{fileStatus,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey"
+          parameterType="java.lang.String"
+          resultMap="BaseResultMap">
+    SELECT
+      <include refid="BaseColumnList" />
+    FROM
+      <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_attachment_upload_file
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams"
+          parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    SELECT
+      <include refid="BaseColumnList" />
+    FROM
+      <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_attachment_upload_file
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage"
+          parameterType="java.util.HashMap"
+          resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT
+      <include refid="BaseColumnList" />
+    FROM
+      <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_attachment_upload_file
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count"
+          parameterType="java.util.HashMap"
+          resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM
+      <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_attachment_upload_file
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmAttachmentUploadFile">
+    INSERT INTO
+      <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_attachment_upload_file
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="attachmentId != null">
+        ATTACHMENT_ID,
+      </if>
+      <if test="uploadSessionId != null">
+        UPLOAD_SESSION_ID,
+      </if>
+      <if test="fieldKey != null">
+        FIELD_KEY,
+      </if>
+      <if test="fileOid != null">
+        FILE_OID,
+      </if>
+      <if test="fileName != null">
+        FILE_NAME,
+      </if>
+      <if test="contentType != null">
+        CONTENT_TYPE,
+      </if>
+      <if test="fileSize != null">
+        FILE_SIZE,
+      </if>
+      <if test="contentSha256 != null">
+        CONTENT_SHA256,
+      </if>
+      <if test="fileStatus != null">
+        FILE_STATUS,
+      </if>
+      <if test="scanStatus != null">
+        SCAN_STATUS,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="attachmentId != null">
+        #{attachmentId,jdbcType=VARCHAR},
+      </if>
+      <if test="uploadSessionId != null">
+        #{uploadSessionId,jdbcType=VARCHAR},
+      </if>
+      <if test="fieldKey != null">
+        #{fieldKey,jdbcType=VARCHAR},
+      </if>
+      <if test="fileOid != null">
+        #{fileOid,jdbcType=CHAR},
+      </if>
+      <if test="fileName != null">
+        #{fileName,jdbcType=VARCHAR},
+      </if>
+      <if test="contentType != null">
+        #{contentType,jdbcType=VARCHAR},
+      </if>
+      <if test="fileSize != null">
+        #{fileSize,jdbcType=BIGINT},
+      </if>
+      <if test="contentSha256 != null">
+        #{contentSha256,jdbcType=CHAR},
+      </if>
+      <if test="fileStatus != null">
+        #{fileStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="scanStatus != null">
+        #{scanStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmAttachmentUploadFile">
+    UPDATE
+      <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_attachment_upload_file
+    <set>
+      <if test="fileStatus != null">
+        FILE_STATUS = #{fileStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="scanStatus != null">
+        SCAN_STATUS = #{scanStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="java.lang.String">
+    DELETE FROM
+      <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_attachment_upload_file
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+</mapper>

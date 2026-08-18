@@ -20,6 +20,7 @@ public class FmProcessInstance implements Serializable {
     private Integer processVersionNo;
     private String flowableProcessDefId;
     private String businessKey;
+    private String documentNumber;
     private String formDataId;
     private String initiatorAccount;
     private String initiatorOrgUnitId;
@@ -86,6 +87,14 @@ public class FmProcessInstance implements Serializable {
 
     public void setBusinessKey(String businessKey) {
         this.businessKey = businessKey;
+    }
+
+    public String getDocumentNumber() {
+        return documentNumber;
+    }
+
+    public void setDocumentNumber(String documentNumber) {
+        this.documentNumber = documentNumber;
     }
 
     public String getFormDataId() {

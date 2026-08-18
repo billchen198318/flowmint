@@ -16,10 +16,13 @@ class FmProcessInstanceMapperXmlTest {
         Configuration configuration = new Configuration();
         parse(configuration, "org/qifu/core/mapper/DB1Config.xml");
         parse(configuration, "org/qifu/fm/mapper/FmProcessInstanceMapper.xml");
+        parse(configuration, "org/qifu/fm/mapper/FmFormDataMapper.xml");
         assertTrue(configuration.hasStatement(
                 "org.qifu.fm.mapper.FmProcessInstanceMapper.findPage"));
         assertTrue(configuration.hasStatement(
                 "org.qifu.fm.mapper.FmProcessInstanceMapper.count"));
+        assertTrue(configuration.hasStatement(
+                "org.qifu.fm.mapper.FmFormDataMapper.insert"));
     }
 
     private void parse(Configuration configuration, String resource) throws Exception {

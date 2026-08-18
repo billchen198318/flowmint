@@ -240,6 +240,7 @@ public class FmRequestTrackingLogicServiceImpl
         return new FmRequestTrackView(
                 process.getProcessInstanceId(),
                 process.getBusinessKey(),
+                process.getDocumentNumber(),
                 processDef.getProcessName(),
                 formDef.getFormName(),
                 formData.getOwnerAccount(),

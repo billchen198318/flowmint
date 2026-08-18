@@ -9,6 +9,7 @@ public record FmProcessDefView(
         String processKey,
         String processName,
         String category,
+        String documentType,
         Integer currentVersionNo,
         String status,
         String description,

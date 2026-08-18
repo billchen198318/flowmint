@@ -8,6 +8,7 @@
     <result column="PROCESS_KEY" jdbcType="VARCHAR" property="processKey" />
     <result column="PROCESS_NAME" jdbcType="VARCHAR" property="processName" />
     <result column="CATEGORY" jdbcType="VARCHAR" property="category" />
+    <result column="DOCUMENT_TYPE" jdbcType="VARCHAR" property="documentType" />
     <result column="CURRENT_VERSION_NO" jdbcType="INTEGER" property="currentVersionNo" />
     <result column="STATUS" jdbcType="VARCHAR" property="status" />
     <result column="DESCRIPTION" jdbcType="VARCHAR" property="description" />
@@ -16,7 +17,7 @@
     <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
     <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
   </resultMap>
-  <sql id="BaseColumnList">OID, TENANT_ID, PROCESS_DEF_ID, PROCESS_KEY, PROCESS_NAME, CATEGORY, CURRENT_VERSION_NO, STATUS, DESCRIPTION, CUSERID, CDATE, UUSERID, UDATE</sql>
+  <sql id="BaseColumnList">OID, TENANT_ID, PROCESS_DEF_ID, PROCESS_KEY, PROCESS_NAME, CATEGORY, DOCUMENT_TYPE, CURRENT_VERSION_NO, STATUS, DESCRIPTION, CUSERID, CDATE, UUSERID, UDATE</sql>
   <sql id="baseConditions">
     <if test="tenantId != null and tenantId != ''">
         AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
@@ -89,6 +90,9 @@
       <if test="category != null">
         CATEGORY,
       </if>
+      <if test="documentType != null">
+        DOCUMENT_TYPE,
+      </if>
       <if test="currentVersionNo != null">
         CURRENT_VERSION_NO,
       </if>
@@ -130,6 +134,9 @@
       <if test="category != null">
         #{category,jdbcType=VARCHAR},
       </if>
+      <if test="documentType != null">
+        #{documentType,jdbcType=VARCHAR},
+      </if>
       <if test="currentVersionNo != null">
         #{currentVersionNo,jdbcType=INTEGER},
       </if>
@@ -161,6 +168,9 @@
       </if>
       <if test="category != null">
         CATEGORY = #{category,jdbcType=VARCHAR},
+      </if>
+      <if test="documentType != null">
+        DOCUMENT_TYPE = #{documentType,jdbcType=VARCHAR},
       </if>
       <if test="currentVersionNo != null">
         CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},

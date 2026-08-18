@@ -478,6 +478,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return new FmProcessDefView(processDef.getOid(), processDef.getTenantId(),
                 processDef.getProcessDefId(), processDef.getProcessKey(),
                 processDef.getProcessName(), processDef.getCategory(),
+                processDef.getDocumentType(),
                 processDef.getCurrentVersionNo(), processDef.getStatus(),
                 processDef.getDescription(), versionViews);
     }

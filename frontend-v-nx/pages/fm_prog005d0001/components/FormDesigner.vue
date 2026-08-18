@@ -17,6 +17,10 @@ import {
   useFormCustomJavascript,
 } from "@/composables/useFormCustomJavascript";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
+import {
+  FLOWMINT_DOCUMENT_NUMBER_KEY,
+  FLOWMINT_SYSTEM_FIELDS,
+} from "@/composables/useFlowmintSystemFields";
 import type { FormDataActionUiSchema } from "@/types/formDataAction";
 import { PageConstants } from "../config";
 import FormCustomJavascriptEditor from "./FormCustomJavascriptEditor.vue";
@@ -43,6 +47,8 @@ let detachDataActionBridge: (() => void) | null = null;
 let detachCustomJavascript: (() => Promise<void>) | null = null;
 let runCustomJavascript: ((lifecycle: any, additions?: any) => Promise<any>) | null = null;
 const previewSubmission = ref<Record<string, unknown>>({});
+const cloneSubmissionData = (value: unknown): Record<string, unknown> =>
+  JSON.parse(JSON.stringify(value ?? {}));
 let designerSequence = 0;
 const newForm = () => ({
   oid: "",
@@ -72,6 +78,43 @@ const showResponse = (response: any) => {
   return true;
 };
 const emptyFormioSchema = () => ({ display: "form", components: [] as any[] });
+const normalizeAttachmentComponents = (components: any[] = [], preview = false) => {
+  components.forEach((component: any) => {
+    if (component.type === "file") {
+      component.storage = "url";
+      component.url = "";
+      component.fileTypes = Array.isArray(component.fileTypes) && component.fileTypes.length
+        ? component.fileTypes
+        : [
+            { label: "PDF", value: ".pdf" },
+            { label: "JPEG", value: ".jpg,.jpeg" },
+            { label: "圖片", value: ".png,.bmp" },
+            { label: "Word", value: ".doc,.docx" },
+            { label: "Excel", value: ".xls,.xlsx" },
+            { label: "PowerPoint", value: ".ppt,.pptx" },
+            { label: "壓縮檔", value: ".zip,.7z,.rar" },
+          ];
+      component.fileMaxSize = component.fileMaxSize || "8MB";
+      component.maxNumberOfFiles = Number(component.maxNumberOfFiles
+        || (component.multiple ? 10 : 1));
+      component.flowmintMaxTotalSize = component.flowmintMaxTotalSize || "20MB";
+      if (preview) {
+        component.disabled = true;
+        component.description = "設計器試跑不寫入實體附件；請至正式 Workspace 測試上傳。";
+      }
+    }
+    normalizeAttachmentComponents(component.components || [], preview);
+    (Array.isArray(component.columns) ? component.columns : []).forEach(
+      (column: any) => normalizeAttachmentComponents(column.components || [], preview),
+    );
+    (Array.isArray(component.rows) ? component.rows : []).forEach((row: any[]) =>
+      (Array.isArray(row) ? row : []).forEach((cell: any) =>
+        normalizeAttachmentComponents(cell.components || [], preview),
+      ),
+    );
+  });
+  return components;
+};
 const legacyComponent = (key: string, definition: any, required: string[]) => {
   let type = "textfield";
   if (definition?.type === "boolean") type = "checkbox";
@@ -116,6 +159,78 @@ const parseUiSchema = (content: string): FormDataActionUiSchema => {
 };
 const normalizedUiSchemaContent = () =>
   JSON.stringify(parseUiSchema(selectedVersion.value?.uiSchemaContent), null, 2);
+const containsComponentKey = (components: any[] = [], key: string): boolean =>
+  components.some((component: any) =>
+    component?.key === key ||
+    containsComponentKey(component?.components || [], key) ||
+    (Array.isArray(component?.columns) && component.columns.some((column: any) =>
+      containsComponentKey(column?.components || [], key))) ||
+    (Array.isArray(component?.rows) && component.rows.some((row: any[]) =>
+      (Array.isArray(row) ? row : []).some((cell: any) =>
+        containsComponentKey(cell?.components || [], key)))),
+  );
+const addDocumentNumberField = async () => {
+  if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+  if (designerMode.value === "design") syncSchemaFromDesigner();
+  const schema = parseFormioSchema(selectedVersion.value.schemaContent);
+  if (containsComponentKey(schema.components, FLOWMINT_DOCUMENT_NUMBER_KEY)) {
+    toast.info("表單已包含共用單據編號欄位 documentNumber");
+    return;
+  }
+  schema.components.unshift({
+    type: "textfield",
+    key: FLOWMINT_DOCUMENT_NUMBER_KEY,
+    label: "單據編號",
+    description: "送出後由 FlowMint 依流程的單據類型與編號規則自動產生。",
+    input: true,
+    disabled: true,
+    persistent: false,
+    clearOnHide: false,
+    tableView: true,
+  });
+  selectedVersion.value.schemaContent = JSON.stringify(schema, null, 2);
+  toast.success("已加入共用單據編號欄位；可修改標籤，但請保留 key=documentNumber");
+  await renderDesigner();
+};
+const addApplicantContextFields = async () => {
+  if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+  if (designerMode.value === "design") syncSchemaFromDesigner();
+  const schema = parseFormioSchema(selectedVersion.value.schemaContent);
+  const definitions = [
+    {
+      type: "textfield",
+      key: FLOWMINT_SYSTEM_FIELDS.applicantAccount,
+      label: "申請人帳號",
+      description: "由 FlowMint 起單情境帶入，送出時由後端重新驗證。",
+      input: true,
+      disabled: true,
+      persistent: true,
+      tableView: true,
+    },
+    {
+      type: "hidden",
+      key: FLOWMINT_SYSTEM_FIELDS.applicantAssignmentId,
+      input: true,
+      persistent: true,
+    },
+    {
+      type: "hidden",
+      key: FLOWMINT_SYSTEM_FIELDS.applicantOrgId,
+      input: true,
+      persistent: true,
+    },
+  ];
+  const additions = definitions.filter((definition) =>
+    !containsComponentKey(schema.components, definition.key));
+  if (!additions.length) {
+    toast.info("表單已包含申請人情境系統欄位");
+    return;
+  }
+  schema.components.unshift(...additions);
+  selectedVersion.value.schemaContent = JSON.stringify(schema, null, 2);
+  toast.success(`已加入 ${additions.length} 個申請人情境系統欄位`);
+  await renderDesigner();
+};
 const destroyDesigner = () => {
   designerSequence += 1;
   detachDataActionBridge?.();
@@ -141,7 +256,7 @@ const renderDesigner = async () => {
   detachCustomJavascript = null;
   runCustomJavascript = null;
   if (designerMode.value === "preview" && designerInstance?.submission?.data) {
-    previewSubmission.value = structuredClone(designerInstance.submission.data);
+    previewSubmission.value = cloneSubmissionData(designerInstance.submission.data);
   }
   designerInstance?.destroy?.(true);
   designerInstance = null;
@@ -154,6 +269,10 @@ const renderDesigner = async () => {
     const { Formio } = await import("@formio/js");
     if (sequence !== designerSequence || !designerHost.value) return;
     const schema = parseFormioSchema(selectedVersion.value.schemaContent);
+    normalizeAttachmentComponents(
+      schema.components,
+      designerMode.value === "preview",
+    );
     if (
       selectedVersion.value.versionStatus === "DRAFT" &&
       designerMode.value === "design"
@@ -172,6 +291,7 @@ const renderDesigner = async () => {
       });
       designerInstance.on("change", (changedSchema: any) => {
         if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+        normalizeAttachmentComponents(changedSchema.components);
         selectedVersion.value.schemaContent = JSON.stringify(
           changedSchema,
           null,
@@ -186,7 +306,9 @@ const renderDesigner = async () => {
         noDefaultSubmitButton: true,
       });
       if (designerMode.value === "preview" && Object.keys(previewSubmission.value).length) {
-        designerInstance.submission = { data: structuredClone(previewSubmission.value) };
+        designerInstance.submission = {
+          data: cloneSubmissionData(previewSubmission.value),
+        };
       }
       detachDataActionBridge = attachDataActionBridge(
         designerInstance,
@@ -228,7 +350,7 @@ const validatePreview = async () => {
       toast.warning(result?.message || "表單送出前檢核未通過");
       return;
     }
-    previewSubmission.value = structuredClone(
+    previewSubmission.value = cloneSubmissionData(
       designerInstance.submission?.data || {},
     );
     toast.success("試跑驗證通過（未送出資料）");
@@ -252,7 +374,7 @@ const setDesignerMode = (mode: "design" | "preview" | "javascript") => {
   if (mode === designerMode.value) return;
   if (designerMode.value === "design") syncSchemaFromDesigner();
   if (designerMode.value === "preview" && designerInstance?.submission?.data) {
-    previewSubmission.value = structuredClone(designerInstance.submission.data);
+    previewSubmission.value = cloneSubmissionData(designerInstance.submission.data);
   }
   designerMode.value = mode;
   void renderDesigner();
@@ -582,7 +704,8 @@ onBeforeUnmount(destroyDesigner);
               ]"
               @click="setDesignerMode('preview')"
             >
-              <i class="bi bi-play-circle"></i> 試跑
+              <i class="bi bi-play-circle"></i>
+              {{ selectedVersion.versionStatus === 'DRAFT' ? '試跑' : '唯讀預覽' }}
             </button>
             <button
               type="button"
@@ -597,6 +720,24 @@ onBeforeUnmount(destroyDesigner);
               <i class="bi bi-code-slash"></i> JavaScript
             </button>
           </div>
+          <div
+            v-if="selectedVersion.versionStatus === 'DRAFT' && designerMode === 'design'"
+            class="alert alert-primary d-flex flex-wrap justify-content-between align-items-center gap-2"
+          >
+            <div>
+              <strong>FlowMint 系統欄位：單據編號</strong>
+              <div class="small">
+                使用固定欄位代碼 <code>documentNumber</code>。送出後由系統依流程的
+                <code>DOCUMENT_TYPE</code> 與編號規則產生；標籤可改成請購單編號、請款單編號等。
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" @click="addDocumentNumberField">
+              <i class="bi bi-plus-circle me-1"></i>加入單據編號欄位
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" @click="addApplicantContextFields">
+              <i class="bi bi-person-plus me-1"></i>加入申請人情境欄位
+            </button>
+          </div>
           <div v-if="designerLoading" class="designer-loading text-muted">
             <span class="spinner-border spinner-border-sm me-2"></span>
             載入表單設計器…
@@ -606,7 +747,35 @@ onBeforeUnmount(destroyDesigner);
             ref="designerHost"
             class="formio-designer"
           ></div>
-          <div v-if="designerMode === 'preview'" class="d-flex flex-wrap gap-2 mt-3">
+          <div
+            v-if="designerMode === 'design'"
+            class="alert alert-info mt-3 mb-0"
+          >
+            <strong>附件欄位設定：</strong>
+            加入「File」元件後，請在元件設定中配置必填、Multiple、File Types、
+            File Maximum Size、Maximum Number of Files，並可在 Custom Properties
+            設定 <code>flowmintMaxTotalSize</code>（例如 <code>20MB</code>）。FlowMint 目前允許
+            PDF、Office、圖片與常用壓縮檔；前端與後端都會依發布版本的設定驗證。
+          </div>
+          <div
+            v-if="designerMode === 'preview'"
+            class="alert alert-warning mt-3 mb-0"
+          >
+            <template v-if="selectedVersion.versionStatus === 'DRAFT'">
+              試跑資料不會儲存或送出，也不會上傳實體附件；請在 Workspace
+              正式申請畫面測試附件上傳。
+            </template>
+            <template v-else>
+              此版本已發布或退役，僅供唯讀預覽；若要修改或試跑調整內容，請建立或選擇草稿版本。
+            </template>
+          </div>
+          <div
+            v-if="
+              designerMode === 'preview' &&
+              selectedVersion.versionStatus === 'DRAFT'
+            "
+            class="d-flex flex-wrap gap-2 mt-3"
+          >
             <button type="button" class="btn btn-primary" @click="validatePreview">
               <i class="bi bi-check2-circle"></i> 驗證送出
             </button>

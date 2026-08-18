@@ -7,7 +7,8 @@ public record FmProcessSubmitCommand(
         String processDefId,
         String formId,
         Integer formVersionNo,
-        String businessKey,
+        String idempotencyKey,
         String applicantAccount,
-        Map<String, Object> formData) {
+        Map<String, Object> formData,
+        String uploadSessionId) {
 }
