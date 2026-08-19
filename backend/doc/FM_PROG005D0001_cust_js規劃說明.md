@@ -1050,7 +1050,7 @@ return {
 
 ## 21. 第一版實作狀態
 
-截至 2026-08-06，已完成 Phase 1、Phase 2 的核心內容及 Phase 3 的共用介面：
+截至 2026-08-19，已完成 Phase 1、Phase 2、發起表單 Runtime，以及簽核任務 Renderer 的核心接線：
 
 - 新增 migration：FM_PROG005D0001-custom-script-schema.sql。
 - 新增 fm_form_version.CUSTOM_SCRIPT_CONTENT。
@@ -1060,12 +1060,14 @@ return {
 - 完成共用 Script Executor、Axios、Data Action helper 及試跑 Console。
 - Designer Preview 已接入 onFormLoad、onFieldChange 與 onDestroy。
 - Executor 已提供 beforeSubmit、afterSubmit、onDataActionSuccess 與 onDataActionError 執行介面。
+- Workspace 發起表單已重用 `useFormCustomJavascript`，接入 `RUNTIME_START`、onFormLoad、onFieldChange、beforeSubmit、afterSubmit 與 onDestroy。
+- Task 表單已重用同一 Executor，接入 `RUNTIME_TASK`、onFormLoad、onFieldChange 與 onDestroy，並與 Data Action Bridge 共存。
 
-尚待正式 Runtime：
+尚待補強的 Runtime 範圍：
 
-- 發起表單 Renderer 接入。
-- 簽核 Task Form Renderer 接入。
-- Read-only Renderer 接入。
-- Runtime 的流程、Task 與送出結果 Context。
+- Read-only 申請追蹤 Renderer 尚未接入 `READ_ONLY` 的 onFormLoad。
+- Task Action 是否需要 beforeSubmit／afterSubmit，仍須依簽核動作契約明確定義；目前 Task Renderer 只接入載入、欄位變更與銷毀生命週期。
+- Context 目前已有 Tenant、表單、版本、mode、Form.io、Axios 與 Data Action helper；流程實例 ID、Task ID、申請人及動作結果等 Runtime 專屬欄位仍待補齊。
+- Runtime Field Policy 與 Script 動態修改 disabled／hidden 的最終優先序仍須完成自動化驗證。
 
-目前專案尚無上述正式 Form Renderer；建立 Renderer 時必須重用 useFormCustomJavascript，不得另建第二套 Script Executor。
+正式 Renderer 已重用 `useFormCustomJavascript`，不得另建第二套 Script Executor。後續補強 Read-only、Task Action 與 Runtime 專屬 Context 時，也必須延伸現有共用介面。
