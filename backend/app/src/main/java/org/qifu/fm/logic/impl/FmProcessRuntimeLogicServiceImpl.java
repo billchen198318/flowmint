@@ -452,7 +452,11 @@ public class FmProcessRuntimeLogicServiceImpl
         parameters.put("account", account);
         List<FmTenantAccount> memberships = tenantAccountService
                 .selectListByParams(parameters).getValue();
-        if (memberships == null || memberships.isEmpty()) {
+        Date now = new Date();
+        if (memberships == null || memberships.stream().noneMatch(value ->
+                (value.getEffectiveFrom() == null || !value.getEffectiveFrom().after(now))
+                        && (value.getEffectiveTo() == null
+                                || value.getEffectiveTo().after(now)))) {
             throw new ServiceException("目前帳號不屬於指定 Tenant");
         }
     }

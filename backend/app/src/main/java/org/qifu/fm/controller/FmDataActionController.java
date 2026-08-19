@@ -1,6 +1,7 @@
 package org.qifu.fm.controller;
 
 import java.util.HashMap;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,9 +106,15 @@ public class FmDataActionController extends CoreApiSupport {
 						params, "ACCOUNT", "ASC").getValue(),
 				List.of());
 		FmTenantAccount membership = memberships.stream()
+				.filter(value -> effective(value, new Date()))
 				.findFirst().orElse(null);
 		if (membership == null) {
 			throw new ServiceException("目前帳號不屬於指定 Tenant");
 		}
+	}
+
+	private boolean effective(FmTenantAccount value, Date now) {
+		return (value.getEffectiveFrom() == null || !value.getEffectiveFrom().after(now))
+				&& (value.getEffectiveTo() == null || value.getEffectiveTo().after(now));
 	}
 }

@@ -82,16 +82,16 @@ export const compileFormCustomJavascript = async (
 
 export const useFormCustomJavascript = () => {
   const consoleEntries = ref<FormScriptConsoleEntry[]>([]);
-  let activeLifecycle: FormScriptLifecycle | undefined;
 
   const appendConsole = (
     level: FormScriptConsoleEntry["level"],
     values: unknown[],
+    lifecycle?: FormScriptLifecycle,
   ) => {
     consoleEntries.value.push({
       occurredAt: new Date().toISOString(),
       level,
-      lifecycle: activeLifecycle,
+      lifecycle,
       values,
     });
     if (consoleEntries.value.length > 200) consoleEntries.value.shift();
@@ -146,28 +146,81 @@ export const useFormCustomJavascript = () => {
       setComponentDisabled: async (key, disabled) => {
         const component = options.form.getComponent?.(key);
         if (!component) return;
-        component.component.disabled = disabled;
-        component.disabled = disabled;
+        const effectiveDisabled = options.mode === "READ_ONLY" ? true : disabled;
+        component.component.disabled = effectiveDisabled;
+        component.disabled = effectiveDisabled;
         await refreshComponent(options.form, key);
       },
       getComponent: (key) => options.form.getComponent?.(key),
       redraw: async () => {
         await refreshSubmission(options.form);
       },
-      executeDataAction: async (actionCode, body = {}, versionNo) => {
+      executeDataAction: async (
+        actionCode,
+        body = {},
+        versionNo,
+        invokeLifecycle: boolean = true,
+      ) => {
         const headers: Record<string, string | number> = {
           "X-FlowMint-Tenant": options.tenantId,
         };
         if (versionNo) headers["X-FlowMint-Action-Version"] = versionNo;
-        const response = await axios.post(
-          `${import.meta.env.VITE_API_URL}/fm/data-actions/${encodeURIComponent(actionCode)}/execute`,
-          body,
-          { headers },
-        );
-        if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
-          throw new Error(response.data?.message || `${actionCode} 執行失敗`);
+        let result: Record<string, unknown>;
+        try {
+          if (options.mode === "READ_ONLY") {
+            const metadata = await axios.post(
+              `${import.meta.env.VITE_API_URL}/fm/data-actions/${encodeURIComponent(actionCode)}/metadata`,
+              {},
+              { headers },
+            );
+            if (
+              metadata.data?.success !== import.meta.env.VITE_SUCCESS_FLAG ||
+              metadata.data?.value?.actionType !== "QUERY"
+            ) {
+              throw new Error("唯讀表單只允許執行 QUERY Data Action");
+            }
+          }
+          const response = await axios.post(
+            `${import.meta.env.VITE_API_URL}/fm/data-actions/${encodeURIComponent(actionCode)}/execute`,
+            body,
+            { headers },
+          );
+          if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+            throw new Error(response.data?.message || `${actionCode} 執行失敗`);
+          }
+          result = response.data?.value?.data || {};
+        } catch (error) {
+          if (invokeLifecycle) {
+            try {
+              await run("onDataActionError", {
+                actionCode,
+                request: body,
+                actionVersion: versionNo,
+                error,
+              });
+            } catch {
+              // run() already records the hook failure; preserve the action error.
+            }
+          }
+          throw error;
         }
-        return response.data?.value?.data || {};
+        if (invokeLifecycle) {
+          try {
+            await run("onDataActionSuccess", {
+              actionCode,
+              request: body,
+              actionVersion: versionNo,
+              response: result,
+            });
+          } catch (hookError) {
+            toast.warning(
+              `Data Action ${actionCode} 已執行成功，但成功後處理失敗：${
+                hookError instanceof Error ? hookError.message : "未知錯誤"
+              }`,
+            );
+          }
+        }
+        return result;
       },
       notify: {
         success: (message) => toast.success(message),
@@ -186,15 +239,31 @@ export const useFormCustomJavascript = () => {
       if (destroyed && lifecycle !== "onDestroy") return undefined;
       const handler = module[lifecycle];
       if (!handler) return undefined;
-      activeLifecycle = lifecycle;
       try {
-        Object.assign(context, additions);
-        return await handler(context);
+        const lifecycleContext: FormCustomScriptContext = {
+          ...context,
+          ...additions,
+          executeDataAction:
+            lifecycle === "onDataActionSuccess" ||
+            lifecycle === "onDataActionError"
+              ? (actionCode, body, versionNo) =>
+                  (
+                    context.executeDataAction as (
+                      actionCode: string,
+                      body?: Record<string, unknown>,
+                      versionNo?: number,
+                      invokeLifecycle?: boolean,
+                    ) => Promise<Record<string, unknown>>
+                  )(actionCode, body, versionNo, false)
+              : context.executeDataAction,
+          log: (...values) => appendConsole("LOG", values, lifecycle),
+          warn: (...values) => appendConsole("WARN", values, lifecycle),
+          error: (...values) => appendConsole("ERROR", values, lifecycle),
+        };
+        return await handler(lifecycleContext);
       } catch (error) {
-        appendConsole("ERROR", [error]);
+        appendConsole("ERROR", [error], lifecycle);
         throw error;
-      } finally {
-        activeLifecycle = undefined;
       }
     };
 
@@ -215,7 +284,9 @@ export const useFormCustomJavascript = () => {
         handlingChange = false;
       }
     };
-    options.form.on("change", changeHandler);
+    if (options.mode !== "READ_ONLY") {
+      options.form.on("change", changeHandler);
+    }
 
     try {
       await run("onFormLoad");
@@ -229,11 +300,11 @@ export const useFormCustomJavascript = () => {
       run,
       detach: async () => {
         if (destroyed) return;
-        await run("onDestroy").catch((error) =>
-          appendConsole("ERROR", [error]),
-        );
+        await run("onDestroy").catch(() => undefined);
         destroyed = true;
-        options.form.off?.("change", changeHandler);
+        if (options.mode !== "READ_ONLY") {
+          options.form.off?.("change", changeHandler);
+        }
       },
     };
   };

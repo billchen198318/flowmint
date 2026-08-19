@@ -27,6 +27,7 @@ class FmFormDesignValidatorTest {
         var uiSchema = objectMapper.readTree("""
                 {"engine":"FORMIO","dataActions":[{
                   "bindingId":"binding-1","event":"lookupVendor","actionCode":"VENDOR_LOOKUP",
+                  "requestMapping":{"subject":"submission.subject"},
                   "responseMapping":{"status":"actionStatus"},"statusTarget":"actionStatus"
                 }]}
                 """);
@@ -88,5 +89,98 @@ class FmFormDesignValidatorTest {
                 () -> validator.validate(schema, missingEvent));
         assertThrows(ServiceException.class,
                 () -> validator.validate(schema, missingField));
+    }
+
+    @Test
+    void rejectsMalformedRequestMapping() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"components":[
+                  {"type":"textfield","key":"subject"},
+                  {"type":"button","key":"lookup","action":"event","event":"lookupVendor"}
+                ]}
+                """);
+        var invalidPath = objectMapper.readTree("""
+                {"dataActions":[{
+                  "bindingId":"b1","event":"lookupVendor","actionCode":"LOOKUP",
+                  "requestMapping":{"subject":{"path":"submission.subject"}}
+                }]}
+                """);
+
+        assertThrows(ServiceException.class,
+                () -> validator.validate(schema, invalidPath));
+    }
+
+    @Test
+    void acceptsNullRequestMappingAsEmptyMapping() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"components":[
+                  {"type":"button","key":"lookup","action":"event","event":"lookupVendor"}
+                ]}
+                """);
+        var uiSchema = objectMapper.readTree("""
+                {"dataActions":[{
+                  "bindingId":"b1","event":"lookupVendor","actionCode":"LOOKUP",
+                  "requestMapping":null
+                }]}
+                """);
+
+        assertDoesNotThrow(() -> validator.validate(schema, uiSchema));
+    }
+
+    @Test
+    void rejectsRequestMappingToMissingField() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"components":[
+                  {"type":"textfield","key":"subject"},
+                  {"type":"button","key":"lookup","action":"event","event":"lookupVendor"}
+                ]}
+                """);
+        var uiSchema = objectMapper.readTree("""
+                {"dataActions":[{
+                  "bindingId":"b1","event":"lookupVendor","actionCode":"LOOKUP",
+                  "requestMapping":{"subject":"submission.missingField"}
+                }]}
+                """);
+
+        assertThrows(ServiceException.class,
+                () -> validator.validate(schema, uiSchema));
+    }
+
+    @Test
+    void rejectsBlankResponseMappingSourcePath() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"components":[
+                  {"type":"textfield","key":"subject"},
+                  {"type":"button","key":"lookup","action":"event","event":"lookupVendor"}
+                ]}
+                """);
+        var uiSchema = objectMapper.readTree("""
+                {"dataActions":[{
+                  "bindingId":"b1","event":"lookupVendor","actionCode":"LOOKUP",
+                  "responseMapping":{"":"subject"}
+                }]}
+                """);
+
+        assertThrows(ServiceException.class,
+                () -> validator.validate(schema, uiSchema));
+    }
+
+    @Test
+    void rejectsDuplicateResponseMappingTarget() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"components":[
+                  {"type":"textfield","key":"subject"},
+                  {"type":"button","key":"lookup","action":"event","event":"lookupVendor"}
+                ]}
+                """);
+        var uiSchema = objectMapper.readTree("""
+                {"dataActions":[{
+                  "bindingId":"b1","event":"lookupVendor","actionCode":"LOOKUP",
+                  "responseMapping":{"vendorId":"subject","vendorName":"subject"}
+                }]}
+                """);
+
+        assertThrows(ServiceException.class,
+                () -> validator.validate(schema, uiSchema));
     }
 }

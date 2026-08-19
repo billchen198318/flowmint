@@ -1065,9 +1065,12 @@ return {
 
 尚待補強的 Runtime 範圍：
 
-- Read-only 申請追蹤 Renderer 尚未接入 `READ_ONLY` 的 onFormLoad。
-- Task Action 是否需要 beforeSubmit／afterSubmit，仍須依簽核動作契約明確定義；目前 Task Renderer 只接入載入、欄位變更與銷毀生命週期。
-- Context 目前已有 Tenant、表單、版本、mode、Form.io、Axios 與 Data Action helper；流程實例 ID、Task ID、申請人及動作結果等 Runtime 專屬欄位仍待補齊。
-- Runtime Field Policy 與 Script 動態修改 disabled／hidden 的最終優先序仍須完成自動化驗證。
+- Read-only 申請追蹤已接入 `READ_ONLY` onFormLoad，script helper 在此模式只允許 QUERY Data Action。
+- Workspace 正式送出與 Task Action 已接入 beforeSubmit／afterSubmit；beforeSubmit 修改會進入最終 payload，後端成功後的 afterSubmit 錯誤只警告，不回滾或誤報交易失敗。
+- Data Action Binding 與直接 helper 已接入 onDataActionSuccess／onDataActionError；success hook 失敗不推翻成功 Action。
+- Runtime context 已補 actionType、taskId、formData 等欄位，FIELD_POLICY 亦已完成前端套用與後端防竄改。
+- 尚待處理非同步 hook 卸載競態、`onFieldChange` 事件遺失、lifecycle timeout 與相關自動化測試；詳見 [25-2026-08-19 待處理問題與明日接續](25-2026-08-19待處理問題與明日接續.md)。
+
+Custom JavaScript 未採 iframe、Web Worker 或獨立 realm 做真正執行隔離，依 2026-08-19 產品決策屬受信任管理者的客製擴充模型，不列為 bug。`READ_ONLY` 代表表單模式，不代表 JavaScript sandbox；後端權限、tenant 邊界、Data Action 類型限制與 audit 仍須獨立強制執行。
 
 正式 Renderer 已重用 `useFormCustomJavascript`，不得另建第二套 Script Executor。後續補強 Read-only、Task Action 與 Runtime 專屬 Context 時，也必須延伸現有共用介面。

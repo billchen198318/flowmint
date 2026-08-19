@@ -219,7 +219,9 @@ const saveBinding = () => {
     bindingId:
       editingIndex.value === null
         ? globalThis.crypto?.randomUUID?.() || `binding-${Date.now()}`
-        : nextBindings[editingIndex.value].bindingId,
+        : nextBindings[editingIndex.value].bindingId?.trim() ||
+          globalThis.crypto?.randomUUID?.() ||
+          `binding-${Date.now()}`,
     event: eventName.value,
     actionCode: actionCode.value,
     actionVersion: metadata.value.versionNo,
@@ -266,7 +268,7 @@ watch(buttonEvents, (events) => {
     <div v-if="bindings.length" class="binding-list mb-3">
       <div
         v-for="(binding, index) in bindings"
-        :key="binding.bindingId"
+        :key="binding.bindingId || `legacy-${index}`"
         class="binding-item d-flex flex-wrap justify-content-between align-items-center gap-2"
       >
         <div>

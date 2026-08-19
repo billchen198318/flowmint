@@ -2,7 +2,7 @@ import type { AxiosInstance } from "axios";
 
 export type FormScriptMode =
   | "DESIGNER_PREVIEW"
-  | "RUNTIME_CREATE"
+  | "RUNTIME_START"
   | "RUNTIME_TASK"
   | "READ_ONLY";
 
@@ -32,7 +32,15 @@ export interface FormCustomScriptContext {
   data: Record<string, unknown>;
   submission: Record<string, unknown>;
   changed?: any;
+  actionType?: string;
+  taskId?: string;
+  formData?: Record<string, unknown> | null;
+  actionCode?: string;
+  actionVersion?: number;
+  bindingId?: string;
+  request?: Record<string, unknown>;
   response?: unknown;
+  error?: unknown;
   axios: AxiosInstance;
   getValue: (path: string) => unknown;
   setValue: (path: string, value: unknown) => Promise<void>;
@@ -64,3 +72,8 @@ export type FormCustomScriptModule = Partial<
     (context: FormCustomScriptContext) => unknown | Promise<unknown>
   >
 >;
+
+export type FormScriptRunner = (
+  lifecycle: FormScriptLifecycle,
+  additions?: Partial<FormCustomScriptContext>,
+) => Promise<any>;

@@ -4,12 +4,15 @@ import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
+import { escapeQifuHtmlMsg } from "@/components/BaseHelper";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
 import {
   withFlowmintSystemFields,
   withoutFlowmintDisplayFields,
 } from "@/composables/useFlowmintSystemFields";
 import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
+import { applyTaskFieldPolicy } from "@/composables/useTaskFieldPolicy";
+import type { FormScriptRunner } from "@/types/formCustomJavascript";
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
 
@@ -20,6 +23,7 @@ const detail = ref<any>(null);
 const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const acting = ref(false);
+let taskActionInFlight = false;
 const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER" | "DELEGATE" | "RESOLVE" | "ADD_SIGN" | "ADD_SIGN_COMPLETE">("APPROVE");
 const comment = ref("");
 const reason = ref("");
@@ -33,6 +37,7 @@ const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
 let detachDataActionBridge: (() => void) | null = null;
 let detachCustomJavascript: (() => Promise<void>) | null = null;
+let runCustomJavascript: FormScriptRunner | null = null;
 
 const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
@@ -47,6 +52,7 @@ const destroyForm = async () => {
   detachDataActionBridge = null;
   await detachCustomJavascript?.();
   detachCustomJavascript = null;
+  runCustomJavascript = null;
   formInstance?.destroy?.(true);
   formInstance = null;
   if (formHost.value) formHost.value.innerHTML = "";
@@ -56,10 +62,18 @@ const renderForm = async () => {
   await nextTick();
   if (!formHost.value || !detail.value) return;
   const { Formio } = await import("@formio/js");
+  const schema = applyTaskFieldPolicy(
+    JSON.parse(detail.value.schemaContent || "{}"),
+    detail.value.fieldPolicy,
+  );
   formInstance = await Formio.createForm(
     formHost.value,
-    JSON.parse(detail.value.schemaContent || "{}"),
-    { readOnly: !detail.value.correctionTask, noAlerts: true, noDefaultSubmitButton: true },
+    schema,
+    {
+      readOnly: false,
+      noAlerts: true,
+      noDefaultSubmitButton: true,
+    },
   );
   formInstance.submission = {
     data: withFlowmintSystemFields(
@@ -73,7 +87,6 @@ const renderForm = async () => {
   } catch {
     // Published schema validity is enforced by the backend.
   }
-  detachDataActionBridge = attachDataActionBridge(formInstance, tenantId, uiSchema);
   const script = await attachCustomJavascript({
     scriptContent: detail.value.customScriptContent || "",
     form: formInstance,
@@ -84,6 +97,13 @@ const renderForm = async () => {
     mode: "RUNTIME_TASK",
   });
   detachCustomJavascript = script.detach;
+  runCustomJavascript = script.run;
+  detachDataActionBridge = attachDataActionBridge(
+    formInstance,
+    tenantId,
+    uiSchema,
+    script.run,
+  );
 };
 const load = async () => {
   if (!tenantId) {
@@ -141,7 +161,7 @@ const downloadAttachment = async (attachment: any) => {
     toast.warning("附件下載失敗");
   }
 };
-const submitAction = async () => {
+const submitActionOnce = async () => {
   const commentRequired = detail.value?.commentRequired === "ALWAYS"
     || (detail.value?.commentRequired === "ON_REJECT_RETURN"
       && (actionType.value === "REJECT" || actionType.value === "RETURN"));
@@ -167,9 +187,44 @@ const submitAction = async () => {
   }
   acting.value = true;
   try {
-    const editedFormData = actionType.value === "RESUBMIT"
-      ? withoutFlowmintDisplayFields((await formInstance?.submit?.())?.data)
-      : null;
+    const submitsForm = ["APPROVE", "REJECT", "RETURN", "RESUBMIT"].includes(
+      actionType.value,
+    );
+    let editedFormData: Record<string, unknown> | null = null;
+    if (submitsForm) {
+      try {
+        editedFormData = withoutFlowmintDisplayFields(
+          (await formInstance?.submit?.())?.data,
+        );
+      } catch {
+        toast.warning("請完成表單必填欄位並確認格式");
+        return;
+      }
+      try {
+        const validation = await runCustomJavascript?.("beforeSubmit", {
+          actionType: actionType.value,
+          taskId: String(route.params.id),
+          formData: editedFormData,
+        });
+        if (validation === false || (validation && validation.valid === false)) {
+          toast.warning(validation?.message || "表單送出前檢核未通過");
+          return;
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "表單送出前處理失敗",
+        );
+        return;
+      }
+      try {
+        editedFormData = withoutFlowmintDisplayFields(
+          (await formInstance?.submit?.())?.data,
+        );
+      } catch {
+        toast.warning("送出前處理後表單檢核未通過，請確認欄位內容");
+        return;
+      }
+    }
     const response: any = actionType.value === "TRANSFER"
       ? await post("/tasks/transfer", {
           taskId: route.params.id,
@@ -214,8 +269,50 @@ const submitAction = async () => {
       return;
     }
     toast.success("簽核處理完成");
-    await router.push("/workspace");
+    if (submitsForm) {
+      try {
+        await runCustomJavascript?.("afterSubmit", {
+          actionType: actionType.value,
+          taskId: String(route.params.id),
+          formData: editedFormData,
+          response: response.value,
+        });
+      } catch (error) {
+        toast.warning(
+          `簽核已完成，但完成後處理失敗：${
+            error instanceof Error ? error.message : "未知錯誤"
+          }`,
+        );
+      }
+    }
+    try {
+      await router.push("/workspace");
+    } catch (error) {
+      toast.warning(
+        `簽核已完成，但無法返回工作區：${
+          error instanceof Error ? error.message : "未知錯誤"
+        }`,
+      );
+    }
+  } catch (error) {
+    toast.error(
+      escapeQifuHtmlMsg(
+        error instanceof Error ? error.message : "簽核處理時發生未預期錯誤",
+      ),
+    );
   } finally {
+    acting.value = false;
+  }
+};
+
+const submitAction = async () => {
+  if (taskActionInFlight) return;
+  taskActionInFlight = true;
+  acting.value = true;
+  try {
+    await submitActionOnce();
+  } finally {
+    taskActionInFlight = false;
     acting.value = false;
   }
 };

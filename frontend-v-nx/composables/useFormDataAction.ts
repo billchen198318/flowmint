@@ -5,6 +5,11 @@ import type {
   FormDataActionExecutionContext,
 } from "@/types/formDataAction";
 
+const SUBMISSION_PATH_PATTERN =
+  /^(?:submission\.)?[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*$/;
+const RESPONSE_PATH_PATTERN =
+  /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*$/;
+
 const getPath = (source: unknown, path: string): unknown => {
   if (!path) return source;
   return path.split(".").reduce<unknown>((value, segment) => {
@@ -31,16 +36,29 @@ export const setFormDataPath = (
   cursor[segments.at(-1)!] = value;
 };
 
-const buildRequest = (
-  mapping: Record<string, string> = {},
+export const buildDataActionRequest = (
+  mapping: Record<string, string> | null | undefined,
   submissionData: Record<string, unknown>,
-) =>
-  Object.fromEntries(
-    Object.entries(mapping).map(([requestField, submissionPath]) => [
-      requestField,
-      getPath(submissionData, submissionPath.replace(/^submission\./, "")),
-    ]),
+) => {
+  if (mapping == null) return {};
+  if (typeof mapping !== "object" || Array.isArray(mapping)) {
+    throw new Error("Data Action requestMapping 必須是物件");
+  }
+  return Object.fromEntries(
+    Object.entries(mapping).map(([requestField, submissionPath]) => {
+      if (!requestField.trim() || typeof submissionPath !== "string" || !submissionPath.trim()) {
+        throw new Error("Data Action requestMapping 必須使用非空白字串欄位與路徑");
+      }
+      if (!SUBMISSION_PATH_PATTERN.test(submissionPath)) {
+        throw new Error(`Data Action requestMapping 路徑格式不合法：${submissionPath}`);
+      }
+      return [
+        requestField,
+        getPath(submissionData, submissionPath.replace(/^submission\./, "")),
+      ];
+    }),
   );
+};
 
 export const useFormDataAction = () => {
   const execute = async (
@@ -59,7 +77,8 @@ export const useFormDataAction = () => {
 
     const response = await getAxiosInstance().post(
       `${import.meta.env.VITE_API_URL}/fm/data-actions/${encodeURIComponent(binding.actionCode)}/execute`,
-      buildRequest(binding.requestMapping, context.submissionData),
+      context.requestData ??
+        buildDataActionRequest(binding.requestMapping, context.submissionData),
       { headers },
     );
     if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
@@ -76,15 +95,32 @@ export const useFormDataAction = () => {
     execution: DataActionExecutionView,
     submissionData: Record<string, unknown>,
   ) => {
-    Object.entries(binding.responseMapping || {}).forEach(
-      ([responsePath, submissionPath]) => {
+    const mapping = binding.responseMapping;
+    if (mapping == null) return;
+    if (typeof mapping !== "object" || Array.isArray(mapping)) {
+      throw new Error("Data Action responseMapping 必須是物件");
+    }
+    const entries = Object.entries(mapping);
+    const targets = new Set<string>();
+    for (const [responsePath, submissionPath] of entries) {
+      if (!RESPONSE_PATH_PATTERN.test(responsePath)) {
+        throw new Error(`Data Action responseMapping 來源路徑格式不合法：${responsePath}`);
+      }
+      if (typeof submissionPath !== "string" || !submissionPath.trim()) {
+        throw new Error("Data Action responseMapping 目標路徑必須是非空白字串");
+      }
+      const normalizedTarget = submissionPath.replace(/^submission\./, "");
+      if (!targets.add(normalizedTarget)) {
+        throw new Error(`Data Action responseMapping 目標欄位重複：${normalizedTarget}`);
+      }
+    }
+    entries.forEach(([responsePath, submissionPath]) => {
         setFormDataPath(
           submissionData,
           submissionPath.replace(/^submission\./, ""),
           getPath(execution.data, responsePath),
         );
-      },
-    );
+      });
   };
 
   return { execute, applyResponse };

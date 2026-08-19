@@ -3,8 +3,8 @@ export interface FormDataActionBinding {
   event: string;
   actionCode: string;
   actionVersion?: number;
-  requestMapping?: Record<string, string>;
-  responseMapping?: Record<string, string>;
+  requestMapping?: Record<string, string> | null;
+  responseMapping?: Record<string, string> | null;
   statusTarget?: string;
   errorTarget?: string;
 }
@@ -26,4 +26,5 @@ export interface DataActionExecutionView {
 export interface FormDataActionExecutionContext {
   tenantId: string;
   submissionData: Record<string, unknown>;
+  requestData?: Record<string, unknown>;
 }

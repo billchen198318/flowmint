@@ -17,6 +17,10 @@ import tools.jackson.databind.JsonNode;
 public class FmFormDesignValidator {
 
     private static final Pattern KEY_PATTERN = Pattern.compile("[A-Za-z][A-Za-z0-9_]*");
+    private static final Pattern SUBMISSION_PATH_PATTERN = Pattern.compile(
+            "(?:submission\\.)?[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*");
+    private static final Pattern RESPONSE_PATH_PATTERN = Pattern.compile(
+            "[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*");
     private static final Set<String> FORBIDDEN_KEYS = Set.of(
             "__proto__", "prototype", "constructor");
     private static final List<String> EXECUTABLE_PROPERTIES = List.of(
@@ -130,10 +134,39 @@ public class FmFormDesignValidator {
             if (!buttonEvents.contains(event)) {
                 throw invalid("Data Action Binding 找不到按鈕事件：" + event);
             }
+            validateRequestMapping(binding.path("requestMapping"), keys);
             validateMappingTargets(binding.path("responseMapping"), keys,
                     "responseMapping");
             validateOptionalTarget(binding.path("statusTarget"), keys, "statusTarget");
             validateOptionalTarget(binding.path("errorTarget"), keys, "errorTarget");
+        }
+    }
+
+    private void validateRequestMapping(JsonNode mapping, Set<String> keys)
+            throws ServiceException {
+        if (mapping.isMissingNode() || mapping.isNull()) {
+            return;
+        }
+        if (!mapping.isObject()) {
+            throw invalid("requestMapping 必須是物件");
+        }
+        Iterator<Map.Entry<String, JsonNode>> properties = mapping.properties().iterator();
+        while (properties.hasNext()) {
+            Map.Entry<String, JsonNode> property = properties.next();
+            if (StringUtils.isBlank(property.getKey())
+                    || !property.getValue().isTextual()
+                    || StringUtils.isBlank(property.getValue().asText())) {
+                throw invalid("requestMapping 必須使用非空白字串欄位與路徑");
+            }
+            String path = property.getValue().asText();
+            if (!SUBMISSION_PATH_PATTERN.matcher(path).matches()) {
+                throw invalid("requestMapping 路徑格式不合法：" + path);
+            }
+            String normalizedPath = StringUtils.removeStart(path, "submission.");
+            String rootField = StringUtils.substringBefore(normalizedPath, ".");
+            if (!keys.contains(rootField)) {
+                throw invalid("requestMapping 指向不存在的欄位：" + path);
+            }
         }
     }
 
@@ -146,10 +179,19 @@ public class FmFormDesignValidator {
             throw invalid(name + " 必須是物件");
         }
         Iterator<Map.Entry<String, JsonNode>> properties = mapping.properties().iterator();
+        Set<String> targets = new HashSet<>();
         while (properties.hasNext()) {
-            String target = properties.next().getValue().asText("");
+            Map.Entry<String, JsonNode> property = properties.next();
+            String source = property.getKey();
+            if (!RESPONSE_PATH_PATTERN.matcher(source).matches()) {
+                throw invalid(name + " 來源路徑格式不合法：" + source);
+            }
+            String target = property.getValue().asText("");
             if (!keys.contains(target)) {
                 throw invalid(name + " 指向不存在的欄位：" + target);
+            }
+            if (!targets.add(target)) {
+                throw invalid(name + " 目標欄位重複：" + target);
             }
         }
     }

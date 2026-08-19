@@ -6,6 +6,7 @@ import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
 import { useBaseStore } from "@/store/baseStore";
 import { withFlowmintSystemFields } from "@/composables/useFlowmintSystemFields";
+import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
 
@@ -23,16 +24,20 @@ const cancelReason = ref("");
 const selectedSnapshot = ref<any>(null);
 const attachments = ref<any[]>([]);
 let formInstance: any = null;
+const { attach: attachCustomJavascript } = useFormCustomJavascript();
+let detachCustomJavascript: (() => Promise<void>) | null = null;
 
 const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
-const destroyForm = () => {
+const destroyForm = async () => {
+  await detachCustomJavascript?.();
+  detachCustomJavascript = null;
   formInstance?.destroy?.(true);
   formInstance = null;
   if (formHost.value) formHost.value.innerHTML = "";
 };
 const renderData = async (data: any) => {
-  destroyForm();
+  await destroyForm();
   await nextTick();
   if (!formHost.value || !detail.value) return;
   const { Formio } = await import("@formio/js");
@@ -44,6 +49,16 @@ const renderData = async (data: any) => {
   formInstance.submission = {
     data: withFlowmintSystemFields(data, detail.value.request?.documentNumber),
   };
+  const script = await attachCustomJavascript({
+    scriptContent: detail.value.customScriptContent || "",
+    form: formInstance,
+    tenantId,
+    formId: detail.value.formId,
+    formCode: "",
+    versionNo: detail.value.formVersionNo,
+    mode: "READ_ONLY",
+  });
+  detachCustomJavascript = script.detach;
 };
 const selectSnapshot = async (snapshot: any) => {
   selectedSnapshot.value = snapshot;
@@ -162,7 +177,7 @@ const cancel = async () => {
 };
 
 onMounted(load);
-onBeforeUnmount(destroyForm);
+onBeforeUnmount(() => void destroyForm());
 </script>
 
 <template>

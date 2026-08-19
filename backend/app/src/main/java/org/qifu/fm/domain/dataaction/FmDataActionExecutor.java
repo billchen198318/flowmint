@@ -144,7 +144,7 @@ public class FmDataActionExecutor {
 		return result;
 	}
 
-	private List<Map<String, Object>> normalizeRows(
+	static List<Map<String, Object>> normalizeRows(
 			List<Map<String, Object>> source, Integer configuredMaxRows)
 			throws ServiceException {
 		int maxRows = configuredMaxRows == null ? 1000 : configuredMaxRows;
@@ -154,7 +154,14 @@ public class FmDataActionExecutor {
 		List<Map<String, Object>> rows = new ArrayList<>();
 		for (Map<String, Object> sourceRow : source) {
 			Map<String, Object> row = new LinkedHashMap<>();
-			sourceRow.forEach((key, value) -> row.put(toLowerCamel(key), value));
+			for (Map.Entry<String, Object> column : sourceRow.entrySet()) {
+				String normalized = toLowerCamel(column.getKey());
+				if (row.containsKey(normalized)) {
+					throw new ServiceException(
+							"Data Action 回傳欄位正規化後重複：" + normalized);
+				}
+				row.put(normalized, column.getValue());
+			}
 			rows.add(row);
 		}
 		return rows;

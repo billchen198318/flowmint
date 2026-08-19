@@ -49,6 +49,7 @@ import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
 import org.qifu.fm.domain.form.FmFormFieldCatalog;
 import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.domain.runtime.FmApprovalGroupModeValidator;
+import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
 import org.qifu.fm.domain.workflow.FmAssignmentRuleConfigValidator;
 import org.qifu.fm.domain.workflow.FmBpmnDesignValidator;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
@@ -80,6 +81,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             new FmBpmnDesignValidator();
     private final FmFormFieldCatalog formFieldCatalog =
             new FmFormFieldCatalog(new tools.jackson.databind.ObjectMapper());
+    private final FmTaskFieldPolicyValidator taskFieldPolicyValidator =
+            new FmTaskFieldPolicyValidator(new tools.jackson.databind.ObjectMapper());
 
     private final IFmProcessDefService processDefService;
     private final IFmProcessVersionService processVersionService;
@@ -513,7 +516,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         value.getPublishedBy(), value.getPublishedDate(),
                         taskFormRules(value).stream().map(rule -> new FmTaskFormRuleView(
                                 rule.getTaskDefKey(), rule.getFormId(),
-                                rule.getFormVersionNo())).toList(),
+                                rule.getFormVersionNo(), rule.getFieldPolicy())).toList(),
                         taskPolicies(value).stream().map(policy -> new FmTaskPolicyView(
                                 policy.getTaskDefKey(),
                                 policy.getTaskName(),
@@ -901,11 +904,16 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             }
             FmTaskFormRule rule = newTaskFormRule(version, command.taskDefKey(),
                     command.formId(), command.formVersionNo());
+            if (StringUtils.isNotBlank(command.fieldPolicy())) {
+                rule.setFieldPolicy(command.fieldPolicy().trim());
+            }
             FmTaskFormRule previous = existing.get(command.taskDefKey());
             if (previous != null && command.formId().equals(previous.getFormId())
-                    && command.formVersionNo().equals(previous.getFormVersionNo())) {
+                    && command.formVersionNo().equals(previous.getFormVersionNo())
+                    && StringUtils.isBlank(command.fieldPolicy())) {
                 rule.setFieldPolicy(previous.getFieldPolicy());
             }
+            taskFieldPolicyValidator.validateConfiguration(rule.getFieldPolicy());
             rules.add(rule);
         }
         taskFormRuleService.replaceVersion(version.getTenantId(), version.getProcessDefId(),

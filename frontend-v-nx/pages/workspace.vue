@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
 import "@formio/js/dist/formio.full.min.css";
+import { escapeQifuHtmlMsg } from "@/components/BaseHelper";
 import { useBaseStore } from "@/store/baseStore";
 import { useFormioDataActionBridge } from "@/composables/useFormioDataActionBridge";
 import {
@@ -10,6 +11,7 @@ import {
   withoutFlowmintDisplayFields,
 } from "@/composables/useFlowmintSystemFields";
 import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
+import type { FormScriptRunner } from "@/types/formCustomJavascript";
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
 
@@ -28,6 +30,7 @@ const processDefId = ref("");
 const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const submitting = ref(false);
+let submitInFlight = false;
 const result = ref<any>(null);
 const idempotencyKey = ref("");
 const uploadSessionId = ref("");
@@ -61,7 +64,7 @@ const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
 let detachDataActionBridge: (() => void) | null = null;
 let detachCustomJavascript: (() => Promise<void>) | null = null;
-let runCustomJavascript: ((lifecycle: any, additions?: any) => Promise<any>) | null = null;
+let runCustomJavascript: FormScriptRunner | null = null;
 
 const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
@@ -132,11 +135,6 @@ const renderForm = async () => {
   } catch {
     // Published schema validity is enforced by the backend.
   }
-  detachDataActionBridge = attachDataActionBridge(
-    formInstance,
-    tenantId.value,
-    uiSchema,
-  );
   const script = await attachCustomJavascript({
     scriptContent: selectedForm.value.customScriptContent || "",
     form: formInstance,
@@ -148,6 +146,12 @@ const renderForm = async () => {
   });
   detachCustomJavascript = script.detach;
   runCustomJavascript = script.run;
+  detachDataActionBridge = attachDataActionBridge(
+    formInstance,
+    tenantId.value,
+    uiSchema,
+    script.run,
+  );
 };
 const createUploadBatch = async (expired: boolean) => {
   const response: any = await attachmentPost("/sessions", {
@@ -352,7 +356,7 @@ const loadStart = async () => {
     loading.value = false;
   }
 };
-const submit = async () => {
+const submitOnce = async () => {
   if (!formInstance || !selectedForm.value) return;
   if (!formInstance.checkValidity(null, true)) {
     toast.warning("請完成表單必填欄位");
@@ -364,7 +368,6 @@ const submit = async () => {
     toast.warning(`${missingAttachment.label || missingAttachment.key} 為必填附件`);
     return;
   }
-  const renderedFormData = formInstance.submission?.data || {};
   try {
     const validation = await runCustomJavascript?.("beforeSubmit");
     if (validation === false || (validation && validation.valid === false)) {
@@ -375,6 +378,11 @@ const submit = async () => {
     toast.error(error instanceof Error ? error.message : "表單送出前檢核失敗");
     return;
   }
+  if (!formInstance.checkValidity(null, true)) {
+    toast.warning("送出前處理後表單檢核未通過，請確認欄位內容");
+    return;
+  }
+  const renderedFormData = formInstance.submission?.data || {};
   const selectedApplicantAccount = String(
     renderedFormData[FLOWMINT_SYSTEM_FIELDS.applicantAccount] || applicantAccount.value,
   ).trim();
@@ -399,13 +407,35 @@ const submit = async () => {
     );
     if (!ok(response)) return showError(response, "送出失敗");
     result.value = response.value;
+    toast.success("表單已送出");
     try {
       await runCustomJavascript?.("afterSubmit", { response: response.value });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "送出後處理失敗");
+      toast.warning(
+        `表單已送出，但送出後處理失敗：${
+          error instanceof Error ? error.message : "未知錯誤"
+        }`,
+      );
     }
-    toast.success("表單已送出");
   } finally {
+    submitting.value = false;
+  }
+};
+
+const submit = async () => {
+  if (submitInFlight || result.value) return;
+  submitInFlight = true;
+  submitting.value = true;
+  try {
+    await submitOnce();
+  } catch (error) {
+    toast.error(
+      escapeQifuHtmlMsg(
+        error instanceof Error ? error.message : "表單送出時發生未預期錯誤",
+      ),
+    );
+  } finally {
+    submitInFlight = false;
     submitting.value = false;
   }
 };

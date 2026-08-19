@@ -301,6 +301,7 @@ const changeSelectedForm = (event: Event) => {
       taskDefKey: selectedTask.value.id,
       formId,
       formVersionNo: Number(formVersionNo),
+      fieldPolicy: '{"default":"READ","fields":{}}',
     });
   }
   selectedVersion.value.taskForms = remaining;
@@ -834,6 +835,19 @@ onBeforeUnmount(() => modeler?.destroy());
                 </div>
                 <div class="form-text">
                   此表單會在使用者處理本節點時顯示。改選會取代原表單，不會新增第二張表單。
+                </div>
+                <div v-if="selectedTaskRule" class="mt-3">
+                  <label class="form-label">欄位權限 JSON</label>
+                  <textarea
+                    v-model="selectedTaskRule.fieldPolicy"
+                    :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                    rows="4"
+                    class="form-control font-monospace"
+                    placeholder='{"default":"READ","fields":{"comment":"EDIT"}}'
+                  ></textarea>
+                  <div class="form-text">
+                    權限僅接受 HIDDEN、READ、EDIT、NONE；未列出的欄位沿用 default。
+                  </div>
                 </div>
                 <template v-if="selectedTaskPolicy">
                   <hr />

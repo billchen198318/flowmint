@@ -35,6 +35,7 @@ import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.qifu.fm.dto.view.FmTaskHistoryView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
+import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
 import org.qifu.fm.domain.runtime.FmDelegationScopeEvaluator;
 import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.entity.FmFormData;
@@ -98,6 +99,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmRuntimeAuditLogicService auditLogicService;
     private final FmFormSubmissionValidator formSubmissionValidator;
+    private final FmTaskFieldPolicyValidator taskFieldPolicyValidator;
     private final ObjectMapper objectMapper;
     private final FmDelegationScopeEvaluator delegationScopeEvaluator;
     private final FmNotificationPublisher notificationPublisher;
@@ -121,6 +123,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmRuntimeAuditLogicService auditLogicService,
             FmFormSubmissionValidator formSubmissionValidator,
+            FmTaskFieldPolicyValidator taskFieldPolicyValidator,
             FmNotificationPublisher notificationPublisher,
             ObjectMapper objectMapper) {
         this.taskService = taskService;
@@ -141,6 +144,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.assignmentRuleService = assignmentRuleService;
         this.auditLogicService = auditLogicService;
         this.formSubmissionValidator = formSubmissionValidator;
+        this.taskFieldPolicyValidator = taskFieldPolicyValidator;
         this.notificationPublisher = notificationPublisher;
         this.objectMapper = objectMapper;
         this.delegationScopeEvaluator = new FmDelegationScopeEvaluator(objectMapper);
@@ -181,6 +185,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 formVersion.getSchemaContent(),
                 formVersion.getUiSchemaContent(),
                 formVersion.getCustomScriptContent(),
+                formRule.getFieldPolicy(),
                 parseData(formData.getDataContent()),
                 "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()),
                 "Y".equals(policy.getAllowReject()),
@@ -208,16 +213,20 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         FmProcessInstance process = requiredProcess(tenantId, task.getProcessInstanceId());
         FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
         FmTaskPolicy policy = taskPolicy(process, task.getTaskDefinitionKey());
+        FmTaskFormRule formRule = taskFormRule(
+                process, task.getTaskDefinitionKey());
         validatePolicy(request, policy, process.getProcessInstanceId(),
                 task.getTaskDefinitionKey());
         claimIfRequired(task, account);
         Date now = new Date();
-        if ("RESUBMIT".equals(request.actionType())) {
-            resubmitForm(request, formData, formVersion(
-                    tenantId, taskFormRule(process, task.getTaskDefinitionKey())), account, now);
+        if (request.formData() != null) {
+            updateTaskForm(request, formData, formVersion(
+                    tenantId, formRule), formRule.getFieldPolicy(), account, now);
             runtimeService.setVariable(process.getProcessInstanceId(),
                     org.qifu.fm.flowable.FmTaskAssignmentListener.VARIABLE_FORM_DATA,
                     request.formData());
+        } else if ("RESUBMIT".equals(request.actionType())) {
+            throw new ServiceException("補件資料不可為空");
         }
         FmTaskAssignmentSnapshot assignmentSnapshot = latestAssignmentSnapshot(
                 tenantId, task.getId());
@@ -579,12 +588,17 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         }
     }
 
-    private void resubmitForm(FmTaskActionRequest request, FmFormData formData,
-            FmFormVersion formVersion, String account, Date now) throws ServiceException {
+    private void updateTaskForm(FmTaskActionRequest request, FmFormData formData,
+            FmFormVersion formVersion, String fieldPolicy, String account, Date now)
+            throws ServiceException {
         formSubmissionValidator.validate(formVersion.getSchemaContent(), request.formData());
+        taskFieldPolicyValidator.validateChanges(
+                fieldPolicy, parseData(formData.getDataContent()), request.formData());
         formData.setDataContent(objectMapper.writeValueAsString(request.formData()));
         formData.setRevisionNo(formData.getRevisionNo() + 1);
-        formData.setDataStatus("SUBMITTED");
+        if ("RESUBMIT".equals(request.actionType())) {
+            formData.setDataStatus("SUBMITTED");
+        }
         formData.setUuserid(account);
         formData.setUdate(now);
         formDataService.update(formData);

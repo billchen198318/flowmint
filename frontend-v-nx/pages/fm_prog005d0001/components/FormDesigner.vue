@@ -22,6 +22,7 @@ import {
   FLOWMINT_SYSTEM_FIELDS,
 } from "@/composables/useFlowmintSystemFields";
 import type { FormDataActionUiSchema } from "@/types/formDataAction";
+import type { FormScriptRunner } from "@/types/formCustomJavascript";
 import { PageConstants } from "../config";
 import FormCustomJavascriptEditor from "./FormCustomJavascriptEditor.vue";
 import FormDataActionBindingEditor from "./FormDataActionBindingEditor.vue";
@@ -45,7 +46,7 @@ const {
 let designerInstance: any = null;
 let detachDataActionBridge: (() => void) | null = null;
 let detachCustomJavascript: (() => Promise<void>) | null = null;
-let runCustomJavascript: ((lifecycle: any, additions?: any) => Promise<any>) | null = null;
+let runCustomJavascript: FormScriptRunner | null = null;
 const previewSubmission = ref<Record<string, unknown>>({});
 const cloneSubmissionData = (value: unknown): Record<string, unknown> =>
   JSON.parse(JSON.stringify(value ?? {}));
@@ -310,11 +311,6 @@ const renderDesigner = async () => {
           data: cloneSubmissionData(previewSubmission.value),
         };
       }
-      detachDataActionBridge = attachDataActionBridge(
-        designerInstance,
-        form.value.tenantId,
-        parseUiSchema(selectedVersion.value.uiSchemaContent),
-      );
       const scriptRuntime = await attachCustomJavascript({
         scriptContent: selectedVersion.value.customScriptContent,
         form: designerInstance,
@@ -326,6 +322,12 @@ const renderDesigner = async () => {
       });
       detachCustomJavascript = scriptRuntime.detach;
       runCustomJavascript = scriptRuntime.run;
+      detachDataActionBridge = attachDataActionBridge(
+        designerInstance,
+        form.value.tenantId,
+        parseUiSchema(selectedVersion.value.uiSchemaContent),
+        scriptRuntime.run,
+      );
     }
   } catch (error: any) {
     toast.error(error?.message || "載入 Form.io 設計器失敗");
