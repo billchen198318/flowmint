@@ -49,5 +49,7 @@ public interface IFmProcessDefLogicService {
 
     DefaultResult<List<FmOptionView>> orgDutyOptions(String tenantId) throws ServiceException;
 
+    DefaultResult<List<FmOptionView>> orgUnitOptions(String tenantId) throws ServiceException;
+
     FmProcessDefView view(FmProcessDef processDef) throws ServiceException;
 }

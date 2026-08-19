@@ -10,6 +10,7 @@ import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmFormDefCommand;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmFormVersionCommand;
 import org.qifu.fm.dto.view.FmFormDefView;
 import org.qifu.fm.dto.view.FmOptionView;
@@ -32,12 +33,15 @@ public class FMPROG005D0001Controller extends CoreApiSupport {
 
     private final transient IFmFormDefService formDefService;
     private final transient IFmFormDefLogicService formDefLogicService;
+    private final transient FmTenantAccessGuard tenantAccessGuard;
 
     public FMPROG005D0001Controller(
             IFmFormDefService formDefService,
-            IFmFormDefLogicService formDefLogicService) {
+            IFmFormDefLogicService formDefLogicService,
+            FmTenantAccessGuard tenantAccessGuard) {
         this.formDefService = formDefService;
         this.formDefLogicService = formDefLogicService;
+        this.tenantAccessGuard = tenantAccessGuard;
     }
 
     @ControllerMethodAuthority(programId = "FM_PROG005D0001Q", check = true)
@@ -46,6 +50,8 @@ public class FMPROG005D0001Controller extends CoreApiSupport {
             @RequestBody SearchBody body) {
         QueryResult<List<FmFormDef>> result = initResult();
         try {
+            tenantAccessGuard.requireQueryAccess(
+                    body.getField() == null ? null : body.getField().get("tenantId"));
             setQueryResponseJsonResult(formDefService.findPage(
                     queryParameter(body)
                             .fullEquals("tenantId")

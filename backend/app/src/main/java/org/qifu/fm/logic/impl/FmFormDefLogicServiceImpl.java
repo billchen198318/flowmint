@@ -16,6 +16,9 @@ import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
+import org.qifu.fm.domain.form.FmFormDesignValidator;
+import org.qifu.fm.domain.form.FmFormScriptContractValidator;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmFormDefCommand;
 import org.qifu.fm.dto.command.FmFormVersionCommand;
 import org.qifu.fm.dto.view.FmFormDefView;
@@ -58,16 +61,25 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     private final IFmFormVersionService formVersionService;
     private final IFmTenantService tenantService;
     private final ObjectMapper objectMapper;
+    private final FmFormDesignValidator formDesignValidator;
+    private final FmFormScriptContractValidator formScriptContractValidator;
+    private final FmTenantAccessGuard tenantAccessGuard;
 
     public FmFormDefLogicServiceImpl(
             IFmFormDefService formDefService,
             IFmFormVersionService formVersionService,
             IFmTenantService tenantService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            FmFormDesignValidator formDesignValidator,
+            FmFormScriptContractValidator formScriptContractValidator,
+            FmTenantAccessGuard tenantAccessGuard) {
         this.formDefService = formDefService;
         this.formVersionService = formVersionService;
         this.tenantService = tenantService;
         this.objectMapper = objectMapper;
+        this.formDesignValidator = formDesignValidator;
+        this.formScriptContractValidator = formScriptContractValidator;
+        this.tenantAccessGuard = tenantAccessGuard;
     }
 
     @Override
@@ -75,6 +87,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     public DefaultResult<FmFormDefView> create(FmFormDefCommand command)
             throws ServiceException {
         validateMaster(command);
+        tenantAccessGuard.requireAccess(command.tenantId());
         assertTenant(command.tenantId());
         assertUnique(command.tenantId(), command.formCode(), null);
         FmFormDef formDef = new FmFormDef();
@@ -96,6 +109,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             throws ServiceException {
         FmFormDef formDef = formDefService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(formDef.getTenantId());
         DefaultResult<FmFormDefView> result = success(view(formDef));
         result.setMessage(message);
         return result;
@@ -107,6 +121,10 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             throws ServiceException {
         FmFormDef formDef = formDefService.selectByPrimaryKey(command.oid())
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(formDef.getTenantId());
+        if (!formDef.getTenantId().equals(command.tenantId())) {
+            throw new ServiceException("不可變更表單所屬 Tenant");
+        }
         if (StringUtils.isBlank(command.formName())) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
@@ -121,6 +139,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     public DefaultResult<FmFormDefView> deactivate(String oid) throws ServiceException {
         FmFormDef formDef = formDefService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(formDef.getTenantId());
         formDef.setStatus("INACTIVE");
         formDefService.update(formDef);
         return load(oid, BaseSystemMessage.updateSuccess());
@@ -153,6 +172,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             throws ServiceException {
         FmFormDef formDef = formDefService.selectByPrimaryKey(formDefOid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(formDef.getTenantId());
         assertFormActive(formDef);
         List<FmFormVersion> versions = versions(formDef);
         if (versions.stream().anyMatch(value -> "DRAFT".equals(value.getVersionStatus()))) {
@@ -207,8 +227,10 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("status", "ACTIVE");
+        var tenantIds = UserUtils.isAdmin() ? null : tenantAccessGuard.accessibleTenantIds();
         return success(tenantService.selectListByParams(parameters, "TENANT_CODE", "ASC")
                 .getValue().stream()
+                .filter(value -> tenantIds == null || tenantIds.contains(value.getTenantId()))
                 .map(value -> new FmOptionView(
                         value.getTenantId(),
                         value.getTenantCode() + "：" + value.getTenantName()))
@@ -278,6 +300,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     private FmFormVersion draft(String oid) throws ServiceException {
         FmFormVersion version = formVersionService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(version.getTenantId());
         if (!"DRAFT".equals(version.getVersionStatus())) {
             throw new ServiceException("已發布或已退役版本不可修改");
         }
@@ -369,15 +392,18 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 if (!"FORMIO".equals(uiSchema.path("engine").asString())) {
                     throw new ServiceException("Form.io 表單缺少正確的引擎識別");
                 }
+                formDesignValidator.validate(schema, uiSchema);
             }
             String normalizedSchema = objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValueAsString(schema);
             String normalizedUiSchema = objectMapper.writerWithDefaultPrettyPrinter()
                     .writeValueAsString(uiSchema);
+            String normalizedScript = normalizeScript(customScriptContent);
+            formScriptContractValidator.validate(normalizedScript);
             return new JsonContent(
                     normalizedSchema,
                     normalizedUiSchema,
-                    normalizeScript(customScriptContent));
+                    normalizedScript);
         } catch (JacksonException exception) {
             throw new ServiceException("表單 JSON 格式錯誤：" + exception.getMessage());
         }

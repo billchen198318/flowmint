@@ -24,6 +24,7 @@ import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
+import org.qifu.fm.dto.command.FmProcessStartPolicyCommand;
 import org.qifu.fm.dto.command.FmResolverPreviewCommand;
 import org.qifu.fm.dto.command.FmTaskAssignmentRuleCommand;
 import org.qifu.fm.dto.command.FmTaskFormRuleCommand;
@@ -31,6 +32,7 @@ import org.qifu.fm.dto.command.FmTaskPolicyCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmProcessDefView;
 import org.qifu.fm.dto.view.FmProcessVersionView;
+import org.qifu.fm.dto.view.FmProcessStartPolicyView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.dto.view.FmTaskFormRuleView;
@@ -40,13 +42,19 @@ import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessVersion;
+import org.qifu.fm.entity.FmProcessStartPolicy;
 import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
+import org.qifu.fm.domain.form.FmFormFieldCatalog;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.domain.runtime.FmApprovalGroupModeValidator;
+import org.qifu.fm.domain.workflow.FmAssignmentRuleConfigValidator;
+import org.qifu.fm.domain.workflow.FmBpmnDesignValidator;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessVersionService;
+import org.qifu.fm.service.IFmProcessStartPolicyService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
@@ -55,6 +63,7 @@ import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmOrgTitleService;
 import org.qifu.fm.service.IFmOrgDutyService;
+import org.qifu.fm.service.IFmOrgUnitService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +74,12 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
 
     private final FmApprovalGroupModeValidator approvalGroupModeValidator =
             new FmApprovalGroupModeValidator(new tools.jackson.databind.ObjectMapper());
+    private final FmAssignmentRuleConfigValidator assignmentRuleConfigValidator =
+            new FmAssignmentRuleConfigValidator(new tools.jackson.databind.ObjectMapper());
+    private final FmBpmnDesignValidator bpmnDesignValidator =
+            new FmBpmnDesignValidator();
+    private final FmFormFieldCatalog formFieldCatalog =
+            new FmFormFieldCatalog(new tools.jackson.databind.ObjectMapper());
 
     private final IFmProcessDefService processDefService;
     private final IFmProcessVersionService processVersionService;
@@ -72,13 +87,16 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmTaskFormRuleService taskFormRuleService;
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmTaskAssignmentRuleService assignmentRuleService;
+    private final IFmProcessStartPolicyService startPolicyService;
     private final IFmAssignmentResolverService assignmentResolverService;
     private final IFmEmployeeService employeeService;
     private final IFmApprovalGroupService approvalGroupService;
     private final IFmOrgApprovalLevelService orgApprovalLevelService;
     private final IFmOrgTitleService orgTitleService;
     private final IFmOrgDutyService orgDutyService;
+    private final IFmOrgUnitService orgUnitService;
     private final RepositoryService repositoryService;
+    private final FmTenantAccessGuard tenantAccessGuard;
 
     public FmProcessDefLogicServiceImpl(
             IFmProcessDefService processDefService,
@@ -87,26 +105,32 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmTaskFormRuleService taskFormRuleService,
             IFmTaskPolicyService taskPolicyService,
             IFmTaskAssignmentRuleService assignmentRuleService,
+            IFmProcessStartPolicyService startPolicyService,
             IFmAssignmentResolverService assignmentResolverService,
             IFmEmployeeService employeeService,
             IFmApprovalGroupService approvalGroupService,
             IFmOrgApprovalLevelService orgApprovalLevelService,
             IFmOrgTitleService orgTitleService,
             IFmOrgDutyService orgDutyService,
-            RepositoryService repositoryService) {
+            IFmOrgUnitService orgUnitService,
+            RepositoryService repositoryService,
+            FmTenantAccessGuard tenantAccessGuard) {
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
         this.tenantService = tenantService;
         this.taskFormRuleService = taskFormRuleService;
         this.taskPolicyService = taskPolicyService;
         this.assignmentRuleService = assignmentRuleService;
+        this.startPolicyService = startPolicyService;
         this.assignmentResolverService = assignmentResolverService;
         this.employeeService = employeeService;
         this.approvalGroupService = approvalGroupService;
         this.orgApprovalLevelService = orgApprovalLevelService;
         this.orgTitleService = orgTitleService;
         this.orgDutyService = orgDutyService;
+        this.orgUnitService = orgUnitService;
         this.repositoryService = repositoryService;
+        this.tenantAccessGuard = tenantAccessGuard;
     }
 
     @Override
@@ -114,6 +138,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     public DefaultResult<FmProcessDefView> create(FmProcessDefCommand command)
             throws ServiceException {
         validate(command);
+        tenantAccessGuard.requireAccess(command.tenantId());
         assertUnique(command.tenantId(), command.processKey(), null);
         FmProcessDef processDef = new FmProcessDef();
         processDef.setTenantId(command.tenantId());
@@ -140,6 +165,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     public DefaultResult<FmProcessDefView> load(String oid, String message) throws ServiceException {
         FmProcessDef processDef = processDefService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(processDef.getTenantId());
         DefaultResult<FmProcessDefView> result = success(view(processDef));
         result.setMessage(message);
         return result;
@@ -151,6 +177,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throws ServiceException {
         FmProcessDef processDef = processDefService.selectByPrimaryKey(command.oid())
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(processDef.getTenantId());
+        if (!processDef.getTenantId().equals(command.tenantId())) {
+            throw new ServiceException("不可變更流程所屬 Tenant");
+        }
         if (StringUtils.isBlank(command.processName())) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
@@ -166,6 +196,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     public DefaultResult<FmProcessDefView> deactivate(String oid) throws ServiceException {
         FmProcessDef processDef = processDefService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(processDef.getTenantId());
         processDef.setStatus("INACTIVE");
         processDefService.update(processDef);
         return load(oid, BaseSystemMessage.updateSuccess());
@@ -185,6 +216,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         saveTaskForms(version, command.taskForms(), taskKeys);
         saveTaskPolicies(version, command.taskPolicies(), taskKeys);
         saveAssignmentRules(version, command.assignmentRules(), taskKeys);
+        saveStartPolicies(version, command.startPolicies());
         version.setBpmnXml(command.bpmnXml());
         version.setBpmnSha256(sha256(command.bpmnXml()));
         processVersionService.update(version);
@@ -198,6 +230,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throws ServiceException {
         FmProcessDef processDef = processDefService.selectByPrimaryKey(processDefOid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(processDef.getTenantId());
         List<FmProcessVersion> versions = versions(processDef);
         FmProcessVersion existingDraft = versions.stream()
                 .filter(value -> "DRAFT".equals(value.getVersionStatus())).findFirst().orElse(null);
@@ -234,6 +267,12 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 .map(sourceRule -> copyAssignmentRule(version, sourceRule)).toList();
         assignmentRuleService.replaceVersion(version.getTenantId(), version.getProcessDefId(),
                 version.getVersionNo(), copiedAssignmentRules);
+        List<FmProcessStartPolicy> copiedStartPolicies = startPolicies(source).stream()
+                .map(policy -> newStartPolicy(version, policy.getPolicySeq(),
+                        policy.getSubjectType(), policy.getSubjectRefId(), policy.getAllowStart()))
+                .toList();
+        startPolicyService.replaceVersion(version.getTenantId(), version.getProcessDefId(),
+                version.getVersionNo(), copiedStartPolicies);
         processDef.setCurrentVersionNo(nextVersion);
         processDef.setStatus("DRAFT");
         processDefService.update(processDef);
@@ -248,8 +287,11 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         validateBpmn(version.getBpmnXml(), processDef.getProcessKey());
         Set<String> taskKeys = userTaskKeys(version.getBpmnXml());
         validateTaskFormsForPublish(version, taskKeys);
+        validateGatewayFormFieldsForPublish(version);
         validateTaskPoliciesForPublish(version, taskKeys);
+        validateAssignmentRulesForPublish(version);
         validateApprovalGroupModesForPublish(version);
+        validateStartPoliciesForPublish(version);
         String runtimeBpmnXml = runtimeBpmnXml(version);
         String resourceName = processDef.getProcessKey() + "-v" + version.getVersionNo()
                 + ".bpmn20.xml";
@@ -286,17 +328,18 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
         Map<String, Object> params = new HashMap<>();
         params.put("status", "ACTIVE");
+        var tenantIds = UserUtils.isAdmin() ? null : tenantAccessGuard.accessibleTenantIds();
         return success(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue()
-                .stream().map(value -> new FmOptionView(value.getTenantId(),
+                .stream().filter(value -> tenantIds == null
+                        || tenantIds.contains(value.getTenantId()))
+                .map(value -> new FmOptionView(value.getTenantId(),
                         value.getTenantCode() + "：" + value.getTenantName())).toList());
     }
 
     @Override
     public DefaultResult<List<FmPublishedFormOptionView>> publishedFormOptions(String tenantId)
             throws ServiceException {
-        if (StringUtils.isBlank(tenantId)) {
-            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
-        }
+        validateTenantId(tenantId);
         return success(taskFormRuleService.publishedFormOptions(tenantId));
     }
 
@@ -356,6 +399,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         }
         FmProcessVersion version = processVersionService.selectByPrimaryKey(command.versionOid())
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(version.getTenantId());
         List<FmResolverPreviewView> previews = assignmentRules(version).stream()
                 .filter(rule -> "ACTIVE".equals(rule.getStatus()))
                 .map(rule -> resolvePreview(
@@ -435,6 +479,17 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         duty.getDutyCode() + "／" + duty.getDutyName())).toList());
     }
 
+    @Override
+    public DefaultResult<List<FmOptionView>> orgUnitOptions(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        return success(orgUnitService.selectListByParams(parameters, "UNIT_CODE", "ASC")
+                .getValue().stream().map(unit -> new FmOptionView(
+                        unit.getOrgUnitId(), unit.getUnitCode())).toList());
+    }
+
     private Map<String, Object> activeOptionParameters(String tenantId) {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);
@@ -446,6 +501,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         if (StringUtils.isBlank(tenantId)) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
+        tenantAccessGuard.requireAccess(tenantId);
     }
 
     @Override
@@ -474,7 +530,11 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         assignmentRules(value).stream().map(rule -> new FmTaskAssignmentRuleView(
                                 rule.getTaskDefKey(), rule.getRuleSeq(), rule.getResolverType(),
                                 rule.getResolverConfig(), rule.getFallbackConfig(),
-                                rule.getMaxResults(), rule.getStatus())).toList())).toList();
+                                rule.getMaxResults(), rule.getStatus())).toList(),
+                        startPolicies(value).stream().map(policy -> new FmProcessStartPolicyView(
+                                policy.getPolicySeq(), policy.getSubjectType(),
+                                policy.getSubjectRefId(), policy.getAllowStart())).toList()))
+                .toList();
         return new FmProcessDefView(processDef.getOid(), processDef.getTenantId(),
                 processDef.getProcessDefId(), processDef.getProcessKey(),
                 processDef.getProcessName(), processDef.getCategory(),
@@ -505,6 +565,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private FmProcessVersion draft(String oid) throws ServiceException {
         FmProcessVersion version = processVersionService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(version.getTenantId());
         if (!"DRAFT".equals(version.getVersionStatus())) {
             throw new ServiceException("已發布或已退役版本不可修改");
         }
@@ -532,26 +593,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     }
 
     private void validateBpmn(String xml, String expectedProcessKey) throws ServiceException {
-        try {
-            javax.xml.stream.XMLStreamReader reader = javax.xml.stream.XMLInputFactory
-                    .newFactory().createXMLStreamReader(new java.io.StringReader(xml));
-            org.flowable.bpmn.model.BpmnModel model =
-                    new org.flowable.bpmn.converter.BpmnXMLConverter()
-                            .convertToBpmnModel(reader);
-            if (model.getProcesses().size() != 1
-                    || !expectedProcessKey.equals(model.getMainProcess().getId())) {
-                throw new ServiceException("BPMN 必須只有一個 Process，且 Process ID 必須等於流程代碼 "
-                        + expectedProcessKey);
-            }
-            if (!model.getMainProcess().findFlowElementsOfType(
-                    org.flowable.bpmn.model.ScriptTask.class).isEmpty()) {
-                throw new ServiceException("首版流程禁止使用 Script Task");
-            }
-        } catch (ServiceException exception) {
-            throw exception;
-        } catch (Exception exception) {
-            throw new ServiceException("BPMN XML 驗證失敗：" + exception.getMessage());
-        }
+        bpmnDesignValidator.validate(xml, expectedProcessKey);
     }
 
     private Set<String> userTaskKeys(String xml) throws ServiceException {
@@ -588,6 +630,82 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 version.getProcessDefId(), version.getVersionNo());
     }
 
+    private List<FmProcessStartPolicy> startPolicies(FmProcessVersion version)
+            throws ServiceException {
+        return startPolicyService.findByVersion(version.getTenantId(),
+                version.getProcessDefId(), version.getVersionNo());
+    }
+
+    private void saveStartPolicies(FmProcessVersion version,
+            List<FmProcessStartPolicyCommand> commands) throws ServiceException {
+        if (commands == null) {
+            return;
+        }
+        Set<Integer> sequences = new java.util.HashSet<>();
+        Set<String> accounts = employeeService.selectListByParams(
+                activeOptionParameters(version.getTenantId())).getValue().stream()
+                .map(employee -> employee.getAccount()).collect(Collectors.toSet());
+        Set<String> groupIds = approvalGroupService.selectListByParams(
+                activeOptionParameters(version.getTenantId())).getValue().stream()
+                .map(group -> group.getApprovalGroupId()).collect(Collectors.toSet());
+        Map<String, Object> unitParameters = new HashMap<>();
+        unitParameters.put("tenantId", version.getTenantId());
+        Set<String> orgUnitIds = orgUnitService.selectListByParams(unitParameters).getValue()
+                .stream().map(unit -> unit.getOrgUnitId()).collect(Collectors.toSet());
+        List<FmProcessStartPolicy> policies = new java.util.ArrayList<>();
+        for (FmProcessStartPolicyCommand command : commands) {
+            if (command == null || command.policySeq() == null || command.policySeq() < 1
+                    || !sequences.add(command.policySeq())
+                    || !Set.of("ALL", "ACCOUNT", "ORG_UNIT", "APPROVAL_GROUP")
+                            .contains(command.subjectType())
+                    || !Set.of("Y", "N").contains(command.allowStart())
+                    || (!"ALL".equals(command.subjectType())
+                            && StringUtils.isBlank(command.subjectRefId()))) {
+                throw new ServiceException("流程啟動規則內容不完整或重複");
+            }
+            boolean missingReference = switch (command.subjectType()) {
+                case "ACCOUNT" -> !accounts.contains(command.subjectRefId());
+                case "APPROVAL_GROUP" -> !groupIds.contains(command.subjectRefId());
+                case "ORG_UNIT" -> !orgUnitIds.contains(command.subjectRefId());
+                default -> false;
+            };
+            if (missingReference) {
+                throw new ServiceException("流程啟動規則的對象不存在或不屬於目前 Tenant："
+                        + command.subjectRefId());
+            }
+            policies.add(newStartPolicy(version, command.policySeq(), command.subjectType(),
+                    "ALL".equals(command.subjectType()) ? null : command.subjectRefId(),
+                    command.allowStart()));
+        }
+        startPolicyService.replaceVersion(version.getTenantId(), version.getProcessDefId(),
+                version.getVersionNo(), policies);
+    }
+
+    private FmProcessStartPolicy newStartPolicy(FmProcessVersion version, Integer sequence,
+            String subjectType, String subjectRefId, String allowStart) {
+        FmProcessStartPolicy policy = new FmProcessStartPolicy();
+        policy.setOid(UUID.randomUUID().toString());
+        policy.setTenantId(version.getTenantId());
+        policy.setProcessDefId(version.getProcessDefId());
+        policy.setProcessVersionNo(version.getVersionNo());
+        policy.setPolicySeq(sequence);
+        policy.setSubjectType(subjectType);
+        policy.setSubjectRefId(subjectRefId);
+        policy.setAllowStart(allowStart);
+        policy.setCuserid(UserUtils.getCurrentUser().getUserId());
+        policy.setCdate(new Date());
+        return policy;
+    }
+
+    private void validateStartPoliciesForPublish(FmProcessVersion version)
+            throws ServiceException {
+        List<FmProcessStartPolicy> policies = startPolicies(version);
+        if (policies.isEmpty()
+                || policies.stream().noneMatch(policy -> "Y".equals(policy.getAllowStart()))) {
+            throw new ServiceException("流程至少需要一筆允許啟動的規則");
+        }
+    }
+
     private void saveAssignmentRules(FmProcessVersion version,
             List<FmTaskAssignmentRuleCommand> commands, Set<String> taskKeys)
             throws ServiceException {
@@ -617,6 +735,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             rule.setResolverType(command.resolverType());
             rule.setResolverConfig(StringUtils.defaultIfBlank(command.resolverConfig(), "{}"));
             rule.setFallbackConfig(command.fallbackConfig());
+            assignmentRuleConfigValidator.validate(
+                    rule.getResolverType(),
+                    rule.getResolverConfig(),
+                    rule.getFallbackConfig());
             rule.setMaxResults(command.maxResults());
             rule.setStatus(command.status());
             rule.setCuserid(UserUtils.getCurrentUser().getUserId());
@@ -872,6 +994,47 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         FmApprovalGroup::getAssignmentMode));
         approvalGroupModeValidator.validate(
                 taskPolicies(version), assignmentRules(version), groupModes);
+    }
+
+    private void validateAssignmentRulesForPublish(FmProcessVersion version)
+            throws ServiceException {
+        for (FmTaskAssignmentRule rule : assignmentRules(version)) {
+            if (!"ACTIVE".equals(rule.getStatus())) {
+                continue;
+            }
+            assignmentRuleConfigValidator.validate(
+                    rule.getResolverType(),
+                    rule.getResolverConfig(),
+                    rule.getFallbackConfig());
+        }
+    }
+
+    private void validateGatewayFormFieldsForPublish(FmProcessVersion version)
+            throws ServiceException {
+        Set<String> gatewayFields = bpmnDesignValidator
+                .referencedFormFields(version.getBpmnXml());
+        if (gatewayFields.isEmpty()) {
+            return;
+        }
+        Map<String, FmPublishedFormOptionView> publishedForms = taskFormRuleService
+                .publishedFormOptions(version.getTenantId()).stream()
+                .collect(Collectors.toMap(
+                        value -> value.formId() + ":" + value.formVersionNo(),
+                        value -> value,
+                        (first, ignored) -> first));
+        for (FmTaskFormRule rule : taskFormRules(version)) {
+            String formKey = rule.getFormId() + ":" + rule.getFormVersionNo();
+            FmPublishedFormOptionView form = publishedForms.get(formKey);
+            if (form == null) {
+                throw new ServiceException("流程綁定的已發佈表單不存在：" + formKey);
+            }
+            Set<String> missing = new java.util.TreeSet<>(gatewayFields);
+            missing.removeAll(formFieldCatalog.fields(form.schemaContent()));
+            if (!missing.isEmpty()) {
+                throw new ServiceException("Gateway 條件欄位不存在於表單「"
+                        + form.label() + "」：" + String.join(", ", missing));
+            }
+        }
     }
 
     private String defaultBpmn(FmProcessDef processDef) {

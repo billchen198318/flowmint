@@ -39,6 +39,33 @@ const approvalGroups = ref<any[]>([]);
 const approvalLevels = ref<any[]>([]);
 const orgTitles = ref<any[]>([]);
 const orgDuties = ref<any[]>([]);
+const orgUnits = ref<any[]>([]);
+const addStartPolicy = () => {
+  if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+  selectedVersion.value.startPolicies ||= [];
+  selectedVersion.value.startPolicies.push({
+    policySeq: selectedVersion.value.startPolicies.length + 1,
+    subjectType: "ALL",
+    subjectRefId: "",
+    allowStart: "Y",
+  });
+};
+const removeStartPolicy = (index: number) => {
+  if (selectedVersion.value?.versionStatus !== "DRAFT") return;
+  selectedVersion.value.startPolicies.splice(index, 1);
+  selectedVersion.value.startPolicies.forEach(
+    (policy: any, policyIndex: number) => policy.policySeq = policyIndex + 1,
+  );
+};
+const startPolicyOptions = (subjectType: string) => {
+  if (subjectType === "ACCOUNT") return resolverAccounts.value;
+  if (subjectType === "APPROVAL_GROUP") return approvalGroups.value;
+  if (subjectType === "ORG_UNIT") return orgUnits.value;
+  return [];
+};
+const changeStartPolicyType = (policy: any) => {
+  policy.subjectRefId = "";
+};
 let modeler: any = null;
 const newForm = () => ({
   oid: "",
@@ -165,7 +192,7 @@ const ensureSelectedTaskPolicy = () => {
     selfApprovalPolicy: "SKIP_TO_NEXT",
     duplicatePolicy: "MERGE_CONSECUTIVE",
     allowReject: "Y",
-    allowReturn: "Y",
+    allowReturn: "N",
     allowTransfer: "N",
     allowAddSign: "N",
     commentRequired: "ON_REJECT_RETURN",
@@ -182,13 +209,36 @@ const selectedPublishedForm = computed(() => publishedForms.value.find(
     && item.formVersionNo === selectedTaskRule.value?.formVersionNo,
 ));
 const conditionSchemaContent = computed(() => {
-  const taskForm = selectedVersion.value?.taskForms?.[0];
-  if (!taskForm) return "";
-  return publishedForms.value.find(
-    (item: any) =>
-      item.formId === taskForm.formId &&
-      item.formVersionNo === taskForm.formVersionNo,
-  )?.schemaContent;
+  const bindings = selectedVersion.value?.taskForms || [];
+  const schemas = bindings
+    .map((binding: any) => publishedForms.value.find(
+      (item: any) => item.formId === binding.formId
+        && item.formVersionNo === binding.formVersionNo,
+    )?.schemaContent)
+    .filter(Boolean);
+  if (!schemas.length || schemas.length !== bindings.length) return "";
+  const catalogs = schemas.map((content: string) => {
+    const fields = new Map<string, any>();
+    const collect = (components: any[] = [], insideGrid = false) => {
+      for (const component of components) {
+        const nestedGrid = insideGrid || ["datagrid", "editgrid"].includes(component?.type);
+        if (component?.key && component?.input !== false && !insideGrid)
+          fields.set(component.key, component);
+        collect(component?.components, nestedGrid);
+        for (const column of Array.isArray(component?.columns) ? component.columns : [])
+          collect(column?.components, nestedGrid);
+        for (const row of Array.isArray(component?.rows) ? component.rows : [])
+          for (const cell of Array.isArray(row) ? row : [])
+            collect(cell?.components, nestedGrid);
+      }
+    };
+    collect(JSON.parse(content).components || []);
+    return fields;
+  });
+  const common = [...catalogs[0].entries()]
+    .filter(([key]) => catalogs.every((catalog) => catalog.has(key)))
+    .map(([, component]) => component);
+  return JSON.stringify({ display: "form", components: common });
 });
 const loadPublishedForms = async () => {
   if (!form.value.tenantId) return;
@@ -199,19 +249,22 @@ const loadPublishedForms = async () => {
 };
 const loadResolverOptions = async () => {
   if (!form.value.tenantId) return;
-  const [accountResponse, groupResponse, levelResponse, titleResponse, dutyResponse] =
+  const [accountResponse, groupResponse, levelResponse, titleResponse, dutyResponse,
+    unitResponse] =
     await Promise.all([
     post("/resolver-account-options", { tenantId: form.value.tenantId }),
     post("/approval-group-options", { tenantId: form.value.tenantId }),
     post("/approval-level-options", { tenantId: form.value.tenantId }),
     post("/org-title-options", { tenantId: form.value.tenantId }),
     post("/org-duty-options", { tenantId: form.value.tenantId }),
+    post("/org-unit-options", { tenantId: form.value.tenantId }),
   ]);
   resolverAccounts.value = accountResponse.data?.value || [];
   approvalGroups.value = groupResponse.data?.value || [];
   approvalLevels.value = levelResponse.data?.value || [];
   orgTitles.value = titleResponse.data?.value || [];
   orgDuties.value = dutyResponse.data?.value || [];
+  orgUnits.value = unitResponse.data?.value || [];
 };
 const bindModelerEvents = () => {
   const selectElement = (element: any) => {
@@ -444,6 +497,7 @@ const save = async () => {
     const draftTaskForms = draftOid ? currentTaskForms() : [];
     const draftTaskPolicies = draftOid ? currentTaskPolicies() : [];
     const draftAssignmentRules = draftOid ? currentAssignmentRules() : [];
+    const draftStartPolicies = draftOid ? selectedVersion.value.startPolicies || [] : [];
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
     if (!showResponse(response)) return;
@@ -461,6 +515,7 @@ const save = async () => {
         taskForms: draftTaskForms,
         taskPolicies: draftTaskPolicies,
         assignmentRules: draftAssignmentRules,
+        startPolicies: draftStartPolicies,
       });
       if (showResponse(response)) await apply(response.data.value);
     }
@@ -492,6 +547,7 @@ const publish = async () => {
       taskForms: currentTaskForms(),
       taskPolicies: currentTaskPolicies(),
       assignmentRules: currentAssignmentRules(),
+      startPolicies: selectedVersion.value.startPolicies || [],
     });
     if (!responseOk(response)) {
       showResponse(response);
@@ -1006,6 +1062,70 @@ onBeforeUnmount(() => modeler?.destroy());
                 </div>
               </template>
             </div>
+          </div>
+        </div>
+      </div>
+      <div v-if="selectedVersion" class="card mt-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span>流程啟動規則</span>
+          <button v-if="selectedVersion.versionStatus === 'DRAFT'" type="button"
+            class="btn btn-sm btn-outline-primary" @click="addStartPolicy">
+            <i class="bi bi-plus-circle"></i> 新增規則
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="form-text mb-2">
+            至少需要一筆「允許」規則；拒絕規則優先於允許規則。
+          </div>
+          <div v-if="!selectedVersion.startPolicies?.length" class="alert alert-warning mb-0">
+            尚未設定啟動規則，此版本無法發佈。
+          </div>
+          <div v-else class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>#</th><th>對象類型</th><th>對象</th><th>權限</th><th></th></tr></thead>
+              <tbody>
+                <tr v-for="(policy, index) in selectedVersion.startPolicies"
+                  :key="`${policy.policySeq}-${index}`">
+                  <td>{{ index + 1 }}</td>
+                  <td>
+                    <select v-model="policy.subjectType" class="form-select form-select-sm"
+                      :disabled="selectedVersion.versionStatus !== 'DRAFT'"
+                      @change="changeStartPolicyType(policy)">
+                      <option value="ALL">全部使用者</option>
+                      <option value="ACCOUNT">指定帳號</option>
+                      <option value="APPROVAL_GROUP">簽核群組</option>
+                      <option value="ORG_UNIT">組織單位 ID</option>
+                    </select>
+                  </td>
+                  <td>
+                    <span v-if="policy.subjectType === 'ALL'" class="text-muted">不需指定</span>
+                    <select v-else-if="startPolicyOptions(policy.subjectType).length"
+                      v-model="policy.subjectRefId" class="form-select form-select-sm"
+                      :disabled="selectedVersion.versionStatus !== 'DRAFT'">
+                      <option value="">請選擇</option>
+                      <option v-for="option in startPolicyOptions(policy.subjectType)"
+                        :key="option.value" :value="option.value">{{ option.label }}</option>
+                    </select>
+                    <input v-else v-model.trim="policy.subjectRefId"
+                      class="form-control form-control-sm" placeholder="請輸入組織單位 ID"
+                      :disabled="selectedVersion.versionStatus !== 'DRAFT'" />
+                  </td>
+                  <td>
+                    <select v-model="policy.allowStart" class="form-select form-select-sm"
+                      :disabled="selectedVersion.versionStatus !== 'DRAFT'">
+                      <option value="Y">允許</option>
+                      <option value="N">拒絕</option>
+                    </select>
+                  </td>
+                  <td class="text-end">
+                    <button v-if="selectedVersion.versionStatus === 'DRAFT'" type="button"
+                      class="btn btn-sm btn-outline-danger" @click="removeStartPolicy(index)">
+                      刪除
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

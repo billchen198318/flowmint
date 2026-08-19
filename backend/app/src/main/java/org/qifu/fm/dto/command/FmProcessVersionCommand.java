@@ -6,5 +6,6 @@ public record FmProcessVersionCommand(
         String bpmnXml,
         List<FmTaskFormRuleCommand> taskForms,
         List<FmTaskPolicyCommand> taskPolicies,
-        List<FmTaskAssignmentRuleCommand> assignmentRules) {
+        List<FmTaskAssignmentRuleCommand> assignmentRules,
+        List<FmProcessStartPolicyCommand> startPolicies) {
 }

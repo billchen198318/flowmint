@@ -10,6 +10,7 @@ import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmApprovalAuthorityCommand;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
 import org.qifu.fm.dto.command.FmResolverPreviewCommand;
@@ -39,14 +40,17 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
     private final transient IFmProcessDefService processDefService;
     private final transient IFmProcessDefLogicService processDefLogicService;
     private final transient IFmApprovalAuthorityLogicService approvalAuthorityLogicService;
+    private final transient FmTenantAccessGuard tenantAccessGuard;
 
     public FMPROG004D0001Controller(
             IFmProcessDefService processDefService,
             IFmProcessDefLogicService processDefLogicService,
-            IFmApprovalAuthorityLogicService approvalAuthorityLogicService) {
+            IFmApprovalAuthorityLogicService approvalAuthorityLogicService,
+            FmTenantAccessGuard tenantAccessGuard) {
         this.processDefService = processDefService;
         this.processDefLogicService = processDefLogicService;
         this.approvalAuthorityLogicService = approvalAuthorityLogicService;
+        this.tenantAccessGuard = tenantAccessGuard;
     }
 
     @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
@@ -54,6 +58,8 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
     public ResponseEntity<QueryResult<List<FmProcessDef>>> findPage(@RequestBody SearchBody body) {
         QueryResult<List<FmProcessDef>> result = initResult();
         try {
+            tenantAccessGuard.requireQueryAccess(
+                    body.getField() == null ? null : body.getField().get("tenantId"));
             setQueryResponseJsonResult(processDefService.findPage(
                     queryParameter(body).fullEquals("tenantId").fullEquals("status")
                             .fullLink("processKey").fullLink("processName").value(),
@@ -184,6 +190,20 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
         try {
             setDefaultResponseJsonResult(
                     processDefLogicService.resolverAccountOptions(body.get("tenantId")), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/org-unit-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> orgUnitOptions(
+            @RequestBody Map<String, String> body) {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    processDefLogicService.orgUnitOptions(body.get("tenantId")), result);
         } catch (Exception exception) {
             exceptionResult(result, exception);
         }

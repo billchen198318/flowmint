@@ -11,6 +11,7 @@ import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.fm.domain.authority.FmApprovalAuthorityConditionEvaluator;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmApprovalAuthorityCommand;
 import org.qifu.fm.dto.command.FmApprovalAuthorityRuleCommand;
 import org.qifu.fm.dto.view.FmApprovalAuthorityRuleView;
@@ -39,14 +40,17 @@ public class FmApprovalAuthorityLogicServiceImpl
     private final IFmApprovalAuthorityService authorityService;
     private final IFmApprovalAuthorityRuleService ruleService;
     private final FmApprovalAuthorityConditionEvaluator conditionEvaluator;
+    private final FmTenantAccessGuard tenantAccessGuard;
 
     public FmApprovalAuthorityLogicServiceImpl(
             IFmApprovalAuthorityService authorityService,
             IFmApprovalAuthorityRuleService ruleService,
-            FmApprovalAuthorityConditionEvaluator conditionEvaluator) {
+            FmApprovalAuthorityConditionEvaluator conditionEvaluator,
+            FmTenantAccessGuard tenantAccessGuard) {
         this.authorityService = authorityService;
         this.ruleService = ruleService;
         this.conditionEvaluator = conditionEvaluator;
+        this.tenantAccessGuard = tenantAccessGuard;
     }
 
     @Override
@@ -56,6 +60,7 @@ public class FmApprovalAuthorityLogicServiceImpl
         if (StringUtils.isAnyBlank(tenantId, processDefId)) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
+        tenantAccessGuard.requireAccess(tenantId);
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);
         parameters.put("processDefId", processDefId);
@@ -68,7 +73,9 @@ public class FmApprovalAuthorityLogicServiceImpl
 
     @Override
     public DefaultResult<FmApprovalAuthorityView> load(String oid) throws ServiceException {
-        return success(view(requiredAuthority(oid)));
+        FmApprovalAuthority authority = requiredAuthority(oid);
+        tenantAccessGuard.requireAccess(authority.getTenantId());
+        return success(view(authority));
     }
 
     @Override
@@ -76,6 +83,7 @@ public class FmApprovalAuthorityLogicServiceImpl
     public DefaultResult<FmApprovalAuthorityView> create(FmApprovalAuthorityCommand command)
             throws ServiceException {
         validate(command, true);
+        tenantAccessGuard.requireAccess(command.tenantId());
         FmApprovalAuthority authority = new FmApprovalAuthority();
         authority.setTenantId(command.tenantId());
         authority.setApprovalAuthorityId(UUID.randomUUID().toString());
@@ -93,6 +101,7 @@ public class FmApprovalAuthorityLogicServiceImpl
             throws ServiceException {
         validate(command, false);
         FmApprovalAuthority authority = requiredAuthority(command.oid());
+        tenantAccessGuard.requireAccess(authority.getTenantId());
         if (!authority.getTenantId().equals(command.tenantId())) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
@@ -109,6 +118,7 @@ public class FmApprovalAuthorityLogicServiceImpl
     public DefaultResult<FmApprovalAuthorityView> deactivate(String oid)
             throws ServiceException {
         FmApprovalAuthority authority = requiredAuthority(oid);
+        tenantAccessGuard.requireAccess(authority.getTenantId());
         authority.setStatus("INACTIVE");
         authorityService.update(authority);
         return success(view(authority));
