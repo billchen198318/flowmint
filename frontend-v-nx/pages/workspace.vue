@@ -56,6 +56,22 @@ const statCards = computed(() => [
   { label: "已完成", value: completedRequests.value.length, icon: "bi-check2-circle", tone: "success", anchor: "requests" },
   { label: "可發起流程", value: processes.value.length, icon: "bi-send-plus", tone: "info", anchor: "start" },
 ]);
+const scrollToWorkspaceSection = async (anchor: string) => {
+  await nextTick();
+  const container = document.querySelector(".app-content > .tab-content");
+  if (!(container instanceof HTMLElement)) return;
+  if (anchor === "inbox") {
+    container.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+  const target = document.getElementById(anchor);
+  if (!target) return;
+  const top = target.getBoundingClientRect().top
+    - container.getBoundingClientRect().top
+    + container.scrollTop
+    - 16;
+  container.scrollTo({ top: Math.max(top, 0), behavior: "smooth" });
+};
 const formatDate = (value: string | null) => value
   ? new Intl.DateTimeFormat("zh-TW", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
   : "—";
@@ -471,10 +487,10 @@ onBeforeUnmount(() => {
 
     <section class="row g-3 mb-4" aria-label="工作統計">
       <div v-for="card in statCards" :key="card.label" class="col-6 col-xl-3">
-        <a :href="`#${card.anchor}`" class="stat-card text-decoration-none">
+        <button type="button" class="stat-card stat-card-button" @click="scrollToWorkspaceSection(card.anchor)">
           <span :class="['stat-icon', `tone-${card.tone}`]"><i :class="['bi', card.icon]"></i></span>
           <span><small>{{ card.label }}</small><strong>{{ card.value }}</strong></span>
-        </a>
+        </button>
       </div>
     </section>
 
@@ -598,6 +614,8 @@ onBeforeUnmount(() => {
 .hero-context { display: grid; min-width: 210px; padding: .85rem 1rem; border-radius: .9rem; background: rgba(255,255,255,.82); box-shadow: 0 8px 24px rgba(31,45,61,.07); }
 .context-label { color: #788397; font-size: .72rem; }.context-tenant { color: #526076; font-size: .82rem; }
 .stat-card { display: flex; align-items: center; gap: 1rem; height: 100%; padding: 1.15rem; border: 1px solid #e5eaf1; border-radius: 1rem; background: #fff; color: inherit; box-shadow: 0 8px 26px rgba(35,49,72,.055); transition: transform .18s ease, box-shadow .18s ease; }
+.stat-card-button { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.stat-card-button:focus-visible { outline: 3px solid rgba(66,99,235,.3); outline-offset: 2px; }
 .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(35,49,72,.1); }.stat-card small,.stat-card strong { display:block; }.stat-card small { color:#778296; }.stat-card strong { font-size:1.7rem; line-height:1.15; }
 .stat-icon,.list-icon { display:grid; place-items:center; flex:0 0 auto; border-radius:.8rem; }.stat-icon { width:46px; height:46px; font-size:1.2rem; }.list-icon { width:38px; height:38px; }
 .tone-primary { color:#3451b2; background:#eaf0ff; }.tone-warning { color:#9a6700; background:#fff3d6; }.tone-success { color:#18794e; background:#e9f9ef; }.tone-info { color:#087e8b; background:#e4f7f8; }
