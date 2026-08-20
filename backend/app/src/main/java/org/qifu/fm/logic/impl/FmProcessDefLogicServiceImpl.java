@@ -52,6 +52,7 @@ import org.qifu.fm.domain.runtime.FmApprovalGroupModeValidator;
 import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
 import org.qifu.fm.domain.workflow.FmAssignmentRuleConfigValidator;
 import org.qifu.fm.domain.workflow.FmBpmnDesignValidator;
+import org.qifu.fm.domain.workflow.FmProcessPublishValidator;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessVersionService;
@@ -79,6 +80,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             new FmAssignmentRuleConfigValidator(new tools.jackson.databind.ObjectMapper());
     private final FmBpmnDesignValidator bpmnDesignValidator =
             new FmBpmnDesignValidator();
+    private final FmProcessPublishValidator processPublishValidator =
+            new FmProcessPublishValidator();
     private final FmFormFieldCatalog formFieldCatalog =
             new FmFormFieldCatalog(new tools.jackson.databind.ObjectMapper());
     private final FmTaskFieldPolicyValidator taskFieldPolicyValidator =
@@ -289,6 +292,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         FmProcessDef processDef = findDef(version.getTenantId(), version.getProcessDefId());
         validateBpmn(version.getBpmnXml(), processDef.getProcessKey());
         Set<String> taskKeys = userTaskKeys(version.getBpmnXml());
+        processPublishValidator.validate(taskKeys, taskFormRules(version),
+                taskPolicies(version), assignmentRules(version));
         validateTaskFormsForPublish(version, taskKeys);
         validateGatewayFormFieldsForPublish(version);
         validateTaskPoliciesForPublish(version, taskKeys);
