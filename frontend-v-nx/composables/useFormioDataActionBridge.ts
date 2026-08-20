@@ -4,6 +4,7 @@ import {
   buildDataActionRequest,
   setFormDataPath,
   useFormDataAction,
+  validateDataActionTargets,
 } from "@/composables/useFormDataAction";
 import type { FormDataActionUiSchema } from "@/types/formDataAction";
 
@@ -29,6 +30,10 @@ export const useFormioDataActionBridge = () => {
     uiSchema: FormDataActionUiSchema,
     runLifecycle?: LifecycleRunner,
   ) => {
+    let disposed = false;
+    const generation = Symbol("formio-data-action-bridge");
+    let activeGeneration: symbol | null = generation;
+    const isActive = () => !disposed && activeGeneration === generation;
     const detachCallbacks: Array<() => void> = [];
     const inFlight = new Set<string>();
     const bindings = uiSchema.dataActions || [];
@@ -49,10 +54,20 @@ export const useFormioDataActionBridge = () => {
           ? configuredBindingId
           : `legacy-${bindingIndex}-${binding.event}-${binding.actionCode}`;
       const handler = async () => {
-        if (inFlight.has(runtimeBindingId)) return;
+        if (!isActive() || inFlight.has(runtimeBindingId)) return;
         inFlight.add(runtimeBindingId);
         const submissionData = formio.submission?.data || {};
         try {
+          try {
+            validateDataActionTargets(binding);
+          } catch (error) {
+            toast.error(
+              escapeQifuHtmlMsg(
+                error instanceof Error ? error.message : "Data Action target 設定錯誤",
+              ),
+            );
+            return;
+          }
           let request: Record<string, unknown>;
           try {
             request = buildDataActionRequest(
@@ -76,6 +91,7 @@ export const useFormioDataActionBridge = () => {
             setFormDataPath(submissionData, binding.errorTarget, "");
           }
           try {
+            if (!isActive()) return;
             await refreshSubmission(formio, submissionData);
           } catch {
             toast.warning("Data Action 執行中，但畫面狀態更新失敗");
@@ -88,7 +104,9 @@ export const useFormioDataActionBridge = () => {
               submissionData,
               requestData: request,
             });
+            if (!isActive()) return;
           } catch (error: unknown) {
+            if (!isActive()) return;
             const message = error instanceof Error ? error.message : "Data Action 執行失敗";
             if (binding.statusTarget) {
               setFormDataPath(submissionData, binding.statusTarget, "ERROR");
@@ -98,6 +116,7 @@ export const useFormioDataActionBridge = () => {
             }
             try {
               await refreshSubmission(formio, submissionData);
+              if (!isActive()) return;
             } catch {
               toast.warning("Data Action 失敗，且畫面狀態更新失敗");
             }
@@ -117,11 +136,13 @@ export const useFormioDataActionBridge = () => {
           }
 
           try {
+            if (!isActive()) return;
             applyResponse(binding, execution, submissionData);
             if (binding.statusTarget) {
               setFormDataPath(submissionData, binding.statusTarget, "SUCCESS");
             }
             await refreshSubmission(formio, submissionData);
+            if (!isActive()) return;
           } catch (error) {
             toast.warning(
               `Data Action 已執行成功，但結果套用失敗：${
@@ -129,6 +150,7 @@ export const useFormioDataActionBridge = () => {
               }`,
             );
           }
+          if (!isActive()) return;
           try {
             await runLifecycle?.("onDataActionSuccess", {
               actionCode: binding.actionCode,
@@ -144,7 +166,7 @@ export const useFormioDataActionBridge = () => {
               }`,
             );
           }
-          toast.success(`${binding.actionCode} 執行成功`);
+          if (isActive()) toast.success(`${binding.actionCode} 執行成功`);
         } finally {
           inFlight.delete(runtimeBindingId);
         }
@@ -153,7 +175,13 @@ export const useFormioDataActionBridge = () => {
       detachCallbacks.push(() => formio.off?.(binding.event, handler));
     }
 
-    return () => detachCallbacks.forEach((detach) => detach());
+    return () => {
+      if (disposed) return;
+      disposed = true;
+      activeGeneration = null;
+      detachCallbacks.forEach((detach) => detach());
+      inFlight.clear();
+    };
   };
 
   return { attach };

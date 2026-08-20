@@ -1069,7 +1069,7 @@ return {
 - Workspace 正式送出與 Task Action 已接入 beforeSubmit／afterSubmit；beforeSubmit 修改會進入最終 payload，後端成功後的 afterSubmit 錯誤只警告，不回滾或誤報交易失敗。
 - Data Action Binding 與直接 helper 已接入 onDataActionSuccess／onDataActionError；success hook 失敗不推翻成功 Action。
 - Runtime context 已補 actionType、taskId、formData 等欄位，FIELD_POLICY 亦已完成前端套用與後端防竄改。
-- 尚待處理非同步 hook 卸載競態、`onFieldChange` 事件遺失、lifecycle timeout 與相關自動化測試；詳見 [25-2026-08-19 待處理問題與明日接續](25-2026-08-19待處理問題與明日接續.md)。
+- 非同步 hook 卸載競態已以 `destroying`／`destroyed` 與 generation token 修正；`onFieldChange` 已改用 latest pending event；所有 lifecycle 已加入預設 15 秒 timeout，逾時後拒絕過期 helper、Data Action result 與通知操作。尚待建立前端自動化測試，覆蓋 deferred Promise、卸載、重入及 timeout。
 
 Custom JavaScript 未採 iframe、Web Worker 或獨立 realm 做真正執行隔離，依 2026-08-19 產品決策屬受信任管理者的客製擴充模型，不列為 bug。`READ_ONLY` 代表表單模式，不代表 JavaScript sandbox；後端權限、tenant 邊界、Data Action 類型限制與 audit 仍須獨立強制執行。
 

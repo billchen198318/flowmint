@@ -8,7 +8,9 @@ import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
@@ -26,9 +28,14 @@ import org.qifu.fm.dto.view.FmFormVersionView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormVersion;
+import org.qifu.fm.entity.FmDataAction;
+import org.qifu.fm.entity.FmDataActionStep;
 import org.qifu.fm.logic.IFmFormDefLogicService;
 import org.qifu.fm.service.IFmFormDefService;
 import org.qifu.fm.service.IFmFormVersionService;
+import org.qifu.fm.service.IFmDataActionService;
+import org.qifu.fm.service.IFmDataActionStepService;
+import org.qifu.fm.service.IFmDataActionVersionService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +67,9 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     private final IFmFormDefService formDefService;
     private final IFmFormVersionService formVersionService;
     private final IFmTenantService tenantService;
+    private final IFmDataActionService dataActionService;
+    private final IFmDataActionVersionService dataActionVersionService;
+    private final IFmDataActionStepService dataActionStepService;
     private final ObjectMapper objectMapper;
     private final FmFormDesignValidator formDesignValidator;
     private final FmFormScriptContractValidator formScriptContractValidator;
@@ -69,6 +79,9 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             IFmFormDefService formDefService,
             IFmFormVersionService formVersionService,
             IFmTenantService tenantService,
+            IFmDataActionService dataActionService,
+            IFmDataActionVersionService dataActionVersionService,
+            IFmDataActionStepService dataActionStepService,
             ObjectMapper objectMapper,
             FmFormDesignValidator formDesignValidator,
             FmFormScriptContractValidator formScriptContractValidator,
@@ -76,6 +89,9 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         this.formDefService = formDefService;
         this.formVersionService = formVersionService;
         this.tenantService = tenantService;
+        this.dataActionService = dataActionService;
+        this.dataActionVersionService = dataActionVersionService;
+        this.dataActionStepService = dataActionStepService;
         this.objectMapper = objectMapper;
         this.formDesignValidator = formDesignValidator;
         this.formScriptContractValidator = formScriptContractValidator;
@@ -201,6 +217,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 version.getSchemaContent(),
                 version.getUiSchemaContent(),
                 version.getCustomScriptContent());
+        validatePublishedDataActionBindings(version.getTenantId(), content.uiSchemaContent());
         FmFormDef formDef = findDef(version.getTenantId(), version.getFormId());
         assertFormActive(formDef);
         for (FmFormVersion previous : versions(formDef)) {
@@ -413,6 +430,101 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         return StringUtils.defaultString(customScriptContent)
                 .replace("\r\n", "\n")
                 .replace('\r', '\n');
+    }
+
+    private void validatePublishedDataActionBindings(String tenantId, String uiSchemaContent)
+            throws ServiceException {
+        try {
+            JsonNode bindings = objectMapper.readTree(uiSchemaContent).path("dataActions");
+            if (!bindings.isArray()) {
+                return;
+            }
+            for (JsonNode binding : bindings) {
+                String bindingId = binding.path("bindingId").asText("");
+                String actionCode = binding.path("actionCode").asText("");
+                FmDataAction action = findPublishedDataAction(tenantId, actionCode, bindingId);
+                Integer versionNo = binding.hasNonNull("actionVersion")
+                        ? binding.path("actionVersion").asInt(0)
+                        : action.getCurrentVersionNo();
+                if (versionNo == null || versionNo <= 0) {
+                    throw bindingInvalid(bindingId, "actionVersion 必須是正整數");
+                }
+                assertPublishedDataActionVersion(tenantId, action, versionNo, bindingId);
+                validateDataActionMetadata(tenantId, action, versionNo, binding, bindingId);
+            }
+        } catch (JacksonException exception) {
+            throw new ServiceException("表單 Data Action Binding JSON 格式錯誤："
+                    + exception.getMessage());
+        }
+    }
+
+    private FmDataAction findPublishedDataAction(String tenantId, String actionCode,
+            String bindingId) throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("actionCode", actionCode);
+        parameters.put("status", "ACTIVE");
+        return dataActionService.selectListByParams(parameters).getValue().stream()
+                .findFirst()
+                .orElseThrow(() -> bindingInvalid(bindingId,
+                        "找不到同 Tenant 的啟用 Data Action：" + actionCode));
+    }
+
+    private void assertPublishedDataActionVersion(String tenantId, FmDataAction action,
+            int versionNo, String bindingId) throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("actionId", action.getActionId());
+        parameters.put("versionNo", versionNo);
+        parameters.put("versionStatus", "PUBLISHED");
+        if (dataActionVersionService.selectListByParams(parameters).getValue().isEmpty()) {
+            throw bindingInvalid(bindingId, "Data Action " + action.getActionCode()
+                    + " Version " + versionNo + " 不存在或尚未發布");
+        }
+    }
+
+    private void validateDataActionMetadata(String tenantId, FmDataAction action,
+            int versionNo, JsonNode binding, String bindingId) throws ServiceException {
+        Set<String> requestFields;
+        try {
+            JsonNode requestSchema = objectMapper.readTree(
+                    StringUtils.defaultIfBlank(action.getRequestSchema(), "{}"));
+            if (!requestSchema.isObject()) {
+                throw bindingInvalid(bindingId, "Data Action request schema 不是物件");
+            }
+            requestFields = requestSchema.propertyNames().stream().collect(Collectors.toSet());
+        } catch (JacksonException exception) {
+            throw bindingInvalid(bindingId, "Data Action request schema 格式錯誤");
+        }
+        Set<String> mappedRequestFields = binding.path("requestMapping").isObject()
+                ? binding.path("requestMapping").propertyNames().stream().collect(Collectors.toSet())
+                : Set.of();
+        if (!requestFields.equals(mappedRequestFields)) {
+            throw bindingInvalid(bindingId, "requestMapping 欄位與 Data Action metadata 不一致");
+        }
+
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("actionId", action.getActionId());
+        parameters.put("versionNo", versionNo);
+        parameters.put("status", "ACTIVE");
+        Set<String> responseKeys = dataActionStepService.selectListByParams(parameters)
+                .getValue().stream()
+                .filter(step -> !"NONE".equals(step.getResultMode()))
+                .map(FmDataActionStep::getResultKey)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toSet());
+        for (String sourcePath : binding.path("responseMapping").propertyNames()) {
+            String rootKey = StringUtils.substringBefore(sourcePath, ".");
+            if (!responseKeys.contains(rootKey)) {
+                throw bindingInvalid(bindingId, "responseMapping 來源不在 Data Action metadata："
+                        + sourcePath);
+            }
+        }
+    }
+
+    private ServiceException bindingInvalid(String bindingId, String detail) {
+        return new ServiceException("Data Action Binding " + bindingId + "：" + detail);
     }
 
     private String sha256(String value) throws ServiceException {

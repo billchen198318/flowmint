@@ -28,7 +28,7 @@ class FmFormDesignValidatorTest {
                 {"engine":"FORMIO","dataActions":[{
                   "bindingId":"binding-1","event":"lookupVendor","actionCode":"VENDOR_LOOKUP",
                   "requestMapping":{"subject":"submission.subject"},
-                  "responseMapping":{"status":"actionStatus"},"statusTarget":"actionStatus"
+                  "responseMapping":{"status":"subject"},"statusTarget":"actionStatus"
                 }]}
                 """);
 
@@ -182,5 +182,33 @@ class FmFormDesignValidatorTest {
 
         assertThrows(ServiceException.class,
                 () -> validator.validate(schema, uiSchema));
+    }
+
+    @Test
+    void rejectsDataActionTargetsWithConflictingPurposes() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"components":[
+                  {"type":"textfield","key":"subject"},
+                  {"type":"textfield","key":"status"},
+                  {"type":"button","key":"lookup","action":"event","event":"lookupVendor"}
+                ]}
+                """);
+        var responseAndStatus = objectMapper.readTree("""
+                {"dataActions":[{
+                  "bindingId":"b1","event":"lookupVendor","actionCode":"LOOKUP",
+                  "responseMapping":{"vendorName":"subject"},"statusTarget":"subject"
+                }]}
+                """);
+        var statusAndError = objectMapper.readTree("""
+                {"dataActions":[{
+                  "bindingId":"b1","event":"lookupVendor","actionCode":"LOOKUP",
+                  "statusTarget":"status","errorTarget":"status"
+                }]}
+                """);
+
+        assertThrows(ServiceException.class,
+                () -> validator.validate(schema, responseAndStatus));
+        assertThrows(ServiceException.class,
+                () -> validator.validate(schema, statusAndError));
     }
 }

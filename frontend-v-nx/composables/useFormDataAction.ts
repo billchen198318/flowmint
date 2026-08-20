@@ -10,13 +10,23 @@ const SUBMISSION_PATH_PATTERN =
 const RESPONSE_PATH_PATTERN =
   /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*$/;
 
-const getPath = (source: unknown, path: string): unknown => {
-  if (!path) return source;
-  return path.split(".").reduce<unknown>((value, segment) => {
-    if (value === null || typeof value !== "object") return undefined;
-    return (value as Record<string, unknown>)[segment];
-  }, source);
+const findPath = (source: unknown, path: string) => {
+  let value = source;
+  for (const segment of path.split(".")) {
+    if (
+      value === null ||
+      typeof value !== "object" ||
+      !Object.prototype.hasOwnProperty.call(value, segment)
+    ) {
+      return { found: false, value: undefined };
+    }
+    value = (value as Record<string, unknown>)[segment];
+  }
+  return { found: true, value };
 };
+
+const getPath = (source: unknown, path: string): unknown =>
+  path ? findPath(source, path).value : source;
 
 export const setFormDataPath = (
   target: Record<string, unknown>,
@@ -60,6 +70,23 @@ export const buildDataActionRequest = (
   );
 };
 
+export const validateDataActionTargets = (binding: FormDataActionBinding) => {
+  const responseTargets = Object.values(binding.responseMapping || {}).map((path) =>
+    path.replace(/^submission\./, ""),
+  );
+  const statusTarget = binding.statusTarget?.replace(/^submission\./, "");
+  const errorTarget = binding.errorTarget?.replace(/^submission\./, "");
+  if (statusTarget && responseTargets.includes(statusTarget)) {
+    throw new Error(`Data Action mapping 目標欄位用途衝突：${statusTarget}`);
+  }
+  if (errorTarget && responseTargets.includes(errorTarget)) {
+    throw new Error(`Data Action mapping 目標欄位用途衝突：${errorTarget}`);
+  }
+  if (statusTarget && statusTarget === errorTarget) {
+    throw new Error(`Data Action statusTarget 與 errorTarget 不可使用相同欄位：${statusTarget}`);
+  }
+};
+
 export const useFormDataAction = () => {
   const execute = async (
     binding: FormDataActionBinding,
@@ -95,6 +122,7 @@ export const useFormDataAction = () => {
     execution: DataActionExecutionView,
     submissionData: Record<string, unknown>,
   ) => {
+    validateDataActionTargets(binding);
     const mapping = binding.responseMapping;
     if (mapping == null) return;
     if (typeof mapping !== "object" || Array.isArray(mapping)) {
@@ -102,6 +130,10 @@ export const useFormDataAction = () => {
     }
     const entries = Object.entries(mapping);
     const targets = new Set<string>();
+    const reservedTargets = [binding.statusTarget, binding.errorTarget]
+      .filter((path): path is string => Boolean(path?.trim()))
+      .map((path) => path.replace(/^submission\./, ""));
+    const pendingWrites: Array<[string, unknown]> = [];
     for (const [responsePath, submissionPath] of entries) {
       if (!RESPONSE_PATH_PATTERN.test(responsePath)) {
         throw new Error(`Data Action responseMapping 來源路徑格式不合法：${responsePath}`);
@@ -113,14 +145,20 @@ export const useFormDataAction = () => {
       if (!targets.add(normalizedTarget)) {
         throw new Error(`Data Action responseMapping 目標欄位重複：${normalizedTarget}`);
       }
-    }
-    entries.forEach(([responsePath, submissionPath]) => {
-        setFormDataPath(
-          submissionData,
-          submissionPath.replace(/^submission\./, ""),
-          getPath(execution.data, responsePath),
+      if (reservedTargets.includes(normalizedTarget)) {
+        throw new Error(`Data Action mapping 目標欄位用途衝突：${normalizedTarget}`);
+      }
+      const resolved = findPath(execution.data, responsePath);
+      if (!resolved.found) {
+        throw new Error(
+          `Data Action ${binding.actionCode} 回應缺少來源路徑：${responsePath}`,
         );
-      });
+      }
+      pendingWrites.push([normalizedTarget, resolved.value]);
+    }
+    pendingWrites.forEach(([targetPath, value]) => {
+      setFormDataPath(submissionData, targetPath, value);
+    });
   };
 
   return { execute, applyResponse };

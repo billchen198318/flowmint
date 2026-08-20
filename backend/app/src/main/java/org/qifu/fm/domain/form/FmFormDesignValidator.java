@@ -139,6 +139,30 @@ public class FmFormDesignValidator {
                     "responseMapping");
             validateOptionalTarget(binding.path("statusTarget"), keys, "statusTarget");
             validateOptionalTarget(binding.path("errorTarget"), keys, "errorTarget");
+            validateBindingTargetCollisions(binding);
+        }
+    }
+
+    private void validateBindingTargetCollisions(JsonNode binding) throws ServiceException {
+        Set<String> responseTargets = new HashSet<>();
+        JsonNode responseMapping = binding.path("responseMapping");
+        if (responseMapping.isObject()) {
+            responseMapping.properties().forEach(
+                    property -> responseTargets.add(property.getValue().asText("")));
+        }
+        String statusTarget = binding.path("statusTarget").asText("");
+        String errorTarget = binding.path("errorTarget").asText("");
+        if (StringUtils.isNotBlank(statusTarget) && responseTargets.contains(statusTarget)) {
+            throw invalid("Data Action target 用途衝突：" + statusTarget
+                    + " 同時用於 responseMapping 與 statusTarget");
+        }
+        if (StringUtils.isNotBlank(errorTarget) && responseTargets.contains(errorTarget)) {
+            throw invalid("Data Action target 用途衝突：" + errorTarget
+                    + " 同時用於 responseMapping 與 errorTarget");
+        }
+        if (StringUtils.isNotBlank(statusTarget) && statusTarget.equals(errorTarget)) {
+            throw invalid("Data Action target 用途衝突：" + statusTarget
+                    + " 同時用於 statusTarget 與 errorTarget");
         }
     }
 
