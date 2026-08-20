@@ -75,8 +75,8 @@ public class FmFormSubmissionValidator {
 
     private void collectScopeKeys(JsonNode components, Set<String> keys) {
         for (JsonNode component : components) {
-            String key = component.path("key").asText("");
-            String type = component.path("type").asText("");
+            String key = component.path("key").asString("");
+            String type = component.path("type").asString("");
             if (StringUtils.isNotBlank(key) && !isLayout(type)) {
                 keys.add(key);
             }
@@ -98,8 +98,8 @@ public class FmFormSubmissionValidator {
 
     private void validateComponent(JsonNode component, Map<String, Object> data,
             String parentPath, List<String> errors) {
-        String key = component.path("key").asText("");
-        String type = component.path("type").asText("");
+        String key = component.path("key").asString("");
+        String type = component.path("type").asString("");
         Object value = StringUtils.isBlank(key) ? null : data.get(key);
         String path = StringUtils.isBlank(parentPath) ? key : parentPath + "." + key;
 
@@ -163,7 +163,7 @@ public class FmFormSubmissionValidator {
 
     private void validateScalar(JsonNode component, JsonNode rules, Object value,
             String path, List<String> errors) {
-        String type = component.path("type").asText("");
+        String type = component.path("type").asString("");
         String name = label(component, path);
         if (("number".equals(type) || "currency".equals(type)) && !(value instanceof Number)) {
             errors.add(name + " 必須為數值");
@@ -189,10 +189,10 @@ public class FmFormSubmissionValidator {
             List<String> errors) {
         BigDecimal number = new BigDecimal(value.toString());
         if (rules.has("min") && number.compareTo(rules.path("min").decimalValue()) < 0) {
-            errors.add(name + " 不可小於 " + rules.path("min").asText());
+            errors.add(name + " 不可小於 " + rules.path("min").asString());
         }
         if (rules.has("max") && number.compareTo(rules.path("max").decimalValue()) > 0) {
-            errors.add(name + " 不可大於 " + rules.path("max").asText());
+            errors.add(name + " 不可大於 " + rules.path("max").asString());
         }
     }
 
@@ -204,7 +204,7 @@ public class FmFormSubmissionValidator {
         if (rules.has("maxLength") && value.length() > rules.path("maxLength").asInt()) {
             errors.add(name + " 長度不可超過 " + rules.path("maxLength").asInt());
         }
-        String pattern = rules.path("pattern").asText("");
+        String pattern = rules.path("pattern").asString("");
         if (StringUtils.isNotBlank(pattern)) {
             try {
                 if (!Pattern.compile(pattern).matcher(value).matches()) {
@@ -214,7 +214,7 @@ public class FmFormSubmissionValidator {
                 errors.add(name + " 的 Schema pattern 無效");
             }
         }
-        if ("email".equals(component.path("type").asText())
+        if ("email".equals(component.path("type").asString())
                 && !EMAIL_PATTERN.matcher(value).matches()) {
             errors.add(name + " 不是有效的 Email");
         }
@@ -237,7 +237,7 @@ public class FmFormSubmissionValidator {
     }
 
     private String label(JsonNode component, String path) {
-        return component.path("label").asText(StringUtils.defaultIfBlank(path, "未命名欄位"));
+        return component.path("label").asString(StringUtils.defaultIfBlank(path, "未命名欄位"));
     }
 
     private Map<String, Object> stringMap(Map<?, ?> source) {

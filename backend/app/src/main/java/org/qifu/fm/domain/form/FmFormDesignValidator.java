@@ -8,6 +8,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.qifu.base.exception.ServiceException;
 import org.springframework.stereotype.Component;
 
@@ -48,17 +49,17 @@ public class FmFormDesignValidator {
             if (!component.isObject()) {
                 throw invalid(componentPath + " 必須是物件");
             }
-            String type = component.path("type").asText("");
+            String type = component.path("type").asString("");
             if (StringUtils.isBlank(type)) {
                 throw invalid(componentPath + " 缺少 type");
             }
             rejectExecutableConfiguration(component, componentPath);
-            String key = component.path("key").asText("");
+            String key = component.path("key").asString("");
             if (component.path("input").asBoolean(true) && !isLayout(type)) {
                 validateKey(key, componentPath, keys);
             }
-            if ("button".equals(type) && "event".equals(component.path("action").asText())) {
-                String event = component.path("event").asText("");
+            if ("button".equals(type) && "event".equals(component.path("action").asString())) {
+                String event = component.path("event").asString("");
                 if (StringUtils.isBlank(event) || !buttonEvents.add(event)) {
                     throw invalid(componentPath + " 的按鈕事件為空或重複");
                 }
@@ -105,7 +106,7 @@ public class FmFormDesignValidator {
         for (String property : EXECUTABLE_PROPERTIES) {
             JsonNode value = component.path(property);
             if (!value.isMissingNode() && !value.isNull()
-                    && (!value.isTextual() || StringUtils.isNotBlank(value.asText()))) {
+                    && (!value.isString() || StringUtils.isNotBlank(value.asString()))) {
                 throw invalid(path + " 不允許內嵌可執行設定：" + property);
             }
         }
@@ -125,9 +126,9 @@ public class FmFormDesignValidator {
         }
         Set<String> bindingIds = new HashSet<>();
         for (JsonNode binding : bindings) {
-            String id = binding.path("bindingId").asText("");
-            String event = binding.path("event").asText("");
-            String actionCode = binding.path("actionCode").asText("");
+            String id = binding.path("bindingId").asString("");
+            String event = binding.path("event").asString("");
+            String actionCode = binding.path("actionCode").asString("");
             if (StringUtils.isAnyBlank(id, event, actionCode) || !bindingIds.add(id)) {
                 throw invalid("Data Action Binding 缺少必要資料或 bindingId 重複");
             }
@@ -148,10 +149,10 @@ public class FmFormDesignValidator {
         JsonNode responseMapping = binding.path("responseMapping");
         if (responseMapping.isObject()) {
             responseMapping.properties().forEach(
-                    property -> responseTargets.add(property.getValue().asText("")));
+                    property -> responseTargets.add(property.getValue().asString("")));
         }
-        String statusTarget = binding.path("statusTarget").asText("");
-        String errorTarget = binding.path("errorTarget").asText("");
+        String statusTarget = binding.path("statusTarget").asString("");
+        String errorTarget = binding.path("errorTarget").asString("");
         if (StringUtils.isNotBlank(statusTarget) && responseTargets.contains(statusTarget)) {
             throw invalid("Data Action target 用途衝突：" + statusTarget
                     + " 同時用於 responseMapping 與 statusTarget");
@@ -178,15 +179,15 @@ public class FmFormDesignValidator {
         while (properties.hasNext()) {
             Map.Entry<String, JsonNode> property = properties.next();
             if (StringUtils.isBlank(property.getKey())
-                    || !property.getValue().isTextual()
-                    || StringUtils.isBlank(property.getValue().asText())) {
+                    || !property.getValue().isString()
+                    || StringUtils.isBlank(property.getValue().asString())) {
                 throw invalid("requestMapping 必須使用非空白字串欄位與路徑");
             }
-            String path = property.getValue().asText();
+            String path = property.getValue().asString();
             if (!SUBMISSION_PATH_PATTERN.matcher(path).matches()) {
                 throw invalid("requestMapping 路徑格式不合法：" + path);
             }
-            String normalizedPath = StringUtils.removeStart(path, "submission.");
+            String normalizedPath = Strings.CS.removeStart(path, "submission.");
             String rootField = StringUtils.substringBefore(normalizedPath, ".");
             if (!keys.contains(rootField)) {
                 throw invalid("requestMapping 指向不存在的欄位：" + path);
@@ -210,7 +211,7 @@ public class FmFormDesignValidator {
             if (!RESPONSE_PATH_PATTERN.matcher(source).matches()) {
                 throw invalid(name + " 來源路徑格式不合法：" + source);
             }
-            String target = property.getValue().asText("");
+            String target = property.getValue().asString("");
             if (!keys.contains(target)) {
                 throw invalid(name + " 指向不存在的欄位：" + target);
             }
@@ -222,7 +223,7 @@ public class FmFormDesignValidator {
 
     private void validateOptionalTarget(JsonNode target, Set<String> keys, String name)
             throws ServiceException {
-        String value = target.asText("");
+        String value = target.asString("");
         if (StringUtils.isNotBlank(value) && !keys.contains(value)) {
             throw invalid(name + " 指向不存在的欄位：" + value);
         }

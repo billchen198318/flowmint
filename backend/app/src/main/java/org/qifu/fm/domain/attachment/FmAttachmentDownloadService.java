@@ -217,8 +217,8 @@ public class FmAttachmentDownloadService {
     boolean fieldVisible(String fieldPolicy, String fieldKey) throws ServiceException {
         try {
             JsonNode policy = objectMapper.readTree(fieldPolicy);
-            String defaultPolicy = policy.path("default").asText("READ");
-            String value = policy.path("fields").path(fieldKey).asText(defaultPolicy);
+            String defaultPolicy = policy.path("default").asString("READ");
+            String value = policy.path("fields").path(fieldKey).asString(defaultPolicy);
             return !"HIDDEN".equalsIgnoreCase(value) && !"NONE".equalsIgnoreCase(value);
         } catch (RuntimeException exception) {
             throw new ServiceException("待辦欄位權限設定格式錯誤");

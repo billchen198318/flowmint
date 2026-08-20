@@ -28,8 +28,8 @@ public class FmFormFieldCatalog {
 
     private void collect(JsonNode components, Set<String> fields, boolean insideGrid) {
         for (JsonNode component : components) {
-            String type = component.path("type").asText("");
-            String key = component.path("key").asText("");
+            String type = component.path("type").asString("");
+            String key = component.path("key").asString("");
             if (!insideGrid && !key.isBlank() && component.path("input").asBoolean(true)
                     && !Set.of("columns", "fieldset", "panel", "table", "tabs", "well")
                             .contains(type)) {

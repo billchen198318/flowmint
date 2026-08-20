@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.qifu.base.exception.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -197,7 +198,7 @@ public class FmAttachmentStorageService {
         }
         String name = path.getFileName().toString();
         result.add(new FormalFile(relative.getName(0).toString(),
-                StringUtils.removeEnd(name, ".bin"), path));
+                Strings.CS.removeEnd(name, ".bin"), path));
     }
 
     private StoredFile write(Path target, String fileOid, InputStream content, long declaredSize)
