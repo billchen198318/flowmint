@@ -185,7 +185,7 @@ public class FmProcessRuntimeLogicServiceImpl
         activeApplicant(command.tenantId(), starterAccount);
         FmEmployee applicant = activeApplicant(
                 command.tenantId(), command.applicantAccount());
-        Map<String, Object> parameters = activeParameters(command.tenantId());
+        Map<String, Object> parameters = publishedParameters(command.tenantId());
         List<FmProcessStartCatalogView> values = new ArrayList<>();
         for (FmProcessDef processDef : processDefService
                 .selectListByParams(parameters, "PROCESS_NAME", "ASC").getValue()) {
@@ -376,7 +376,7 @@ public class FmProcessRuntimeLogicServiceImpl
 
     private FmProcessDef activeProcessDef(String tenantId, String processDefId)
             throws ServiceException {
-        Map<String, Object> parameters = activeParameters(tenantId);
+        Map<String, Object> parameters = publishedParameters(tenantId);
         parameters.put("processDefId", processDefId);
         return processDefService.selectListByParams(parameters).getValue().stream()
                 .findFirst()
@@ -439,7 +439,7 @@ public class FmProcessRuntimeLogicServiceImpl
 
     private FmFormDef activeFormDef(String tenantId, String formId)
             throws ServiceException {
-        Map<String, Object> parameters = activeParameters(tenantId);
+        Map<String, Object> parameters = publishedParameters(tenantId);
         parameters.put("formId", formId);
         return formDefService.selectListByParams(parameters).getValue().stream()
                 .findFirst()
@@ -719,6 +719,13 @@ public class FmProcessRuntimeLogicServiceImpl
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);
         parameters.put("status", "ACTIVE");
+        return parameters;
+    }
+
+    private Map<String, Object> publishedParameters(String tenantId) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "PUBLISHED");
         return parameters;
     }
 
