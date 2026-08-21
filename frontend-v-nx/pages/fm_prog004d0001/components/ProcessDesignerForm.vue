@@ -24,6 +24,18 @@ const route = useRoute();
 const router = useRouter();
 const { showLoading, hideLoading, confirmFire } = useSwalLoading();
 const tenants = ref<any[]>([]);
+const processCategories = ref<any[]>([]);
+const categoryRows = ref<any[]>([]);
+const newCategory = () => ({
+  oid: "",
+  tenantId: form.value?.tenantId || "",
+  categoryCode: "",
+  categoryLabel: "",
+  iconCode: "grid",
+  sortOrder: 0,
+  status: "ACTIVE",
+});
+const categoryEditor = ref<any>({});
 const checkFields = ref<Record<string, string>>({});
 const canvas = ref<HTMLElement | null>(null);
 const selectedVersion = ref<any>(null);
@@ -73,6 +85,7 @@ const newForm = () => ({
   processKey: "",
   processName: "",
   category: "",
+  processSortOrder: 0,
   status: "DRAFT",
   description: "",
   versions: [] as any[],
@@ -246,6 +259,61 @@ const loadPublishedForms = async () => {
     tenantId: form.value.tenantId,
   });
   publishedForms.value = response.data?.value || [];
+};
+const loadProcessCategories = async () => {
+  processCategories.value = [];
+  if (!form.value.tenantId) return;
+  const response = await post("/category-options", {
+    tenantId: form.value.tenantId,
+  });
+  processCategories.value = response.data?.value || [];
+  if (!processCategories.value.some(
+    (item: any) => item.categoryCode === form.value.category,
+  )) form.value.category = "";
+};
+const loadCategoryList = async () => {
+  categoryRows.value = [];
+  if (!form.value.tenantId) return;
+  const response = await post("/category/list", {
+    tenantId: form.value.tenantId,
+  });
+  categoryRows.value = response.data?.value || [];
+};
+const resetCategoryEditor = () => {
+  categoryEditor.value = newCategory();
+};
+const editCategory = (item: any) => {
+  categoryEditor.value = { ...item };
+};
+const saveCategory = async () => {
+  categoryEditor.value.tenantId = form.value.tenantId;
+  if (!categoryEditor.value.categoryCode?.trim()
+      || !categoryEditor.value.categoryLabel?.trim()) {
+    toast.warning("請輸入分類代碼與名稱");
+    return;
+  }
+  const response = await post("/category/save", categoryEditor.value);
+  if (!showResponse(response)) return;
+  categoryRows.value = response.data?.value || [];
+  await loadProcessCategories();
+  resetCategoryEditor();
+};
+const deactivateCategory = async (item: any) => {
+  const response = await post("/category/deactivate", { oid: item.oid });
+  if (!showResponse(response)) return;
+  categoryRows.value = response.data?.value || [];
+  await loadProcessCategories();
+  resetCategoryEditor();
+};
+const tenantChanged = async () => {
+  form.value.category = "";
+  resetCategoryEditor();
+  await Promise.all([
+    loadProcessCategories(),
+    loadCategoryList(),
+    loadPublishedForms(),
+    loadResolverOptions(),
+  ]);
 };
 const loadResolverOptions = async () => {
   if (!form.value.tenantId) return;
@@ -440,6 +508,9 @@ const openVersion = async (version: any) => {
 };
 const apply = async (value: any) => {
   form.value = value;
+  resetCategoryEditor();
+  await loadProcessCategories();
+  await loadCategoryList();
   await loadPublishedForms();
   await loadResolverOptions();
   const draft = value.versions?.find(
@@ -478,6 +549,7 @@ const validate = () => {
     fields.processKey =
       "流程代碼須以英文字母開頭，且只能包含英數字、底線或連字號";
   if (!form.value.processName?.trim()) fields.processName = "請輸入流程名稱";
+  if (!form.value.category) fields.category = "請選擇流程分類";
   checkFields.value = fields;
   if (Object.keys(fields).length) {
     toast.warning(Object.values(fields)[0]);
@@ -603,7 +675,7 @@ onMounted(async () => {
   tenants.value = (await post("/tenant-options")).data?.value || [];
   if (!props.edit && tenants.value.length === 1)
     form.value.tenantId = tenants.value[0].value;
-  if (!props.edit) await loadResolverOptions();
+  if (!props.edit) await tenantChanged();
   await load();
 });
 onBeforeUnmount(() => modeler?.destroy());
@@ -637,6 +709,7 @@ onBeforeUnmount(() => modeler?.destroy());
           <label class="form-label">Tenant</label
           ><select
             v-model="form.tenantId"
+            @change="tenantChanged"
             :disabled="props.edit"
             :class="[
               'form-select',
@@ -685,7 +758,34 @@ onBeforeUnmount(() => modeler?.destroy());
         </div>
         <div class="col-md-3">
           <label class="form-label">分類</label
-          ><input v-model="form.category" class="form-control" />
+          ><select
+            v-model="form.category"
+            :class="[
+              'form-select',
+              checkInvalid('category', checkFields) ? 'is-invalid' : '',
+            ]"
+          >
+            <option value="">請選擇分類</option>
+            <option
+              v-for="item in processCategories"
+              :key="item.categoryCode"
+              :value="item.categoryCode"
+            >
+              {{ item.categoryLabel }}（{{ item.categoryCode }}）
+            </option>
+          </select>
+          <div class="invalid-feedback">
+            {{ invalidFeedback("category", checkFields) }}
+          </div>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">分類內排序</label>
+          <input
+            v-model.number="form.processSortOrder"
+            type="number"
+            min="0"
+            class="form-control"
+          />
         </div>
         <div class="col-md-2">
           <label class="form-label">狀態</label
@@ -698,6 +798,67 @@ onBeforeUnmount(() => modeler?.destroy());
             maxlength="500"
             class="form-control"
           />
+        </div>
+        <div class="col-12">
+          <details class="border rounded p-3 bg-light">
+            <summary class="fw-semibold">流程分類管理</summary>
+            <p class="small text-secondary mt-2 mb-3">
+              分類名稱、圖示與排序儲存於 Tenant 分類主檔，新增分類不需修改 Java 或 Vue。
+            </p>
+            <div class="row g-2 align-items-end mb-3">
+              <div class="col-md-2">
+                <label class="form-label">分類代碼</label>
+                <input
+                  v-model.trim="categoryEditor.categoryCode"
+                  :disabled="Boolean(categoryEditor.oid)"
+                  class="form-control"
+                  placeholder="CATEGORY_CODE"
+                />
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">顯示名稱</label>
+                <input v-model.trim="categoryEditor.categoryLabel" class="form-control" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">Bootstrap Icon</label>
+                <input v-model.trim="categoryEditor.iconCode" class="form-control" placeholder="grid" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">排序</label>
+                <input v-model.number="categoryEditor.sortOrder" type="number" min="0" class="form-control" />
+              </div>
+              <div class="col-md-3 d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary" @click="saveCategory">
+                  {{ categoryEditor.oid ? "更新分類" : "新增分類" }}
+                </button>
+                <button type="button" class="btn btn-outline-secondary" @click="resetCategoryEditor">清除</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead><tr><th>代碼</th><th>名稱</th><th>圖示</th><th>排序</th><th>狀態</th><th></th></tr></thead>
+                <tbody>
+                  <tr v-for="item in categoryRows" :key="item.oid">
+                    <td><code>{{ item.categoryCode }}</code></td>
+                    <td>{{ item.categoryLabel }}</td>
+                    <td><i v-if="item.iconCode" :class="`bi bi-${item.iconCode}`"></i> {{ item.iconCode || "—" }}</td>
+                    <td>{{ item.sortOrder }}</td>
+                    <td>{{ item.status }}</td>
+                    <td class="text-end">
+                      <button type="button" class="btn btn-sm btn-outline-secondary me-2" @click="editCategory(item)">編輯</button>
+                      <button
+                        v-if="item.status === 'ACTIVE'"
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        @click="confirmFire(`確定停用分類「${item.categoryLabel}」？`, deactivateCategory, item)"
+                      >停用</button>
+                    </td>
+                  </tr>
+                  <tr v-if="!categoryRows.length"><td colspan="6" class="text-center text-secondary py-3">此 Tenant 尚未建立流程分類</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
         </div>
         <div class="col-12 d-flex gap-2">
           <button type="button" class="btn btn-primary" @click="save">

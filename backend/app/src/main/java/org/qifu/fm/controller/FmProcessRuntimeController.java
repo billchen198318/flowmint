@@ -22,6 +22,7 @@ import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.command.FmTaskDelegationRequest;
 import org.qifu.fm.dto.command.FmTaskResolveRequest;
 import org.qifu.fm.dto.view.FmProcessStartCatalogView;
+import org.qifu.fm.dto.view.FmProcessStartApplicantView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
 import org.qifu.fm.dto.view.FmRuntimeTenantView;
@@ -286,6 +287,20 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 				initDefaultJsonResult();
 		try {
 			setDefaultResponseJsonResult(runtimeLogicService.tenants(), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/start/applicants")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessStartApplicantView>>> applicants(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId) {
+		DefaultControllerJsonResultObj<List<FmProcessStartApplicantView>> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(
+					runtimeLogicService.applicants(tenantId), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}

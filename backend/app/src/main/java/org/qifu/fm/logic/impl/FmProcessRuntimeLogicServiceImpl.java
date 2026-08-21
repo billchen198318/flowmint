@@ -30,6 +30,7 @@ import org.qifu.fm.dto.command.FmProcessSubmitCommand;
 import org.qifu.fm.dto.command.FmProcessStartCatalogCommand;
 import org.qifu.fm.dto.command.FmProcessStartLoadCommand;
 import org.qifu.fm.dto.view.FmProcessStartCatalogView;
+import org.qifu.fm.dto.view.FmProcessStartApplicantView;
 import org.qifu.fm.dto.view.FmProcessStartFormView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
@@ -41,7 +42,9 @@ import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmProcessInstance;
+import org.qifu.fm.entity.FmOrgUnitVersion;
 import org.qifu.fm.entity.FmProcessDef;
+import org.qifu.fm.entity.FmProcessCategory;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTenant;
@@ -56,7 +59,9 @@ import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmFormDefService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmProcessInstanceService;
+import org.qifu.fm.service.IFmOrgUnitVersionService;
 import org.qifu.fm.service.IFmProcessDefService;
+import org.qifu.fm.service.IFmProcessCategoryService;
 import org.qifu.fm.service.IFmProcessStartPolicyService;
 import org.qifu.fm.service.IFmProcessStartProxyService;
 import org.qifu.fm.service.IFmProcessVersionService;
@@ -75,10 +80,12 @@ public class FmProcessRuntimeLogicServiceImpl
 
     private final IFmProcessVersionService processVersionService;
     private final IFmProcessDefService processDefService;
+    private final IFmProcessCategoryService processCategoryService;
     private final IFmFormVersionService formVersionService;
     private final IFmFormDefService formDefService;
     private final IFmEmployeeService employeeService;
     private final IFmEmployeeOrgAssignmentService assignmentService;
+    private final IFmOrgUnitVersionService orgUnitVersionService;
     private final IFmFormDataService formDataService;
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessStartPolicyService startPolicyService;
@@ -99,10 +106,12 @@ public class FmProcessRuntimeLogicServiceImpl
     public FmProcessRuntimeLogicServiceImpl(
             IFmProcessVersionService processVersionService,
             IFmProcessDefService processDefService,
+            IFmProcessCategoryService processCategoryService,
             IFmFormVersionService formVersionService,
             IFmFormDefService formDefService,
             IFmEmployeeService employeeService,
             IFmEmployeeOrgAssignmentService assignmentService,
+            IFmOrgUnitVersionService orgUnitVersionService,
             IFmFormDataService formDataService,
             IFmProcessInstanceService processInstanceService,
             IFmProcessStartPolicyService startPolicyService,
@@ -121,10 +130,12 @@ public class FmProcessRuntimeLogicServiceImpl
             FmDocumentNumberService documentNumberService) {
         this.processVersionService = processVersionService;
         this.processDefService = processDefService;
+        this.processCategoryService = processCategoryService;
         this.formVersionService = formVersionService;
         this.formDefService = formDefService;
         this.employeeService = employeeService;
         this.assignmentService = assignmentService;
+        this.orgUnitVersionService = orgUnitVersionService;
         this.formDataService = formDataService;
         this.processInstanceService = processInstanceService;
         this.startPolicyService = startPolicyService;
@@ -174,6 +185,76 @@ public class FmProcessRuntimeLogicServiceImpl
     }
 
     @Override
+    public DefaultResult<List<FmProcessStartApplicantView>> applicants(String tenantId)
+            throws ServiceException {
+        if (StringUtils.isBlank(tenantId)) {
+            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+        }
+        String starterAccount = UserUtils.getCurrentUser().getUsername();
+        validateTenantMembership(tenantId, starterAccount);
+        FmEmployee starter = activeApplicant(tenantId, starterAccount);
+        Map<String, FmEmployee> employees = new LinkedHashMap<>();
+        employees.put(starterAccount, starter);
+
+        Map<String, Object> proxyParameters = activeParameters(tenantId);
+        proxyParameters.put("proxyAccount", starterAccount);
+        startProxyService.selectListByParams(proxyParameters).getValue().stream()
+                .filter(value -> isEffective(
+                        value.getEffectiveFrom(), value.getEffectiveTo()))
+                .map(value -> value.getPrincipalAccount())
+                .distinct()
+                .forEach(account -> {
+                    try {
+                        employees.put(account, activeApplicant(tenantId, account));
+                    } catch (ServiceException ignored) {
+                        // Expired or inactive principals are not valid applicant options.
+                    }
+                });
+
+        List<FmProcessStartApplicantView> values = employees.values().stream()
+                .map(employee -> applicantView(
+                        tenantId, employee, starterAccount))
+                .sorted((first, second) -> {
+                    if (first.self() != second.self()) {
+                        return first.self() ? -1 : 1;
+                    }
+                    return first.displayName().compareTo(second.displayName());
+                })
+                .toList();
+        return success(values);
+    }
+
+    private FmProcessStartApplicantView applicantView(
+            String tenantId, FmEmployee employee, String starterAccount) {
+        String orgUnitName = null;
+        try {
+            FmEmployeeOrgAssignment assignment = primaryAssignment(
+                    tenantId, employee.getEmployeeId());
+            FmOrgUnitVersion orgUnit = activeOrgUnit(
+                    tenantId, assignment.getOrgUnitId());
+            orgUnitName = orgUnit == null ? null : orgUnit.getUnitName();
+        } catch (ServiceException ignored) {
+            // Catalog remains responsible for final start authorization.
+        }
+        return new FmProcessStartApplicantView(
+                employee.getAccount(),
+                StringUtils.defaultIfBlank(
+                        employee.getDisplayName(), employee.getAccount()),
+                orgUnitName,
+                starterAccount.equals(employee.getAccount()));
+    }
+
+    private FmOrgUnitVersion activeOrgUnit(String tenantId, String orgUnitId) {
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("orgUnitId", orgUnitId);
+        return orgUnitVersionService.selectListByParams(
+                parameters, "VERSION_NO", "DESC").getValue().stream()
+                .filter(value -> isEffective(
+                        value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst().orElse(null);
+    }
+
+    @Override
     public DefaultResult<List<FmProcessStartCatalogView>> catalog(
             FmProcessStartCatalogCommand command) throws ServiceException {
         if (command == null || StringUtils.isAnyBlank(
@@ -186,6 +267,13 @@ public class FmProcessRuntimeLogicServiceImpl
         FmEmployee applicant = activeApplicant(
                 command.tenantId(), command.applicantAccount());
         Map<String, Object> parameters = publishedParameters(command.tenantId());
+        Map<String, Object> categoryParameters = activeParameters(command.tenantId());
+        Map<String, FmProcessCategory> categories = processCategoryService
+                .selectListByParams(categoryParameters).getValue().stream()
+                .collect(Collectors.toMap(
+                        FmProcessCategory::getCategoryCode,
+                        value -> value,
+                        (first, ignored) -> first));
         List<FmProcessStartCatalogView> values = new ArrayList<>();
         for (FmProcessDef processDef : processDefService
                 .selectListByParams(parameters, "PROCESS_NAME", "ASC").getValue()) {
@@ -199,17 +287,38 @@ public class FmProcessRuntimeLogicServiceImpl
                         command.tenantId(), processDef.getProcessDefId(),
                         version, applicant);
                 startForms(command.tenantId(), version);
+                FmProcessCategory category = categories.get(processDef.getCategory());
+                if (category == null) {
+                    throw new ServiceException("流程分類不存在或未啟用");
+                }
                 values.add(new FmProcessStartCatalogView(
                         processDef.getProcessDefId(),
                         processDef.getProcessKey(),
                         processDef.getProcessName(),
-                        processDef.getCategory(),
+                        category.getCategoryCode(),
+                        category.getCategoryLabel(),
+                        category.getIconCode(),
+                        Objects.requireNonNullElse(category.getSortOrder(), 0),
+                        Objects.requireNonNullElse(processDef.getProcessSortOrder(), 0),
                         processDef.getDescription(),
                         version.getVersionNo()));
             } catch (ServiceException ignored) {
                 // Catalog only exposes processes that are currently startable.
             }
         }
+        values.sort((first, second) -> {
+            int categoryOrder = first.categorySortOrder().compareTo(
+                    second.categorySortOrder());
+            if (categoryOrder != 0) {
+                return categoryOrder;
+            }
+            int processOrder = first.processSortOrder().compareTo(
+                    second.processSortOrder());
+            if (processOrder != 0) {
+                return processOrder;
+            }
+            return first.processName().compareTo(second.processName());
+        });
         return success(List.copyOf(values));
     }
 

@@ -12,11 +12,13 @@ import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmApprovalAuthorityCommand;
 import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
+import org.qifu.fm.dto.command.FmProcessCategoryCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
 import org.qifu.fm.dto.command.FmResolverPreviewCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmApprovalAuthorityView;
 import org.qifu.fm.dto.view.FmProcessDefView;
+import org.qifu.fm.dto.view.FmProcessCategoryView;
 import org.qifu.fm.dto.view.FmPublishedFormOptionView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmProcessDef;
@@ -99,6 +101,9 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
                     .testField("processName", command,
                             "@org.apache.commons.lang3.StringUtils@isBlank(processName)",
                             "請輸入流程名稱")
+                    .testField("category", command,
+                            "@org.apache.commons.lang3.StringUtils@isBlank(category)",
+                            "請選擇流程分類")
                     .throwHtmlMessage();
             setDefaultResponseJsonResult(create ? processDefLogicService.create(command)
                     : processDefLogicService.update(command), result);
@@ -194,6 +199,44 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
             exceptionResult(result, exception);
         }
         return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/category-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessCategoryView>>>
+            categoryOptions(@RequestBody Map<String, String> body) {
+        DefaultControllerJsonResultObj<List<FmProcessCategoryView>> result =
+                initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    processDefLogicService.categoryOptions(body.get("tenantId")), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
+    @PostMapping("/category/list")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessCategoryView>>>
+            categoryList(@RequestBody Map<String, String> body) {
+        return categoryResult(() ->
+                processDefLogicService.categoryList(body.get("tenantId")));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/category/save")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessCategoryView>>>
+            categorySave(@RequestBody FmProcessCategoryCommand command) {
+        return categoryResult(() -> processDefLogicService.saveCategory(command));
+    }
+
+    @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)
+    @PostMapping("/category/deactivate")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessCategoryView>>>
+            categoryDeactivate(@RequestBody Map<String, String> body) {
+        return categoryResult(() ->
+                processDefLogicService.deactivateCategory(body.get("oid")));
     }
 
     @ControllerMethodAuthority(programId = "FM_PROG004D0001Q", check = true)
@@ -336,9 +379,27 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
         return ResponseEntity.ok(result);
     }
 
+    private ResponseEntity<DefaultControllerJsonResultObj<List<FmProcessCategoryView>>>
+            categoryResult(CategoryResultSupplier supplier) {
+        DefaultControllerJsonResultObj<List<FmProcessCategoryView>> result =
+                initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(supplier.get(), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
     @FunctionalInterface
     private interface ResultSupplier {
         org.qifu.base.model.DefaultResult<FmProcessDefView> get() throws Exception;
+    }
+
+    @FunctionalInterface
+    private interface CategoryResultSupplier {
+        org.qifu.base.model.DefaultResult<List<FmProcessCategoryView>> get()
+                throws Exception;
     }
 
     @FunctionalInterface

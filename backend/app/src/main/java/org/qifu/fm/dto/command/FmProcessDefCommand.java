@@ -6,5 +6,6 @@ public record FmProcessDefCommand(
         String processKey,
         String processName,
         String category,
+        Integer processSortOrder,
         String description) {
 }

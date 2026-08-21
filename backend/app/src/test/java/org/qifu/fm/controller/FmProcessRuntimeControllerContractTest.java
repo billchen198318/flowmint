@@ -39,6 +39,7 @@ class FmProcessRuntimeControllerContractTest {
 				.collect(Collectors.toSet());
 		assertEquals(Set.of(
 				"/start/tenants",
+				"/start/applicants",
 				"/start/catalog",
 				"/start/load",
 				"/tasks/inbox",

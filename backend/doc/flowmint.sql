@@ -2317,6 +2317,9 @@ CREATE TABLE `fm_attachment_upload_session` (
 SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_attachment_upload_session` WRITE;
 /*!40000 ALTER TABLE `fm_attachment_upload_session` DISABLE KEYS */;
+INSERT INTO `fm_attachment_upload_session` VALUES
+('3b39087b-9d6f-11f1-9da8-3de003cc65c6','A01','f2884178-0eb5-4e6c-a3cf-3e8fc80c322a','admin','2d939f65-b78e-454d-a48d-cdd538222d96',1,'OPEN','2026-08-22 22:47:28.572','admin','2026-08-21 22:47:28.573',NULL,NULL),
+('c9a08d56-9d76-11f1-b7ce-055308346103','A01','17d6cbe5-c0a1-46fe-aa6c-aa8673ef6d44','admin','2d939f65-b78e-454d-a48d-cdd538222d96',1,'OPEN','2026-08-22 23:41:33.964','admin','2026-08-21 23:41:33.966',NULL,NULL);
 /*!40000 ALTER TABLE `fm_attachment_upload_session` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -3752,6 +3755,46 @@ COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
 --
+-- Table structure for table `fm_process_category`
+--
+
+DROP TABLE IF EXISTS `fm_process_category`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_process_category` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `CATEGORY_CODE` varchar(50) NOT NULL,
+  `CATEGORY_LABEL` varchar(100) NOT NULL,
+  `ICON_CODE` varchar(50) DEFAULT NULL,
+  `SORT_ORDER` int(11) NOT NULL DEFAULT 0,
+  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE',
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_PC_CODE` (`TENANT_ID`,`CATEGORY_CODE`),
+  KEY `IDX_FM_PC_ACTIVE_SORT` (`TENANT_ID`,`STATUS`,`SORT_ORDER`),
+  CONSTRAINT `CK_FM_PC_STATUS` CHECK (`STATUS` in ('ACTIVE','INACTIVE'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_process_category`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_process_category` WRITE;
+/*!40000 ALTER TABLE `fm_process_category` DISABLE KEYS */;
+INSERT INTO `fm_process_category` VALUES
+('a016cac0-9d7a-11f1-a8b5-005056c00001','A01','PURCHASE','採購','cart',30,'ACTIVE','migration','2026-08-22 00:08:42.737','migration','2026-08-22 00:08:42.744');
+/*!40000 ALTER TABLE `fm_process_category` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
 -- Table structure for table `fm_process_def`
 --
 
@@ -3765,6 +3808,7 @@ CREATE TABLE `fm_process_def` (
   `PROCESS_KEY` varchar(100) NOT NULL,
   `PROCESS_NAME` varchar(150) NOT NULL,
   `CATEGORY` varchar(50) DEFAULT NULL,
+  `PROCESS_SORT_ORDER` int(11) NOT NULL DEFAULT 0,
   `DOCUMENT_TYPE` varchar(50) DEFAULT NULL,
   `CURRENT_VERSION_NO` int(11) NOT NULL DEFAULT 0,
   `STATUS` varchar(20) NOT NULL DEFAULT 'DRAFT',
@@ -3789,7 +3833,7 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_process_def` WRITE;
 /*!40000 ALTER TABLE `fm_process_def` DISABLE KEYS */;
 INSERT INTO `fm_process_def` VALUES
-('b68785e3-97ec-11f1-a6a7-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986','FM_PURCHASE_APPROVAL','請購簽核流程','PURCHASE','PURCHASE_REQUEST',1,'PUBLISHED','請購單類別與風險專業會簽、採購、財務及金額核決流程草稿。','admin','2026-08-14 22:30:35.560','admin','2026-08-21 22:27:28.782');
+('b68785e3-97ec-11f1-a6a7-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986','FM_PURCHASE_APPROVAL','請購簽核流程','PURCHASE',10,'PURCHASE_REQUEST',1,'PUBLISHED','請購單類別與風險專業會簽、採購、財務及金額核決流程草稿。','admin','2026-08-14 22:30:35.560','admin','2026-08-21 22:27:28.782');
 /*!40000 ALTER TABLE `fm_process_def` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -5813,4 +5857,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-21 22:29:10
+-- Dump completed on 2026-08-22  0:10:45
