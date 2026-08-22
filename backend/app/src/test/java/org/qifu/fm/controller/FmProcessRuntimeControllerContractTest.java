@@ -54,6 +54,7 @@ class FmProcessRuntimeControllerContractTest {
 				"/tasks/resolve",
 				"/mine",
 				"/mine/cancel",
+				"/mine/diagram",
 				"/mine/load",
 				"/mine/withdraw",
 				"/submit"), paths);

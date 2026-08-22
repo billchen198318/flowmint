@@ -11,6 +11,7 @@ public record FmRequestTrackDetailView(
         String uiSchemaContent,
         String customScriptContent,
         Map<String, Object> currentFormData,
+        List<FmCurrentApprovalView> currentApprovals,
         List<FmTaskActionView> actions,
         List<FmFormSnapshotView> snapshots) {
 }

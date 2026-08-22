@@ -11,32 +11,42 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.engine.TaskService;
 import org.flowable.engine.RuntimeService;
+import org.flowable.engine.HistoryService;
+import org.flowable.identitylink.api.IdentityLinkType;
+import org.flowable.task.api.Task;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.view.FmFormSnapshotView;
+import org.qifu.fm.dto.view.FmCurrentApprovalPersonView;
+import org.qifu.fm.dto.view.FmCurrentApprovalView;
 import org.qifu.fm.dto.view.FmRequestTrackDetailView;
+import org.qifu.fm.dto.view.FmRequestProcessDiagramView;
 import org.qifu.fm.dto.view.FmRequestTrackView;
 import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.entity.FmFormData;
+import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormSnapshot;
 import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessInstance;
+import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.logic.IFmRequestTrackingLogicService;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.service.IFmFormDataService;
+import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmFormDefService;
 import org.qifu.fm.service.IFmFormSnapshotService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessInstanceService;
+import org.qifu.fm.service.IFmProcessVersionService;
 import org.qifu.fm.service.IFmTaskActionService;
 import org.qifu.fm.service.IFmTenantAccountService;
 import org.springframework.stereotype.Service;
@@ -53,10 +63,13 @@ public class FmRequestTrackingLogicServiceImpl
 
     private final TaskService taskService;
     private final RuntimeService runtimeService;
+    private final HistoryService historyService;
     private final IFmTenantAccountService tenantAccountService;
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessDefService processDefService;
+    private final IFmProcessVersionService processVersionService;
     private final IFmFormDataService formDataService;
+    private final IFmEmployeeService employeeService;
     private final IFmFormDefService formDefService;
     private final IFmFormVersionService formVersionService;
     private final IFmTaskActionService taskActionService;
@@ -68,10 +81,13 @@ public class FmRequestTrackingLogicServiceImpl
     public FmRequestTrackingLogicServiceImpl(
             TaskService taskService,
             RuntimeService runtimeService,
+            HistoryService historyService,
             IFmTenantAccountService tenantAccountService,
             IFmProcessInstanceService processInstanceService,
             IFmProcessDefService processDefService,
+            IFmProcessVersionService processVersionService,
             IFmFormDataService formDataService,
+            IFmEmployeeService employeeService,
             IFmFormDefService formDefService,
             IFmFormVersionService formVersionService,
             IFmTaskActionService taskActionService,
@@ -81,10 +97,13 @@ public class FmRequestTrackingLogicServiceImpl
             ObjectMapper objectMapper) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
+        this.historyService = historyService;
         this.tenantAccountService = tenantAccountService;
         this.processInstanceService = processInstanceService;
         this.processDefService = processDefService;
+        this.processVersionService = processVersionService;
         this.formDataService = formDataService;
+        this.employeeService = employeeService;
         this.formDefService = formDefService;
         this.formVersionService = formVersionService;
         this.taskActionService = taskActionService;
@@ -151,8 +170,48 @@ public class FmRequestTrackingLogicServiceImpl
                 formVersion.getUiSchemaContent(),
                 formVersion.getCustomScriptContent(),
                 parseData(formData.getDataContent()),
+                currentApprovals(tenantId, processInstanceId),
                 actions(tenantId, processInstanceId),
                 snapshots(tenantId, processInstanceId)));
+    }
+
+    @Override
+    public DefaultResult<FmRequestProcessDiagramView> diagram(
+            String tenantId, String processInstanceId) throws ServiceException {
+        if (StringUtils.isBlank(processInstanceId)) {
+            throw new ServiceException("流程實例編號不可為空");
+        }
+        String account = currentAccount(tenantId);
+        FmProcessInstance process = requiredProcess(tenantId, processInstanceId);
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        if (!account.equals(process.getInitiatorAccount())
+                && !account.equals(formData.getOwnerAccount())) {
+            throw new ServiceException("只有申請人或實際發起人可以查看流程進度");
+        }
+        Map<String, Object> versionParameters = new HashMap<>();
+        versionParameters.put("tenantId", tenantId);
+        versionParameters.put("processDefId", process.getProcessDefId());
+        versionParameters.put("versionNo", process.getProcessVersionNo());
+        FmProcessVersion version = processVersionService
+                .selectListByParams(versionParameters).getValue().stream()
+                .findFirst().orElseThrow(() -> new ServiceException("找不到流程版本"));
+        List<String> activeIds = runtimeService.createProcessInstanceQuery()
+                .processInstanceId(processInstanceId).singleResult() == null
+                        ? List.of()
+                        : runtimeService.getActiveActivityIds(processInstanceId)
+                                .stream().distinct().toList();
+        List<String> completedIds = historyService
+                .createHistoricActivityInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .finished()
+                .orderByHistoricActivityInstanceStartTime().asc()
+                .list().stream()
+                .map(value -> value.getActivityId())
+                .filter(StringUtils::isNotBlank)
+                .distinct().toList();
+        return success(new FmRequestProcessDiagramView(
+                version.getBpmnXml(), process.getInstanceStatus(),
+                activeIds, completedIds));
     }
 
     @Override
@@ -257,6 +316,46 @@ public class FmRequestTrackingLogicServiceImpl
         return taskActionService.selectListByParams(
                 parameters, "ACTION_DATE", "ASC").getValue().stream()
                 .map(this::actionView).toList();
+    }
+
+    private List<FmCurrentApprovalView> currentApprovals(
+            String tenantId, String processInstanceId) {
+        return taskService.createTaskQuery()
+                .processInstanceId(processInstanceId)
+                .orderByTaskCreateTime().asc().list().stream()
+                .map(task -> currentApproval(tenantId, task))
+                .toList();
+    }
+
+    private FmCurrentApprovalView currentApproval(String tenantId, Task task) {
+        List<String> accounts;
+        String assignmentType;
+        if (StringUtils.isNotBlank(task.getAssignee())) {
+            accounts = List.of(task.getAssignee());
+            assignmentType = "ASSIGNEE";
+        } else {
+            accounts = taskService.getIdentityLinksForTask(task.getId()).stream()
+                    .filter(link -> IdentityLinkType.CANDIDATE.equals(link.getType()))
+                    .map(link -> link.getUserId())
+                    .filter(StringUtils::isNotBlank)
+                    .distinct().toList();
+            assignmentType = "CANDIDATE";
+        }
+        return new FmCurrentApprovalView(
+                task.getId(), task.getTaskDefinitionKey(), task.getName(),
+                assignmentType,
+                accounts.stream().map(account -> approver(tenantId, account)).toList(),
+                task.getCreateTime());
+    }
+
+    private FmCurrentApprovalPersonView approver(String tenantId, String account) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("account", account);
+        String displayName = employeeService.selectListByParams(parameters)
+                .getValue().stream().findFirst()
+                .map(FmEmployee::getDisplayName).orElse(account);
+        return new FmCurrentApprovalPersonView(account, displayName);
     }
 
     private List<FmFormSnapshotView> snapshots(

@@ -27,6 +27,7 @@ import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
 import org.qifu.fm.dto.view.FmRuntimeTenantView;
 import org.qifu.fm.dto.view.FmRequestTrackDetailView;
+import org.qifu.fm.dto.view.FmRequestProcessDiagramView;
 import org.qifu.fm.dto.view.FmRequestTrackView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
@@ -301,6 +302,24 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 		try {
 			setDefaultResponseJsonResult(
 					runtimeLogicService.applicants(tenantId), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/mine/diagram")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmRequestProcessDiagramView>> diagramMine(
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestBody FmRequestTrackLoadRequest request) {
+		DefaultControllerJsonResultObj<FmRequestProcessDiagramView> result =
+				initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("流程實例資料不可為空");
+			}
+			setDefaultResponseJsonResult(trackingLogicService.diagram(
+					tenantId, request.processInstanceId()), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}
