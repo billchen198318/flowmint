@@ -184,9 +184,8 @@ public class FmRequestTrackingLogicServiceImpl
         String account = currentAccount(tenantId);
         FmProcessInstance process = requiredProcess(tenantId, processInstanceId);
         FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
-        if (!account.equals(process.getInitiatorAccount())
-                && !account.equals(formData.getOwnerAccount())) {
-            throw new ServiceException("只有申請人或實際發起人可以查看流程進度");
+        if (!canViewDiagram(tenantId, process, formData, account)) {
+            throw new ServiceException("只有流程參與者可以查看流程進度");
         }
         Map<String, Object> versionParameters = new HashMap<>();
         versionParameters.put("tenantId", tenantId);
@@ -212,6 +211,28 @@ public class FmRequestTrackingLogicServiceImpl
         return success(new FmRequestProcessDiagramView(
                 version.getBpmnXml(), process.getInstanceStatus(),
                 activeIds, completedIds));
+    }
+
+    private boolean canViewDiagram(
+            String tenantId,
+            FmProcessInstance process,
+            FmFormData formData,
+            String account) {
+        if (account.equals(process.getInitiatorAccount())
+                || account.equals(formData.getOwnerAccount())) {
+            return true;
+        }
+        boolean currentParticipant = taskService.createTaskQuery()
+                .processInstanceId(process.getProcessInstanceId())
+                .taskCandidateOrAssigned(account)
+                .count() > 0;
+        if (currentParticipant) {
+            return true;
+        }
+        Map<String, Object> parameters = processParameters(
+                tenantId, process.getProcessInstanceId());
+        parameters.put("actorAccount", account);
+        return !taskActionService.selectListByParams(parameters).getValue().isEmpty();
     }
 
     @Override

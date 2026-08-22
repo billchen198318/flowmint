@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
@@ -13,6 +13,10 @@ import {
 import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
 import { applyTaskFieldPolicy } from "@/composables/useTaskFieldPolicy";
 import type { FormScriptRunner } from "@/types/formCustomJavascript";
+
+const ProcessProgressModal = defineAsyncComponent(() =>
+  import("@/components/flowmint/request/ProcessProgressModal.vue"),
+);
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
 
@@ -32,6 +36,8 @@ const targetAccount = ref("");
 const transferOptions = ref<any[]>([]);
 const delegationId = ref("");
 const attachments = ref<any[]>([]);
+const showProcessProgress = ref(false);
+const processProgressMounted = ref(false);
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
@@ -41,6 +47,10 @@ let runCustomJavascript: FormScriptRunner | null = null;
 
 const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
+const openProcessProgress = () => {
+  processProgressMounted.value = true;
+  showProcessProgress.value = true;
+};
 const post = (path: string, body: any) =>
   useApi(`/fm/requests${path}`, {
     method: "POST",
@@ -56,6 +66,59 @@ const destroyForm = async () => {
   formInstance?.destroy?.(true);
   formInstance = null;
   if (formHost.value) formHost.value.innerHTML = "";
+};
+const hydrateAttachmentFields = (data: any) => {
+  const hydrated = { ...(data || {}) };
+  const attachmentsByField = attachments.value.reduce(
+    (groups: Record<string, any[]>, attachment: any) => {
+      (groups[attachment.fieldKey] ||= []).push(attachment);
+      return groups;
+    },
+    {},
+  );
+  for (const [fieldKey, fieldAttachments] of Object.entries(attachmentsByField)) {
+    const storedIds = Array.isArray(hydrated[fieldKey])
+      ? hydrated[fieldKey].map((item: any) =>
+        typeof item === "string" ? item : item?.attachmentId,
+      )
+      : [];
+    hydrated[fieldKey] = (fieldAttachments || [])
+      .filter((attachment: any) => storedIds.includes(attachment.attachmentId))
+      .map((attachment: any) => ({
+        attachmentId: attachment.attachmentId,
+        storage: "url",
+        name: attachment.fileName,
+        originalName: attachment.fileName,
+        size: Number(attachment.fileSize || 0),
+        type: attachment.contentType || "application/octet-stream",
+        url: `#flowmint-attachment-${attachment.attachmentId}`,
+      }));
+  }
+  return hydrated;
+};
+const serializeAttachmentFields = (data: Record<string, unknown>) => {
+  const serialized = { ...data };
+  for (const fieldKey of new Set(
+    attachments.value.map((attachment: any) => attachment.fieldKey),
+  )) {
+    serialized[fieldKey] = attachments.value
+      .filter((attachment: any) => attachment.fieldKey === fieldKey)
+      .map((attachment: any) => attachment.attachmentId);
+  }
+  return serialized;
+};
+const handleFormAttachmentClick = (event: MouseEvent) => {
+  const anchor = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
+    'a[href^="#flowmint-attachment-"]',
+  );
+  if (!anchor) return;
+  event.preventDefault();
+  const attachmentId = anchor.getAttribute("href")
+    ?.replace("#flowmint-attachment-", "");
+  const attachment = attachments.value.find(
+    (item: any) => item.attachmentId === attachmentId,
+  );
+  if (attachment) void downloadAttachment(attachment);
 };
 const renderForm = async () => {
   await destroyForm();
@@ -75,12 +138,14 @@ const renderForm = async () => {
       noDefaultSubmitButton: true,
     },
   );
-  formInstance.submission = {
+  const submission = {
     data: withFlowmintSystemFields(
-      detail.value.formData,
+      hydrateAttachmentFields(detail.value.formData),
       detail.value.task?.documentNumber,
     ),
   };
+  formInstance.submission = submission;
+  await formInstance.setSubmission?.(submission);
   let uiSchema: any = { engine: "FORMIO", version: 1 };
   try {
     uiSchema = JSON.parse(detail.value.uiSchemaContent || "{}");
@@ -193,9 +258,9 @@ const submitActionOnce = async () => {
     let editedFormData: Record<string, unknown> | null = null;
     if (submitsForm) {
       try {
-        editedFormData = withoutFlowmintDisplayFields(
+        editedFormData = serializeAttachmentFields(withoutFlowmintDisplayFields(
           (await formInstance?.submit?.())?.data,
-        );
+        ));
       } catch {
         toast.warning("請完成表單必填欄位並確認格式");
         return;
@@ -341,6 +406,9 @@ onBeforeUnmount(() => void destroyForm());
             <div class="text-end small text-muted">
               <div>{{ detail.task.documentNumber ? '單據編號' : '流程識別碼' }}</div>
               <div class="font-monospace text-body">{{ detail.task.documentNumber || detail.task.businessKey }}</div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-3" @click="openProcessProgress">
+                <i class="bi bi-diagram-3 me-1"></i>查看流程進度
+              </button>
             </div>
           </div>
         </div>
@@ -350,7 +418,7 @@ onBeforeUnmount(() => void destroyForm());
         <div class="col-xl-8">
           <div class="card border-0 shadow-sm">
             <div class="card-header bg-white py-3"><strong>{{ detail.formName }}</strong></div>
-            <div class="card-body p-4"><div ref="formHost" class="runtime-form"></div></div>
+            <div class="card-body p-4"><div ref="formHost" class="runtime-form" @click.capture="handleFormAttachmentClick"></div></div>
           </div>
           <div class="card border-0 shadow-sm mt-4">
             <div class="card-header bg-white py-3"><strong>簽核紀錄</strong></div>
@@ -480,6 +548,13 @@ onBeforeUnmount(() => void destroyForm());
       </div>
     </template>
   </div>
+  <ProcessProgressModal
+    v-if="detail && processProgressMounted"
+    :show="showProcessProgress"
+    :tenant-id="tenantId"
+    :process-instance-id="detail.task.processInstanceId"
+    @close="showProcessProgress = false"
+  />
 </template>
 
 <style scoped>
