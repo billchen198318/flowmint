@@ -6,7 +6,7 @@
 
 ## 核心結論
 
-FlowMint 只做簽核。新模型移除集團、法人、據點、完整 HR 職務職等與其他未證明必要性的資料。Tenant 是唯一資料隔離範圍，「總公司」是部門樹根節點。
+FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 HR 職務職等與其他未證明必要性的核心主檔；這是產品範圍決策，不是未完成 Backlog，也不應作為企業簽核完成度的扣分項目。Tenant 是唯一資料隔離範圍，「總公司」是部門樹根節點。
 
 新 FlowMint 業務 Schema 只保留 34 張 `fm_*` 表；QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不在核心 DDL 重建。
 
@@ -53,6 +53,8 @@ Tenant、Tenant Account、Employee、Approval Level、Department Tree、Departme
 ### 移除
 
 Enterprise Group、Legal Entity、Location、Employment、Job、Grade、Position、Project Organization、Work Queue、Org Service Scope、Sync Platform、Work Calendar 及沒有直接簽核案例的擴充表。
+
+其中集團、法人與據點資料不屬於簽核核心。若特定表單需要簽約主體、統編、付款公司、工安廠區或收貨地址，應使用業務欄位、動態資料服務或外部 ERP／HR 主檔整合，不把它們重新建立成 FlowMint 共用 ORG 的必要依賴。
 
 ## 實作規則
 
