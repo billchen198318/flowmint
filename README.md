@@ -851,6 +851,9 @@ git diff --check
 - [請購單流程與表單配置規格](backend/doc/23-請購單流程與表單配置規格.md)
 - [共用單據編號規格](backend/doc/24-共用單據編號規格.md)
 - [Workspace 與申請中心重構規劃](backend/doc/25-Workspace與申請中心重構規劃.md)
+- [平行加簽規劃](backend/doc/26-平行加簽規劃.md)
+- [正式會簽配置與實作指南](backend/doc/27-正式會簽配置與實作指南.md)
+- [流程簽核改派規劃](backend/doc/28-流程簽核改派規劃.md)
 
 ## License
 
