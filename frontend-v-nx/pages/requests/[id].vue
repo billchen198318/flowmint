@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
@@ -7,6 +7,10 @@ import "@formio/js/dist/formio.full.min.css";
 import { useBaseStore } from "@/store/baseStore";
 import { withFlowmintSystemFields } from "@/composables/useFlowmintSystemFields";
 import { useFormCustomJavascript } from "@/composables/useFormCustomJavascript";
+
+const ProcessProgressModal = defineAsyncComponent(() =>
+  import("@/components/flowmint/request/ProcessProgressModal.vue"),
+);
 
 definePageMeta({ layout: "default", middleware: ["auth"] });
 
@@ -23,18 +27,65 @@ const cancelling = ref(false);
 const cancelReason = ref("");
 const selectedSnapshot = ref<any>(null);
 const attachments = ref<any[]>([]);
+const showProcessProgress = ref(false);
+const processProgressMounted = ref(false);
 let formInstance: any = null;
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let detachCustomJavascript: (() => Promise<void>) | null = null;
 
 const ok = (response: any) =>
   response?.success === import.meta.env.VITE_SUCCESS_FLAG;
+const openProcessProgress = () => {
+  processProgressMounted.value = true;
+  showProcessProgress.value = true;
+};
 const destroyForm = async () => {
   await detachCustomJavascript?.();
   detachCustomJavascript = null;
   formInstance?.destroy?.(true);
   formInstance = null;
   if (formHost.value) formHost.value.innerHTML = "";
+};
+const hydrateAttachmentFields = (data: any) => {
+  const hydrated = { ...(data || {}) };
+  const attachmentsByField = attachments.value.reduce(
+    (groups: Record<string, any[]>, attachment: any) => {
+      (groups[attachment.fieldKey] ||= []).push(attachment);
+      return groups;
+    },
+    {},
+  );
+  for (const [fieldKey, fieldAttachments] of Object.entries(attachmentsByField)) {
+    const storedIds = Array.isArray(hydrated[fieldKey])
+      ? hydrated[fieldKey].map((item: any) =>
+        typeof item === "string" ? item : item?.attachmentId,
+      )
+      : [];
+    hydrated[fieldKey] = (fieldAttachments || [])
+      .filter((attachment: any) => storedIds.includes(attachment.attachmentId))
+      .map((attachment: any) => ({
+        storage: "url",
+        name: attachment.fileName,
+        originalName: attachment.fileName,
+        size: Number(attachment.fileSize || 0),
+        type: attachment.contentType || "application/octet-stream",
+        url: `#flowmint-attachment-${attachment.attachmentId}`,
+      }));
+  }
+  return hydrated;
+};
+const handleFormAttachmentClick = (event: MouseEvent) => {
+  const anchor = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>(
+    'a[href^="#flowmint-attachment-"]',
+  );
+  if (!anchor) return;
+  event.preventDefault();
+  const attachmentId = anchor.getAttribute("href")
+    ?.replace("#flowmint-attachment-", "");
+  const attachment = attachments.value.find(
+    (item: any) => item.attachmentId === attachmentId,
+  );
+  if (attachment) void downloadAttachment(attachment);
 };
 const renderData = async (data: any) => {
   await destroyForm();
@@ -46,9 +97,14 @@ const renderData = async (data: any) => {
     JSON.parse(detail.value.schemaContent || "{}"),
     { readOnly: true, noAlerts: true, noDefaultSubmitButton: true },
   );
-  formInstance.submission = {
-    data: withFlowmintSystemFields(data, detail.value.request?.documentNumber),
+  const submission = {
+    data: withFlowmintSystemFields(
+      hydrateAttachmentFields(data),
+      detail.value.request?.documentNumber,
+    ),
   };
+  formInstance.submission = submission;
+  await formInstance.setSubmission?.(submission);
   const script = await attachCustomJavascript({
     scriptContent: detail.value.customScriptContent || "",
     form: formInstance,
@@ -202,6 +258,45 @@ onBeforeUnmount(() => void destroyForm());
                 {{ detail.request.instanceStatus }}
               </span>
               <div class="small text-muted mt-2">目前節點：{{ detail.request.currentTaskNames?.join('、') || '—' }}</div>
+              <button type="button" class="btn btn-sm btn-outline-primary mt-3" @click="openProcessProgress">
+                <i class="bi bi-diagram-3 me-1"></i>查看流程進度
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="detail.currentApprovals?.length" class="card border-primary-subtle shadow-sm mb-4">
+        <div class="card-header bg-white py-3 d-flex align-items-center gap-2">
+          <i class="bi bi-person-check text-primary"></i>
+          <strong>目前等待簽核</strong>
+        </div>
+        <div class="list-group list-group-flush">
+          <div
+            v-for="approval in detail.currentApprovals"
+            :key="approval.taskId"
+            class="list-group-item py-3"
+          >
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+              <div>
+                <div class="fw-semibold">{{ approval.taskName }}</div>
+                <div class="small text-secondary mt-1">節點：{{ approval.taskDefKey }}</div>
+              </div>
+              <span class="badge text-bg-light align-self-start">
+                {{ approval.assignmentType === 'ASSIGNEE' ? '直接指派' : '候選簽核人' }}
+              </span>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <span
+                v-for="person in approval.approvers"
+                :key="person.account"
+                class="badge rounded-pill text-bg-primary px-3 py-2"
+              >
+                {{ person.displayName }}（{{ person.account }}）
+              </span>
+              <span v-if="!approval.approvers?.length" class="text-danger small">
+                尚未解析到簽核人
+              </span>
             </div>
           </div>
         </div>
@@ -214,7 +309,7 @@ onBeforeUnmount(() => void destroyForm());
               <strong>表單內容</strong>
               <span class="small text-muted">{{ selectedSnapshot ? `${selectedSnapshot.actionType} 快照` : '目前資料' }}</span>
             </div>
-            <div class="card-body p-4"><div ref="formHost" class="runtime-form"></div></div>
+            <div class="card-body p-4"><div ref="formHost" class="runtime-form" @click.capture="handleFormAttachmentClick"></div></div>
           </div>
         </div>
         <div class="col-xl-4">
@@ -325,6 +420,13 @@ onBeforeUnmount(() => void destroyForm());
       </div>
     </template>
   </div>
+  <ProcessProgressModal
+    v-if="detail && processProgressMounted"
+    :show="showProcessProgress"
+    :tenant-id="tenantId"
+    :process-instance-id="String(route.params.id)"
+    @close="showProcessProgress = false"
+  />
 </template>
 
 <style scoped>

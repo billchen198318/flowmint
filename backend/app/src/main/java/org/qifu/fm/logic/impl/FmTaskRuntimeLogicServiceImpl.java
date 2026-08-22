@@ -3,20 +3,17 @@ package org.qifu.fm.logic.impl;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
-import org.flowable.engine.HistoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
 import org.flowable.task.api.DelegationState;
 import org.flowable.identitylink.api.IdentityLink;
 import org.flowable.identitylink.api.IdentityLinkType;
-import org.flowable.task.api.history.HistoricTaskInstance;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
@@ -83,7 +80,6 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
 
     private final TaskService taskService;
     private final RuntimeService runtimeService;
-    private final HistoryService historyService;
     private final IFmTenantAccountService tenantAccountService;
     private final IFmWorkflowDelegationService workflowDelegationService;
     private final IFmProcessInstanceService processInstanceService;
@@ -107,7 +103,6 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     public FmTaskRuntimeLogicServiceImpl(
             TaskService taskService,
             RuntimeService runtimeService,
-            HistoryService historyService,
             IFmTenantAccountService tenantAccountService,
             IFmWorkflowDelegationService workflowDelegationService,
             IFmProcessInstanceService processInstanceService,
@@ -128,7 +123,6 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             ObjectMapper objectMapper) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
-        this.historyService = historyService;
         this.tenantAccountService = tenantAccountService;
         this.workflowDelegationService = workflowDelegationService;
         this.processInstanceService = processInstanceService;
@@ -872,24 +866,6 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         parameters.put("formId", formId);
         return formDefService.selectListByParams(parameters).getValue().stream()
                 .findFirst().orElseThrow(() -> new ServiceException("找不到待辦表單主檔"));
-    }
-
-    private List<FmTaskHistoryView> historyTargets(
-            String processInstanceId, String currentTaskDefKey) {
-        Map<String, FmTaskHistoryView> values = new LinkedHashMap<>();
-        for (HistoricTaskInstance task : historyService
-                .createHistoricTaskInstanceQuery()
-                .processInstanceId(processInstanceId)
-                .finished()
-                .orderByHistoricTaskInstanceEndTime().desc()
-                .list()) {
-            if (!currentTaskDefKey.equals(task.getTaskDefinitionKey())) {
-                values.putIfAbsent(task.getTaskDefinitionKey(), new FmTaskHistoryView(
-                        task.getTaskDefinitionKey(), task.getName(), task.getAssignee(),
-                        task.getStartTime(), task.getEndTime()));
-            }
-        }
-        return List.copyOf(values.values());
     }
 
     private List<FmTaskHistoryView> returnTargets(

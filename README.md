@@ -8,10 +8,13 @@ FlowMint 的定位是「可配置的簽核平台」，不是 HR、ERP、法人�
 
 ## 目前狀態
 
-FlowMint 平台本體的程式功能已完成，目前進入部署與驗收階段。
+FlowMint Phase 1～5 平台能力及近期 Runtime／Workspace 重構已完成程式實作，目前進入整合部署與實機驗收階段；「程式完成」不等同「瀏覽器 E2E 已驗收」。
 
 - Phase 1～4 核心功能已完成。
 - Phase 5 營運功能已完成。
+- Workspace 已改為摘要與導覽，正式起單移至獨立申請中心及填單頁。
+- 共用單據編號、正式附件、申請追蹤、目前簽核人與 BPMN 流程進度已完成 Java／Vue 實作與自動驗證。
+- A01 請購表單與流程已發布，仍需以多帳號完成附件、簽核流轉與流程進度的瀏覽器 E2E。
 - 正式業務表單屬應用配置，不計入平台本體程式。
 - 尚待完成正式環境部署、Program／角色配置、完整瀏覽器 E2E 與真實資料量效能驗證。
 - Email 成功狀態可同步；永久失敗狀態受 QIFU4 Mail Helper 目前缺少最終失敗欄位限制。
@@ -68,6 +71,16 @@ FlowMint 平台本體的程式功能已完成，目前進入部署與驗收階�
 - 循序前加簽與完成加簽。
 - Approval Group 多人模式。
 - 不可變表單快照、指派快照及 Task Action 稽核軌跡。
+- 共用正式單據編號，與內部 `businessKey`、冪等鍵分離。
+- 申請詳情顯示目前關卡、等待簽核人及完整 BPMN 流程進度。
+
+### Workspace、申請中心與附件
+
+- Workspace 提供待辦、申請及通知摘要，起單導向獨立申請中心。
+- 申請中心依 Tenant 級流程分類 metadata 顯示可發起流程，支援搜尋、分類及受控代申請人選擇。
+- 獨立填單頁負責 Form.io、Custom JavaScript、Data Action、附件與冪等送出生命週期。
+- 附件採 Upload Session 暫存，正式送單時同交易綁定流程；支援欄位限制、驗證下載及孤兒檔案隔離清理。
+- 申請詳情與待辦共用正式附件 metadata，表單欄位和附件清單顯示相同檔名、大小及下載內容。
 
 ### 通知與 Email
 
@@ -328,21 +341,24 @@ FlowMint 平台本體的程式功能已完成，目前進入部署與驗收階�
 
 ### 15. Workspace（`/workspace`）
 
-- 將可發起流程、我的待辦、我的申請及通知中心整合在單一工作台。
+- 作為登入後摘要與導覽，整合我的待辦、最近申請、通知及統計，不在頁面內直接 render 正式表單。
 - 顯示真實待辦、申請及未讀通知統計，不使用展示假資料。
-- 起單 Tenant 來自登入者 membership，不允許手寫其他 Tenant。
-- 流程目錄只列出通過 Tenant、在職、代起單、起單政策、已發布部署及表單綁定檢查的流程。
-- 支援重新整理各區及由清單進入起單、Task、申請明細。
+- 提供「前往申請中心」入口；起單目錄及填單職責由 `/requests/start` 路由承擔。
+- Tenant 來自登入者 membership，不允許手寫其他 Tenant。
+- 支援重新整理各區及由清單進入申請中心、Task、申請明細。
 - 通知支援單筆已讀及全部已讀。
 
 ### 16. 正式起單
 
+- `/requests/start` 依 Tenant 級 `fm_process_category` metadata 分類、排序並搜尋可發起流程；分類不是 Java／Vue 寫死常數。
+- `/requests/start/[processDefId]` 是獨立填單頁，受控選擇本人或有效代理申請人，並管理 Form.io、Script、Data Action 與附件生命週期。
 - Load 與 Submit 都重新檢查 Tenant membership、申請人在職、主要任職、起單政策及代起單。
 - 只載入流程正式綁定的發布版 Form.io Schema、UI Schema、Script 與 Data Action Binding。
 - 前端執行 Form.io、custom lifecycle 與必要 Data Action，後端仍會獨立重驗所有安全與資料規則。
 - `submit` 必須提供 `Idempotency-Key`，防止連點及網路重送建立重複流程。
 - 同 key、同內容重送回傳原結果；同 key、不同內容則拒絕。
-- Tenant 內 `businessKey` 不可重複。
+- Tenant 內部 `businessKey` 不可重複；使用者可讀的 `documentNumber` 由 Tenant 單據規則產生，兩者分欄保存。
+- 單據規則支援 Tenant 時區、年／月重設、受控格式 token 與交易內併發安全流水號；未配置單據類型的流程維持 UUID 識別。
 - 同一交易建立 `SUBMITTED` 表單資料、啟動指定 Flowable definition、建立 `RUNNING` 流程索引、指派首關並寫入快照與 `SUBMIT` Action。
 - 任一步失敗時 FlowMint 與 Flowable 一起回滾，不留下半完成流程。
 - 不提供一般流程刪除 API；撤回、取消、駁回及終止都必須保留稽核。
@@ -355,6 +371,8 @@ FlowMint 平台本體的程式功能已完成，目前進入部署與驗收階�
 - 顯示 Form.io 表單、送單資料、節點政策、合法退回目標及歷次動作。
 - 依欄位政策呈現 Hidden、Read、Edit。
 - 顯示流程、申請人、節點、建立時間、due date、即將到期與逾時狀態。
+- 顯示正式附件並提供具 Tenant／Task 權限檢查的下載；附件顯示物件不會被誤判為關卡欄位異動。
+- 可開啟該實例的完整 BPMN 流程圖，已完成節點與目前節點分色標示，對話框可重複開關。
 - 僅知道 Task ID 不足以操作，所有 action 都再次檢查 assignee／candidate／delegate 狀態。
 
 ### 18. 完整簽核動作
@@ -375,7 +393,9 @@ FlowMint 平台本體的程式功能已完成，目前進入部署與驗收階�
 - 清單包含登入者本人申請及由登入者代他人發起的流程。
 - 顯示業務單號、流程、申請人、實際發起人、狀態與目前節點。
 - 只有表單 Owner 或實際發起人可查看明細。
-- 明細提供完整 Action 時間軸、表單 revisions、快照內容與流程進度。
+- 明細提供完整 Action 時間軸、表單 revisions、快照內容、正式附件及下載。
+- 預設摘要顯示目前等待關卡、指派類型與簽核人帳號／姓名；按「查看流程進度」才載入完整 BPMN 圖。
+- 流程圖固定使用該實例實際發布版本，依 Flowable 歷程標示已完成及進行中節點；申請人、實際發起人、目前受派／候選人及已有動作紀錄的流程參與者可查看。
 - `WITHDRAW`：只有表單 Owner 可撤回 `RUNNING` 流程，原因必填；流程與表單轉 `CANCELLED`。
 - `CANCEL`：只有實際發起人可取消 `RUNNING` 流程，服務代申請情境；與申請人撤回分開稽核。
 - 完成、駁回、撤回與取消會通知表單 Owner 及實際發起人，相同帳號自動去重。
@@ -724,6 +744,10 @@ FlowMint event
 |---|---|
 | `/login` | 登入 |
 | `/workspace` | 工作台、申請、待辦與通知中心 |
+| `/requests/start` | 依分類瀏覽、搜尋可發起流程及選擇本人／代申請情境 |
+| `/requests/start/[processDefId]` | 獨立正式填單、附件上傳與送出 |
+| `/requests/[processInstanceId]` | 申請詳情、目前簽核人、附件、歷程與 BPMN 進度 |
+| `/tasks/[taskId]` | 待辦表單、附件、流程進度與簽核動作 |
 | `/operations/incidents` | 指派異常處理 |
 | `/operations/processes` | 流程實例監控與稽核明細 |
 | `/operations/reports` | 流程營運報表 |
@@ -773,15 +797,17 @@ git diff --check
 1. 驗證登入、登出、Token refresh 與瀏覽器重新整理還原。
 2. 驗證 Tenant membership 與跨 Tenant 拒絕。
 3. 建立並發布表單及 BPMN 流程版本。
-4. 驗證一般起單與合法代申請。
-5. 驗證待辦、核准、退回、補件、駁回、撤回與完成。
-6. 驗證轉派、代理、加簽及 Approval Group 多人模式。
-7. 驗證表單、指派與操作快照不可變。
-8. 驗證站內通知、Email Outbox、期限提醒及逾時通知。
-9. 製造 Resolver 失敗，驗證 Incident Retry／Reassign／Terminate。
-10. 驗證流程監控、稽核明細、分頁與營運報表。
-11. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
-12. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
+4. 驗證申請中心分類／搜尋、一般起單、合法代申請、單據編號與重複送出冪等。
+5. 驗證有附件及無附件表單、表單內／側邊附件一致、權限下載，以及待辦核准不誤判附件異動。
+6. 驗證待辦、核准、退回、補件、駁回、撤回與完成。
+7. 驗證申請摘要的目前關卡／簽核人，以及 BPMN 流程圖首次與重複開啟、節點標色和參與者權限。
+8. 驗證轉派、代理、加簽及 Approval Group 多人模式。
+9. 驗證表單、指派與操作快照不可變。
+10. 驗證站內通知、Email Outbox、期限提醒及逾時通知。
+11. 製造 Resolver 失敗，驗證 Incident Retry／Reassign／Terminate。
+12. 驗證流程監控、稽核明細、分頁與營運報表。
+13. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
+14. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
 
 ## 已知限制與非核心範圍
 
@@ -798,6 +824,7 @@ git diff --check
 
 - Email 永久失敗狀態需先擴充 QIFU4 Mail Helper 最終失敗欄位與錯誤訊息。
 - 完整交付仍需正式資料 E2E 與實際量級效能驗證。
+- 最近完成的附件、申請追蹤、目前簽核人及 BPMN 進度仍需重新啟動完整環境後，以申請人和實際簽核人執行瀏覽器回歸。
 - 業務表單及流程須由導入人員依企業規則配置。
 
 ## 文件索引
@@ -818,6 +845,15 @@ git diff --check
 - [QIFU4 後端持久層規範](backend/doc/16-QIFU4後端持久層規範.md)
 - [開發進度](backend/doc/18-開發進度.md)
 - [原始碼排版與交付規範](backend/doc/19-原始碼排版與交付規範.md)
+- [動態資料服務規格](backend/doc/20-動態資料服務規格.md)
+- [MariaDB 操作規範](backend/doc/21-MariaDB操作規範.md)
+- [附件上傳與儲存規格](backend/doc/22-附件上傳與儲存規格.md)
+- [請購單流程與表單配置規格](backend/doc/23-請購單流程與表單配置規格.md)
+- [共用單據編號規格](backend/doc/24-共用單據編號規格.md)
+- [Workspace 與申請中心重構規劃](backend/doc/25-Workspace與申請中心重構規劃.md)
+- [平行加簽規劃](backend/doc/26-平行加簽規劃.md)
+- [正式會簽配置與實作指南](backend/doc/27-正式會簽配置與實作指南.md)
+- [流程簽核改派規劃](backend/doc/28-流程簽核改派規劃.md)
 
 ## License
 

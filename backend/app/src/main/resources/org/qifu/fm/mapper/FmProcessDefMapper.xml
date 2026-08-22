@@ -8,6 +8,7 @@
     <result column="PROCESS_KEY" jdbcType="VARCHAR" property="processKey" />
     <result column="PROCESS_NAME" jdbcType="VARCHAR" property="processName" />
     <result column="CATEGORY" jdbcType="VARCHAR" property="category" />
+    <result column="PROCESS_SORT_ORDER" jdbcType="INTEGER" property="processSortOrder" />
     <result column="DOCUMENT_TYPE" jdbcType="VARCHAR" property="documentType" />
     <result column="CURRENT_VERSION_NO" jdbcType="INTEGER" property="currentVersionNo" />
     <result column="STATUS" jdbcType="VARCHAR" property="status" />
@@ -17,7 +18,7 @@
     <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
     <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
   </resultMap>
-  <sql id="BaseColumnList">OID, TENANT_ID, PROCESS_DEF_ID, PROCESS_KEY, PROCESS_NAME, CATEGORY, DOCUMENT_TYPE, CURRENT_VERSION_NO, STATUS, DESCRIPTION, CUSERID, CDATE, UUSERID, UDATE</sql>
+  <sql id="BaseColumnList">OID, TENANT_ID, PROCESS_DEF_ID, PROCESS_KEY, PROCESS_NAME, CATEGORY, PROCESS_SORT_ORDER, DOCUMENT_TYPE, CURRENT_VERSION_NO, STATUS, DESCRIPTION, CUSERID, CDATE, UUSERID, UDATE</sql>
   <sql id="baseConditions">
     <if test="tenantId != null and tenantId != ''">
         AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
@@ -30,6 +31,12 @@
       </if>
     <if test="status != null and status != ''">
         AND STATUS = #{status,jdbcType=VARCHAR}
+      </if>
+    <if test="notStatus != null and notStatus != ''">
+        AND STATUS &lt;&gt; #{notStatus,jdbcType=VARCHAR}
+      </if>
+    <if test="category != null and category != ''">
+        AND CATEGORY = #{category,jdbcType=VARCHAR}
       </if>
     <if test="processKeyLike != null and processKeyLike != ''">
         AND PROCESS_KEY LIKE #{processKeyLike,jdbcType=VARCHAR}
@@ -90,6 +97,9 @@
       <if test="category != null">
         CATEGORY,
       </if>
+      <if test="processSortOrder != null">
+        PROCESS_SORT_ORDER,
+      </if>
       <if test="documentType != null">
         DOCUMENT_TYPE,
       </if>
@@ -134,6 +144,9 @@
       <if test="category != null">
         #{category,jdbcType=VARCHAR},
       </if>
+      <if test="processSortOrder != null">
+        #{processSortOrder,jdbcType=INTEGER},
+      </if>
       <if test="documentType != null">
         #{documentType,jdbcType=VARCHAR},
       </if>
@@ -168,6 +181,9 @@
       </if>
       <if test="category != null">
         CATEGORY = #{category,jdbcType=VARCHAR},
+      </if>
+      <if test="processSortOrder != null">
+        PROCESS_SORT_ORDER = #{processSortOrder,jdbcType=INTEGER},
       </if>
       <if test="documentType != null">
         DOCUMENT_TYPE = #{documentType,jdbcType=VARCHAR},

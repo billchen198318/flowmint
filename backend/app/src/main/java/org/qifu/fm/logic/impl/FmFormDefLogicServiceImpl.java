@@ -440,8 +440,8 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 return;
             }
             for (JsonNode binding : bindings) {
-                String bindingId = binding.path("bindingId").asText("");
-                String actionCode = binding.path("actionCode").asText("");
+                String bindingId = binding.path("bindingId").asString("");
+                String actionCode = binding.path("actionCode").asString("");
                 FmDataAction action = findPublishedDataAction(tenantId, actionCode, bindingId);
                 Integer versionNo = binding.hasNonNull("actionVersion")
                         ? binding.path("actionVersion").asInt(0)

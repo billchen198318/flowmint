@@ -22,6 +22,7 @@ export const applyTaskFieldPolicy = (schema: any, content?: string) => {
   const defaultAccess = normalize(policy.default);
   const fields = policy.fields || {};
   const visit = (components: any[] = []) => {
+    if (!Array.isArray(components)) return;
     for (const component of components) {
       const access = normalize(fields[component.key] || defaultAccess);
       if (component.key) {
@@ -29,9 +30,14 @@ export const applyTaskFieldPolicy = (schema: any, content?: string) => {
         component.disabled = access !== "EDIT";
       }
       visit(component.components);
-      for (const column of component.columns || []) visit(column.components);
-      for (const row of component.rows || []) {
-        for (const cell of row || []) visit(cell.components);
+      if (Array.isArray(component.columns)) {
+        for (const column of component.columns) visit(column.components);
+      }
+      if (Array.isArray(component.rows)) {
+        for (const row of component.rows) {
+          if (!Array.isArray(row)) continue;
+          for (const cell of row) visit(cell.components);
+        }
       }
     }
   };

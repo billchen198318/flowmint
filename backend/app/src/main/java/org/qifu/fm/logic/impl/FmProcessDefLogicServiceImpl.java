@@ -23,6 +23,7 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessDefCommand;
+import org.qifu.fm.dto.command.FmProcessCategoryCommand;
 import org.qifu.fm.dto.command.FmProcessVersionCommand;
 import org.qifu.fm.dto.command.FmProcessStartPolicyCommand;
 import org.qifu.fm.dto.command.FmResolverPreviewCommand;
@@ -30,6 +31,7 @@ import org.qifu.fm.dto.command.FmTaskAssignmentRuleCommand;
 import org.qifu.fm.dto.command.FmTaskFormRuleCommand;
 import org.qifu.fm.dto.command.FmTaskPolicyCommand;
 import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.dto.view.FmProcessCategoryView;
 import org.qifu.fm.dto.view.FmProcessDefView;
 import org.qifu.fm.dto.view.FmProcessVersionView;
 import org.qifu.fm.dto.view.FmProcessStartPolicyView;
@@ -41,6 +43,7 @@ import org.qifu.fm.dto.view.FmTaskAssignmentRuleView;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmProcessDef;
+import org.qifu.fm.entity.FmProcessCategory;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmProcessStartPolicy;
 import org.qifu.fm.entity.FmTaskFormRule;
@@ -52,8 +55,10 @@ import org.qifu.fm.domain.runtime.FmApprovalGroupModeValidator;
 import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
 import org.qifu.fm.domain.workflow.FmAssignmentRuleConfigValidator;
 import org.qifu.fm.domain.workflow.FmBpmnDesignValidator;
+import org.qifu.fm.domain.workflow.FmProcessPublishValidator;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
+import org.qifu.fm.service.IFmProcessCategoryService;
 import org.qifu.fm.service.IFmProcessVersionService;
 import org.qifu.fm.service.IFmProcessStartPolicyService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
@@ -79,12 +84,15 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             new FmAssignmentRuleConfigValidator(new tools.jackson.databind.ObjectMapper());
     private final FmBpmnDesignValidator bpmnDesignValidator =
             new FmBpmnDesignValidator();
+    private final FmProcessPublishValidator processPublishValidator =
+            new FmProcessPublishValidator();
     private final FmFormFieldCatalog formFieldCatalog =
             new FmFormFieldCatalog(new tools.jackson.databind.ObjectMapper());
     private final FmTaskFieldPolicyValidator taskFieldPolicyValidator =
             new FmTaskFieldPolicyValidator(new tools.jackson.databind.ObjectMapper());
 
     private final IFmProcessDefService processDefService;
+    private final IFmProcessCategoryService processCategoryService;
     private final IFmProcessVersionService processVersionService;
     private final IFmTenantService tenantService;
     private final IFmTaskFormRuleService taskFormRuleService;
@@ -103,6 +111,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
 
     public FmProcessDefLogicServiceImpl(
             IFmProcessDefService processDefService,
+            IFmProcessCategoryService processCategoryService,
             IFmProcessVersionService processVersionService,
             IFmTenantService tenantService,
             IFmTaskFormRuleService taskFormRuleService,
@@ -119,6 +128,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             RepositoryService repositoryService,
             FmTenantAccessGuard tenantAccessGuard) {
         this.processDefService = processDefService;
+        this.processCategoryService = processCategoryService;
         this.processVersionService = processVersionService;
         this.tenantService = tenantService;
         this.taskFormRuleService = taskFormRuleService;
@@ -142,6 +152,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throws ServiceException {
         validate(command);
         tenantAccessGuard.requireAccess(command.tenantId());
+        requireActiveCategory(command.tenantId(), command.category());
         assertUnique(command.tenantId(), command.processKey(), null);
         FmProcessDef processDef = new FmProcessDef();
         processDef.setTenantId(command.tenantId());
@@ -149,6 +160,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         processDef.setProcessKey(command.processKey());
         processDef.setProcessName(command.processName());
         processDef.setCategory(command.category());
+        processDef.setProcessSortOrder(normalizeSortOrder(command.processSortOrder()));
         processDef.setCurrentVersionNo(1);
         processDef.setStatus("DRAFT");
         processDef.setDescription(command.description());
@@ -187,8 +199,13 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         if (StringUtils.isBlank(command.processName())) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
+        if (StringUtils.isBlank(command.category())) {
+            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+        }
+        requireActiveCategory(command.tenantId(), command.category());
         processDef.setProcessName(command.processName());
         processDef.setCategory(command.category());
+        processDef.setProcessSortOrder(normalizeSortOrder(command.processSortOrder()));
         processDef.setDescription(command.description());
         processDefService.update(processDef);
         return load(processDef.getOid(), BaseSystemMessage.updateSuccess());
@@ -289,6 +306,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         FmProcessDef processDef = findDef(version.getTenantId(), version.getProcessDefId());
         validateBpmn(version.getBpmnXml(), processDef.getProcessKey());
         Set<String> taskKeys = userTaskKeys(version.getBpmnXml());
+        processPublishValidator.validate(taskKeys, taskFormRules(version),
+                taskPolicies(version), assignmentRules(version));
         validateTaskFormsForPublish(version, taskKeys);
         validateGatewayFormFieldsForPublish(version);
         validateTaskPoliciesForPublish(version, taskKeys);
@@ -500,6 +519,106 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return parameters;
     }
 
+    @Override
+    public DefaultResult<List<FmProcessCategoryView>> categoryOptions(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        List<FmProcessCategoryView> values = processCategoryService
+                .selectListByParams(activeOptionParameters(tenantId),
+                        "SORT_ORDER,CATEGORY_LABEL", "ASC")
+                .getValue().stream()
+                .map(value -> new FmProcessCategoryView(
+                        value.getOid(), value.getTenantId(), value.getCategoryCode(),
+                        value.getCategoryLabel(), value.getIconCode(),
+                        value.getSortOrder(), value.getStatus()))
+                .toList();
+        return success(values);
+    }
+
+    @Override
+    public DefaultResult<List<FmProcessCategoryView>> categoryList(String tenantId)
+            throws ServiceException {
+        validateTenantId(tenantId);
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        List<FmProcessCategoryView> values = processCategoryService
+                .selectListByParams(parameters, "SORT_ORDER,CATEGORY_LABEL", "ASC")
+                .getValue().stream().map(this::categoryView).toList();
+        return success(values);
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<List<FmProcessCategoryView>> saveCategory(
+            FmProcessCategoryCommand command) throws ServiceException {
+        if (command == null || StringUtils.isAnyBlank(
+                command.tenantId(), command.categoryCode(), command.categoryLabel())
+                || !command.categoryCode().matches("[A-Za-z][A-Za-z0-9_-]*")) {
+            throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+        }
+        validateTenantId(command.tenantId());
+        FmProcessCategory category;
+        if (StringUtils.isBlank(command.oid())) {
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("tenantId", command.tenantId());
+            parameters.put("categoryCode", command.categoryCode());
+            if (!processCategoryService.selectListByParams(parameters).getValue().isEmpty()) {
+                throw new ServiceException("同一 Tenant 的分類代碼不可重複");
+            }
+            category = new FmProcessCategory();
+            category.setTenantId(command.tenantId());
+            category.setCategoryCode(command.categoryCode());
+            category.setStatus("ACTIVE");
+            applyCategory(command, category);
+            processCategoryService.insert(category);
+        } else {
+            category = processCategoryService.selectByPrimaryKey(command.oid())
+                    .getValueEmptyThrowMessage();
+            tenantAccessGuard.requireAccess(category.getTenantId());
+            if (!category.getTenantId().equals(command.tenantId())
+                    || !category.getCategoryCode().equals(command.categoryCode())) {
+                throw new ServiceException("不可變更分類的 Tenant 或代碼");
+            }
+            applyCategory(command, category);
+            category.setStatus("INACTIVE".equals(command.status())
+                    ? "INACTIVE" : "ACTIVE");
+            processCategoryService.update(category);
+        }
+        return categoryList(command.tenantId());
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<List<FmProcessCategoryView>> deactivateCategory(String oid)
+            throws ServiceException {
+        FmProcessCategory category = processCategoryService.selectByPrimaryKey(oid)
+                .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(category.getTenantId());
+        Map<String, Object> references = new HashMap<>();
+        references.put("tenantId", category.getTenantId());
+        references.put("category", category.getCategoryCode());
+        references.put("notStatus", "INACTIVE");
+        if (!processDefService.selectListByParams(references).getValue().isEmpty()) {
+            throw new ServiceException("分類仍有未停用流程使用，不可停用");
+        }
+        category.setStatus("INACTIVE");
+        processCategoryService.update(category);
+        return categoryList(category.getTenantId());
+    }
+
+    private void applyCategory(FmProcessCategoryCommand command,
+            FmProcessCategory category) {
+        category.setCategoryLabel(command.categoryLabel().trim());
+        category.setIconCode(StringUtils.trimToNull(command.iconCode()));
+        category.setSortOrder(normalizeSortOrder(command.sortOrder()));
+    }
+
+    private FmProcessCategoryView categoryView(FmProcessCategory value) {
+        return new FmProcessCategoryView(value.getOid(), value.getTenantId(),
+                value.getCategoryCode(), value.getCategoryLabel(),
+                value.getIconCode(), value.getSortOrder(), value.getStatus());
+    }
+
     private void validateTenantId(String tenantId) throws ServiceException {
         if (StringUtils.isBlank(tenantId)) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
@@ -541,16 +660,30 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return new FmProcessDefView(processDef.getOid(), processDef.getTenantId(),
                 processDef.getProcessDefId(), processDef.getProcessKey(),
                 processDef.getProcessName(), processDef.getCategory(),
-                processDef.getDocumentType(),
+                processDef.getProcessSortOrder(), processDef.getDocumentType(),
                 processDef.getCurrentVersionNo(), processDef.getStatus(),
                 processDef.getDescription(), versionViews);
     }
 
     private void validate(FmProcessDefCommand command) throws ServiceException {
         if (StringUtils.isAnyBlank(command.tenantId(), command.processKey(),
-                command.processName()) || !command.processKey().matches("[A-Za-z][A-Za-z0-9_-]*")) {
+                command.processName(), command.category())
+                || !command.processKey().matches("[A-Za-z][A-Za-z0-9_-]*")) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
+    }
+
+    private void requireActiveCategory(String tenantId, String categoryCode)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        parameters.put("categoryCode", categoryCode);
+        if (processCategoryService.selectListByParams(parameters).getValue().isEmpty()) {
+            throw new ServiceException("流程分類不存在或未啟用");
+        }
+    }
+
+    private int normalizeSortOrder(Integer sortOrder) {
+        return sortOrder == null ? 0 : sortOrder;
     }
 
     private void assertUnique(String tenantId, String processKey, String excludedOid)

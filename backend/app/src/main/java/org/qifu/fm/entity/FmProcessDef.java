@@ -19,6 +19,7 @@ public class FmProcessDef implements Serializable {
 	private String processKey;
 	private String processName;
 	private String category;
+	private Integer processSortOrder;
 	private String documentType;
 	private Integer currentVersionNo;
 	private String status;
@@ -75,6 +76,14 @@ public class FmProcessDef implements Serializable {
 
 	public void setCategory(String category) {
 		this.category = category;
+	}
+
+	public Integer getProcessSortOrder() {
+		return processSortOrder;
+	}
+
+	public void setProcessSortOrder(Integer processSortOrder) {
+		this.processSortOrder = processSortOrder;
 	}
 
 	public String getDocumentType() {

@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.Strings;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
@@ -260,18 +261,18 @@ public class FmAttachmentUploadLogicServiceImpl
         try {
             JsonNode component = findComponent(
                     objectMapper.readTree(version.getSchemaContent()).path("components"), fieldKey);
-            if (component == null || !"file".equals(component.path("type").asText())) {
+            if (component == null || !"file".equals(component.path("type").asString())) {
                 throw new ServiceException("指定欄位不是此表單版本的附件元件");
             }
             Set<String> extensions = configuredExtensions(component.path("fileTypes"));
-            long maximum = configuredMaximumSize(component.path("fileMaxSize").asText(""));
+            long maximum = configuredMaximumSize(component.path("fileMaxSize").asString(""));
             int maxFiles = component.path("maxNumberOfFiles").asInt(
                     component.path("multiple").asBoolean(false) ? 10 : 1);
             if (maxFiles < 1 || maxFiles > 20) {
                 throw new ServiceException("附件數量設定必須介於 1 至 20");
             }
             long maximumTotal = configuredMaximumSize(
-                    component.path("flowmintMaxTotalSize").asText(
+                    component.path("flowmintMaxTotalSize").asString(
                             Math.min(maximum * maxFiles, 50L * 1024L * 1024L) + ""));
             if (maximumTotal < maximum || maximumTotal > 50L * 1024L * 1024L) {
                 throw new ServiceException("附件總容量上限不得小於單檔上限且不可超過 50MB");
@@ -286,7 +287,7 @@ public class FmAttachmentUploadLogicServiceImpl
 
     private JsonNode findComponent(JsonNode components, String fieldKey) {
         for (JsonNode component : components) {
-            if (fieldKey.equals(component.path("key").asText())) return component;
+            if (fieldKey.equals(component.path("key").asString())) return component;
             JsonNode found = findComponent(component.path("components"), fieldKey);
             if (found != null) return found;
             for (JsonNode column : component.path("columns")) {
@@ -306,10 +307,10 @@ public class FmAttachmentUploadLogicServiceImpl
     private Set<String> configuredExtensions(JsonNode fileTypes) {
         Set<String> configured = new java.util.HashSet<>();
         for (JsonNode fileType : fileTypes) {
-            String value = fileType.isTextual()
-                    ? fileType.asText() : fileType.path("value").asText("");
+            String value = fileType.isString()
+                    ? fileType.asString() : fileType.path("value").asString("");
             for (String token : value.toLowerCase(Locale.ROOT).split("[, ]+")) {
-                String extension = StringUtils.removeStart(token.trim(), ".");
+                String extension = Strings.CS.removeStart(token.trim(), ".");
                 if (ALLOWED_EXTENSIONS.contains(extension)) configured.add(extension);
             }
         }
@@ -321,10 +322,10 @@ public class FmAttachmentUploadLogicServiceImpl
         String normalized = value.trim().toUpperCase(Locale.ROOT).replace(" ", "");
         try {
             if (normalized.endsWith("MB")) {
-                return Long.parseLong(StringUtils.removeEnd(normalized, "MB")) * 1024L * 1024L;
+                return Long.parseLong(Strings.CS.removeEnd(normalized, "MB")) * 1024L * 1024L;
             }
             if (normalized.endsWith("KB")) {
-                return Long.parseLong(StringUtils.removeEnd(normalized, "KB")) * 1024L;
+                return Long.parseLong(Strings.CS.removeEnd(normalized, "KB")) * 1024L;
             }
             return Long.parseLong(normalized);
         } catch (NumberFormatException exception) {
