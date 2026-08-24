@@ -10,6 +10,10 @@ import org.flowable.task.api.Task;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.view.FmAttachmentView;
+import org.qifu.fm.entity.FmTaskParallelAddSign;
+import org.qifu.fm.entity.FmTaskParallelAddSignMember;
+import org.qifu.fm.service.IFmTaskParallelAddSignMemberService;
+import org.qifu.fm.service.IFmTaskParallelAddSignService;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -41,16 +45,22 @@ public class FmAttachmentDownloadService {
     private final FmAttachmentStorageService storageService;
     private final TaskService taskService;
     private final ObjectMapper objectMapper;
+    private final IFmTaskParallelAddSignService parallelBatchService;
+    private final IFmTaskParallelAddSignMemberService parallelMemberService;
 
     public FmAttachmentDownloadService(
             NamedParameterJdbcTemplate jdbcTemplate,
             FmAttachmentStorageService storageService,
             TaskService taskService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            IFmTaskParallelAddSignService parallelBatchService,
+            IFmTaskParallelAddSignMemberService parallelMemberService) {
         this.jdbcTemplate = jdbcTemplate;
         this.storageService = storageService;
         this.taskService = taskService;
         this.objectMapper = objectMapper;
+        this.parallelBatchService = parallelBatchService;
+        this.parallelMemberService = parallelMemberService;
     }
 
     public List<FmAttachmentView> listByProcess(String tenantId, String processInstanceId)
@@ -81,14 +91,22 @@ public class FmAttachmentDownloadService {
         Task task = taskService.createTaskQuery()
                 .taskId(taskId).taskCandidateOrAssigned(account).singleResult();
         if (task == null) throw new ServiceException("找不到待辦或沒有附件檢視權限");
+        ParallelTaskContext parallel = parallelTaskContext(tenantId, taskId, account);
+        String processInstanceId = parallel == null
+                ? task.getProcessInstanceId() : parallel.processInstanceId();
+        String taskDefinitionKey = parallel == null
+                ? task.getTaskDefinitionKey() : parallel.taskDefinitionKey();
+        if (StringUtils.isBlank(processInstanceId)) {
+            throw new ServiceException("找不到待辦所屬流程");
+        }
         MapSqlParameterSource parameters = parameters(tenantId)
-                .addValue("processInstanceId", task.getProcessInstanceId());
+                .addValue("processInstanceId", processInstanceId);
         List<FmAttachmentView> attachments = jdbcTemplate.queryForList(
                 ATTACHMENT_SELECT + " AND pi.PROCESS_INSTANCE_ID = :processInstanceId"
                         + " ORDER BY a.FIELD_KEY, a.CDATE, a.OID",
                 parameters).stream().map(this::view).toList();
         String fieldPolicy = taskFieldPolicy(
-                tenantId, task.getProcessInstanceId(), task.getTaskDefinitionKey());
+                tenantId, processInstanceId, taskDefinitionKey);
         return attachments.stream()
                 .filter(value -> fieldVisible(fieldPolicy, value.fieldKey()))
                 .toList();
@@ -156,11 +174,20 @@ public class FmAttachmentDownloadService {
                 .processInstanceId(processInstanceId)
                 .taskCandidateOrAssigned(account)
                 .active().listPage(0, 1).stream().findFirst().orElse(null);
-        if (task == null) throw new ServiceException("找不到附件或沒有檢視權限");
+        String taskDefinitionKey;
+        if (task == null) {
+            ParallelTaskContext parallel = parallelTaskForProcess(
+                    String.valueOf(row.get("TENANT_ID")), processInstanceId, account);
+            if (parallel == null) {
+                throw new ServiceException("找不到附件或沒有檢視權限");
+            }
+            taskDefinitionKey = parallel.taskDefinitionKey();
+        } else {
+            taskDefinitionKey = task.getTaskDefinitionKey();
+        }
         String policy = taskFieldPolicy(
-                String.valueOf(row.get("TENANT_ID")),
-                processInstanceId,
-                task.getTaskDefinitionKey());
+                String.valueOf(row.get("TENANT_ID")), processInstanceId,
+                taskDefinitionKey);
         if (!fieldVisible(policy, String.valueOf(row.get("FIELD_KEY")))) {
             throw new ServiceException("此待辦欄位不允許檢視附件");
         }
@@ -223,6 +250,44 @@ public class FmAttachmentDownloadService {
         } catch (RuntimeException exception) {
             throw new ServiceException("待辦欄位權限設定格式錯誤");
         }
+    }
+
+    private ParallelTaskContext parallelTaskContext(
+            String tenantId, String taskId, String account) throws ServiceException {
+        FmTaskParallelAddSignMember member = parallelMemberService
+                .findPendingByTask(tenantId, taskId);
+        if (member == null || !account.equals(member.getMemberAccount())) return null;
+        FmTaskParallelAddSign batch = parallelBatchService
+                .selectByPrimaryKey(member.getParallelAddSignOid()).getValue();
+        if (batch == null || !tenantId.equals(batch.getTenantId())
+                || !"WAITING".equals(batch.getStatus())) return null;
+        return new ParallelTaskContext(
+                batch.getProcessInstanceId(), batch.getTaskDefinitionKey());
+    }
+
+    private ParallelTaskContext parallelTaskForProcess(
+            String tenantId, String processInstanceId, String account)
+            throws ServiceException {
+        Map<String, Object> values = new java.util.HashMap<>();
+        values.put("tenantId", tenantId);
+        values.put("memberAccount", account);
+        values.put("status", "PENDING");
+        for (FmTaskParallelAddSignMember member : parallelMemberService
+                .selectListByParams(values).getValue()) {
+            FmTaskParallelAddSign batch = parallelBatchService
+                    .selectByPrimaryKey(member.getParallelAddSignOid()).getValue();
+            if (batch != null && "WAITING".equals(batch.getStatus())
+                    && tenantId.equals(batch.getTenantId())
+                    && processInstanceId.equals(batch.getProcessInstanceId())) {
+                return new ParallelTaskContext(
+                        batch.getProcessInstanceId(), batch.getTaskDefinitionKey());
+            }
+        }
+        return null;
+    }
+
+    private record ParallelTaskContext(
+            String processInstanceId, String taskDefinitionKey) {
     }
 
     public record DownloadFile(

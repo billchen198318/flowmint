@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -19,6 +20,9 @@ import org.qifu.fm.dto.command.FmTaskAddSignRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.command.FmTaskDelegationRequest;
 import org.qifu.fm.dto.command.FmTaskResolveRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignCancelRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignCompleteRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignStartRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -52,6 +56,11 @@ class FmProcessRuntimeControllerContractTest {
 				"/tasks/transfer-options",
 				"/tasks/delegate",
 				"/tasks/resolve",
+				"/tasks/parallel-add-sign-options",
+				"/tasks/start-parallel-add-sign",
+				"/tasks/complete-parallel-add-sign",
+				"/tasks/cancel-parallel-add-sign",
+				"/tasks/parallel-add-sign-detail",
 				"/mine",
 				"/mine/cancel",
 				"/mine/diagram",
@@ -59,6 +68,20 @@ class FmProcessRuntimeControllerContractTest {
 				"/mine/withdraw",
 				"/submit"), paths);
 		assertFalse(paths.stream().anyMatch(path -> path.contains("delete")));
+	}
+
+	@Test
+	void parallelAddSignBodiesCannotOverrideTenantOrActor() {
+		for (Class<?> type : List.of(
+				FmParallelAddSignStartRequest.class,
+				FmParallelAddSignCompleteRequest.class,
+				FmParallelAddSignCancelRequest.class)) {
+			Set<String> components = Arrays.stream(type.getRecordComponents())
+					.map(component -> component.getName())
+					.collect(Collectors.toSet());
+			assertFalse(components.contains("tenantId"));
+			assertFalse(components.contains("actorAccount"));
+		}
 	}
 
 	@Test

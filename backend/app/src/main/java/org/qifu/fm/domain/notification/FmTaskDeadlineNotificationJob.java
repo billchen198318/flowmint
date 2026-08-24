@@ -14,6 +14,8 @@ import org.flowable.task.api.Task;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmTaskParallelAddSignMemberService;
+import org.qifu.fm.service.IFmTaskParallelAddSignService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -29,13 +31,19 @@ public class FmTaskDeadlineNotificationJob {
     private final TaskService taskService;
     private final IFmTaskPolicyService taskPolicyService;
     private final FmNotificationPublisher notificationPublisher;
+    private final IFmTaskParallelAddSignService parallelBatchService;
+    private final IFmTaskParallelAddSignMemberService parallelMemberService;
 
     public FmTaskDeadlineNotificationJob(TaskService taskService,
             IFmTaskPolicyService taskPolicyService,
-            FmNotificationPublisher notificationPublisher) {
+            FmNotificationPublisher notificationPublisher,
+            IFmTaskParallelAddSignService parallelBatchService,
+            IFmTaskParallelAddSignMemberService parallelMemberService) {
         this.taskService = taskService;
         this.taskPolicyService = taskPolicyService;
         this.notificationPublisher = notificationPublisher;
+        this.parallelBatchService = parallelBatchService;
+        this.parallelMemberService = parallelMemberService;
     }
 
     @Scheduled(initialDelay = 90000, fixedDelay = 300000)
@@ -85,14 +93,31 @@ public class FmTaskDeadlineNotificationJob {
         if (StringUtils.isAnyBlank(tenantId, processDefId, version)) {
             return null;
         }
+        String taskDefinitionKey = task.getTaskDefinitionKey();
+        if (StringUtils.isBlank(taskDefinitionKey)
+                && StringUtils.isNotBlank(task.getParentTaskId())) {
+            var member = parallelMemberService.findPendingByTask(tenantId, task.getId());
+            if (member != null) {
+                var batch = parallelBatchService
+                        .selectByPrimaryKey(member.getParallelAddSignOid()).getValue();
+                if (batch != null && "WAITING".equals(batch.getStatus())) {
+                    taskDefinitionKey = batch.getTaskDefinitionKey();
+                }
+            }
+        }
+        final String policyTaskKey = taskDefinitionKey;
         return taskPolicyService.findByVersion(tenantId, processDefId,
                 Integer.valueOf(version)).stream()
-                .filter(value -> task.getTaskDefinitionKey().equals(value.getTaskDefKey()))
+                .filter(value -> policyTaskKey != null
+                        && policyTaskKey.equals(value.getTaskDefKey()))
                 .findFirst().orElse(null);
     }
 
     private String variable(Task task, String name) {
         Object value = taskService.getVariable(task.getId(), name);
+        if (value == null && StringUtils.isNotBlank(task.getParentTaskId())) {
+            value = taskService.getVariable(task.getParentTaskId(), name);
+        }
         return value == null ? null : value.toString();
     }
 

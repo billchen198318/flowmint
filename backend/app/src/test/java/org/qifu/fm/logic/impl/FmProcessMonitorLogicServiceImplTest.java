@@ -22,6 +22,7 @@ import org.qifu.fm.service.IFmFormSnapshotService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmTaskActionService;
+import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -36,7 +37,10 @@ class FmProcessMonitorLogicServiceImplTest {
         FmProcessMonitorLogicServiceImpl logic = new FmProcessMonitorLogicServiceImpl(
                 mock(TaskService.class), processes, mock(IFmProcessDefService.class),
                 mock(IFmFormDataService.class), mock(IFmTaskActionService.class),
-                mock(IFmFormSnapshotService.class), mock(ObjectMapper.class));
+                mock(IFmFormSnapshotService.class),
+                mock(org.qifu.fm.service.IFmTaskPolicyService.class),
+                mock(IFmParallelAddSignRuntimeLogicService.class),
+                mock(ObjectMapper.class));
 
         try (MockedStatic<UserUtils> users = mockStatic(UserUtils.class)) {
             users.when(UserUtils::isAdmin).thenReturn(true);

@@ -22,17 +22,24 @@ import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
 import org.qifu.fm.dto.command.FmIncidentReassignRequest;
 import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignReassignRequest;
+import org.qifu.fm.dto.command.FmTaskAdminReassignRequest;
+import org.qifu.fm.dto.command.FmTaskReassignPreviewRequest;
 import org.qifu.fm.dto.view.FmAssignmentIncidentView;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
+import org.qifu.fm.dto.view.FmTaskReassignPreviewView;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmTaskAssignmentSnapshot;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmTaskPolicy;
+import org.qifu.fm.entity.FmTaskParallelAddSign;
+import org.qifu.fm.entity.FmTaskParallelAddSignMember;
+import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
@@ -44,6 +51,8 @@ import org.qifu.fm.service.IFmTaskAssignmentSnapshotService;
 import org.qifu.fm.service.IFmTenantAccountService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmTaskParallelAddSignMemberService;
+import org.qifu.fm.service.IFmTaskParallelAddSignService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,6 +73,10 @@ public class FmIncidentOperationsLogicServiceImpl
     private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmAssignmentResolverService assignmentResolverService;
+    private final FmParallelAddSignLifecycleService parallelAddSignLifecycleService;
+    private final IFmTaskParallelAddSignService parallelBatchService;
+    private final IFmTaskParallelAddSignMemberService parallelMemberService;
+    private final FmNotificationPublisher notificationPublisher;
 
     public FmIncidentOperationsLogicServiceImpl(
             TaskService taskService,
@@ -77,7 +90,11 @@ public class FmIncidentOperationsLogicServiceImpl
             IFmRuntimeAuditLogicService auditLogicService,
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmTaskPolicyService taskPolicyService,
-            IFmAssignmentResolverService assignmentResolverService) {
+            IFmAssignmentResolverService assignmentResolverService,
+            FmParallelAddSignLifecycleService parallelAddSignLifecycleService,
+            IFmTaskParallelAddSignService parallelBatchService,
+            IFmTaskParallelAddSignMemberService parallelMemberService,
+            FmNotificationPublisher notificationPublisher) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.incidentRecorder = incidentRecorder;
@@ -90,6 +107,10 @@ public class FmIncidentOperationsLogicServiceImpl
         this.assignmentRuleService = assignmentRuleService;
         this.taskPolicyService = taskPolicyService;
         this.assignmentResolverService = assignmentResolverService;
+        this.parallelAddSignLifecycleService = parallelAddSignLifecycleService;
+        this.parallelBatchService = parallelBatchService;
+        this.parallelMemberService = parallelMemberService;
+        this.notificationPublisher = notificationPublisher;
     }
 
     @Override
@@ -127,6 +148,29 @@ public class FmIncidentOperationsLogicServiceImpl
                         value.getEmployeeNo() + " - " + value.getDisplayName()))
                 .toList();
         return success(options);
+    }
+
+    @Override
+    public DefaultResult<List<FmOptionView>> taskReassignOptions(String tenantId)
+            throws ServiceException {
+        requireReassignOperator();
+        if (StringUtils.isBlank(tenantId)) {
+            throw new ServiceException("Tenant 不可空白");
+        }
+        Date now = new Date();
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("status", "ACTIVE");
+        return success(employeeService.selectListByParams(
+                parameters, "EMPLOYEE_NO", "ASC").getValue().stream()
+                .filter(value -> (value.getEffectiveFrom() == null
+                        || !value.getEffectiveFrom().after(now))
+                        && (value.getEffectiveTo() == null
+                                || value.getEffectiveTo().after(now)))
+                .filter(value -> activeMembership(tenantId, value.getAccount(), now))
+                .map(value -> new FmOptionView(value.getAccount(),
+                        value.getEmployeeNo() + " - " + value.getDisplayName()))
+                .toList());
     }
 
     @Override
@@ -295,6 +339,8 @@ public class FmIncidentOperationsLogicServiceImpl
                 tenantId, process.getProcessInstanceId(), null, null,
                 "TERMINATE", "TERMINATED", actor, formData.getOwnerAccount(),
                 null, request.reason().trim(), formData, null, now);
+        parallelAddSignLifecycleService.cancelWaitingForProcess(
+                tenantId, process.getProcessInstanceId(), "PROCESS_TERMINATED");
         runtimeService.deleteProcessInstance(
                 process.getProcessInstanceId(), request.reason().trim());
         if (!processInstanceService.updateStatus(
@@ -311,6 +357,225 @@ public class FmIncidentOperationsLogicServiceImpl
                 "PROCESS_TERMINATED: " + request.reason().trim(), now);
         return success(new FmTaskActionResultView(
                 null, "TERMINATE", process.getProcessInstanceId(), "TERMINATED"));
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmTaskActionResultView> reassignParallelAddSign(
+            String tenantId, FmParallelAddSignReassignRequest request)
+            throws ServiceException {
+        requireOperator();
+        if (request == null || StringUtils.isAnyBlank(
+                tenantId, request.taskId(), request.targetAccount(), request.reason())) {
+            throw new ServiceException("平行加簽 Task、改派帳號與理由不可為空");
+        }
+        if (request.reason().trim().length() > 2000) {
+            throw new ServiceException("理由不可超過 2000 字");
+        }
+        FmTaskParallelAddSignMember member = parallelMemberService
+                .findPendingByTask(tenantId, request.taskId());
+        if (member == null) {
+            throw new ServiceException("找不到可改派的平行加簽 Task");
+        }
+        FmTaskParallelAddSign batch = parallelBatchService
+                .selectByPrimaryKey(member.getParallelAddSignOid()).getValueEmptyThrowMessage();
+        if (!tenantId.equals(batch.getTenantId()) || !"WAITING".equals(batch.getStatus())) {
+            throw new ServiceException("平行加簽批次已結束或 Tenant 不符");
+        }
+        Task task = taskService.createTaskQuery().taskId(request.taskId()).singleResult();
+        if (task == null || !member.getMemberAccount().equals(task.getAssignee())) {
+            throw new ServiceException("平行加簽 Task 狀態已改變");
+        }
+        Date now = new Date();
+        FmEmployee target = activeEmployee(tenantId, request.targetAccount().trim(), now);
+        if (target.getAccount().equals(member.getMemberAccount())) {
+            throw new ServiceException("改派帳號不可與目前加簽人相同");
+        }
+        if (parallelMemberService.findByBatch(tenantId, batch.getOid()).stream()
+                .anyMatch(item -> target.getAccount().equals(item.getMemberAccount()))) {
+            throw new ServiceException("改派帳號已在此平行加簽批次中");
+        }
+        String actor = UserUtils.getCurrentUser().getUserId();
+        if (parallelMemberService.reassignPending(
+                tenantId, member.getOid(), member.getLockVersion(),
+                target.getAccount(), actor) != 1) {
+            throw new ServiceException("平行加簽 Task 已被其他操作更新");
+        }
+        taskService.setAssignee(task.getId(), target.getAccount());
+        FmProcessInstance process = requiredProcess(tenantId, batch.getProcessInstanceId());
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        auditLogicService.recordParallelAddSignAction(
+                tenantId, process.getProcessInstanceId(), task.getId(),
+                batch.getTaskDefinitionKey(), "PARALLEL_ADD_SIGN_REASSIGN",
+                "REASSIGNED_TO:" + target.getAccount(), actor,
+                formData.getOwnerAccount(), null, request.reason().trim(),
+                formData, now);
+        notificationPublisher.taskAssigned(
+                tenantId, task.getId(), task.getName(),
+                List.of(target.getAccount()), actor, now);
+        return success(new FmTaskActionResultView(
+                task.getId(), "PARALLEL_ADD_SIGN_REASSIGN",
+                process.getProcessInstanceId(), "RUNNING"));
+    }
+
+    @Override
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    public DefaultResult<FmTaskActionResultView> reassignTask(
+            String tenantId, FmTaskAdminReassignRequest request)
+            throws ServiceException {
+        requireReassignOperator();
+        if (request == null || StringUtils.isAnyBlank(tenantId, request.taskId(),
+                request.targetAccount(), request.reason(), request.requestKey())) {
+            throw new ServiceException("Task、改派對象、原因與 request key 不可空白");
+        }
+        if (request.reason().trim().length() > 2000
+                || request.requestKey().trim().length() > 100) {
+            throw new ServiceException("改派原因或 request key 超過長度限制");
+        }
+        Task task = taskService.createTaskQuery().taskId(request.taskId()).singleResult();
+        if (task == null || task.getParentTaskId() != null) {
+            throw new ServiceException("Task 不存在，或應使用平行加簽專用改派");
+        }
+        String storedKey = (String) taskService.getVariableLocal(
+                task.getId(), "flowMintAdminReassignRequestKey");
+        String fingerprint = request.targetAccount().trim() + "\n" + request.reason().trim();
+        if (request.requestKey().trim().equals(storedKey)) {
+            String storedFingerprint = (String) taskService.getVariableLocal(
+                    task.getId(), "flowMintAdminReassignFingerprint");
+            if (!fingerprint.equals(storedFingerprint)) {
+                throw new ServiceException("相同 request key 不可更換改派對象或原因");
+            }
+            return success(new FmTaskActionResultView(task.getId(), "ADMIN_REASSIGN",
+                    task.getProcessInstanceId(), "RUNNING"));
+        }
+        if (StringUtils.startsWith(task.getCategory(), "FLOWMINT_INCIDENT:")) {
+            throw new ServiceException("Incident Task 請使用 Incident 改派");
+        }
+        if (DelegationState.PENDING.equals(task.getDelegationState())
+                || Boolean.TRUE.equals(taskService.getVariableLocal(
+                        task.getId(), "flowMintAddSign"))
+                || Boolean.TRUE.equals(taskService.getVariableLocal(
+                        task.getId(), FmParallelAddSignStartService.WAITING_VARIABLE))) {
+            throw new ServiceException("代理或加簽進行中 Task 不允許一般改派");
+        }
+        FmProcessInstance process = requiredProcess(
+                tenantId, task.getProcessInstanceId());
+        FmTaskPolicy policy = taskPolicyService.findByVersion(tenantId,
+                process.getProcessDefId(), process.getProcessVersionNo()).stream()
+                .filter(value -> task.getTaskDefinitionKey().equals(value.getTaskDefKey()))
+                .findFirst().orElseThrow(() -> new ServiceException("Task Policy 不存在"));
+        if ("APPLICANT_CORRECTION".equals(policy.getAssignmentMode())) {
+            throw new ServiceException("申請人補件 Task 不允許改派");
+        }
+        Date now = new Date();
+        FmEmployee target = activeEmployee(
+                tenantId, request.targetAccount().trim(), now);
+        if (target.getAccount().equals(task.getAssignee())) {
+            throw new ServiceException("新簽核人不可與目前簽核人相同");
+        }
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        if (!"ALLOW".equals(policy.getSelfApprovalPolicy())
+                && target.getAccount().equals(formData.getOwnerAccount())) {
+            throw new ServiceException("節點政策不允許改派給申請人自簽");
+        }
+        if ("ALL".equals(policy.getAssignmentMode())
+                && taskService.createTaskQuery()
+                        .processInstanceId(process.getProcessInstanceId())
+                        .taskDefinitionKey(task.getTaskDefinitionKey()).list().stream()
+                        .filter(value -> !task.getId().equals(value.getId()))
+                        .anyMatch(value -> target.getAccount().equals(value.getAssignee()))) {
+            throw new ServiceException("改派對象已是同節點的有效會簽人");
+        }
+        String previous = task.getAssignee();
+        taskService.getIdentityLinksForTask(task.getId()).stream()
+                .filter(link -> IdentityLinkType.CANDIDATE.equals(link.getType()))
+                .forEach(link -> {
+                    if (StringUtils.isNotBlank(link.getUserId())) {
+                        taskService.deleteCandidateUser(task.getId(), link.getUserId());
+                    } else if (StringUtils.isNotBlank(link.getGroupId())) {
+                        taskService.deleteCandidateGroup(task.getId(), link.getGroupId());
+                    }
+                });
+        taskService.setAssignee(task.getId(), target.getAccount());
+        String actor = UserUtils.getCurrentUser().getUserId();
+        String snapshotId = auditLogicService.recordAssignmentSnapshot(
+                new FmAssignmentSnapshotCommand(tenantId, formData.getFormDataId(),
+                        process.getProcessInstanceId(), task.getId(),
+                        task.getTaskDefinitionKey(), "ADMIN_REASSIGN", actor,
+                        null, "PROCESS_OPERATIONS;PREVIOUS="
+                                + StringUtils.defaultString(previous), "ASSIGNEE",
+                        List.of(new FmResolverCandidateView(target.getEmployeeId(),
+                                target.getAccount(), target.getDisplayName()))), now);
+        auditLogicService.recordTaskAction(tenantId, process.getProcessInstanceId(),
+                task.getId(), task.getTaskDefinitionKey(), "ADMIN_REASSIGN",
+                "REASSIGNED_FROM:" + StringUtils.defaultString(previous)
+                        + ";REASSIGNED_TO:" + target.getAccount(),
+                actor, formData.getOwnerAccount(), null, request.reason().trim(),
+                formData, assignmentSnapshot(tenantId, snapshotId), now);
+        taskService.setVariableLocal(task.getId(),
+                "flowMintAdminReassignRequestKey", request.requestKey().trim());
+        taskService.setVariableLocal(task.getId(),
+                "flowMintAdminReassignFingerprint", fingerprint);
+        notificationPublisher.taskReassigned(tenantId, task.getId(), task.getName(),
+                request.requestKey().trim(), previous, target.getAccount(), actor, now);
+        return success(new FmTaskActionResultView(task.getId(), "ADMIN_REASSIGN",
+                process.getProcessInstanceId(), "RUNNING"));
+    }
+
+    @Override
+    public DefaultResult<FmTaskReassignPreviewView> previewTaskReassign(
+            String tenantId, FmTaskReassignPreviewRequest request)
+            throws ServiceException {
+        requireReassignOperator();
+        if (request == null || StringUtils.isAnyBlank(
+                tenantId, request.taskId(), request.targetAccount())) {
+            throw new ServiceException("Task 與改派對象不可空白");
+        }
+        Task task = taskService.createTaskQuery().taskId(request.taskId()).singleResult();
+        if (task == null || task.getParentTaskId() != null
+                || StringUtils.startsWith(task.getCategory(), "FLOWMINT_INCIDENT:")) {
+            throw new ServiceException("此 Task 不支援一般管理員改派");
+        }
+        if (DelegationState.PENDING.equals(task.getDelegationState())
+                || Boolean.TRUE.equals(taskService.getVariableLocal(
+                        task.getId(), "flowMintAddSign"))
+                || Boolean.TRUE.equals(taskService.getVariableLocal(
+                        task.getId(), FmParallelAddSignStartService.WAITING_VARIABLE))) {
+            throw new ServiceException("代理或加簽進行中 Task 不允許改派");
+        }
+        FmProcessInstance process = requiredProcess(tenantId, task.getProcessInstanceId());
+        FmTaskPolicy policy = taskPolicyService.findByVersion(tenantId,
+                process.getProcessDefId(), process.getProcessVersionNo()).stream()
+                .filter(value -> task.getTaskDefinitionKey().equals(value.getTaskDefKey()))
+                .findFirst().orElseThrow(() -> new ServiceException("Task Policy 不存在"));
+        if ("APPLICANT_CORRECTION".equals(policy.getAssignmentMode())) {
+            throw new ServiceException("申請人補件 Task 不允許改派");
+        }
+        FmEmployee target = activeEmployee(
+                tenantId, request.targetAccount().trim(), new Date());
+        if (target.getAccount().equals(task.getAssignee())) {
+            throw new ServiceException("新簽核人不可與目前簽核人相同");
+        }
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        if (!"ALLOW".equals(policy.getSelfApprovalPolicy())
+                && target.getAccount().equals(formData.getOwnerAccount())) {
+            throw new ServiceException("節點政策不允許改派給申請人自簽");
+        }
+        boolean multi = List.of("ALL", "SEQUENTIAL").contains(policy.getAssignmentMode());
+        if ("ALL".equals(policy.getAssignmentMode())
+                && taskService.createTaskQuery()
+                        .processInstanceId(process.getProcessInstanceId())
+                        .taskDefinitionKey(task.getTaskDefinitionKey()).list().stream()
+                        .filter(value -> !task.getId().equals(value.getId()))
+                        .anyMatch(value -> target.getAccount().equals(value.getAssignee()))) {
+            throw new ServiceException("改派對象已是同節點的有效會簽人");
+        }
+        String warning = multi
+                ? "只改派這一張 active Task，不改變其他會簽 Task 或後續順序"
+                : "Task ID、流程節點與期限保持不變";
+        return success(new FmTaskReassignPreviewView(task.getId(), task.getName(),
+                task.getAssignee(), target.getAccount(), target.getDisplayName(),
+                policy.getAssignmentMode(), multi, warning));
     }
 
     private Task incidentTask(String tenantId, FmAssignmentIncidentView incident)
@@ -344,6 +609,13 @@ public class FmIncidentOperationsLogicServiceImpl
     private void requireOperator() throws ServiceException {
         if (!UserUtils.isAdmin() && !UserUtils.hasRole("FLOWMINT_OPERATIONS")) {
             throw new ServiceException("需要流程營運管理權限");
+        }
+    }
+
+    private void requireReassignOperator() throws ServiceException {
+        if (!UserUtils.isAdmin() && !UserUtils.hasRole("FLOWMINT_REASSIGN")
+                && !UserUtils.hasRole("FLOWMINT_OPERATIONS")) {
+            throw new ServiceException("需要 FLOWMINT_REASSIGN 管理員改派權限");
         }
     }
 

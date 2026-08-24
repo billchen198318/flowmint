@@ -21,6 +21,9 @@ import org.qifu.fm.dto.command.FmTaskLoadRequest;
 import org.qifu.fm.dto.command.FmTaskTransferRequest;
 import org.qifu.fm.dto.command.FmTaskDelegationRequest;
 import org.qifu.fm.dto.command.FmTaskResolveRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignCancelRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignCompleteRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignStartRequest;
 import org.qifu.fm.dto.view.FmProcessStartCatalogView;
 import org.qifu.fm.dto.view.FmProcessStartApplicantView;
 import org.qifu.fm.dto.view.FmProcessStartLoadView;
@@ -33,7 +36,9 @@ import org.qifu.fm.dto.view.FmTaskActionResultView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
 import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.dto.view.FmParallelAddSignDetailView;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
+import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
 import org.qifu.fm.logic.IFmRequestTrackingLogicService;
 import org.qifu.fm.logic.IFmTaskRuntimeLogicService;
 import org.springframework.http.ResponseEntity;
@@ -54,14 +59,100 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 	private final transient IFmProcessRuntimeLogicService runtimeLogicService;
 	private final transient IFmTaskRuntimeLogicService taskRuntimeLogicService;
 	private final transient IFmRequestTrackingLogicService trackingLogicService;
+	private final transient IFmParallelAddSignRuntimeLogicService parallelAddSignLogicService;
 
 	public FmProcessRuntimeController(
 			IFmProcessRuntimeLogicService runtimeLogicService,
 			IFmTaskRuntimeLogicService taskRuntimeLogicService,
-			IFmRequestTrackingLogicService trackingLogicService) {
+			IFmRequestTrackingLogicService trackingLogicService,
+			IFmParallelAddSignRuntimeLogicService parallelAddSignLogicService) {
 		this.runtimeLogicService = runtimeLogicService;
 		this.taskRuntimeLogicService = taskRuntimeLogicService;
 		this.trackingLogicService = trackingLogicService;
+		this.parallelAddSignLogicService = parallelAddSignLogicService;
+	}
+
+	@PostMapping("/tasks/parallel-add-sign-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			parallelAddSignOptions(
+					@RequestHeader("X-FlowMint-Tenant") String tenantId,
+					@RequestBody FmTaskLoadRequest request) {
+		DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("Task 必填");
+			}
+			setDefaultResponseJsonResult(parallelAddSignLogicService.options(
+					tenantId, request.taskId()), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/start-parallel-add-sign")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmParallelAddSignDetailView>>
+			startParallelAddSign(
+					@RequestHeader("X-FlowMint-Tenant") String tenantId,
+					@RequestBody FmParallelAddSignStartRequest request) {
+		DefaultControllerJsonResultObj<FmParallelAddSignDetailView> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(
+					parallelAddSignLogicService.start(tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/complete-parallel-add-sign")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>>
+			completeParallelAddSign(
+					@RequestHeader("X-FlowMint-Tenant") String tenantId,
+					@RequestBody FmParallelAddSignCompleteRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(
+					parallelAddSignLogicService.complete(tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/cancel-parallel-add-sign")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>>
+			cancelParallelAddSign(
+					@RequestHeader("X-FlowMint-Tenant") String tenantId,
+					@RequestBody FmParallelAddSignCancelRequest request) {
+		DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(
+					parallelAddSignLogicService.cancel(tenantId, request), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@PostMapping("/tasks/parallel-add-sign-detail")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmParallelAddSignDetailView>>
+			parallelAddSignDetail(
+					@RequestHeader("X-FlowMint-Tenant") String tenantId,
+					@RequestBody FmTaskLoadRequest request) {
+		DefaultControllerJsonResultObj<FmParallelAddSignDetailView> result =
+				initDefaultJsonResult();
+		try {
+			if (request == null) {
+				throw new ServiceException("Task 必填");
+			}
+			setDefaultResponseJsonResult(parallelAddSignLogicService.detail(
+					tenantId, request.taskId()), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
 	}
 
 	@PostMapping("/mine")

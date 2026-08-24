@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmTaskParallelAddSignMemberMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmTaskParallelAddSignMember">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="PARALLEL_ADD_SIGN_OID" jdbcType="CHAR" property="parallelAddSignOid" />
+    <result column="MEMBER_ACCOUNT" jdbcType="VARCHAR" property="memberAccount" />
+    <result column="FLOWABLE_TASK_ID" jdbcType="VARCHAR" property="flowableTaskId" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="COMMENT" jdbcType="VARCHAR" property="comment" />
+    <result column="COMPLETED_DATE" jdbcType="TIMESTAMP" property="completedDate" />
+    <result column="ORIGINAL_MEMBER_ACCOUNT" jdbcType="VARCHAR" property="originalMemberAccount" />
+    <result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, PARALLEL_ADD_SIGN_OID, MEMBER_ACCOUNT, FLOWABLE_TASK_ID,
+    STATUS, COMMENT, COMPLETED_DATE, ORIGINAL_MEMBER_ACCOUNT, LOCK_VERSION,
+    CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="parallelAddSignOid != null and parallelAddSignOid != ''">
+      AND PARALLEL_ADD_SIGN_OID = #{parallelAddSignOid,jdbcType=CHAR}
+    </if>
+    <if test="memberAccount != null and memberAccount != ''">
+      AND MEMBER_ACCOUNT = #{memberAccount,jdbcType=VARCHAR}
+    </if>
+    <if test="flowableTaskId != null and flowableTaskId != ''">
+      AND FLOWABLE_TASK_ID = #{flowableTaskId,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmTaskParallelAddSignMember">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">OID,</if>
+      <if test="tenantId != null">TENANT_ID,</if>
+      <if test="parallelAddSignOid != null">PARALLEL_ADD_SIGN_OID,</if>
+      <if test="memberAccount != null">MEMBER_ACCOUNT,</if>
+      <if test="flowableTaskId != null">FLOWABLE_TASK_ID,</if>
+      <if test="status != null">STATUS,</if>
+      <if test="comment != null">COMMENT,</if>
+      <if test="completedDate != null">COMPLETED_DATE,</if>
+      <if test="originalMemberAccount != null">ORIGINAL_MEMBER_ACCOUNT,</if>
+      <if test="lockVersion != null">LOCK_VERSION,</if>
+      <if test="cuserid != null">CUSERID,</if>
+      <if test="cdate != null">CDATE,</if>
+      <if test="uuserid != null">UUSERID,</if>
+      <if test="udate != null">UDATE,</if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">#{oid,jdbcType=CHAR},</if>
+      <if test="tenantId != null">#{tenantId,jdbcType=VARCHAR},</if>
+      <if test="parallelAddSignOid != null">#{parallelAddSignOid,jdbcType=CHAR},</if>
+      <if test="memberAccount != null">#{memberAccount,jdbcType=VARCHAR},</if>
+      <if test="flowableTaskId != null">#{flowableTaskId,jdbcType=VARCHAR},</if>
+      <if test="status != null">#{status,jdbcType=VARCHAR},</if>
+      <if test="comment != null">#{comment,jdbcType=VARCHAR},</if>
+      <if test="completedDate != null">#{completedDate,jdbcType=TIMESTAMP},</if>
+      <if test="originalMemberAccount != null">#{originalMemberAccount,jdbcType=VARCHAR},</if>
+      <if test="lockVersion != null">#{lockVersion,jdbcType=INTEGER},</if>
+      <if test="cuserid != null">#{cuserid,jdbcType=VARCHAR},</if>
+      <if test="cdate != null">#{cdate,jdbcType=TIMESTAMP},</if>
+      <if test="uuserid != null">#{uuserid,jdbcType=VARCHAR},</if>
+      <if test="udate != null">#{udate,jdbcType=TIMESTAMP},</if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmTaskParallelAddSignMember">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    <set>
+      <if test="memberAccount != null">MEMBER_ACCOUNT = #{memberAccount,jdbcType=VARCHAR},</if>
+      <if test="flowableTaskId != null">FLOWABLE_TASK_ID = #{flowableTaskId,jdbcType=VARCHAR},</if>
+      <if test="status != null">STATUS = #{status,jdbcType=VARCHAR},</if>
+      <if test="comment != null">COMMENT = #{comment,jdbcType=VARCHAR},</if>
+      <if test="completedDate != null">COMPLETED_DATE = #{completedDate,jdbcType=TIMESTAMP},</if>
+      <if test="lockVersion != null">LOCK_VERSION = #{lockVersion,jdbcType=INTEGER},</if>
+      <if test="uuserid != null">UUSERID = #{uuserid,jdbcType=VARCHAR},</if>
+      <if test="udate != null">UDATE = #{udate,jdbcType=TIMESTAMP},</if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmTaskParallelAddSignMember">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <select id="selectByBatch" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PARALLEL_ADD_SIGN_OID = #{parallelAddSignOid,jdbcType=CHAR}
+    ORDER BY CDATE, MEMBER_ACCOUNT
+  </select>
+
+  <select id="selectPendingByTask" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND FLOWABLE_TASK_ID = #{flowableTaskId,jdbcType=VARCHAR}
+      AND STATUS = 'PENDING'
+    LIMIT 1
+  </select>
+
+  <update id="completePending" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    SET STATUS = #{status,jdbcType=VARCHAR},
+        COMMENT = #{comment,jdbcType=VARCHAR},
+        COMPLETED_DATE = #{completedDate,jdbcType=TIMESTAMP},
+        LOCK_VERSION = LOCK_VERSION + 1,
+        UDATE = #{completedDate,jdbcType=TIMESTAMP}
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND STATUS = 'PENDING'
+      AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+      AND #{status,jdbcType=VARCHAR} IN ('AGREED', 'DISAGREED')
+  </update>
+
+  <update id="cancelPendingByBatch" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    SET STATUS = 'CANCELLED', LOCK_VERSION = LOCK_VERSION + 1
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PARALLEL_ADD_SIGN_OID = #{parallelAddSignOid,jdbcType=CHAR}
+      AND STATUS = 'PENDING'
+  </update>
+
+  <update id="reassignPending" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_parallel_add_sign_member
+    SET MEMBER_ACCOUNT = #{targetAccount,jdbcType=VARCHAR},
+        LOCK_VERSION = LOCK_VERSION + 1,
+        UUSERID = #{actor,jdbcType=VARCHAR},
+        UDATE = NOW()
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND STATUS = 'PENDING'
+      AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+  </update>
+</mapper>

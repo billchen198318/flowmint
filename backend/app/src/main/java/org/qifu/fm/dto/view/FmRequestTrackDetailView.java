@@ -13,5 +13,6 @@ public record FmRequestTrackDetailView(
         Map<String, Object> currentFormData,
         List<FmCurrentApprovalView> currentApprovals,
         List<FmTaskActionView> actions,
-        List<FmFormSnapshotView> snapshots) {
+        List<FmFormSnapshotView> snapshots,
+        List<FmParallelAddSignDetailView> parallelAddSigns) {
 }

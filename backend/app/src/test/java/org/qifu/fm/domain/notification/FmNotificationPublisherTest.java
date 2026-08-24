@@ -99,6 +99,66 @@ class FmNotificationPublisherTest {
 		assertEquals("TASK_OVERDUE", captor.getAllValues().get(2).getEventType());
 	}
 
+	@Test
+	void createsParallelAddSignNotificationWithStableTaskReference() throws Exception {
+		IFmNotificationService service = mock(IFmNotificationService.class);
+		when(service.insertIfAbsent(any())).thenReturn(true);
+		FmNotificationPublisher publisher = publisher(
+				service, mock(FmNotificationMailOutbox.class));
+
+		int inserted = publisher.parallelAddSignEvent(
+				"T001", "TASK-1", "BATCH-1", "PARALLEL_ADD_SIGN_COMPLETED",
+				java.util.List.of("approver", "approver"), "member", new Date());
+
+		assertEquals(1, inserted);
+		ArgumentCaptor<FmNotification> captor = ArgumentCaptor.forClass(FmNotification.class);
+		verify(service).insertIfAbsent(captor.capture());
+		assertEquals("PARALLEL_ADD_SIGN_COMPLETED", captor.getValue().getEventType());
+		assertEquals("TASK", captor.getValue().getReferenceType());
+		assertEquals("TASK-1", captor.getValue().getReferenceId());
+	}
+
+	@Test
+	void notifiesBothPreviousAndTargetAssigneesAfterAdminReassign() throws Exception {
+		IFmNotificationService service = mock(IFmNotificationService.class);
+		when(service.insertIfAbsent(any())).thenReturn(true);
+		FmNotificationPublisher publisher = publisher(
+				service, mock(FmNotificationMailOutbox.class));
+
+		assertEquals(2, publisher.taskReassigned("T001", "TASK-1", "Approve",
+				"REQ-1", "bill", "mary", "admin", new Date()));
+		ArgumentCaptor<FmNotification> captor = ArgumentCaptor.forClass(FmNotification.class);
+		verify(service, times(2)).insertIfAbsent(captor.capture());
+		assertEquals("bill", captor.getAllValues().get(0).getRecipientAccount());
+		assertEquals("TASK_ADMIN_REASSIGNED_FROM",
+				captor.getAllValues().get(0).getEventType());
+		assertEquals("mary", captor.getAllValues().get(1).getRecipientAccount());
+		assertEquals("TASK_ADMIN_REASSIGNED_TO",
+				captor.getAllValues().get(1).getEventType());
+	}
+
+	@Test
+	void usesBatchIdentityForParallelEventsOnTheSameParentTask() throws Exception {
+		IFmNotificationService service = mock(IFmNotificationService.class);
+		when(service.insertIfAbsent(any())).thenReturn(true);
+		FmNotificationPublisher publisher = publisher(
+				service, mock(FmNotificationMailOutbox.class));
+
+		publisher.parallelAddSignEvent("T001", "TASK-1", "BATCH-1",
+				"PARALLEL_ADD_SIGN_COMPLETED", java.util.List.of("approver"),
+				"member", new Date());
+		publisher.parallelAddSignEvent("T001", "TASK-1", "BATCH-2",
+				"PARALLEL_ADD_SIGN_COMPLETED", java.util.List.of("approver"),
+				"member", new Date());
+
+		ArgumentCaptor<FmNotification> captor = ArgumentCaptor.forClass(FmNotification.class);
+		verify(service, times(2)).insertIfAbsent(captor.capture());
+		org.junit.jupiter.api.Assertions.assertNotEquals(
+				captor.getAllValues().get(0).getNotificationId(),
+				captor.getAllValues().get(1).getNotificationId());
+		assertEquals("TASK-1", captor.getAllValues().get(1).getReferenceId());
+	}
+
 	private FmNotificationPublisher publisher(
 			IFmNotificationService service, FmNotificationMailOutbox mailOutbox) {
 		FmNotificationTemplateCatalog templates = mock(FmNotificationTemplateCatalog.class);

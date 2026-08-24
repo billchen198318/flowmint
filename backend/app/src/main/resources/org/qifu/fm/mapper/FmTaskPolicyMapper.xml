@@ -15,6 +15,9 @@
     <result column="ALLOW_RETURN" jdbcType="CHAR" property="allowReturn" />
     <result column="ALLOW_TRANSFER" jdbcType="CHAR" property="allowTransfer" />
     <result column="ALLOW_ADD_SIGN" jdbcType="CHAR" property="allowAddSign" />
+    <result column="ALLOW_PARALLEL_ADD_SIGN" jdbcType="CHAR" property="allowParallelAddSign" />
+    <result column="PARALLEL_ADD_SIGN_MAX_MEMBERS" jdbcType="INTEGER" property="parallelAddSignMaxMembers" />
+    <result column="PARALLEL_ADD_SIGN_COMMENT_REQUIRED" jdbcType="CHAR" property="parallelAddSignCommentRequired" />
     <result column="COMMENT_REQUIRED" jdbcType="VARCHAR" property="commentRequired" />
     <result column="DUE_HOURS" jdbcType="INTEGER" property="dueHours" />
     <result column="REMINDER_BEFORE_HOURS" jdbcType="INTEGER" property="reminderBeforeHours" />
@@ -38,6 +41,9 @@
     ALLOW_RETURN,
     ALLOW_TRANSFER,
     ALLOW_ADD_SIGN,
+    ALLOW_PARALLEL_ADD_SIGN,
+    PARALLEL_ADD_SIGN_MAX_MEMBERS,
+    PARALLEL_ADD_SIGN_COMMENT_REQUIRED,
     COMMENT_REQUIRED,
     DUE_HOURS,
     REMINDER_BEFORE_HOURS,
@@ -139,6 +145,15 @@
       <if test="allowAddSign != null">
         ALLOW_ADD_SIGN,
       </if>
+      <if test="allowParallelAddSign != null">
+        ALLOW_PARALLEL_ADD_SIGN,
+      </if>
+      <if test="parallelAddSignMaxMembers != null">
+        PARALLEL_ADD_SIGN_MAX_MEMBERS,
+      </if>
+      <if test="parallelAddSignCommentRequired != null">
+        PARALLEL_ADD_SIGN_COMMENT_REQUIRED,
+      </if>
       <if test="commentRequired != null">
         COMMENT_REQUIRED,
       </if>
@@ -201,6 +216,15 @@
       <if test="allowAddSign != null">
         #{allowAddSign,jdbcType=CHAR},
       </if>
+      <if test="allowParallelAddSign != null">
+        #{allowParallelAddSign,jdbcType=CHAR},
+      </if>
+      <if test="parallelAddSignMaxMembers != null">
+        #{parallelAddSignMaxMembers,jdbcType=INTEGER},
+      </if>
+      <if test="parallelAddSignCommentRequired != null">
+        #{parallelAddSignCommentRequired,jdbcType=CHAR},
+      </if>
       <if test="commentRequired != null">
         #{commentRequired,jdbcType=VARCHAR},
       </if>
@@ -251,6 +275,15 @@
       </if>
       <if test="allowAddSign != null">
         ALLOW_ADD_SIGN = #{allowAddSign,jdbcType=CHAR},
+      </if>
+      <if test="allowParallelAddSign != null">
+        ALLOW_PARALLEL_ADD_SIGN = #{allowParallelAddSign,jdbcType=CHAR},
+      </if>
+      <if test="parallelAddSignMaxMembers != null">
+        PARALLEL_ADD_SIGN_MAX_MEMBERS = #{parallelAddSignMaxMembers,jdbcType=INTEGER},
+      </if>
+      <if test="parallelAddSignCommentRequired != null">
+        PARALLEL_ADD_SIGN_COMMENT_REQUIRED = #{parallelAddSignCommentRequired,jdbcType=CHAR},
       </if>
       <if test="commentRequired != null">
         COMMENT_REQUIRED = #{commentRequired,jdbcType=VARCHAR},

@@ -32,4 +32,18 @@ public interface IFmRuntimeAuditLogicService {
             FmFormData formData,
             FmTaskAssignmentSnapshot assignmentSnapshot,
             Date now);
+
+    String recordParallelAddSignAction(
+            String tenantId,
+            String processInstanceId,
+            String taskId,
+            String taskDefKey,
+            String actionType,
+            String outcome,
+            String actorAccount,
+            String principalAccount,
+            String comment,
+            String reason,
+            FmFormData formData,
+            Date now);
 }

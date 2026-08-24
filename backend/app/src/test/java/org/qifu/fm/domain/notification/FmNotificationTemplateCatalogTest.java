@@ -29,6 +29,18 @@ class FmNotificationTemplateCatalogTest {
 		assertEquals("流程編號：PROCESS-1", rendered.content());
 	}
 
+	@Test
+	void providesParallelAddSignFallbackText() {
+		FmNotificationTemplateCatalog catalog = new FmNotificationTemplateCatalog(
+				(templateId, data) -> { throw new IllegalStateException("missing"); });
+
+		var rendered = catalog.render(
+				"PARALLEL_ADD_SIGN_CANCELLED", "TASK-1", null);
+
+		assertEquals("平行加簽已取消", rendered.subject());
+		assertEquals("參考編號：TASK-1", rendered.content());
+	}
+
 	private TemplateResultObj result(String title, String content) {
 		TemplateResultObj result = new TemplateResultObj();
 		result.setTitle(title);

@@ -4269,6 +4269,102 @@ COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 
 --
+-- Table structure for table `fm_task_parallel_add_sign`
+--
+
+DROP TABLE IF EXISTS `fm_task_parallel_add_sign`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_parallel_add_sign` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PROCESS_INSTANCE_ID` varchar(64) NOT NULL,
+  `PARENT_TASK_ID` varchar(64) NOT NULL,
+  `TASK_DEFINITION_KEY` varchar(100) NOT NULL,
+  `BATCH_NO` int(11) NOT NULL,
+  `REQUEST_KEY` varchar(100) NOT NULL,
+  `STATUS` varchar(20) NOT NULL,
+  `INITIATOR_ACCOUNT` varchar(64) NOT NULL,
+  `REASON` varchar(1000) NOT NULL,
+  `TOTAL_COUNT` int(11) NOT NULL,
+  `COMPLETED_COUNT` int(11) NOT NULL DEFAULT 0,
+  `AGREE_COUNT` int(11) NOT NULL DEFAULT 0,
+  `DISAGREE_COUNT` int(11) NOT NULL DEFAULT 0,
+  `FORM_SNAPSHOT_OID` char(36) NOT NULL,
+  `STARTED_DATE` datetime(3) NOT NULL,
+  `COMPLETED_DATE` datetime(3) DEFAULT NULL,
+  `CANCELLED_DATE` datetime(3) DEFAULT NULL,
+  `LOCK_VERSION` int(11) NOT NULL DEFAULT 0,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TPAS_BATCH` (`TENANT_ID`,`PARENT_TASK_ID`,`BATCH_NO`),
+  UNIQUE KEY `UK_FM_TPAS_REQUEST` (`TENANT_ID`,`PARENT_TASK_ID`,`REQUEST_KEY`),
+  KEY `IDX_FM_TPAS_PARENT` (`TENANT_ID`,`PARENT_TASK_ID`,`STATUS`),
+  CONSTRAINT `CK_FM_TPAS_STATUS` CHECK (`STATUS` in ('WAITING','COMPLETED','CANCELLED')),
+  CONSTRAINT `CK_FM_TPAS_COUNTS` CHECK (`TOTAL_COUNT` between 1 and 20 and `COMPLETED_COUNT` between 0 and `TOTAL_COUNT` and `AGREE_COUNT` >= 0 and `DISAGREE_COUNT` >= 0 and `AGREE_COUNT` + `DISAGREE_COUNT` = `COMPLETED_COUNT`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_parallel_add_sign`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_parallel_add_sign` WRITE;
+/*!40000 ALTER TABLE `fm_task_parallel_add_sign` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_parallel_add_sign` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_task_parallel_add_sign_member`
+--
+
+DROP TABLE IF EXISTS `fm_task_parallel_add_sign_member`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_task_parallel_add_sign_member` (
+  `OID` char(36) NOT NULL,
+  `TENANT_ID` varchar(36) NOT NULL,
+  `PARALLEL_ADD_SIGN_OID` char(36) NOT NULL,
+  `MEMBER_ACCOUNT` varchar(64) NOT NULL,
+  `FLOWABLE_TASK_ID` varchar(64) DEFAULT NULL,
+  `STATUS` varchar(20) NOT NULL,
+  `COMMENT` varchar(1000) DEFAULT NULL,
+  `COMPLETED_DATE` datetime(3) DEFAULT NULL,
+  `ORIGINAL_MEMBER_ACCOUNT` varchar(64) NOT NULL,
+  `LOCK_VERSION` int(11) NOT NULL DEFAULT 0,
+  `CUSERID` varchar(24) NOT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  `UUSERID` varchar(24) DEFAULT NULL,
+  `UDATE` datetime(3) DEFAULT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_TPASM_MEMBER` (`TENANT_ID`,`PARALLEL_ADD_SIGN_OID`,`MEMBER_ACCOUNT`),
+  UNIQUE KEY `UK_FM_TPASM_TASK` (`TENANT_ID`,`FLOWABLE_TASK_ID`),
+  KEY `IDX_FM_TPASM_BATCH_STATUS` (`TENANT_ID`,`PARALLEL_ADD_SIGN_OID`,`STATUS`),
+  KEY `FK_FM_TPASM_BATCH` (`PARALLEL_ADD_SIGN_OID`),
+  CONSTRAINT `FK_FM_TPASM_BATCH` FOREIGN KEY (`PARALLEL_ADD_SIGN_OID`) REFERENCES `fm_task_parallel_add_sign` (`OID`),
+  CONSTRAINT `CK_FM_TPASM_STATUS` CHECK (`STATUS` in ('PENDING','AGREED','DISAGREED','REASSIGNED','CANCELLED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_task_parallel_add_sign_member`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_task_parallel_add_sign_member` WRITE;
+/*!40000 ALTER TABLE `fm_task_parallel_add_sign_member` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_task_parallel_add_sign_member` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
 -- Table structure for table `fm_task_policy`
 --
 
@@ -4289,6 +4385,9 @@ CREATE TABLE `fm_task_policy` (
   `ALLOW_RETURN` char(1) NOT NULL DEFAULT 'Y',
   `ALLOW_TRANSFER` char(1) NOT NULL DEFAULT 'N',
   `ALLOW_ADD_SIGN` char(1) NOT NULL DEFAULT 'N',
+  `ALLOW_PARALLEL_ADD_SIGN` char(1) NOT NULL DEFAULT 'N',
+  `PARALLEL_ADD_SIGN_MAX_MEMBERS` int(11) NOT NULL DEFAULT 10,
+  `PARALLEL_ADD_SIGN_COMMENT_REQUIRED` char(1) NOT NULL DEFAULT 'Y',
   `COMMENT_REQUIRED` varchar(30) NOT NULL DEFAULT 'ON_REJECT_RETURN',
   `DUE_HOURS` int(11) DEFAULT NULL,
   `REMINDER_BEFORE_HOURS` int(11) DEFAULT NULL,
@@ -4304,7 +4403,9 @@ CREATE TABLE `fm_task_policy` (
   CONSTRAINT `CK_FM_TP_COMMENT` CHECK (`COMMENT_REQUIRED` in ('NEVER','ALWAYS','ON_REJECT_RETURN')),
   CONSTRAINT `CK_FM_TP_DUE_HOURS` CHECK (`DUE_HOURS` is null or `DUE_HOURS` between 1 and 8760),
   CONSTRAINT `CK_FM_TP_REMINDER_HOURS` CHECK (`REMINDER_BEFORE_HOURS` is null or `DUE_HOURS` is not null and `REMINDER_BEFORE_HOURS` >= 0 and `REMINDER_BEFORE_HOURS` < `DUE_HOURS`),
-  CONSTRAINT `CK_FM_TP_MODE` CHECK (`ASSIGNMENT_MODE` in ('ASSIGNEE','CANDIDATE','ALL','SEQUENTIAL','APPLICANT_CORRECTION'))
+  CONSTRAINT `CK_FM_TP_MODE` CHECK (`ASSIGNMENT_MODE` in ('ASSIGNEE','CANDIDATE','ALL','SEQUENTIAL','APPLICANT_CORRECTION')),
+  CONSTRAINT `CK_FM_TP_PARALLEL_YN` CHECK (`ALLOW_PARALLEL_ADD_SIGN` in ('Y','N') and `PARALLEL_ADD_SIGN_COMMENT_REQUIRED` in ('Y','N')),
+  CONSTRAINT `CK_FM_TP_PARALLEL_MAX` CHECK (`PARALLEL_ADD_SIGN_MAX_MEMBERS` between 1 and 20)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -4316,21 +4417,21 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_task_policy` WRITE;
 /*!40000 ALTER TABLE `fm_task_policy` DISABLE KEYS */;
 INSERT INTO `fm_task_policy` VALUES
-('566d485f-9c9c-11f1-a8b5-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'investmentReview','??????','ALL','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',72,8,'admin','2026-08-20 21:37:34.437',NULL,NULL),
-('a11ad26f-9a40-11f1-b372-8fa4035d7087','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'chairmanApproval','董事長核准','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',72,8,'admin','2026-08-17 21:36:19.667',NULL,NULL),
-('a11bbcd0-9a40-11f1-b372-5debbfbe70e1','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'departmentApproval','申請部門主管簽核','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.673',NULL,NULL),
-('a11c0af1-9a40-11f1-b372-492b92ca2aa5','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'environmentReview','環保審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.676',NULL,NULL),
-('a11c8022-9a40-11f1-b372-4db4bf3caecc','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'financeApproval','財務與預算審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.679',NULL,NULL),
-('a11cf553-9a40-11f1-b372-338bb37c2c71','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'generalAffairsReview','總務審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.681',NULL,NULL),
-('a11d4374-9a40-11f1-b372-1b284b42564d','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'generalManagerApproval','總經理核准','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',72,8,'admin','2026-08-17 21:36:19.683',NULL,NULL),
-('a11db8a5-9a40-11f1-b372-fb8bca27251d','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'itReview','資訊與資安審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.687',NULL,NULL),
-('a11e2dd6-9a40-11f1-b372-931b50011e0a','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'processReview','製程審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.689',NULL,NULL),
-('a11e7bf7-9a40-11f1-b372-1b5651df7ab3','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'productionEquipmentReview','設備工程審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',72,8,'admin','2026-08-17 21:36:19.692',NULL,NULL),
-('a11ef128-9a40-11f1-b372-e92362969f6c','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'purchaseReview','採購部商務審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.695',NULL,NULL),
-('a11f8d69-9a40-11f1-b372-9fa3f0f4732e','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'qualityReview','品質與檢測審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.698',NULL,NULL),
-('a11fdb8a-9a40-11f1-b372-13ee409fca16','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'safetyReview','工安審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.701',NULL,NULL),
-('dabacfdd-9c99-11f1-a8b5-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'contractReview','合約／法務審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','ON_REJECT_RETURN',48,8,'admin','2026-08-20 21:19:47.914',NULL,NULL),
-('dabad1ac-9c99-11f1-a8b5-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'applicantCorrection','申請人補件','APPLICANT_CORRECTION','SKIP_TO_NEXT','MERGE_CONSECUTIVE','N','N','N','N','NEVER',48,8,'admin','2026-08-20 21:19:47.914',NULL,NULL);
+('566d485f-9c9c-11f1-a8b5-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'investmentReview','??????','ALL','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',72,8,'admin','2026-08-20 21:37:34.437',NULL,NULL),
+('a11ad26f-9a40-11f1-b372-8fa4035d7087','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'chairmanApproval','董事長核准','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',72,8,'admin','2026-08-17 21:36:19.667',NULL,NULL),
+('a11bbcd0-9a40-11f1-b372-5debbfbe70e1','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'departmentApproval','申請部門主管簽核','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.673',NULL,NULL),
+('a11c0af1-9a40-11f1-b372-492b92ca2aa5','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'environmentReview','環保審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.676',NULL,NULL),
+('a11c8022-9a40-11f1-b372-4db4bf3caecc','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'financeApproval','財務與預算審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.679',NULL,NULL),
+('a11cf553-9a40-11f1-b372-338bb37c2c71','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'generalAffairsReview','總務審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.681',NULL,NULL),
+('a11d4374-9a40-11f1-b372-1b284b42564d','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'generalManagerApproval','總經理核准','ASSIGNEE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',72,8,'admin','2026-08-17 21:36:19.683',NULL,NULL),
+('a11db8a5-9a40-11f1-b372-fb8bca27251d','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'itReview','資訊與資安審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.687',NULL,NULL),
+('a11e2dd6-9a40-11f1-b372-931b50011e0a','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'processReview','製程審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.689',NULL,NULL),
+('a11e7bf7-9a40-11f1-b372-1b5651df7ab3','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'productionEquipmentReview','設備工程審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',72,8,'admin','2026-08-17 21:36:19.692',NULL,NULL),
+('a11ef128-9a40-11f1-b372-e92362969f6c','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'purchaseReview','採購部商務審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.695',NULL,NULL),
+('a11f8d69-9a40-11f1-b372-9fa3f0f4732e','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'qualityReview','品質與檢測審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.698',NULL,NULL),
+('a11fdb8a-9a40-11f1-b372-13ee409fca16','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'safetyReview','工安審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-17 21:36:19.701',NULL,NULL),
+('dabacfdd-9c99-11f1-a8b5-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'contractReview','合約／法務審查','CANDIDATE','SKIP_TO_NEXT','MERGE_CONSECUTIVE','Y','Y','N','N','N',10,'Y','ON_REJECT_RETURN',48,8,'admin','2026-08-20 21:19:47.914',NULL,NULL),
+('dabad1ac-9c99-11f1-a8b5-005056c00001','A01','cdbaf0cb-197e-4c42-b03d-402e7dd71986',1,'applicantCorrection','申請人補件','APPLICANT_CORRECTION','SKIP_TO_NEXT','MERGE_CONSECUTIVE','N','N','N','N','N',10,'Y','NEVER',48,8,'admin','2026-08-20 21:19:47.914',NULL,NULL);
 /*!40000 ALTER TABLE `fm_task_policy` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
@@ -5857,4 +5958,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-22  0:10:45
+-- Dump completed on 2026-08-24 22:17:16

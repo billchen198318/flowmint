@@ -55,6 +55,14 @@ public class FmNotificationTemplateCatalog {
 	}
 
 	private TemplateText fallback(String eventType, String referenceId, String taskName) {
+		if ("TASK_ADMIN_REASSIGNED_FROM".equals(eventType)) {
+			return new TemplateText("簽核工作已被管理員改派",
+					StringUtils.defaultIfBlank(taskName, "流程簽核工作"));
+		}
+		if ("TASK_ADMIN_REASSIGNED_TO".equals(eventType)) {
+			return new TemplateText("收到管理員改派的簽核工作",
+					StringUtils.defaultIfBlank(taskName, "流程簽核工作"));
+		}
 		if ("TASK_ASSIGNED".equals(eventType)) {
 			return new TemplateText("你有新的流程待辦",
 					StringUtils.defaultIfBlank(taskName, "流程待辦"));
@@ -68,13 +76,19 @@ public class FmNotificationTemplateCatalog {
 					StringUtils.defaultIfBlank(taskName, "流程待辦"));
 		}
 		String title = switch (eventType) {
+			case "PARALLEL_ADD_SIGN_ASSIGNED" -> "你有新的平行加簽待辦";
+			case "PARALLEL_ADD_SIGN_REPLIED" -> "平行加簽已有回覆";
+			case "PARALLEL_ADD_SIGN_COMPLETED" -> "平行加簽已全部完成";
+			case "PARALLEL_ADD_SIGN_CANCELLED" -> "平行加簽已取消";
 			case "PROCESS_COMPLETED" -> "你的流程已完成";
 			case "PROCESS_REJECTED" -> "你的流程已駁回";
 			case "PROCESS_CANCELLED" -> "流程已取消";
 			case "PROCESS_TERMINATED" -> "流程已由管理員終止";
 			default -> "流程狀態已更新";
 		};
-		return new TemplateText(title, "流程編號：" + referenceId);
+		String referenceLabel = eventType.startsWith("PARALLEL_ADD_SIGN_")
+				? "參考編號：" : "流程編號：";
+		return new TemplateText(title, referenceLabel + referenceId);
 	}
 
 	interface TemplateRenderer {

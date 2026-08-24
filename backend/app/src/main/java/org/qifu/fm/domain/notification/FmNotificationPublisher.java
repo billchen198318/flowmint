@@ -111,6 +111,82 @@ public class FmNotificationPublisher {
 		return inserted;
 	}
 
+	public int taskReassigned(String tenantId, String taskId, String taskName,
+			String eventKey, String previousAssignee, String targetAssignee,
+			String actor, Date now) throws ServiceException {
+		int inserted = 0;
+		inserted += taskEvent(tenantId, taskId, taskName, eventKey,
+				"TASK_ADMIN_REASSIGNED_FROM", previousAssignee, actor, now);
+		inserted += taskEvent(tenantId, taskId, taskName, eventKey,
+				"TASK_ADMIN_REASSIGNED_TO", targetAssignee, actor, now);
+		return inserted;
+	}
+
+	private int taskEvent(String tenantId, String taskId, String taskName,
+			String eventKey, String eventType, String recipient, String actor, Date now)
+			throws ServiceException {
+		if (StringUtils.isBlank(recipient)) {
+			return 0;
+		}
+		var template = templateCatalog.render(eventType, taskId, taskName);
+		FmNotification notification = new FmNotification();
+		notification.setOid(UUID.randomUUID().toString());
+		notification.setTenantId(tenantId);
+		notification.setNotificationId(deterministicId(
+				tenantId, eventType, eventKey, recipient.trim()));
+		notification.setRecipientAccount(recipient.trim());
+		notification.setChannelType("IN_APP");
+		notification.setEventType(eventType);
+		notification.setSubject(template.subject());
+		notification.setContentText(template.content());
+		notification.setReferenceType("TASK");
+		notification.setReferenceId(taskId);
+		notification.setDeliveryStatus("SENT");
+		notification.setRetryCount(0);
+		notification.setSentDate(now);
+		notification.setCuserid(actor);
+		notification.setCdate(now);
+		boolean inserted = notificationService.insertIfAbsent(notification);
+		mailOutbox.enqueue(notification);
+		return inserted ? 1 : 0;
+	}
+
+	public int parallelAddSignEvent(String tenantId, String referenceId, String eventKey,
+			String eventType, Iterable<String> recipientAccounts,
+			String actor, Date now) throws ServiceException {
+		if (!Set.of("PARALLEL_ADD_SIGN_ASSIGNED", "PARALLEL_ADD_SIGN_REPLIED",
+				"PARALLEL_ADD_SIGN_COMPLETED",
+				"PARALLEL_ADD_SIGN_CANCELLED").contains(eventType)) {
+			throw new IllegalArgumentException("Unsupported parallel add-sign event");
+		}
+		int inserted = 0;
+		for (String recipient : distinctRecipients(recipientAccounts)) {
+			var template = templateCatalog.render(eventType, referenceId, null);
+			FmNotification notification = new FmNotification();
+			notification.setOid(UUID.randomUUID().toString());
+			notification.setTenantId(tenantId);
+			notification.setNotificationId(deterministicId(
+					tenantId, eventType, eventKey, recipient));
+			notification.setRecipientAccount(recipient);
+			notification.setChannelType("IN_APP");
+			notification.setEventType(eventType);
+			notification.setSubject(template.subject());
+			notification.setContentText(template.content());
+			notification.setReferenceType("TASK");
+			notification.setReferenceId(referenceId);
+			notification.setDeliveryStatus("SENT");
+			notification.setRetryCount(0);
+			notification.setSentDate(now);
+			notification.setCuserid(actor);
+			notification.setCdate(now);
+			if (notificationService.insertIfAbsent(notification)) {
+				inserted++;
+			}
+			mailOutbox.enqueue(notification);
+		}
+		return inserted;
+	}
+
 	private Set<String> distinctRecipients(Iterable<String> recipientAccounts) {
 		Set<String> recipients = new LinkedHashSet<>();
 		recipientAccounts.forEach(account -> {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
@@ -28,12 +28,22 @@ const formHost = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const acting = ref(false);
 let taskActionInFlight = false;
-const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER" | "DELEGATE" | "RESOLVE" | "ADD_SIGN" | "ADD_SIGN_COMPLETE">("APPROVE");
+const actionType = ref<"APPROVE" | "RETURN" | "REJECT" | "RESUBMIT" | "TRANSFER" | "DELEGATE" | "RESOLVE" | "ADD_SIGN" | "ADD_SIGN_COMPLETE" | "PARALLEL_ADD_SIGN" | "PARALLEL_AGREE" | "PARALLEL_DISAGREE">("APPROVE");
 const comment = ref("");
 const reason = ref("");
 const targetTaskDefKey = ref("");
 const targetAccount = ref("");
 const transferOptions = ref<any[]>([]);
+const parallelOptions = ref<any[]>([]);
+const parallelMembers = ref<string[]>([]);
+const parallelSearch = ref("");
+const parallelRequestKey = ref("");
+const filteredParallelOptions = computed(() => {
+  const keyword = parallelSearch.value.trim().toLocaleLowerCase();
+  if (!keyword) return parallelOptions.value;
+  return parallelOptions.value.filter((option: any) =>
+    `${option.label || ""} ${option.value || ""}`.toLocaleLowerCase().includes(keyword));
+});
 const delegationId = ref("");
 const attachments = ref<any[]>([]);
 const showProcessProgress = ref(false);
@@ -133,7 +143,7 @@ const renderForm = async () => {
     formHost.value,
     schema,
     {
-      readOnly: false,
+      readOnly: Boolean(detail.value.parallelAddSignTask),
       noAlerts: true,
       noDefaultSubmitButton: true,
     },
@@ -188,7 +198,9 @@ const load = async () => {
       { headers: { "X-FlowMint-Tenant": tenantId } },
     );
     attachments.value = ok(attachmentResponse) ? attachmentResponse.value || [] : [];
-    actionType.value = response.value?.addSignTask
+    actionType.value = response.value?.parallelAddSignTask
+      ? "PARALLEL_AGREE"
+      : response.value?.addSignTask
       ? "ADD_SIGN_COMPLETE"
       : response.value?.delegatedTask ? "RESOLVE"
       : response.value?.correctionTask ? "RESUBMIT" : "APPROVE";
@@ -204,6 +216,13 @@ const load = async () => {
         taskId: route.params.id,
       });
       if (ok(options)) transferOptions.value = options.value || [];
+    }
+    if (response.value?.allowParallelAddSign
+        && response.value?.parallelAddSignDetail?.status !== "WAITING") {
+      const options: any = await post("/tasks/parallel-add-sign-options", {
+        taskId: route.params.id,
+      });
+      if (ok(options)) parallelOptions.value = options.value || [];
     }
     await renderForm();
   } finally {
@@ -227,6 +246,10 @@ const downloadAttachment = async (attachment: any) => {
   }
 };
 const submitActionOnce = async () => {
+  if (detail.value?.parallelAddSignTask && !comment.value.trim()) {
+    toast.warning("平行加簽意見必填");
+    return;
+  }
   const commentRequired = detail.value?.commentRequired === "ALWAYS"
     || (detail.value?.commentRequired === "ON_REJECT_RETURN"
       && (actionType.value === "REJECT" || actionType.value === "RETURN"));
@@ -248,6 +271,23 @@ const submitActionOnce = async () => {
   }
   if (actionType.value === "DELEGATE" && !delegationId.value) {
     toast.warning("請選擇代理授權");
+    return;
+  }
+  if (actionType.value === "PARALLEL_ADD_SIGN" && !parallelMembers.value.length) {
+    toast.warning("請至少選擇一位平行加簽人員");
+    return;
+  }
+  if (actionType.value === "PARALLEL_ADD_SIGN"
+      && parallelMembers.value.length > Number(detail.value?.parallelAddSignMaxMembers || 10)) {
+    toast.warning(`平行加簽人數不可超過 ${detail.value?.parallelAddSignMaxMembers || 10} 人`);
+    return;
+  }
+  if (actionType.value === "PARALLEL_ADD_SIGN" && !reason.value.trim()) {
+    toast.warning("請填寫平行加簽原因");
+    return;
+  }
+  if (actionType.value === "PARALLEL_ADD_SIGN"
+      && !window.confirm("所有平行加簽人回覆前，本關卡將暫停核決。確定發起嗎？")) {
     return;
   }
   acting.value = true;
@@ -290,7 +330,20 @@ const submitActionOnce = async () => {
         return;
       }
     }
-    const response: any = actionType.value === "TRANSFER"
+    const response: any = actionType.value === "PARALLEL_ADD_SIGN"
+      ? await post("/tasks/start-parallel-add-sign", {
+          taskId: route.params.id,
+          memberAccounts: parallelMembers.value,
+          reason: reason.value,
+          requestKey: parallelRequestKey.value ||= crypto.randomUUID(),
+        })
+      : ["PARALLEL_AGREE", "PARALLEL_DISAGREE"].includes(actionType.value)
+      ? await post("/tasks/complete-parallel-add-sign", {
+          taskId: route.params.id,
+          result: actionType.value === "PARALLEL_AGREE" ? "AGREE" : "DISAGREE",
+          comment: comment.value,
+        })
+      : actionType.value === "TRANSFER"
       ? await post("/tasks/transfer", {
           taskId: route.params.id,
           targetAccount: targetAccount.value,
@@ -367,6 +420,38 @@ const submitActionOnce = async () => {
     );
   } finally {
     acting.value = false;
+  }
+};
+
+const cancelParallelAddSign = async () => {
+  if (taskActionInFlight) return;
+  if (!reason.value.trim()) {
+    toast.warning("請填寫取消平行加簽的原因");
+    return;
+  }
+  taskActionInFlight = true;
+  acting.value = true;
+  try {
+    const response: any = await post("/tasks/cancel-parallel-add-sign", {
+      taskId: route.params.id,
+      reason: reason.value,
+    });
+    if (!ok(response)) {
+      toast.warning(response?.message || "取消平行加簽失敗");
+      return;
+    }
+    toast.success("已取消平行加簽");
+    parallelRequestKey.value = "";
+    parallelMembers.value = [];
+    parallelSearch.value = "";
+    await load();
+  } catch (error) {
+    toast.error(escapeQifuHtmlMsg(
+      error instanceof Error ? error.message : "取消平行加簽失敗",
+    ));
+  } finally {
+    acting.value = false;
+    taskActionInFlight = false;
   }
 };
 
@@ -448,8 +533,60 @@ onBeforeUnmount(() => void destroyForm());
           <div class="card border-0 shadow-sm action-card">
             <div class="card-header bg-white py-3"><strong>簽核處理</strong></div>
             <div class="card-body">
+              <div
+                v-if="detail.parallelAddSignDetail && detail.parallelAddSignDetail.status !== 'WAITING'"
+                class="alert alert-light border small"
+              >
+                <div class="fw-semibold mb-1">
+                  最近一批平行加簽：{{ detail.parallelAddSignDetail.status }}
+                </div>
+                <div>
+                  完成 {{ detail.parallelAddSignDetail.completedCount }} / {{ detail.parallelAddSignDetail.totalCount }}，
+                  同意 {{ detail.parallelAddSignDetail.agreeCount }}，
+                  不同意 {{ detail.parallelAddSignDetail.disagreeCount }}
+                </div>
+                <div
+                  v-for="member in detail.parallelAddSignDetail.members"
+                  :key="member.account"
+                  class="mt-2"
+                >
+                  <strong>{{ member.displayName || member.account }}</strong>
+                  <span class="badge text-bg-light border ms-2">{{ member.status }}</span>
+                  <span v-if="member.comment" class="text-muted ms-2">{{ member.comment }}</span>
+                </div>
+              </div>
               <div class="d-grid gap-2 mb-3">
                 <button v-if="detail.correctionTask" type="button" class="btn btn-primary" @click="actionType = 'RESUBMIT'">重新送出</button>
+                <template v-else-if="detail.parallelAddSignTask">
+                  <div class="alert alert-info small">
+                    此回覆不會直接核准或駁回整張申請，最終決策仍由原簽核人負責。
+                  </div>
+                  <button type="button" :class="['btn', actionType === 'PARALLEL_AGREE' ? 'btn-success' : 'btn-outline-success']" @click="actionType = 'PARALLEL_AGREE'">同意</button>
+                  <button type="button" :class="['btn', actionType === 'PARALLEL_DISAGREE' ? 'btn-danger' : 'btn-outline-danger']" @click="actionType = 'PARALLEL_DISAGREE'">不同意</button>
+                </template>
+                <template v-else-if="detail.parallelAddSignDetail?.status === 'WAITING'">
+                  <div class="alert alert-info small mb-2">
+                    平行加簽進行中：完成
+                    {{ detail.parallelAddSignDetail.completedCount }} / {{ detail.parallelAddSignDetail.totalCount }}，
+                    同意 {{ detail.parallelAddSignDetail.agreeCount }}，
+                    不同意 {{ detail.parallelAddSignDetail.disagreeCount }}，
+                    未回覆 {{ detail.parallelAddSignDetail.totalCount - detail.parallelAddSignDetail.completedCount }}。
+                    <span v-if="detail.task.dueDate">期限：{{ detail.task.dueDate }}</span>
+                  </div>
+                  <div
+                    v-for="member in detail.parallelAddSignDetail.members"
+                    :key="member.account"
+                    class="border rounded p-2 text-start small"
+                  >
+                    <div class="d-flex justify-content-between gap-2">
+                      <strong>{{ member.displayName || member.account }}</strong>
+                      <span class="badge text-bg-light border">{{ member.status }}</span>
+                    </div>
+                    <div v-if="member.comment" class="text-muted mt-1">
+                      {{ member.comment }}
+                    </div>
+                  </div>
+                </template>
                 <template v-else>
                 <template v-if="!detail.delegatedTask">
                 <button type="button" :class="['btn', actionType === 'APPROVE' ? 'btn-success' : 'btn-outline-success']" @click="actionType = 'APPROVE'">核准</button>
@@ -470,6 +607,14 @@ onBeforeUnmount(() => void destroyForm());
                   @click="actionType = 'ADD_SIGN'"
                 >
                   加簽
+                </button>
+                <button
+                  v-if="detail.allowParallelAddSign"
+                  type="button"
+                  :class="['btn', actionType === 'PARALLEL_ADD_SIGN' ? 'btn-info' : 'btn-outline-info']"
+                  @click="actionType = 'PARALLEL_ADD_SIGN'"
+                >
+                  平行加簽
                 </button>
                 </template>
                 <button
@@ -518,6 +663,34 @@ onBeforeUnmount(() => void destroyForm());
                   </option>
                 </select>
               </div>
+              <div v-if="actionType === 'PARALLEL_ADD_SIGN' && detail.parallelAddSignDetail?.status !== 'WAITING'" class="mb-3">
+                <label class="form-label">平行加簽人員</label>
+                <input v-model="parallelSearch" type="search" class="form-control mb-2" placeholder="搜尋姓名或帳號" />
+                <select v-model="parallelMembers" class="form-select" multiple size="6">
+                  <option
+                    v-for="option in filteredParallelOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+                <div v-if="parallelMembers.length" class="d-flex flex-wrap gap-1 mt-2">
+                  <button
+                    v-for="account in parallelMembers"
+                    :key="account"
+                    type="button"
+                    class="badge rounded-pill text-bg-primary border-0"
+                    @click="parallelMembers = parallelMembers.filter(item => item !== account)"
+                  >
+                    {{ parallelOptions.find(option => option.value === account)?.label || account }} ×
+                  </button>
+                </div>
+                <div class="form-text">
+                  已選 {{ parallelMembers.length }} / {{ detail.parallelAddSignMaxMembers || 10 }} 人；
+                  可按 Ctrl（macOS：Command）選取多人。
+                </div>
+              </div>
               <div v-if="actionType === 'DELEGATE'" class="mb-3">
                 <label class="form-label">代理授權</label>
                 <select v-model="delegationId" class="form-select">
@@ -535,11 +708,24 @@ onBeforeUnmount(() => void destroyForm());
                 <label class="form-label">簽核意見</label>
                 <textarea v-model="comment" rows="4" class="form-control"></textarea>
               </div>
-              <div v-if="!['APPROVE', 'RESUBMIT', 'RESOLVE', 'ADD_SIGN_COMPLETE'].includes(actionType)" class="mb-3">
+              <div v-if="!detail.parallelAddSignTask && !['APPROVE', 'RESUBMIT', 'RESOLVE', 'ADD_SIGN_COMPLETE'].includes(actionType)" class="mb-3">
                 <label class="form-label">理由 *</label>
                 <textarea v-model="reason" rows="3" class="form-control"></textarea>
               </div>
-              <button type="button" class="btn btn-primary w-100" :disabled="acting" @click="submitAction">
+              <div v-if="detail.parallelAddSignDetail?.cancellable" class="mb-3">
+                <label class="form-label">取消原因 *</label>
+                <textarea v-model="reason" rows="3" class="form-control"></textarea>
+              </div>
+              <button
+                v-if="detail.parallelAddSignDetail?.cancellable"
+                type="button"
+                class="btn btn-outline-danger w-100"
+                :disabled="acting"
+                @click="cancelParallelAddSign"
+              >
+                取消平行加簽
+              </button>
+              <button v-else-if="detail.parallelAddSignDetail?.status !== 'WAITING'" type="button" class="btn btn-primary w-100" :disabled="acting" @click="submitAction">
                 <span v-if="acting" class="spinner-border spinner-border-sm me-2"></span>確認送出
               </button>
             </div>

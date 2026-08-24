@@ -8,6 +8,9 @@ import org.qifu.fm.dto.command.FmIncidentQueryRequest;
 import org.qifu.fm.dto.command.FmIncidentReassignRequest;
 import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignReassignRequest;
+import org.qifu.fm.dto.command.FmTaskAdminReassignRequest;
+import org.qifu.fm.dto.command.FmTaskReassignPreviewRequest;
 import org.qifu.fm.dto.command.FmProcessMonitorRequest;
 import org.qifu.fm.dto.command.FmProcessMonitorLoadRequest;
 import org.qifu.fm.dto.command.FmOperationsReportRequest;
@@ -18,6 +21,7 @@ import org.qifu.fm.dto.view.FmProcessMonitorView;
 import org.qifu.fm.dto.view.FmProcessMonitorDetailView;
 import org.qifu.fm.dto.view.FmProcessMonitorPageView;
 import org.qifu.fm.dto.view.FmOperationsReportView;
+import org.qifu.fm.dto.view.FmTaskReassignPreviewView;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
 import org.qifu.fm.logic.IFmProcessMonitorLogicService;
 import org.springframework.http.ResponseEntity;
@@ -155,6 +159,66 @@ public class FmIncidentOperationsController extends CoreApiSupport {
         try {
             setDefaultResponseJsonResult(operationsLogicService.terminate(
                     tenantId, request), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/parallel-add-sign/reassign")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>>
+            reassignParallelAddSign(
+                    @RequestHeader("X-FlowMint-Tenant") String tenantId,
+                    @RequestBody FmParallelAddSignReassignRequest request) {
+        DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    operationsLogicService.reassignParallelAddSign(tenantId, request), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/tasks/reassign-options")
+    public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+            taskReassignOptions(
+                    @RequestHeader("X-FlowMint-Tenant") String tenantId) {
+        DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    operationsLogicService.taskReassignOptions(tenantId), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/tasks/reassign")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmTaskActionResultView>>
+            reassignTask(
+                    @RequestHeader("X-FlowMint-Tenant") String tenantId,
+                    @RequestBody FmTaskAdminReassignRequest request) {
+        DefaultControllerJsonResultObj<FmTaskActionResultView> result = initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    operationsLogicService.reassignTask(tenantId, request), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/tasks/reassign-preview")
+    public ResponseEntity<DefaultControllerJsonResultObj<FmTaskReassignPreviewView>>
+            previewTaskReassign(
+                    @RequestHeader("X-FlowMint-Tenant") String tenantId,
+                    @RequestBody FmTaskReassignPreviewRequest request) {
+        DefaultControllerJsonResultObj<FmTaskReassignPreviewView> result =
+                initDefaultJsonResult();
+        try {
+            setDefaultResponseJsonResult(
+                    operationsLogicService.previewTaskReassign(tenantId, request), result);
         } catch (Exception exception) {
             exceptionResult(result, exception);
         }

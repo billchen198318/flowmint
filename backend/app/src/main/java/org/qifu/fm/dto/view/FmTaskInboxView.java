@@ -12,5 +12,6 @@ public record FmTaskInboxView(
         String processName,
         String applicantAccount,
         Date createdDate,
-        Date dueDate) {
+        Date dueDate,
+        boolean parallelAddSignTask) {
 }

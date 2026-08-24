@@ -302,6 +302,24 @@ onBeforeUnmount(() => void destroyForm());
         </div>
       </div>
 
+      <div v-if="detail.parallelAddSigns?.length" class="card border-info-subtle shadow-sm mb-4">
+        <div class="card-header bg-white py-3"><strong>平行加簽進度</strong></div>
+        <div class="card-body">
+          <div v-for="batch in detail.parallelAddSigns" :key="batch.batchOid" class="border rounded p-3 mb-3">
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+              <strong>{{ batch.status }}</strong>
+              <span>完成 {{ batch.completedCount }}/{{ batch.totalCount }}・同意 {{ batch.agreeCount }}・不同意 {{ batch.disagreeCount }}</span>
+            </div>
+            <div class="small text-muted mt-1">原因：{{ batch.reason }}</div>
+            <div v-for="member in batch.members" :key="member.account" class="small mt-2">
+              <strong>{{ member.displayName || member.account }}</strong>
+              <span class="badge text-bg-light border ms-2">{{ member.status }}</span>
+              <span v-if="member.comment" class="ms-2 text-muted">{{ member.comment }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="row g-4">
         <div class="col-xl-8">
           <div class="card border-0 shadow-sm">

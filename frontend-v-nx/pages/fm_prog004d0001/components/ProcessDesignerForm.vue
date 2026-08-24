@@ -208,6 +208,9 @@ const ensureSelectedTaskPolicy = () => {
     allowReturn: "N",
     allowTransfer: "N",
     allowAddSign: "N",
+    allowParallelAddSign: "N",
+    parallelAddSignMaxMembers: 10,
+    parallelAddSignCommentRequired: "Y",
     commentRequired: "ON_REJECT_RETURN",
     dueHours: null,
     reminderBeforeHours: null,
@@ -1098,7 +1101,8 @@ onBeforeUnmount(() => modeler?.destroy());
                         ['allowReject', '允許駁回'],
                         ['allowReturn', '允許退回'],
                         ['allowTransfer', '允許轉派'],
-                        ['allowAddSign', '允許加簽'],
+                        ['allowAddSign', '允許循序加簽'],
+                        ['allowParallelAddSign', '允許平行加簽'],
                       ]"
                       :key="action[0]"
                       class="col-6 form-check"
@@ -1118,6 +1122,23 @@ onBeforeUnmount(() => modeler?.destroy());
                       >
                         {{ action[1] }}
                       </label>
+                    </div>
+                    <div
+                      v-if="selectedTaskPolicy.allowParallelAddSign === 'Y'"
+                      class="col-12 mt-2"
+                    >
+                      <label class="form-label">單批平行加簽人數上限</label>
+                      <input
+                        v-model.number="selectedTaskPolicy.parallelAddSignMaxMembers"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        type="number"
+                        min="1"
+                        max="20"
+                        class="form-control"
+                      />
+                      <div class="form-text">
+                        第一版限制 1～20 人；所有人回覆前，原簽核人不能核決。
+                      </div>
                     </div>
                   </div>
                 </template>

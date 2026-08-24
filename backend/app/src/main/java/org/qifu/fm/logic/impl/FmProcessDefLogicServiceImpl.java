@@ -646,6 +646,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                                 policy.getAllowReturn(),
                                 policy.getAllowTransfer(),
                                 policy.getAllowAddSign(),
+                                policy.getAllowParallelAddSign(),
+                                policy.getParallelAddSignMaxMembers(),
+                                policy.getParallelAddSignCommentRequired(),
                                 policy.getCommentRequired(),
                                 policy.getDueHours(),
                                 policy.getReminderBeforeHours())).toList(),
@@ -952,9 +955,18 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 || !isYesNo(command.allowReturn())
                 || !isYesNo(command.allowTransfer())
                 || !isYesNo(command.allowAddSign())
+                || !isYesNo(command.allowParallelAddSign())
+                || !validParallelAddSignPolicy(command)
                 || !validSla(command.dueHours(), command.reminderBeforeHours())) {
             throw new ServiceException("User Task 政策設定不正確或同一節點重複設定");
         }
+    }
+
+    private boolean validParallelAddSignPolicy(FmTaskPolicyCommand command) {
+        return command.parallelAddSignMaxMembers() != null
+                && command.parallelAddSignMaxMembers() >= 1
+                && command.parallelAddSignMaxMembers() <= 20
+                && isYesNo(command.parallelAddSignCommentRequired());
     }
 
     private boolean isYesNo(String value) {
@@ -987,6 +999,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         policy.setAllowReturn(command.allowReturn());
         policy.setAllowTransfer(command.allowTransfer());
         policy.setAllowAddSign(command.allowAddSign());
+        policy.setAllowParallelAddSign(command.allowParallelAddSign());
+        policy.setParallelAddSignMaxMembers(command.parallelAddSignMaxMembers());
+        policy.setParallelAddSignCommentRequired(
+                command.parallelAddSignCommentRequired());
         policy.setCommentRequired(command.commentRequired());
         policy.setDueHours(command.dueHours());
         policy.setReminderBeforeHours(command.reminderBeforeHours());
@@ -1008,6 +1024,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 source.getAllowReturn(),
                 source.getAllowTransfer(),
                 source.getAllowAddSign(),
+                source.getAllowParallelAddSign(),
+                source.getParallelAddSignMaxMembers(),
+                source.getParallelAddSignCommentRequired(),
                 source.getCommentRequired(),
                 source.getDueHours(),
                 source.getReminderBeforeHours());

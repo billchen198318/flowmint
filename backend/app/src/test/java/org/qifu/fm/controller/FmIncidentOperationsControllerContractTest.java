@@ -13,6 +13,9 @@ import org.qifu.fm.dto.command.FmIncidentRetryRequest;
 import org.qifu.fm.dto.command.FmProcessTerminateRequest;
 import org.qifu.fm.dto.command.FmProcessMonitorLoadRequest;
 import org.qifu.fm.dto.command.FmOperationsReportRequest;
+import org.qifu.fm.dto.command.FmParallelAddSignReassignRequest;
+import org.qifu.fm.dto.command.FmTaskAdminReassignRequest;
+import org.qifu.fm.dto.command.FmTaskReassignPreviewRequest;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
@@ -32,7 +35,9 @@ class FmIncidentOperationsControllerContractTest {
         assertEquals(Set.of("/incidents", "/incidents/reassign",
                 "/incidents/reassign-options", "/incidents/retry",
                 "/process-instances", "/process-instances/load",
-                "/process-instances/terminate", "/reports/summary"), paths);
+                "/process-instances/terminate", "/reports/summary",
+                "/parallel-add-sign/reassign", "/tasks/reassign-options",
+                "/tasks/reassign", "/tasks/reassign-preview"), paths);
     }
 
     @Test
@@ -55,6 +60,37 @@ class FmIncidentOperationsControllerContractTest {
                 .collect(Collectors.toSet());
         assertEquals(Set.of("incidentId", "reason"), retry);
         assertEquals(Set.of("processInstanceId", "reason"), terminate);
+    }
+
+    @Test
+    void parallelReassignBodyCannotOverrideTenantOrActor() {
+        Set<String> components = Arrays.stream(FmParallelAddSignReassignRequest.class
+                .getRecordComponents()).map(component -> component.getName())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("taskId", "targetAccount", "reason"), components);
+        assertFalse(components.contains("tenantId"));
+        assertFalse(components.contains("actor"));
+    }
+
+    @Test
+    void taskReassignBodyCannotOverrideTenantOrActor() {
+        Set<String> components = Arrays.stream(FmTaskAdminReassignRequest.class
+                .getRecordComponents()).map(component -> component.getName())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("taskId", "targetAccount", "reason", "requestKey"),
+                components);
+        assertFalse(components.contains("tenantId"));
+        assertFalse(components.contains("actor"));
+    }
+
+    @Test
+    void taskReassignPreviewCannotOverrideTenantOrActor() {
+        Set<String> components = Arrays.stream(FmTaskReassignPreviewRequest.class
+                .getRecordComponents()).map(component -> component.getName())
+                .collect(Collectors.toSet());
+        assertEquals(Set.of("taskId", "targetAccount"), components);
+        assertFalse(components.contains("tenantId"));
+        assertFalse(components.contains("actor"));
     }
 
     @Test

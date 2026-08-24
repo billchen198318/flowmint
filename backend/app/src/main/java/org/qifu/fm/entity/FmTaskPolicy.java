@@ -26,6 +26,9 @@ public class FmTaskPolicy implements Serializable {
     private String allowReturn;
     private String allowTransfer;
     private String allowAddSign;
+    private String allowParallelAddSign;
+    private Integer parallelAddSignMaxMembers;
+    private String parallelAddSignCommentRequired;
     private String commentRequired;
     private Integer dueHours;
     private Integer reminderBeforeHours;
@@ -137,6 +140,30 @@ public class FmTaskPolicy implements Serializable {
 
     public void setAllowAddSign(String allowAddSign) {
         this.allowAddSign = allowAddSign;
+    }
+
+    public String getAllowParallelAddSign() {
+        return allowParallelAddSign;
+    }
+
+    public void setAllowParallelAddSign(String allowParallelAddSign) {
+        this.allowParallelAddSign = allowParallelAddSign;
+    }
+
+    public Integer getParallelAddSignMaxMembers() {
+        return parallelAddSignMaxMembers;
+    }
+
+    public void setParallelAddSignMaxMembers(Integer parallelAddSignMaxMembers) {
+        this.parallelAddSignMaxMembers = parallelAddSignMaxMembers;
+    }
+
+    public String getParallelAddSignCommentRequired() {
+        return parallelAddSignCommentRequired;
+    }
+
+    public void setParallelAddSignCommentRequired(String parallelAddSignCommentRequired) {
+        this.parallelAddSignCommentRequired = parallelAddSignCommentRequired;
     }
 
     public String getCommentRequired() {

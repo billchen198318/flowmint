@@ -19,7 +19,9 @@ class FmAttachmentDownloadServiceTest {
                     mock(NamedParameterJdbcTemplate.class),
                     mock(FmAttachmentStorageService.class),
                     mock(TaskService.class),
-                    new ObjectMapper());
+                    new ObjectMapper(),
+                    mock(org.qifu.fm.service.IFmTaskParallelAddSignService.class),
+                    mock(org.qifu.fm.service.IFmTaskParallelAddSignMemberService.class));
 
     @Test
     void appliesTaskFieldPolicyToAttachmentField() throws Exception {

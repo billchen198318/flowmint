@@ -18,6 +18,12 @@ const totalPages = ref(1);
 const loading = ref(false);
 const detailLoading = ref(false);
 const detail = ref<any | null>(null);
+const reassignTarget = ref<any | null>(null);
+const reassignOptions = ref<any[]>([]);
+const reassignAccount = ref("");
+const reassignReason = ref("");
+const reassigning = ref(false);
+const reassignPreview = ref<any | null>(null);
 const counts = computed(() => ({
   total: processes.value.length,
   running: processes.value.filter((item) => item.instanceStatus === "RUNNING").length,
@@ -88,6 +94,81 @@ const loadDetail = async (processInstanceId: string) => {
     detailLoading.value = false;
   }
 };
+const operationsPost = (path: string, body: any = {}) => useApi(`/fm/operations${path}`, {
+  method: "POST",
+  body,
+  headers: { "X-FlowMint-Tenant": tenantId.value },
+});
+const openReassign = async (task: any, parallel = false) => {
+  reassignTarget.value = { ...task, parallel };
+  reassignAccount.value = "";
+  reassignReason.value = "";
+  reassignPreview.value = parallel ? {
+    previousAssignee: task.account,
+    assignmentMode: "PARALLEL_ADD_SIGN",
+    warning: "只改派這一張平行加簽 Task，其他成員不變",
+  } : null;
+  const response: any = await operationsPost("/tasks/reassign-options");
+  if (!ok(response)) {
+    reassignTarget.value = null;
+    return toast.warning(response?.message || "無法讀取改派人選");
+  }
+  reassignOptions.value = (response.value || []).filter(
+    (item: any) => item.value !== task.assignee && item.value !== task.account,
+  );
+};
+const previewReassign = async () => {
+  if (!reassignTarget.value || !reassignAccount.value) {
+    return toast.warning("請先選擇新簽核人");
+  }
+  if (reassignTarget.value.parallel) {
+    reassignPreview.value = {
+      previousAssignee: reassignTarget.value.account,
+      targetAccount: reassignAccount.value,
+      assignmentMode: "PARALLEL_ADD_SIGN",
+      warning: "只改派這一張平行加簽 Task，其他成員不變",
+    };
+    return;
+  }
+  const response: any = await operationsPost("/tasks/reassign-preview", {
+    taskId: reassignTarget.value.taskId,
+    targetAccount: reassignAccount.value,
+  });
+  if (!ok(response)) return toast.warning(response?.message || "改派預覽失敗");
+  reassignPreview.value = response.value;
+};
+const submitReassign = async () => {
+  if (!reassignTarget.value || !reassignAccount.value || !reassignReason.value.trim()) {
+    return toast.warning("請選擇新簽核人並填寫改派原因");
+  }
+  if (!reassignPreview.value
+      || reassignPreview.value.targetAccount !== reassignAccount.value) {
+    return toast.warning("請先執行改派預覽並確認結果");
+  }
+  reassigning.value = true;
+  try {
+    const target = reassignTarget.value;
+    const response: any = target.parallel
+      ? await operationsPost("/parallel-add-sign/reassign", {
+          taskId: target.taskId,
+          targetAccount: reassignAccount.value,
+          reason: reassignReason.value.trim(),
+        })
+      : await operationsPost("/tasks/reassign", {
+          taskId: target.taskId,
+          targetAccount: reassignAccount.value,
+          reason: reassignReason.value.trim(),
+          requestKey: crypto.randomUUID(),
+        });
+    if (!ok(response)) return toast.warning(response?.message || "改派失敗");
+    toast.success("改派完成");
+    const processInstanceId = detail.value?.process?.processInstanceId;
+    reassignTarget.value = null;
+    if (processInstanceId) await loadDetail(processInstanceId);
+  } finally {
+    reassigning.value = false;
+  }
+};
 
 watch([tenantId, status, pageSize], () => { detail.value = null; page.value = 1; load(); });
 onMounted(async () => { await loadTenants(); await load(); });
@@ -136,6 +217,36 @@ onMounted(async () => { await loadTenants(); await load(); });
         <button class="btn-close" aria-label="關閉" @click="detail = null"></button>
       </div>
       <div class="card-body">
+        <h5>目前簽核工作</h5>
+        <div v-if="!detail.activeTasks?.length" class="text-muted mb-4">目前沒有 active Task</div>
+        <div v-else class="table-responsive mb-4">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>節點</th><th>Task ID</th><th>簽核人</th><th>期限</th><th></th></tr></thead>
+            <tbody><tr v-for="task in detail.activeTasks" :key="task.taskId">
+              <td>{{ task.taskName }}<div class="small text-muted">{{ task.taskDefinitionKey }} / {{ task.assignmentMode }}</div></td>
+              <td class="small">{{ task.taskId }}</td><td>{{ task.assignee || "候選人" }}</td>
+              <td>{{ formatDate(task.dueDate) }}</td><td class="text-end">
+                <button v-if="task.reassignable" class="btn btn-sm btn-outline-warning" @click="openReassign(task)">管理員改派</button>
+                <span v-else class="small text-muted">{{ task.blockedReason }}</span>
+              </td>
+            </tr></tbody>
+          </table>
+        </div>
+        <h5>平行加簽</h5>
+        <div v-if="!detail.parallelAddSigns?.length" class="text-muted mb-4">尚無平行加簽</div>
+        <div v-for="batch in detail.parallelAddSigns" :key="batch.batchOid" class="border rounded p-3 mb-3">
+          <div class="d-flex justify-content-between gap-2">
+            <strong>{{ batch.status }}</strong>
+            <span>完成 {{ batch.completedCount }}/{{ batch.totalCount }}・同意 {{ batch.agreeCount }}・不同意 {{ batch.disagreeCount }}</span>
+          </div>
+          <div v-for="member in batch.members" :key="member.account" class="small mt-2">
+            {{ member.displayName || member.account }}
+            <span class="badge text-bg-light border ms-2">{{ member.status }}</span>
+            <span v-if="member.comment" class="ms-2 text-muted">{{ member.comment }}</span>
+            <button v-if="detail.canReassign && batch.status === 'WAITING' && member.status === 'PENDING'"
+              class="btn btn-sm btn-link text-warning" @click="openReassign(member, true)">改派</button>
+          </div>
+        </div>
         <h5>任務動作</h5>
         <div v-if="!detail.actions?.length" class="text-muted mb-4">尚無任務動作</div>
         <div v-for="(action, index) in detail.actions" :key="`${action.actionDate}-${index}`" class="border-start border-primary ps-3 pb-3">
@@ -150,6 +261,24 @@ onMounted(async () => { await loadTenants(); await load(); });
           <div class="small text-muted mt-2">SHA-256: {{ snapshot.contentSha256 }}</div>
           <pre class="bg-light rounded p-3 mt-2 mb-0 overflow-auto">{{ JSON.stringify(snapshot.formData, null, 2) }}</pre>
         </details>
+      </div>
+    </div>
+    <div v-if="reassignTarget" class="card border-warning shadow-sm mt-4">
+      <div class="card-header bg-warning-subtle d-flex justify-content-between">
+        <strong>管理員改派</strong><button class="btn-close" @click="reassignTarget = null"></button>
+      </div>
+      <div class="card-body row g-3">
+        <div class="col-12 small text-muted">Task {{ reassignTarget.taskId }}，原簽核人：{{ reassignTarget.assignee || reassignTarget.account }}</div>
+        <div class="col-md-5"><label class="form-label">新簽核人</label><select v-model="reassignAccount" class="form-select" @change="reassignPreview = null"><option value="">請選擇</option><option v-for="option in reassignOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></div>
+        <div class="col-md-7"><label class="form-label">改派原因</label><textarea v-model="reassignReason" class="form-control" maxlength="2000" rows="3"></textarea></div>
+        <div v-if="reassignPreview" class="col-12"><div class="alert alert-warning mb-0">
+          <strong>{{ reassignPreview.previousAssignee || "候選人" }} → {{ reassignPreview.targetDisplayName || reassignPreview.targetAccount }}</strong>
+          <div>{{ reassignPreview.assignmentMode }}：{{ reassignPreview.warning }}</div>
+        </div></div>
+        <div class="col-12 text-end d-flex justify-content-end gap-2">
+          <button class="btn btn-outline-warning" :disabled="reassigning" @click="previewReassign">預覽改派</button>
+          <button class="btn btn-warning" :disabled="reassigning || !reassignPreview" @click="submitReassign">二次確認改派</button>
+        </div>
       </div>
     </div>
   </main>

@@ -36,6 +36,7 @@ import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
 import org.qifu.fm.domain.runtime.FmDelegationScopeEvaluator;
 import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.entity.FmFormData;
+import org.qifu.fm.entity.FmFormSnapshot;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormDef;
 import org.qifu.fm.entity.FmFormVersion;
@@ -46,11 +47,14 @@ import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmTaskAssignmentSnapshot;
 import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTaskPolicy;
+import org.qifu.fm.entity.FmTaskParallelAddSign;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.entity.FmWorkflowDelegation;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
+import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
 import org.qifu.fm.logic.IFmTaskRuntimeLogicService;
 import org.qifu.fm.service.IFmFormDataService;
+import org.qifu.fm.service.IFmFormSnapshotService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmFormDefService;
 import org.qifu.fm.service.IFmFormVersionService;
@@ -61,6 +65,8 @@ import org.qifu.fm.service.IFmTaskAssignmentSnapshotService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmTaskParallelAddSignMemberService;
+import org.qifu.fm.service.IFmTaskParallelAddSignService;
 import org.qifu.fm.service.IFmTenantAccountService;
 import org.qifu.fm.service.IFmWorkflowDelegationService;
 import org.springframework.stereotype.Service;
@@ -85,15 +91,19 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessDefService processDefService;
     private final IFmFormDataService formDataService;
+    private final IFmFormSnapshotService formSnapshotService;
     private final IFmEmployeeService employeeService;
     private final IFmFormDefService formDefService;
     private final IFmFormVersionService formVersionService;
     private final IFmTaskFormRuleService taskFormRuleService;
     private final IFmTaskPolicyService taskPolicyService;
+    private final IFmTaskParallelAddSignService parallelAddSignService;
+    private final IFmTaskParallelAddSignMemberService parallelAddSignMemberService;
     private final IFmTaskActionService taskActionService;
     private final IFmTaskAssignmentSnapshotService assignmentSnapshotService;
     private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmRuntimeAuditLogicService auditLogicService;
+    private final IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService;
     private final FmFormSubmissionValidator formSubmissionValidator;
     private final FmTaskFieldPolicyValidator taskFieldPolicyValidator;
     private final ObjectMapper objectMapper;
@@ -108,15 +118,19 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             IFmProcessInstanceService processInstanceService,
             IFmProcessDefService processDefService,
             IFmFormDataService formDataService,
+            IFmFormSnapshotService formSnapshotService,
             IFmEmployeeService employeeService,
             IFmFormDefService formDefService,
             IFmFormVersionService formVersionService,
             IFmTaskFormRuleService taskFormRuleService,
             IFmTaskPolicyService taskPolicyService,
+            IFmTaskParallelAddSignService parallelAddSignService,
+            IFmTaskParallelAddSignMemberService parallelAddSignMemberService,
             IFmTaskActionService taskActionService,
             IFmTaskAssignmentSnapshotService assignmentSnapshotService,
             IFmTaskAssignmentRuleService assignmentRuleService,
             IFmRuntimeAuditLogicService auditLogicService,
+            IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService,
             FmFormSubmissionValidator formSubmissionValidator,
             FmTaskFieldPolicyValidator taskFieldPolicyValidator,
             FmNotificationPublisher notificationPublisher,
@@ -128,15 +142,19 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.processInstanceService = processInstanceService;
         this.processDefService = processDefService;
         this.formDataService = formDataService;
+        this.formSnapshotService = formSnapshotService;
         this.employeeService = employeeService;
         this.formDefService = formDefService;
         this.formVersionService = formVersionService;
         this.taskFormRuleService = taskFormRuleService;
         this.taskPolicyService = taskPolicyService;
+        this.parallelAddSignService = parallelAddSignService;
+        this.parallelAddSignMemberService = parallelAddSignMemberService;
         this.taskActionService = taskActionService;
         this.assignmentSnapshotService = assignmentSnapshotService;
         this.assignmentRuleService = assignmentRuleService;
         this.auditLogicService = auditLogicService;
+        this.parallelAddSignRuntimeLogicService = parallelAddSignRuntimeLogicService;
         this.formSubmissionValidator = formSubmissionValidator;
         this.taskFieldPolicyValidator = taskFieldPolicyValidator;
         this.notificationPublisher = notificationPublisher;
@@ -153,6 +171,21 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 .taskCandidateOrAssigned(account)
                 .orderByTaskCreateTime().desc().list()) {
             FmProcessInstance process = processInstance(tenantId, task.getProcessInstanceId());
+            if (process == null && task.getParentTaskId() != null) {
+                org.qifu.fm.entity.FmTaskParallelAddSignMember member =
+                        parallelAddSignMemberService.findPendingByTask(
+                                tenantId, task.getId());
+                if (member != null) {
+                    org.qifu.fm.entity.FmTaskParallelAddSign batch =
+                            parallelAddSignService.selectByPrimaryKey(
+                                    member.getParallelAddSignOid()).getValue();
+                    if (batch != null && tenantId.equals(batch.getTenantId())
+                            && "WAITING".equals(batch.getStatus())) {
+                        process = processInstance(
+                                tenantId, batch.getProcessInstanceId());
+                    }
+                }
+            }
             if (process != null && "RUNNING".equals(process.getInstanceStatus())) {
                 values.add(inboxView(task, process));
             }
@@ -165,12 +198,45 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             throws ServiceException {
         String account = currentAccount(tenantId);
         Task task = authorizedTask(taskId, account);
-        FmProcessInstance process = requiredProcess(tenantId, task.getProcessInstanceId());
+        boolean parallelAddSignTask = task.getParentTaskId() != null;
+        String taskDefinitionKey = task.getTaskDefinitionKey();
+        FmProcessInstance process;
+        FmTaskParallelAddSign parallelBatch = null;
+        if (parallelAddSignTask) {
+            org.qifu.fm.entity.FmTaskParallelAddSignMember member =
+                    parallelAddSignMemberService.findPendingByTask(tenantId, task.getId());
+            if (member == null || !account.equals(member.getMemberAccount())) {
+                throw new ServiceException("平行加簽 subtask 不存在或已完成");
+            }
+            parallelBatch =
+                    parallelAddSignService.selectByPrimaryKey(
+                            member.getParallelAddSignOid()).getValueEmptyThrowMessage();
+            if (!tenantId.equals(parallelBatch.getTenantId())
+                    || !"WAITING".equals(parallelBatch.getStatus())) {
+                throw new ServiceException("平行加簽批次已結束或 Tenant 不符");
+            }
+            process = requiredProcess(tenantId, parallelBatch.getProcessInstanceId());
+            taskDefinitionKey = parallelBatch.getTaskDefinitionKey();
+        } else {
+            process = requiredProcess(tenantId, task.getProcessInstanceId());
+        }
         FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
-        FmTaskFormRule formRule = taskFormRule(process, task.getTaskDefinitionKey());
+        Map<String, Object> taskFormData = parseData(formData.getDataContent());
+        if (parallelBatch != null) {
+            FmFormSnapshot snapshot = formSnapshotService
+                    .selectByPrimaryKey(parallelBatch.getFormSnapshotOid())
+                    .getValueEmptyThrowMessage();
+            if (!tenantId.equals(snapshot.getTenantId())
+                    || !process.getProcessInstanceId().equals(snapshot.getProcessInstanceId())
+                    || !formData.getFormDataId().equals(snapshot.getFormDataId())) {
+                throw new ServiceException("平行加簽表單快照與批次資料不符");
+            }
+            taskFormData = parseData(snapshot.getDataContent());
+        }
+        FmTaskFormRule formRule = taskFormRule(process, taskDefinitionKey);
         FmFormVersion formVersion = formVersion(tenantId, formRule);
         FmFormDef formDef = formDef(tenantId, formRule.getFormId());
-        FmTaskPolicy policy = taskPolicy(process, task.getTaskDefinitionKey());
+        FmTaskPolicy policy = taskPolicy(process, taskDefinitionKey);
         return success(new FmTaskDetailView(
                 inboxView(task, process),
                 formRule.getFormId(),
@@ -180,17 +246,29 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 formVersion.getUiSchemaContent(),
                 formVersion.getCustomScriptContent(),
                 formRule.getFieldPolicy(),
-                parseData(formData.getDataContent()),
-                "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()),
-                "Y".equals(policy.getAllowReject()),
-                "Y".equals(policy.getAllowReturn()),
-                "Y".equals(policy.getAllowTransfer()),
-                "Y".equals(policy.getAllowAddSign()),
+                taskFormData,
+                !parallelAddSignTask
+                        && "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()),
+                !parallelAddSignTask && "Y".equals(policy.getAllowReject()),
+                !parallelAddSignTask && "Y".equals(policy.getAllowReturn()),
+                !parallelAddSignTask && "Y".equals(policy.getAllowTransfer()),
+                !parallelAddSignTask && "Y".equals(policy.getAllowAddSign()),
+                !parallelAddSignTask && "Y".equals(policy.getAllowParallelAddSign()),
+                policy.getParallelAddSignMaxMembers() == null
+                        ? 10 : policy.getParallelAddSignMaxMembers(),
                 DelegationState.PENDING.equals(task.getDelegationState()),
                 addSignTask(task),
-                delegationOptions(tenantId, process, task, account, new Date()),
+                parallelAddSignTask,
+                !parallelAddSignTask && parallelAddSignService
+                        .findLatestByParentTask(tenantId, task.getId()) != null
+                        ? parallelAddSignRuntimeLogicService.detail(
+                                tenantId, task.getId()).getValue()
+                        : null,
+                parallelAddSignTask ? List.of()
+                        : delegationOptions(tenantId, process, task, account, new Date()),
                 policy.getCommentRequired(),
-                returnTargets(process, task.getTaskDefinitionKey()),
+                parallelAddSignTask ? List.of()
+                        : returnTargets(process, taskDefinitionKey),
                 actionHistory(tenantId, process.getProcessInstanceId())));
     }
 
@@ -201,6 +279,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         validateActionRequest(request);
         String account = currentAccount(tenantId);
         Task task = authorizedTask(request.taskId(), account);
+        ensureNotWaitingForParallelAddSign(task);
         if (DelegationState.PENDING.equals(task.getDelegationState())) {
             throw new ServiceException("代理工作必須先回覆委託人，不能直接完成簽核");
         }
@@ -295,6 +374,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             throw new ServiceException("不可將待辦轉派給自己");
         }
         Task task = authorizedTask(request.taskId(), account);
+        ensureNotWaitingForParallelAddSign(task);
         FmProcessInstance process = requiredProcess(
                 tenantId, task.getProcessInstanceId());
         FmTaskPolicy policy = taskPolicy(process, task.getTaskDefinitionKey());
@@ -355,6 +435,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         }
         String account = currentAccount(tenantId);
         Task task = authorizedTask(request.taskId(), account);
+        ensureNotWaitingForParallelAddSign(task);
         FmProcessInstance process = requiredProcess(
                 tenantId, task.getProcessInstanceId());
         Date now = new Date();
@@ -657,12 +738,26 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
 
     private void ensureAddSignAllowed(Task task, FmTaskPolicy policy)
             throws ServiceException {
+        ensureNotWaitingForParallelAddSign(task);
         if (!"Y".equals(policy.getAllowAddSign())) {
             throw new ServiceException("此節點不允許加簽");
         }
         if (DelegationState.PENDING.equals(task.getDelegationState())) {
             throw new ServiceException("代理或加簽中的工作不可再次加簽");
         }
+    }
+
+    private void ensureNotWaitingForParallelAddSign(Task task)
+            throws ServiceException {
+        if (Boolean.TRUE.equals(taskService.getVariableLocal(
+                task.getId(), FmParallelAddSignStartService.WAITING_VARIABLE))) {
+            throw new ServiceException("平行加簽尚未全部完成，此 Task 暫停異動");
+        }
+    }
+
+    private boolean parallelWaiting(Task task) {
+        return Boolean.TRUE.equals(taskService.getVariableLocal(
+                task.getId(), FmParallelAddSignStartService.WAITING_VARIABLE));
     }
 
     private boolean addSignTask(Task task) {
@@ -793,7 +888,8 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 process.getProcessInstanceId(), process.getBusinessKey(),
                 process.getDocumentNumber(),
                 definition.getProcessName(), data.getOwnerAccount(),
-                task.getCreateTime(), task.getDueDate());
+                task.getCreateTime(), task.getDueDate(),
+                task.getParentTaskId() != null);
     }
 
     private FmProcessInstance requiredProcess(String tenantId, String processInstanceId)

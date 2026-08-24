@@ -39,6 +39,7 @@ import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.logic.IFmRequestTrackingLogicService;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
+import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
 import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmFormDefService;
@@ -77,6 +78,8 @@ public class FmRequestTrackingLogicServiceImpl
     private final IFmRuntimeAuditLogicService auditLogicService;
     private final ObjectMapper objectMapper;
     private final FmNotificationPublisher notificationPublisher;
+    private final FmParallelAddSignLifecycleService parallelAddSignLifecycleService;
+    private final IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService;
 
     public FmRequestTrackingLogicServiceImpl(
             TaskService taskService,
@@ -94,6 +97,8 @@ public class FmRequestTrackingLogicServiceImpl
             IFmFormSnapshotService formSnapshotService,
             IFmRuntimeAuditLogicService auditLogicService,
             FmNotificationPublisher notificationPublisher,
+            FmParallelAddSignLifecycleService parallelAddSignLifecycleService,
+            IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService,
             ObjectMapper objectMapper) {
         this.taskService = taskService;
         this.runtimeService = runtimeService;
@@ -108,6 +113,8 @@ public class FmRequestTrackingLogicServiceImpl
         this.formVersionService = formVersionService;
         this.taskActionService = taskActionService;
         this.formSnapshotService = formSnapshotService;
+        this.parallelAddSignLifecycleService = parallelAddSignLifecycleService;
+        this.parallelAddSignRuntimeLogicService = parallelAddSignRuntimeLogicService;
         this.auditLogicService = auditLogicService;
         this.notificationPublisher = notificationPublisher;
         this.objectMapper = objectMapper;
@@ -172,7 +179,9 @@ public class FmRequestTrackingLogicServiceImpl
                 parseData(formData.getDataContent()),
                 currentApprovals(tenantId, processInstanceId),
                 actions(tenantId, processInstanceId),
-                snapshots(tenantId, processInstanceId)));
+                snapshots(tenantId, processInstanceId),
+                parallelAddSignRuntimeLogicService.processDetails(
+                        tenantId, processInstanceId).getValue()));
     }
 
     @Override
@@ -291,6 +300,8 @@ public class FmRequestTrackingLogicServiceImpl
                 tenantId, processInstanceId, null, null,
                 actionType, "CANCELLED", account, formData.getOwnerAccount(),
                 null, reason, formData, null, now);
+        parallelAddSignLifecycleService.cancelWaitingForProcess(
+                tenantId, processInstanceId, "PROCESS_" + actionType);
         runtimeService.deleteProcessInstance(processInstanceId, reason);
         if (!processInstanceService.updateStatus(
                 tenantId, processInstanceId, "RUNNING", "CANCELLED",

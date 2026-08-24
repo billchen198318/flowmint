@@ -10,6 +10,9 @@ public record FmTaskPolicyCommand(
         String allowReturn,
         String allowTransfer,
         String allowAddSign,
+        String allowParallelAddSign,
+        Integer parallelAddSignMaxMembers,
+        String parallelAddSignCommentRequired,
         String commentRequired,
         Integer dueHours,
         Integer reminderBeforeHours) {

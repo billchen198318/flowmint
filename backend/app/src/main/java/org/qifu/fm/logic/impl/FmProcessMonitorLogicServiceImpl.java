@@ -26,17 +26,21 @@ import org.qifu.fm.dto.view.FmOperationsProcessRankingView;
 import org.qifu.fm.dto.view.FmOperationsTaskRankingView;
 import org.qifu.fm.dto.view.FmFormSnapshotView;
 import org.qifu.fm.dto.view.FmTaskActionView;
+import org.qifu.fm.dto.view.FmActiveTaskOperationsView;
 import org.qifu.fm.entity.FmFormData;
 import org.qifu.fm.entity.FmFormSnapshot;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmTaskAction;
+import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.logic.IFmProcessMonitorLogicService;
+import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
 import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmFormSnapshotService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmTaskActionService;
+import org.qifu.fm.service.IFmTaskPolicyService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,7 +60,9 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 	private final IFmFormDataService formDataService;
 	private final IFmTaskActionService taskActionService;
 	private final IFmFormSnapshotService formSnapshotService;
+	private final IFmTaskPolicyService taskPolicyService;
 	private final ObjectMapper objectMapper;
+	private final IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService;
 
 	public FmProcessMonitorLogicServiceImpl(
 			TaskService taskService,
@@ -65,6 +71,8 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 			IFmFormDataService formDataService,
 			IFmTaskActionService taskActionService,
 			IFmFormSnapshotService formSnapshotService,
+			IFmTaskPolicyService taskPolicyService,
+			IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService,
 			ObjectMapper objectMapper) {
 		this.taskService = taskService;
 		this.processInstanceService = processInstanceService;
@@ -72,6 +80,8 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 		this.formDataService = formDataService;
 		this.taskActionService = taskActionService;
 		this.formSnapshotService = formSnapshotService;
+		this.taskPolicyService = taskPolicyService;
+		this.parallelAddSignRuntimeLogicService = parallelAddSignRuntimeLogicService;
 		this.objectMapper = objectMapper;
 	}
 
@@ -187,7 +197,57 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 		List<FmFormSnapshotView> snapshots = formSnapshotService
 				.selectListByParams(parameters, "SNAPSHOT_DATE", "ASC").getValue().stream()
 				.map(this::snapshotView).toList();
-		return success(new FmProcessMonitorDetailView(processView, actions, snapshots));
+		boolean canReassign = canReassign();
+		return success(new FmProcessMonitorDetailView(
+				processView, canReassign, activeTasks(tenantId, process, canReassign),
+				actions, snapshots,
+				parallelAddSignRuntimeLogicService.processDetails(
+						tenantId, processInstanceId).getValue()));
+	}
+
+	private List<FmActiveTaskOperationsView> activeTasks(
+			String tenantId, FmProcessInstance process, boolean canReassign) {
+		if (!"RUNNING".equals(process.getInstanceStatus())) {
+			return List.of();
+		}
+		Map<String, FmTaskPolicy> policies = taskPolicyService.findByVersion(
+				tenantId, process.getProcessDefId(), process.getProcessVersionNo()).stream()
+				.collect(java.util.stream.Collectors.toMap(
+						FmTaskPolicy::getTaskDefKey, value -> value, (left, right) -> left));
+		return taskService.createTaskQuery()
+				.processInstanceId(process.getProcessInstanceId()).list().stream()
+				.map(task -> activeTaskView(task,
+						policies.get(task.getTaskDefinitionKey()), canReassign))
+				.toList();
+	}
+
+	private FmActiveTaskOperationsView activeTaskView(
+			Task task, FmTaskPolicy policy, boolean canReassign) {
+		String blocked = null;
+		if (!canReassign) {
+			blocked = "無管理員改派權限";
+		} else if (task.getParentTaskId() != null) {
+			blocked = "平行加簽 Task 請使用專用改派";
+		} else if (StringUtils.startsWith(task.getCategory(), "FLOWMINT_INCIDENT:")) {
+			blocked = "Incident Task 請使用 Incident 改派";
+		} else if (org.flowable.task.api.DelegationState.PENDING.equals(
+				task.getDelegationState())) {
+			blocked = "代理中 Task 不允許直接改派";
+		} else if (Boolean.TRUE.equals(taskService.getVariableLocal(
+				task.getId(), "flowMintAddSign"))) {
+			blocked = "循序加簽中 Task 不允許改派";
+		} else if (Boolean.TRUE.equals(taskService.getVariableLocal(
+				task.getId(), FmParallelAddSignStartService.WAITING_VARIABLE))) {
+			blocked = "平行加簽進行中，母 Task 不允許改派";
+		} else if (policy == null) {
+			blocked = "Task Policy 不存在";
+		} else if ("APPLICANT_CORRECTION".equals(policy.getAssignmentMode())) {
+			blocked = "申請人補件 Task 不允許改派";
+		}
+		return new FmActiveTaskOperationsView(task.getId(), task.getTaskDefinitionKey(),
+				task.getName(), task.getAssignee(), task.getOwner(),
+				policy == null ? null : policy.getAssignmentMode(), task.getDueDate(),
+				task.getParentTaskId() != null, blocked == null, blocked);
 	}
 
 	private FmTaskActionView actionView(FmTaskAction action) {
@@ -302,6 +362,11 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 		if (!UserUtils.isAdmin() && !UserUtils.hasRole("FLOWMINT_OPERATIONS")) {
 			throw new ServiceException("需要流程營運管理權限");
 		}
+	}
+
+	private boolean canReassign() {
+		return UserUtils.isAdmin() || UserUtils.hasRole("FLOWMINT_REASSIGN")
+				|| UserUtils.hasRole("FLOWMINT_OPERATIONS");
 	}
 
 	private <T> DefaultResult<T> success(T value) {
