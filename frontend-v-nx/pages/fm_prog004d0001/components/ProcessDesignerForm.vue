@@ -145,8 +145,23 @@ const selectedApprovalGroup = computed({
 const selectedApprovalLevel = computed({
   get: () => ruleConfig().approvalLevelId || "",
   set: (approvalLevelId: string) => {
-    if (selectedAssignmentRule.value)
-      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalLevelId });
+    if (selectedAssignmentRule.value) {
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({
+        ...ruleConfig(),
+        approvalLevelId,
+      });
+    }
+  },
+});
+const selectedLevelMatchMode = computed({
+  get: () => ruleConfig().levelMatchMode || "EXACT",
+  set: (levelMatchMode: string) => {
+    if (selectedAssignmentRule.value) {
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({
+        ...ruleConfig(),
+        levelMatchMode,
+      });
+    }
   },
 });
 const selectedOrgTitle = computed({
@@ -1196,6 +1211,17 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option v-for="item in approvalLevels" :key="item.value"
                         :value="item.value">{{ item.label }}</option>
                     </select>
+                    <label class="form-label mt-3">層級匹配模式</label>
+                    <select v-model="selectedLevelMatchMode"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="EXACT">精確層級</option>
+                      <option value="EXACT_OR_HIGHER">精確層級或第一位更高主管</option>
+                      <option value="UP_TO_LEVEL">逐級簽到指定或更高層級</option>
+                    </select>
+                    <div class="form-text">
+                      「逐級簽到」會依直屬主管鏈回傳有序簽核人，建議搭配循序簽核。
+                    </div>
                   </div>
                   <div v-else-if="selectedAssignmentRule.resolverType === 'ORG_TITLE'"
                     class="mb-3">

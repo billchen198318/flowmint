@@ -210,7 +210,7 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
 
     private FmTaskAssignmentRule authorityTargetRule(
             FmTaskAssignmentRule taskRule,
-            FmApprovalAuthorityRule authorityRule) {
+            FmApprovalAuthorityRule authorityRule) throws ServiceException {
         FmTaskAssignmentRule targetRule = new FmTaskAssignmentRule();
         targetRule.setTenantId(taskRule.getTenantId());
         targetRule.setTaskDefKey(taskRule.getTaskDefKey());
@@ -219,7 +219,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         targetRule.setMaxResults(taskRule.getMaxResults());
         Map<String, Object> config = switch (authorityRule.getTargetType()) {
             case "APPROVAL_LEVEL" -> Map.of(
-                    "approvalLevelId", authorityRule.getTargetRefId());
+                    "approvalLevelId", authorityRule.getTargetRefId(),
+                    "levelMatchMode", authorityLevelMatchMode(authorityRule));
             case "ORG_TITLE" -> Map.of("titleId", authorityRule.getTargetRefId());
             case "ORG_DUTY" -> Map.of("dutyId", authorityRule.getTargetRefId());
             case "APPROVAL_GROUP" -> Map.of(
@@ -230,6 +231,21 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         };
         targetRule.setResolverConfig(objectMapper.writeValueAsString(config));
         return targetRule;
+    }
+
+    private String authorityLevelMatchMode(FmApprovalAuthorityRule authorityRule)
+            throws ServiceException {
+        if (StringUtils.isBlank(authorityRule.getResolverConfig())) {
+            return "EXACT";
+        }
+        try {
+            JsonNode config = objectMapper.readTree(authorityRule.getResolverConfig());
+            return levelMatchMode(config);
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ServiceException("核決權限 Resolver Config JSON 格式錯誤");
+        }
     }
 
     private FmResolverPreviewView orgTitle(
@@ -330,7 +346,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private FmResolverPreviewView targetLevelHead(
             FmTaskAssignmentRule rule,
             FmEmployeeOrgAssignment assignment) throws ServiceException {
-        String targetLevelId = config(rule).path("approvalLevelId").asString();
+        JsonNode resolverConfig = config(rule);
+        String targetLevelId = resolverConfig.path("approvalLevelId").asString();
         if (StringUtils.isBlank(targetLevelId)) {
             return result(rule, "ERROR", "尚未選擇目標簽核層級", List.of());
         }
@@ -338,14 +355,19 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         if (targetLevel == null) {
             return result(rule, "NOT_FOUND", "目標簽核層級不存在或未啟用", List.of());
         }
+        String matchMode = levelMatchMode(resolverConfig);
+        if ("UP_TO_LEVEL".equals(matchMode)) {
+            return upToLevelHead(rule, assignment, targetLevel);
+        }
         FmEmployeeOrgAssignment manager = assignment;
         Set<String> visited = new HashSet<>();
         while (visited.add(manager.getEmployeeOrgAssignmentId())) {
             FmOrgApprovalLevel managerLevel = approvalLevel(rule.getTenantId(), manager);
             if (managerLevel != null
-                    && targetLevelId.equals(managerLevel.getApprovalLevelId())) {
+                    && levelMatches(matchMode, targetLevel, managerLevel)) {
                 return employeeResult(rule, manager.getEmployeeId(),
-                        "已解析指定簽核層級「" + targetLevel.getLevelName() + "」");
+                        "已依 " + matchMode + " 解析目標簽核層級「"
+                                + targetLevel.getLevelName() + "」");
             }
             if (StringUtils.isBlank(manager.getDirectManagerAssignmentId())) {
                 break;
@@ -356,7 +378,65 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
                 break;
             }
         }
-        return result(rule, "NOT_FOUND", "主管鏈中找不到指定簽核層級", List.of());
+        return result(rule, "NOT_FOUND", "主管鏈中找不到符合 " + matchMode
+                + " 的指定或更高簽核層級", List.of());
+    }
+
+    private FmResolverPreviewView upToLevelHead(
+            FmTaskAssignmentRule rule,
+            FmEmployeeOrgAssignment assignment,
+            FmOrgApprovalLevel targetLevel) throws ServiceException {
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        Set<String> visited = new HashSet<>();
+        FmEmployeeOrgAssignment manager = assignment;
+        if (StringUtils.isNotBlank(manager.getDirectManagerAssignmentId())) {
+            manager = assignmentByBusinessId(
+                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
+        } else {
+            manager = null;
+        }
+        while (manager != null && visited.add(manager.getEmployeeOrgAssignmentId())) {
+            FmOrgApprovalLevel managerLevel = approvalLevel(rule.getTenantId(), manager);
+            if (managerLevel != null) {
+                addEmployeeCandidate(rule.getTenantId(), manager.getEmployeeId(), candidates);
+                if (managerLevel.getLevelOrder() <= targetLevel.getLevelOrder()) {
+                    return result(rule, "RESOLVED",
+                            "已逐級解析至「" + managerLevel.getLevelName() + "」",
+                            List.copyOf(candidates.values()));
+                }
+                if (candidates.size() >= rule.getMaxResults()) {
+                    return result(rule, "NOT_FOUND",
+                            "逐級簽核人數超過 MAX_RESULTS，尚未到達目標層級", List.of());
+                }
+            }
+            if (StringUtils.isBlank(manager.getDirectManagerAssignmentId())) {
+                break;
+            }
+            manager = assignmentByBusinessId(
+                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
+        }
+        return result(rule, "NOT_FOUND", "主管鏈未到達指定或更高簽核層級", List.of());
+    }
+
+    private boolean levelMatches(
+            String matchMode,
+            FmOrgApprovalLevel targetLevel,
+            FmOrgApprovalLevel managerLevel) {
+        return switch (matchMode) {
+            case "EXACT" -> targetLevel.getApprovalLevelId()
+                    .equals(managerLevel.getApprovalLevelId());
+            case "EXACT_OR_HIGHER" -> managerLevel.getLevelOrder()
+                    <= targetLevel.getLevelOrder();
+            default -> false;
+        };
+    }
+
+    private String levelMatchMode(JsonNode config) throws ServiceException {
+        String mode = config.path("levelMatchMode").asString("EXACT");
+        if (!Set.of("EXACT", "EXACT_OR_HIGHER", "UP_TO_LEVEL").contains(mode)) {
+            throw new ServiceException("不支援的簽核層級匹配模式");
+        }
+        return mode;
     }
 
     private FmOrgApprovalLevel approvalLevel(

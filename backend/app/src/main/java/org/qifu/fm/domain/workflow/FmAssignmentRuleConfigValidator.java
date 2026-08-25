@@ -3,10 +3,15 @@ package org.qifu.fm.domain.workflow;
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
 
+import java.util.Set;
+
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public class FmAssignmentRuleConfigValidator {
+
+    private static final Set<String> LEVEL_MATCH_MODES = Set.of(
+            "EXACT", "EXACT_OR_HIGHER", "UP_TO_LEVEL");
 
     private final ObjectMapper objectMapper;
 
@@ -20,7 +25,10 @@ public class FmAssignmentRuleConfigValidator {
         switch (resolverType) {
             case "FIXED_ACCOUNT" -> requireTextArray(config, "accounts");
             case "APPROVAL_GROUP" -> requireText(config, "approvalGroupId");
-            case "TARGET_LEVEL_HEAD" -> requireText(config, "approvalLevelId");
+            case "TARGET_LEVEL_HEAD" -> {
+                requireText(config, "approvalLevelId");
+                validateLevelMatchMode(config);
+            }
             case "ORG_TITLE" -> requireText(config, "titleId");
             case "ORG_DUTY" -> requireText(config, "dutyId");
             case "APPROVAL_AUTHORITY" -> requireText(config, "approvalAuthorityId");
@@ -30,6 +38,15 @@ public class FmAssignmentRuleConfigValidator {
         }
         if (StringUtils.isNotBlank(fallbackConfig)) {
             parseObject(fallbackConfig, "Fallback Config");
+        }
+    }
+
+    private void validateLevelMatchMode(JsonNode config) throws ServiceException {
+        JsonNode value = config.path("levelMatchMode");
+        if (!value.isMissingNode()
+                && (!value.isString() || !LEVEL_MATCH_MODES.contains(value.asString()))) {
+            throw new ServiceException(
+                    "Resolver Config 的 levelMatchMode 僅允許 EXACT、EXACT_OR_HIGHER 或 UP_TO_LEVEL");
         }
     }
 

@@ -312,6 +312,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         validateGatewayFormFieldsForPublish(version);
         validateTaskPoliciesForPublish(version, taskKeys);
         validateAssignmentRulesForPublish(version);
+        validateLevelMatchModesForPublish(version);
         validateApprovalGroupModesForPublish(version);
         validateStartPoliciesForPublish(version);
         String runtimeBpmnXml = runtimeBpmnXml(version);
@@ -1166,6 +1167,39 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     rule.getResolverType(),
                     rule.getResolverConfig(),
                     rule.getFallbackConfig());
+        }
+    }
+
+    private void validateLevelMatchModesForPublish(FmProcessVersion version)
+            throws ServiceException {
+        Map<String, String> assignmentModes = taskPolicies(version).stream()
+                .collect(Collectors.toMap(
+                        FmTaskPolicy::getTaskDefKey,
+                        FmTaskPolicy::getAssignmentMode));
+        for (FmTaskAssignmentRule rule : assignmentRules(version)) {
+            if (!"ACTIVE".equals(rule.getStatus()) || !usesUpToLevel(rule)) {
+                continue;
+            }
+            if (!"SEQUENTIAL".equals(assignmentModes.get(rule.getTaskDefKey()))) {
+                throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                        + "」使用 UP_TO_LEVEL 時，派送方式必須設定為 SEQUENTIAL");
+            }
+        }
+    }
+
+    private boolean usesUpToLevel(FmTaskAssignmentRule rule) throws ServiceException {
+        try {
+            tools.jackson.databind.JsonNode config = new tools.jackson.databind.ObjectMapper().readTree(
+                    StringUtils.defaultIfBlank(rule.getResolverConfig(), "{}"));
+            if ("TARGET_LEVEL_HEAD".equals(rule.getResolverType())) {
+                return "UP_TO_LEVEL".equals(
+                        config.path("levelMatchMode").asString("EXACT"));
+            }
+            return false;
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ServiceException("無法檢查簽核層級匹配模式");
         }
     }
 

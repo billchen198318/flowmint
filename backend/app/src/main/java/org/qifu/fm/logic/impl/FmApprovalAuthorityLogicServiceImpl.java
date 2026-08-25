@@ -24,6 +24,9 @@ import org.qifu.fm.service.IFmApprovalAuthorityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+
 @Service
 @Transactional(readOnly = true)
 public class FmApprovalAuthorityLogicServiceImpl
@@ -41,16 +44,19 @@ public class FmApprovalAuthorityLogicServiceImpl
     private final IFmApprovalAuthorityRuleService ruleService;
     private final FmApprovalAuthorityConditionEvaluator conditionEvaluator;
     private final FmTenantAccessGuard tenantAccessGuard;
+    private final ObjectMapper objectMapper;
 
     public FmApprovalAuthorityLogicServiceImpl(
             IFmApprovalAuthorityService authorityService,
             IFmApprovalAuthorityRuleService ruleService,
             FmApprovalAuthorityConditionEvaluator conditionEvaluator,
-            FmTenantAccessGuard tenantAccessGuard) {
+            FmTenantAccessGuard tenantAccessGuard,
+            ObjectMapper objectMapper) {
         this.authorityService = authorityService;
         this.ruleService = ruleService;
         this.conditionEvaluator = conditionEvaluator;
         this.tenantAccessGuard = tenantAccessGuard;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -166,6 +172,27 @@ public class FmApprovalAuthorityLogicServiceImpl
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
         conditionEvaluator.validate(rule.conditionConfig());
+        validateLevelMatchMode(rule);
+    }
+
+    private void validateLevelMatchMode(FmApprovalAuthorityRuleCommand rule)
+            throws ServiceException {
+        if (!"APPROVAL_LEVEL".equals(rule.targetType())) {
+            return;
+        }
+        try {
+            JsonNode config = objectMapper.readTree(
+                    StringUtils.defaultIfBlank(rule.resolverConfig(), "{}"));
+            String mode = config.path("levelMatchMode").asString("EXACT");
+            if (!config.isObject()
+                    || !List.of("EXACT", "EXACT_OR_HIGHER", "UP_TO_LEVEL").contains(mode)) {
+                throw new ServiceException("簽核層級匹配模式不正確");
+            }
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ServiceException("核決權限 Resolver Config JSON 格式錯誤");
+        }
     }
 
     private void apply(
