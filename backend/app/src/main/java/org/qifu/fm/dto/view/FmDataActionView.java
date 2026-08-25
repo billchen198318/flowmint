@@ -17,6 +17,7 @@ public record FmDataActionView(
 		Integer draftVersionNo,
 		String draftStatus,
 		Integer lockVersion,
+		Integer rateLimitPerMinute,
 		String description,
 		List<FmDataActionStepView> steps) {
 }

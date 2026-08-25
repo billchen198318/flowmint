@@ -12,7 +12,8 @@ import org.qifu.fm.entity.FmDataActionStep;
 class FmDataActionSqlValidatorTest {
 
 	private final FmDataActionSqlValidator validator =
-			new FmDataActionSqlValidator();
+			new FmDataActionSqlValidator(new FmDataActionContinueConditionEvaluator(
+					new FmDataActionParameterResolver(new tools.jackson.databind.ObjectMapper())));
 
 	@Test
 	void acceptsNamedParametersWithDefinedSources() {
@@ -40,6 +41,34 @@ class FmDataActionSqlValidatorTest {
 		step.setStatementType("UPDATE");
 		assertThrows(ServiceException.class, () -> validator.validate(
 				step, "QUERY", Set.of("status")));
+	}
+
+	@Test
+	void acceptsForEachMutationWithArrayPath() {
+		FmDataActionStep step = selectStep(
+				"INSERT INTO request_item (ITEM_CODE) VALUES (:itemCode)");
+		step.setStatementType("INSERT");
+		step.setExecutionMode("FOR_EACH");
+		step.setArrayPath("$.items");
+		assertDoesNotThrow(() -> validator.validate(
+				step, "TRANSACTION", Set.of("itemCode")));
+	}
+
+	@Test
+	void rejectsForEachWithoutArrayPathAndGeneratedKeyOnUpdate() {
+		FmDataActionStep step = selectStep(
+				"INSERT INTO request_item (ITEM_CODE) VALUES (:itemCode)");
+		step.setStatementType("INSERT");
+		step.setExecutionMode("FOR_EACH");
+		assertThrows(ServiceException.class, () -> validator.validate(
+				step, "TRANSACTION", Set.of("itemCode")));
+
+		step.setExecutionMode("ONCE");
+		step.setStatementType("UPDATE");
+		step.setSqlContent("UPDATE request_item SET ITEM_CODE = :itemCode");
+		step.setResultMode("GENERATED_KEY");
+		assertThrows(ServiceException.class, () -> validator.validate(
+				step, "TRANSACTION", Set.of("itemCode")));
 	}
 
 	private FmDataActionStep selectStep(String sql) {

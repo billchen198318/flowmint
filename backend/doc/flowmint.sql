@@ -2355,6 +2355,7 @@ CREATE TABLE `fm_data_action` (
   `RESPONSE_MODE` varchar(20) NOT NULL,
   `STATUS` varchar(20) NOT NULL,
   `CURRENT_VERSION_NO` int(11) NOT NULL DEFAULT 0,
+  `RATE_LIMIT_PER_MINUTE` int(11) DEFAULT NULL,
   `DESCRIPTION` varchar(500) DEFAULT NULL,
   `LOCK_VERSION` int(11) NOT NULL DEFAULT 0,
   `CUSERID` varchar(24) NOT NULL,
@@ -2376,21 +2377,64 @@ SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
 LOCK TABLES `fm_data_action` WRITE;
 /*!40000 ALTER TABLE `fm_data_action` DISABLE KEYS */;
 INSERT INTO `fm_data_action` VALUES
-('06367c6a-4ed7-439f-bf4c-fc208e3de834','A01','fe970af8-94c5-403e-b08a-748fac30d9df','FM_PURCHASE_EMPLOYEE_OPTIONS','請購單有效員工選項','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,'請購表單專用唯讀員工選項，回傳帳號、姓名與有效主要部門。',0,'SYSTEM','2026-08-12 21:24:01.454',NULL,NULL),
-('0baa1654-3a39-4ad2-9fa9-9db220e2c8e8','A01','1cd2168e-62b3-47c6-92e1-53fbf38700ac','FM_LIST_ORG_DUTIES','FM_LIST_ORG_DUTIES','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"orgUnitId\":\"$.orgUnitId\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:45.941'),
-('0eb87fb2-0e73-4ba8-8052-5b7933fe04fc','A01','75492614-9220-48d2-a79b-5ee4f34ff1d0','FM_GET_MY_PRIMARY_ASSIGNMENT','FM_GET_MY_PRIMARY_ASSIGNMENT','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:08:57.510'),
-('16ae20ff-8666-4724-892b-10e6ea0604fe','A01','81a1db37-e29e-433c-a6df-49df2f9347cc','FM_LIST_MY_ASSIGNMENTS','FM_LIST_MY_ASSIGNMENTS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:32.605'),
-('29776cba-f15f-487a-91bb-38c4411ff10b','A01','eab2f1f2-f65c-429c-bfcf-ecada28d2697','FM_SEARCH_ACTIVE_EMPLOYEES','FM_SEARCH_ACTIVE_EMPLOYEES','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:11:21.480'),
-('4fe8e554-7d7b-4ef4-a237-362c73d3f971','A01','58a58b4c-0151-42f7-8842-84ad7dd7ef4a','FM_GET_ORG_PATH','FM_GET_ORG_PATH','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"orgUnitId\":\"$.orgUnitId\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:09:29.269'),
-('74f1eafb-5c23-41ba-87b9-bdd1af19ebcc','A01','a5e883e1-3c1e-457d-ae02-71c33dd9cd02','FM_LIST_ORG_UNITS','FM_LIST_ORG_UNITS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:11:08.388'),
-('76544c2d-f1c1-4e28-9830-9e4a20af75fc','A01','07923ae7-d0f2-4024-a587-6a50f44dfe36','FM_LIST_APPROVAL_GROUP_MEMBERS','FM_LIST_APPROVAL_GROUP_MEMBERS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"approvalGroupId\":\"$.approvalGroupId\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:09:55.798'),
-('9f542431-ba74-4afd-aeab-a3263107a0a9','A01','bfc4a332-3f94-4056-85bf-d4461893986a','FM_GET_CURRENT_EMPLOYEE','FM_GET_CURRENT_EMPLOYEE','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:07:44.455'),
-('a34cc7e7-8d46-45f4-ae81-7cd3131dda9b','A01','afafc038-b9d1-4b6d-b275-c17eb11ebd8a','FM_LIST_APPROVAL_GROUPS','FM_LIST_APPROVAL_GROUPS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:13.398'),
-('a8f06f50-5a58-4825-9fd0-b1ddf57ad213','A01','68e850e3-ab84-464a-9b58-1808d38219b9','FM_PURCHASE_EMPLOYEE_ASSIGNMENTS','請購申請人有效任職','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"applicantAccount\":\"$.applicantAccount\"}','COMPOSITE','ACTIVE',1,'依請購申請人帳號回傳有效主要及兼任部門。',0,'SYSTEM','2026-08-12 21:34:55.287',NULL,NULL),
-('bcbc24a7-3259-46e2-a191-273888851428','A01','1926df27-9e01-4b7b-8730-431183fc15e2','FM_LIST_ORG_CHILDREN','FM_LIST_ORG_CHILDREN','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"parentOrgUnitId\":\"$.parentOrgUnitId\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:39.178'),
-('dfb0ebfc-f218-4c91-a5ff-de00b90ea346','A01','db5d5935-0ca4-4931-9a31-cff606a8b5c7','FM_LIST_EMPLOYEES_BY_ORG','FM_LIST_EMPLOYEES_BY_ORG','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"orgUnitId\":\"$.orgUnitId\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:20.417'),
-('e1fece91-401a-42ad-9a1a-d2c8f30f5c7d','A01','7db42add-deb0-4c11-8766-91d097405d40','FM_LIST_ORG_TITLES','FM_LIST_ORG_TITLES','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:53.259');
+('06367c6a-4ed7-439f-bf4c-fc208e3de834','A01','fe970af8-94c5-403e-b08a-748fac30d9df','FM_PURCHASE_EMPLOYEE_OPTIONS','請購單有效員工選項','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,NULL,'請購表單專用唯讀員工選項，回傳帳號、姓名與有效主要部門。',0,'SYSTEM','2026-08-12 21:24:01.454',NULL,NULL),
+('0baa1654-3a39-4ad2-9fa9-9db220e2c8e8','A01','1cd2168e-62b3-47c6-92e1-53fbf38700ac','FM_LIST_ORG_DUTIES','FM_LIST_ORG_DUTIES','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"orgUnitId\":\"$.orgUnitId\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:45.941'),
+('0eb87fb2-0e73-4ba8-8052-5b7933fe04fc','A01','75492614-9220-48d2-a79b-5ee4f34ff1d0','FM_GET_MY_PRIMARY_ASSIGNMENT','FM_GET_MY_PRIMARY_ASSIGNMENT','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:08:57.510'),
+('16ae20ff-8666-4724-892b-10e6ea0604fe','A01','81a1db37-e29e-433c-a6df-49df2f9347cc','FM_LIST_MY_ASSIGNMENTS','FM_LIST_MY_ASSIGNMENTS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:32.605'),
+('29776cba-f15f-487a-91bb-38c4411ff10b','A01','eab2f1f2-f65c-429c-bfcf-ecada28d2697','FM_SEARCH_ACTIVE_EMPLOYEES','FM_SEARCH_ACTIVE_EMPLOYEES','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:11:21.480'),
+('4fe8e554-7d7b-4ef4-a237-362c73d3f971','A01','58a58b4c-0151-42f7-8842-84ad7dd7ef4a','FM_GET_ORG_PATH','FM_GET_ORG_PATH','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"orgUnitId\":\"$.orgUnitId\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:09:29.269'),
+('74f1eafb-5c23-41ba-87b9-bdd1af19ebcc','A01','a5e883e1-3c1e-457d-ae02-71c33dd9cd02','FM_LIST_ORG_UNITS','FM_LIST_ORG_UNITS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:11:08.388'),
+('76544c2d-f1c1-4e28-9830-9e4a20af75fc','A01','07923ae7-d0f2-4024-a587-6a50f44dfe36','FM_LIST_APPROVAL_GROUP_MEMBERS','FM_LIST_APPROVAL_GROUP_MEMBERS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"approvalGroupId\":\"$.approvalGroupId\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:09:55.798'),
+('9f542431-ba74-4afd-aeab-a3263107a0a9','A01','bfc4a332-3f94-4056-85bf-d4461893986a','FM_GET_CURRENT_EMPLOYEE','FM_GET_CURRENT_EMPLOYEE','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:07:44.455'),
+('a34cc7e7-8d46-45f4-ae81-7cd3131dda9b','A01','afafc038-b9d1-4b6d-b275-c17eb11ebd8a','FM_LIST_APPROVAL_GROUPS','FM_LIST_APPROVAL_GROUPS','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:13.398'),
+('a8f06f50-5a58-4825-9fd0-b1ddf57ad213','A01','68e850e3-ab84-464a-9b58-1808d38219b9','FM_PURCHASE_EMPLOYEE_ASSIGNMENTS','請購申請人有效任職','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"applicantAccount\":\"$.applicantAccount\"}','COMPOSITE','ACTIVE',1,NULL,'依請購申請人帳號回傳有效主要及兼任部門。',0,'SYSTEM','2026-08-12 21:34:55.287',NULL,NULL),
+('bcbc24a7-3259-46e2-a191-273888851428','A01','1926df27-9e01-4b7b-8730-431183fc15e2','FM_LIST_ORG_CHILDREN','FM_LIST_ORG_CHILDREN','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"parentOrgUnitId\":\"$.parentOrgUnitId\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:39.178'),
+('dfb0ebfc-f218-4c91-a5ff-de00b90ea346','A01','db5d5935-0ca4-4931-9a31-cff606a8b5c7','FM_LIST_EMPLOYEES_BY_ORG','FM_LIST_EMPLOYEES_BY_ORG','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"orgUnitId\":\"$.orgUnitId\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:20.417'),
+('e1fece91-401a-42ad-9a1a-d2c8f30f5c7d','A01','7db42add-deb0-4c11-8766-91d097405d40','FM_LIST_ORG_TITLES','FM_LIST_ORG_TITLES','7f177f66-864e-46cb-8b7e-48081be7d859','QUERY','{\"keyword\":\"$.keyword\"}','COMPOSITE','ACTIVE',1,NULL,'P0 common readonly action',2,'SYSTEM','2026-08-05 21:40:37.550','admin','2026-08-06 09:10:53.259');
 /*!40000 ALTER TABLE `fm_data_action` ENABLE KEYS */;
+UNLOCK TABLES;
+COMMIT;
+SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
+
+--
+-- Table structure for table `fm_data_action_execution_audit`
+--
+
+DROP TABLE IF EXISTS `fm_data_action_execution_audit`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `fm_data_action_execution_audit` (
+  `OID` char(36) NOT NULL,
+  `EXECUTION_ID` char(36) NOT NULL,
+  `TENANT_ID` varchar(50) NOT NULL,
+  `ACTION_ID` varchar(50) NOT NULL,
+  `ACTION_CODE` varchar(50) NOT NULL,
+  `VERSION_NO` int(11) NOT NULL,
+  `LOGIN_ACCOUNT` varchar(100) NOT NULL,
+  `EXECUTION_STATUS` varchar(20) NOT NULL,
+  `ROLLBACK_ONLY` char(1) NOT NULL DEFAULT 'N',
+  `STEP_COUNT` int(11) NOT NULL,
+  `REQUEST_PARAMETER_COUNT` int(11) NOT NULL,
+  `START_TIME` datetime(3) NOT NULL,
+  `END_TIME` datetime(3) NOT NULL,
+  `DURATION_MS` bigint(20) NOT NULL,
+  `ERROR_MESSAGE` varchar(1000) DEFAULT NULL,
+  `CDATE` datetime(3) NOT NULL,
+  PRIMARY KEY (`OID`),
+  UNIQUE KEY `UK_FM_DA_EXEC_AUDIT_EXECUTION` (`EXECUTION_ID`),
+  KEY `IX_FM_DA_EXEC_AUDIT_ACTION` (`TENANT_ID`,`ACTION_ID`,`VERSION_NO`,`START_TIME`),
+  KEY `IX_FM_DA_EXEC_AUDIT_STATUS` (`TENANT_ID`,`EXECUTION_STATUS`,`START_TIME`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `fm_data_action_execution_audit`
+--
+
+SET @OLD_AUTOCOMMIT=@@AUTOCOMMIT, @@AUTOCOMMIT=0;
+LOCK TABLES `fm_data_action_execution_audit` WRITE;
+/*!40000 ALTER TABLE `fm_data_action_execution_audit` DISABLE KEYS */;
+/*!40000 ALTER TABLE `fm_data_action_execution_audit` ENABLE KEYS */;
 UNLOCK TABLES;
 COMMIT;
 SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
@@ -6012,4 +6056,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-25 20:32:33
+-- Dump completed on 2026-08-25 21:39:39

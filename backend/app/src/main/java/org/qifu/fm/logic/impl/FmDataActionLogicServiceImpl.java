@@ -52,7 +52,7 @@ public class FmDataActionLogicServiceImpl
 	private static final Set<String> ACTION_TYPES = Set.of(
 			"QUERY", "COMMAND", "TRANSACTION");
 	private static final Set<String> RESULT_MODES = Set.of(
-			"OBJECT", "LIST", "AFFECTED_ROWS", "NONE");
+			"OBJECT", "LIST", "AFFECTED_ROWS", "GENERATED_KEY", "NONE");
 	private static final Set<String> RESERVED_PARAMETERS = Set.of(
 			"tenantId", "loginAccount", "businessKey",
 			"processInstanceId", "now");
@@ -245,13 +245,62 @@ public class FmDataActionLogicServiceImpl
 		metadata.put("actionName", action.getActionName());
 		metadata.put("actionType", action.getActionType());
 		metadata.put("versionNo", versionNo);
-		metadata.put("requestFields", new ArrayList<>(
-				readRequestMappings(action.getRequestSchema()).keySet()));
+		Set<String> requestFields = readRequestMappings(action.getRequestSchema()).keySet();
+		metadata.put("requestFields", new ArrayList<>(requestFields));
 		metadata.put("responseKeys", steps.stream()
 				.filter(step -> !"NONE".equals(step.getResultMode()))
 				.map(FmDataActionStep::getResultKey)
 				.toList());
+		metadata.put("responseFields", responseFields(steps,
+				requestFields.contains("page") && requestFields.contains("pageSize")));
 		return success(metadata);
+	}
+
+	private List<Map<String, String>> responseFields(List<FmDataActionStep> steps,
+			boolean paged) {
+		List<Map<String, String>> fields = new ArrayList<>();
+		for (FmDataActionStep step : steps) {
+			if ("NONE".equals(step.getResultMode())
+					|| StringUtils.isBlank(step.getResultKey())) {
+				continue;
+			}
+			String root = step.getResultKey();
+			String rootType = switch (step.getResultMode()) {
+				case "OBJECT" -> "OBJECT";
+				case "LIST" -> "ARRAY_OR_PAGE";
+				case "AFFECTED_ROWS", "GENERATED_KEY" -> "OBJECT";
+				default -> "ANY";
+			};
+			fields.add(responseField(root, rootType));
+			if (paged && "LIST".equals(step.getResultMode())) {
+				fields.add(responseField(root + ".items", "ARRAY"));
+				fields.add(responseField(root + ".page", "NUMBER"));
+				fields.add(responseField(root + ".pageSize", "NUMBER"));
+				fields.add(responseField(root + ".total", "NUMBER"));
+				fields.add(responseField(root + ".totalPages", "NUMBER"));
+			}
+			if ("AFFECTED_ROWS".equals(step.getResultMode())
+					|| "GENERATED_KEY".equals(step.getResultMode())) {
+				fields.add(responseField(root + ".affectedRows", "NUMBER"));
+			}
+			if ("GENERATED_KEY".equals(step.getResultMode())) {
+				fields.add(responseField(root + ("FOR_EACH".equals(step.getExecutionMode())
+						? ".generatedKeys" : ".generatedKey"),
+						"FOR_EACH".equals(step.getExecutionMode()) ? "ARRAY" : "NUMBER"));
+			}
+			if ("FOR_EACH".equals(step.getExecutionMode())
+					&& !"GENERATED_KEY".equals(step.getResultMode())) {
+				fields.add(responseField(root + ".batchSize", "NUMBER"));
+			}
+		}
+		return fields;
+	}
+
+	private Map<String, String> responseField(String path, String type) {
+		Map<String, String> field = new HashMap<>();
+		field.put("path", path);
+		field.put("type", type);
+		return field;
 	}
 
 	@Override
@@ -279,6 +328,7 @@ public class FmDataActionLogicServiceImpl
 				draft == null ? null : draft.getVersionNo(),
 				draft == null ? null : draft.getVersionStatus(),
 				action.getLockVersion(),
+				action.getRateLimitPerMinute(),
 				action.getDescription(),
 				steps);
 	}
@@ -342,6 +392,12 @@ public class FmDataActionLogicServiceImpl
 		action.setResponseMode(StringUtils.defaultIfBlank(
 				command.responseMode(), "COMPOSITE"));
 		action.setStatus(StringUtils.defaultIfBlank(command.status(), "DRAFT"));
+		if (command.rateLimitPerMinute() != null
+				&& (command.rateLimitPerMinute() < 1
+						|| command.rateLimitPerMinute() > 100000)) {
+			throw new IllegalArgumentException("Rate Limit 必須介於 1 至 100000");
+		}
+		action.setRateLimitPerMinute(command.rateLimitPerMinute());
 		action.setDescription(StringUtils.trimToNull(command.description()));
 	}
 

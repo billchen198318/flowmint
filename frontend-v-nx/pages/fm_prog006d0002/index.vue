@@ -161,6 +161,12 @@ onMounted(async () => {
     :queryFieldShowFlag="queryFieldShow"
   />
 
+  <div class="mb-3 text-end">
+    <button class="btn btn-outline-primary" @click="router.push(PageConstants.frontendNamespace + '/audits')">
+      執行紀錄
+    </button>
+  </div>
+
   <div v-show="queryFieldShow" class="card mb-3">
     <div class="card-body">
       <div class="row g-3">

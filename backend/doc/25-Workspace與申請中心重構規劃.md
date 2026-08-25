@@ -757,7 +757,7 @@ backend/app/src/main/resources/org/qifu/fm/mapper/FmProcessCategoryMapper.xml
 - [x] 本人申請不需再次輸入帳號。
 - [x] 代申請使用受控選人，不使用自由文字。
 - [x] 點擊流程後進入獨立填單頁。
-- [x] 填單頁完整支援 Form.io、Custom JavaScript、Data Action 及附件。
+- [x] 填單頁已接入 Form.io、Custom JavaScript、已發布 Data Action 呼叫及附件；Data Action 的 `FOR_EACH`、Generated Key、Step 結果引用等進階執行核心已實作，但仍待跨資料庫整合驗收。
 - [x] Tenant、Starter、Applicant、流程與表單均由後端重新驗證。
 - [x] Dirty 表單與未送附件離頁會警告。
 - [x] Submit 防 double click 且保留 Idempotency Key。

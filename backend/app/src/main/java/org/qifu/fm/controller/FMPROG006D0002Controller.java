@@ -18,6 +18,8 @@ import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmDataActionCommand;
 import org.qifu.fm.dto.command.FmDataActionPreviewCommand;
 import org.qifu.fm.dto.view.FmDataActionExecutionView;
+import org.qifu.fm.dto.view.FmDataActionExecutionAuditView;
+import org.qifu.fm.domain.dataaction.FmDataActionExecutionAuditQueryService;
 import org.qifu.fm.dto.view.FmDataActionView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmDataAction;
@@ -40,12 +42,33 @@ public class FMPROG006D0002Controller extends CoreApiSupport {
 
 	private final transient IFmDataActionService actionService;
 	private final transient IFmDataActionLogicService actionLogicService;
+	private final transient FmDataActionExecutionAuditQueryService auditQueryService;
 
 	public FMPROG006D0002Controller(
 			IFmDataActionService actionService,
-			IFmDataActionLogicService actionLogicService) {
+			IFmDataActionLogicService actionLogicService,
+			FmDataActionExecutionAuditQueryService auditQueryService) {
 		this.actionService = actionService;
 		this.actionLogicService = actionLogicService;
+		this.auditQueryService = auditQueryService;
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG006D0002Q", check = true)
+	@PostMapping("/execution-audits/findPage")
+	public ResponseEntity<QueryResult<List<FmDataActionExecutionAuditView>>>
+			executionAudits(@RequestBody SearchBody body) {
+		QueryResult<List<FmDataActionExecutionAuditView>> result = initResult();
+		try {
+			var page = auditQueryService.find(body.getField(), body.getPageOf());
+			result.setValue(page.rows());
+			body.getPageOf().setCountSize(String.valueOf(page.total()));
+			body.getPageOf().toCalculateSize();
+			result.setPageOf(body.getPageOf());
+			successResult(result);
+		} catch (Exception exception) {
+			noSuccessResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG006D0002Q", check = true)

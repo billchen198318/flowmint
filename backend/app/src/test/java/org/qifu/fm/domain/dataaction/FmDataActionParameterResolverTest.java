@@ -36,4 +36,27 @@ class FmDataActionParameterResolverTest {
 		assertEquals("TENANT-A", parameters.get("tenantId"));
 		assertEquals("user01", parameters.get("loginAccount"));
 	}
+
+	@Test
+	void resolvesItemAndPreviousStepExpressions() throws Exception {
+		String mapping = """
+				{
+				  "headerId": "${steps.header.generatedKey}",
+				  "itemCode": "${item.itemCode}",
+				  "status": "${steps.validation.rows[0].status}"
+				}
+				""";
+		Map<String, Object> base = resolver.resolve(mapping, Map.of(),
+				"TENANT-A", "user01");
+		Map<String, Object> steps = Map.of(
+				"header", Map.of("generatedKey", 99L),
+				"validation", Map.of("rows", List.of(Map.of("status", "OK"))));
+
+		Map<String, Object> parameters = resolver.resolveForStep(mapping, base,
+				Map.of(), steps, Map.of("itemCode", "A01"));
+
+		assertEquals(99L, parameters.get("headerId"));
+		assertEquals("A01", parameters.get("itemCode"));
+		assertEquals("OK", parameters.get("status"));
+	}
 }

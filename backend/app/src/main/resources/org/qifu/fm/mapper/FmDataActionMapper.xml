@@ -14,6 +14,7 @@
     <result column="RESPONSE_MODE" jdbcType="VARCHAR" property="responseMode"/>
     <result column="STATUS" jdbcType="VARCHAR" property="status"/>
     <result column="CURRENT_VERSION_NO" jdbcType="INTEGER" property="currentVersionNo"/>
+    <result column="RATE_LIMIT_PER_MINUTE" jdbcType="INTEGER" property="rateLimitPerMinute"/>
     <result column="DESCRIPTION" jdbcType="VARCHAR" property="description"/>
     <result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion"/>
     <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
@@ -34,6 +35,7 @@
       RESPONSE_MODE,
       STATUS,
       CURRENT_VERSION_NO,
+      RATE_LIMIT_PER_MINUTE,
       DESCRIPTION,
       LOCK_VERSION,
       CUSERID,
@@ -75,6 +77,9 @@
     </if>
     <if test="currentVersionNo != null">
       AND CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER}
+    </if>
+    <if test="rateLimitPerMinute != null">
+      AND RATE_LIMIT_PER_MINUTE = #{rateLimitPerMinute,jdbcType=INTEGER}
     </if>
     <if test="description != null">
       AND DESCRIPTION = #{description,jdbcType=VARCHAR}
@@ -176,6 +181,9 @@
       <if test="currentVersionNo != null">
         CURRENT_VERSION_NO,
       </if>
+      <if test="rateLimitPerMinute != null">
+        RATE_LIMIT_PER_MINUTE,
+      </if>
       <if test="description != null">
         DESCRIPTION,
       </if>
@@ -229,6 +237,9 @@
       <if test="currentVersionNo != null">
         #{currentVersionNo,jdbcType=INTEGER},
       </if>
+      <if test="rateLimitPerMinute != null">
+        #{rateLimitPerMinute,jdbcType=INTEGER},
+      </if>
       <if test="description != null">
         #{description,jdbcType=VARCHAR},
       </if>
@@ -277,6 +288,9 @@
       <if test="currentVersionNo != null">
         CURRENT_VERSION_NO = #{currentVersionNo,jdbcType=INTEGER},
       </if>
+      <if test="rateLimitPerMinute != null">
+        RATE_LIMIT_PER_MINUTE = #{rateLimitPerMinute,jdbcType=INTEGER},
+      </if>
       <if test="description != null">
         DESCRIPTION = #{description,jdbcType=VARCHAR},
       </if>
@@ -309,6 +323,7 @@
            RESPONSE_MODE = #{action.responseMode,jdbcType=VARCHAR},
            STATUS = #{action.status,jdbcType=VARCHAR},
            CURRENT_VERSION_NO = #{action.currentVersionNo,jdbcType=INTEGER},
+           RATE_LIMIT_PER_MINUTE = #{action.rateLimitPerMinute,jdbcType=INTEGER},
            DESCRIPTION = #{action.description,jdbcType=VARCHAR},
            LOCK_VERSION = LOCK_VERSION + 1,
            UUSERID = #{action.uuserid,jdbcType=VARCHAR},

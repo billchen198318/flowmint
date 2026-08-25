@@ -51,6 +51,7 @@ interface DataActionForm {
   draftStatus: string | null;
   lockVersion: number;
   description: string;
+  rateLimitPerMinute: number | null;
   steps: DataActionStepForm[];
 }
 
@@ -98,6 +99,7 @@ const newForm = (): DataActionForm => ({
   draftStatus: "DRAFT",
   lockVersion: 0,
   description: "",
+  rateLimitPerMinute: null,
   steps: [newStep(0)],
 });
 
@@ -496,11 +498,19 @@ onMounted(async () => {
             ]"
           ></textarea>
           <div class="form-text">
-            範例：{ "account": "$.account", "amount": "$.formData.amount" }
+            Request 範例：{ "amount": "$.formData.amount" }；進階 Step 參數可使用
+            { "headerId": "${steps.header.generatedKey}", "itemCode": "${item.itemCode}" }。
           </div>
           <div class="invalid-feedback">
             {{ invalidFeedback("requestSchema", checkFields) }}
           </div>
+        </div>
+
+        <div class="col-md-4">
+          <label for="rateLimitPerMinute" class="form-label">每分鐘呼叫上限</label>
+          <input id="rateLimitPerMinute" v-model.number="form.rateLimitPerMinute"
+            type="number" min="1" max="100000" class="form-control" />
+          <div class="form-text">留空沿用系統全域門檻。</div>
         </div>
 
         <div class="col-12">
@@ -587,7 +597,18 @@ onMounted(async () => {
             <label class="form-label">Execution Mode</label>
             <select v-model="step.executionMode" class="form-select">
               <option value="ONCE">ONCE</option>
+              <option value="FOR_EACH">FOR_EACH</option>
             </select>
+          </div>
+
+          <div v-if="step.executionMode === 'FOR_EACH'" class="col-md-4">
+            <label class="form-label">Array Path *</label>
+            <input
+              v-model="step.arrayPath"
+              class="form-control font-monospace"
+              placeholder="$.items"
+            />
+            <div class="form-text">陣列筆數上限使用「最大回傳筆數」設定。</div>
           </div>
 
           <div class="col-12">
@@ -614,8 +635,24 @@ onMounted(async () => {
               <option value="OBJECT">OBJECT</option>
               <option value="LIST">LIST</option>
               <option value="AFFECTED_ROWS">AFFECTED_ROWS</option>
+              <option
+                v-if="step.statementType === 'INSERT'"
+                value="GENERATED_KEY"
+              >GENERATED_KEY</option>
               <option value="NONE">NONE</option>
             </select>
+          </div>
+
+          <div class="col-md-5">
+            <label class="form-label">Continue Condition</label>
+            <input
+              v-model="step.continueCondition"
+              class="form-control font-monospace"
+              placeholder="${steps.validation.valid} == true && ${request.amount} >= 1000"
+            />
+            <div class="form-text">
+              留空代表執行；支援數字／日期／字串／布林／null、==、!=、&gt;、&gt;=、&lt;、&lt;=、&amp;&amp;、||。
+            </div>
           </div>
 
           <div class="col-md-2">
