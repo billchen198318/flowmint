@@ -185,6 +185,13 @@ const selectedApprovalAuthority = computed({
       selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalAuthorityId });
   },
 });
+const selectedFormAccountField = computed({
+  get: () => ruleConfig().fieldKey || "",
+  set: (fieldKey: string) => {
+    if (selectedAssignmentRule.value)
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ fieldKey });
+  },
+});
 const ensureSelectedAssignmentRule = () => {
   if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT") return;
   selectedVersion.value.assignmentRules ||= [];
@@ -239,6 +246,33 @@ const selectedPublishedForm = computed(() => publishedForms.value.find(
   (item: any) => item.formId === selectedTaskRule.value?.formId
     && item.formVersionNo === selectedTaskRule.value?.formVersionNo,
 ));
+const selectedFormFields = computed(() => {
+  const content = selectedPublishedForm.value?.schemaContent;
+  if (!content) return [];
+  try {
+    const result: Array<{ value: string; label: string }> = [];
+    const collect = (components: any[] = [], insideGrid = false) => {
+      for (const component of components) {
+        const nestedGrid = insideGrid || ["datagrid", "editgrid"].includes(component?.type);
+        if (component?.key && component?.input !== false && !insideGrid)
+          result.push({
+            value: component.key,
+            label: `${component.label || component.key}／${component.key}`,
+          });
+        collect(component?.components, nestedGrid);
+        for (const column of Array.isArray(component?.columns) ? component.columns : [])
+          collect(column?.components, nestedGrid);
+        for (const row of Array.isArray(component?.rows) ? component.rows : [])
+          for (const cell of Array.isArray(row) ? row : [])
+            collect(cell?.components, nestedGrid);
+      }
+    };
+    collect(JSON.parse(content).components || []);
+    return result;
+  } catch {
+    return [];
+  }
+});
 const conditionSchemaContent = computed(() => {
   const bindings = selectedVersion.value?.taskForms || [];
   const schemas = bindings
@@ -1177,6 +1211,7 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="ORG_TITLE">組織職稱</option>
                       <option value="ORG_DUTY">組織職務</option>
                       <option value="APPROVAL_AUTHORITY">簽核權限</option>
+                      <option value="FORM_ACCOUNT_FIELD">表單選擇簽核人</option>
                     </select>
                   </div>
                   <div v-if="selectedAssignmentRule.resolverType === 'FIXED_ACCOUNT'"
@@ -1258,6 +1293,20 @@ onBeforeUnmount(() => modeler?.destroy());
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
                       :accounts="resolverAccounts" :groups="approvalGroups"
                       :levels="approvalLevels" :titles="orgTitles" :duties="orgDuties" />
+                  </div>
+                  <div v-else-if="selectedAssignmentRule.resolverType === 'FORM_ACCOUNT_FIELD'"
+                    class="mb-3">
+                    <label class="form-label">人員帳號欄位</label>
+                    <select v-model="selectedFormAccountField"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select">
+                      <option value="">請選擇表單欄位</option>
+                      <option v-for="item in selectedFormFields" :key="item.value"
+                        :value="item.value">{{ item.label }}</option>
+                    </select>
+                    <div class="form-text">
+                      欄位值可為單一帳號或帳號陣列；Runtime 會重新驗證 Tenant、有效員工與人數上限。
+                    </div>
                   </div>
                   <div class="row g-2">
                     <div class="col-6">

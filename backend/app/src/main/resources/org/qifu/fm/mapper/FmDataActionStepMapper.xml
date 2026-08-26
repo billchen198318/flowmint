@@ -21,6 +21,8 @@
     <result column="CONTINUE_CONDITION" jdbcType="VARCHAR" property="continueCondition"/>
     <result column="QUERY_TIMEOUT_SECONDS" jdbcType="INTEGER" property="queryTimeoutSeconds"/>
     <result column="MAX_ROWS" jdbcType="INTEGER" property="maxRows"/>
+    <result column="RETRY_COUNT" jdbcType="INTEGER" property="retryCount"/>
+    <result column="RETRY_DELAY_MILLIS" jdbcType="INTEGER" property="retryDelayMillis"/>
     <result column="STATUS" jdbcType="VARCHAR" property="status"/>
     <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
     <result column="CDATE" jdbcType="TIMESTAMP" property="cdate"/>
@@ -47,6 +49,8 @@
       CONTINUE_CONDITION,
       QUERY_TIMEOUT_SECONDS,
       MAX_ROWS,
+      RETRY_COUNT,
+      RETRY_DELAY_MILLIS,
       STATUS,
       CUSERID,
       CDATE,
@@ -105,6 +109,12 @@
     </if>
     <if test="maxRows != null">
       AND MAX_ROWS = #{maxRows,jdbcType=INTEGER}
+    </if>
+    <if test="retryCount != null">
+      AND RETRY_COUNT = #{retryCount,jdbcType=INTEGER}
+    </if>
+    <if test="retryDelayMillis != null">
+      AND RETRY_DELAY_MILLIS = #{retryDelayMillis,jdbcType=INTEGER}
     </if>
     <if test="status != null">
       AND STATUS = #{status,jdbcType=VARCHAR}
@@ -224,6 +234,12 @@
       <if test="maxRows != null">
         MAX_ROWS,
       </if>
+      <if test="retryCount != null">
+        RETRY_COUNT,
+      </if>
+      <if test="retryDelayMillis != null">
+        RETRY_DELAY_MILLIS,
+      </if>
       <if test="status != null">
         STATUS,
       </if>
@@ -295,6 +311,12 @@
       <if test="maxRows != null">
         #{maxRows,jdbcType=INTEGER},
       </if>
+      <if test="retryCount != null">
+        #{retryCount,jdbcType=INTEGER},
+      </if>
+      <if test="retryDelayMillis != null">
+        #{retryDelayMillis,jdbcType=INTEGER},
+      </if>
       <if test="status != null">
         #{status,jdbcType=VARCHAR},
       </if>
@@ -360,6 +382,12 @@
       </if>
       <if test="maxRows != null">
         MAX_ROWS = #{maxRows,jdbcType=INTEGER},
+      </if>
+      <if test="retryCount != null">
+        RETRY_COUNT = #{retryCount,jdbcType=INTEGER},
+      </if>
+      <if test="retryDelayMillis != null">
+        RETRY_DELAY_MILLIS = #{retryDelayMillis,jdbcType=INTEGER},
       </if>
       <if test="status != null">
         STATUS = #{status,jdbcType=VARCHAR},

@@ -1,5 +1,7 @@
 package org.qifu.fm.domain.dataaction;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -21,10 +23,14 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class FmDataActionExecutor {
@@ -35,19 +41,101 @@ public class FmDataActionExecutor {
 	private final FmDataActionExecutionAuditRecorder auditRecorder;
 	private final FmDataActionRateLimiter rateLimiter;
 	private final FmDataActionContinueConditionEvaluator conditionEvaluator;
+	private final ObjectMapper objectMapper;
 
 	public FmDataActionExecutor(FmDataSourcePoolRegistry poolRegistry,
 			FmDataActionParameterResolver parameterResolver,
 			FmDataActionSqlValidator sqlValidator,
 			FmDataActionExecutionAuditRecorder auditRecorder,
 			FmDataActionRateLimiter rateLimiter,
-			FmDataActionContinueConditionEvaluator conditionEvaluator) {
+			FmDataActionContinueConditionEvaluator conditionEvaluator,
+			ObjectMapper objectMapper) {
 		this.poolRegistry = poolRegistry;
 		this.parameterResolver = parameterResolver;
 		this.sqlValidator = sqlValidator;
 		this.auditRecorder = auditRecorder;
 		this.rateLimiter = rateLimiter;
 		this.conditionEvaluator = conditionEvaluator;
+		this.objectMapper = objectMapper;
+	}
+
+	public void stream(FmDataAction action, Integer versionNo,
+			List<FmDataActionStep> steps, Map<String, Object> request,
+			String loginAccount, OutputStream outputStream) throws ServiceException {
+		Map<String, Object> parameters = parameterResolver.resolve(
+				action.getRequestSchema(), request, action.getTenantId(), loginAccount);
+		validateSteps(action, steps, parameters.keySet());
+		FmDataActionStep step = requireStreamingStep(action, steps);
+		String executionId = UUID.randomUUID().toString();
+		Instant startedAt = Instant.now();
+		Throwable failure = null;
+		try {
+			rateLimiter.check(action, loginAccount);
+			DataSource dataSource = poolRegistry.get(
+					action.getTenantId(), action.getPoolId());
+			NamedParameterJdbcTemplate jdbcTemplate =
+					new NamedParameterJdbcTemplate(dataSource);
+			jdbcTemplate.getJdbcTemplate().setQueryTimeout(
+					step.getQueryTimeoutSeconds() == null
+							? 30 : step.getQueryTimeoutSeconds());
+			int maxRows = step.getMaxRows() == null ? 1000 : step.getMaxRows();
+			jdbcTemplate.getJdbcTemplate().setMaxRows(maxRows + 1);
+			int[] rowCount = {0};
+			jdbcTemplate.query(step.getSqlContent(), parameters, resultSet -> {
+				rowCount[0]++;
+				if (rowCount[0] > maxRows) {
+					throw new DataActionStreamRuntimeException(
+							new ServiceException("Streaming result exceeds Step maxRows"));
+				}
+				Map<String, Object> row = new LinkedHashMap<>();
+				var metadata = resultSet.getMetaData();
+				for (int index = 1; index <= metadata.getColumnCount(); index++) {
+					String columnName = toLowerCamel(metadata.getColumnLabel(index));
+					if (row.containsKey(columnName)) {
+						throw new DataActionStreamRuntimeException(
+								new ServiceException("Duplicate streaming column: " + columnName));
+					}
+					row.put(columnName, resultSet.getObject(index));
+				}
+				try {
+					outputStream.write(objectMapper.writeValueAsBytes(row));
+					outputStream.write('\n');
+					outputStream.flush();
+				} catch (IOException exception) {
+					throw new DataActionStreamRuntimeException(exception);
+				}
+			});
+		} catch (DataActionStreamRuntimeException exception) {
+			failure = exception.getCause();
+			if (exception.getCause() instanceof ServiceException serviceException) {
+				throw serviceException;
+			}
+			throw new ServiceException("Data Action streaming output failed");
+		} catch (RuntimeException exception) {
+			failure = exception;
+			throw exception;
+		} finally {
+			auditRecorder.record(executionId, action, versionNo, loginAccount,
+					false, 1, parameters.size(), startedAt, failure);
+		}
+	}
+
+	static FmDataActionStep requireStreamingStep(FmDataAction action,
+			List<FmDataActionStep> steps) throws ServiceException {
+		List<FmDataActionStep> activeSteps = steps.stream()
+				.filter(step -> "ACTIVE".equals(step.getStatus())).toList();
+		if (!"QUERY".equals(action.getActionType()) || activeSteps.size() != 1) {
+			throw new ServiceException(
+					"Streaming requires a QUERY Action with exactly one active Step");
+		}
+		FmDataActionStep step = activeSteps.get(0);
+		if (!"SELECT_LIST".equals(step.getStatementType())
+				|| !"ONCE".equals(step.getExecutionMode())
+				|| (step.getRetryCount() != null && step.getRetryCount() > 0)) {
+			throw new ServiceException(
+					"Streaming requires an ONCE SELECT_LIST Step without retry");
+		}
+		return step;
 	}
 
 	public FmDataActionExecutionView execute(FmDataAction action,
@@ -136,7 +224,7 @@ public class FmDataActionExecutor {
 				} else {
 					Map<String, Object> stepParameters = parameterResolver.resolveForStep(
 							requestSchema, parameters, request, data, null);
-					result = executeStep(jdbcTemplate, step, stepParameters);
+					result = executeStepWithRetry(jdbcTemplate, step, stepParameters);
 				}
 				if (!"NONE".equals(step.getResultMode())) {
 					data.put(step.getResultKey(), result);
@@ -149,6 +237,38 @@ public class FmDataActionExecutor {
 			}
 		}
 		return data;
+	}
+
+	private Object executeStepWithRetry(
+			NamedParameterJdbcTemplate jdbcTemplate,
+			FmDataActionStep step,
+			Map<String, Object> parameters) throws ServiceException {
+		int retryCount = step.getRetryCount() == null ? 0 : step.getRetryCount();
+		int attempt = 0;
+		while (true) {
+			try {
+				return executeStep(jdbcTemplate, step, parameters);
+			} catch (TransientDataAccessException | RecoverableDataAccessException exception) {
+				if (attempt >= retryCount) {
+					throw exception;
+				}
+				attempt++;
+				pauseBeforeRetry(step);
+			}
+		}
+	}
+
+	private void pauseBeforeRetry(FmDataActionStep step) throws ServiceException {
+		int delay = step.getRetryDelayMillis() == null ? 0 : step.getRetryDelayMillis();
+		if (delay <= 0) {
+			return;
+		}
+		try {
+			Thread.sleep(delay);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new ServiceException("Data Action Step 重試等待被中斷");
+		}
 	}
 
 	private Object executeForEach(NamedParameterJdbcTemplate jdbcTemplate,
@@ -386,6 +506,16 @@ public class FmDataActionExecutor {
 
 		private ServiceException getServiceException() {
 			return serviceException;
+		}
+	}
+
+	private static final class DataActionStreamRuntimeException
+			extends RuntimeException {
+
+		private static final long serialVersionUID = 1L;
+
+		private DataActionStreamRuntimeException(Throwable cause) {
+			super(cause);
 		}
 	}
 }

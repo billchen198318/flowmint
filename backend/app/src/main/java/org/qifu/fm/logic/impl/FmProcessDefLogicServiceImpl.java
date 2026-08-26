@@ -893,7 +893,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return Set.of("FIXED_ACCOUNT", "APPROVAL_GROUP", "INITIATOR_ORG_HEAD",
                 "PARENT_ORG_HEAD", "NEXT_HIGHER_LEVEL_HEAD", "TARGET_LEVEL_HEAD",
                 "LEVEL_HEAD_CHAIN", "ROOT_ORG_HEAD", "DIRECT_MANAGER", "MANAGER_CHAIN",
-                "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY");
+                "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD");
     }
 
     private FmTaskAssignmentRule copyAssignmentRule(FmProcessVersion version,
@@ -1159,6 +1159,14 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
 
     private void validateAssignmentRulesForPublish(FmProcessVersion version)
             throws ServiceException {
+        Map<String, FmPublishedFormOptionView> forms = taskFormRuleService
+                .publishedFormOptions(version.getTenantId()).stream()
+                .collect(Collectors.toMap(
+                        value -> value.formId() + ":" + value.formVersionNo(),
+                        value -> value,
+                        (first, ignored) -> first));
+        Map<String, FmTaskFormRule> taskForms = taskFormRules(version).stream()
+                .collect(Collectors.toMap(FmTaskFormRule::getTaskDefKey, value -> value));
         for (FmTaskAssignmentRule rule : assignmentRules(version)) {
             if (!"ACTIVE".equals(rule.getStatus())) {
                 continue;
@@ -1167,6 +1175,39 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     rule.getResolverType(),
                     rule.getResolverConfig(),
                     rule.getFallbackConfig());
+            if ("FORM_ACCOUNT_FIELD".equals(rule.getResolverType())) {
+                validateFormAccountField(rule, taskForms, forms);
+            }
+        }
+    }
+
+    private void validateFormAccountField(
+            FmTaskAssignmentRule rule,
+            Map<String, FmTaskFormRule> taskForms,
+            Map<String, FmPublishedFormOptionView> forms) throws ServiceException {
+        FmTaskFormRule taskForm = taskForms.get(rule.getTaskDefKey());
+        if (taskForm == null) {
+            throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                    + "」尚未選擇表單，無法使用表單選人 Resolver");
+        }
+        FmPublishedFormOptionView form = forms.get(
+                taskForm.getFormId() + ":" + taskForm.getFormVersionNo());
+        if (form == null) {
+            throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                    + "」引用的表單版本不存在或尚未發布");
+        }
+        try {
+            tools.jackson.databind.JsonNode config = new tools.jackson.databind.ObjectMapper()
+                    .readTree(rule.getResolverConfig());
+            String fieldKey = config.path("fieldKey").asString();
+            if (!formFieldCatalog.fields(form.schemaContent()).contains(fieldKey)) {
+                throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                        + "」的表單選人欄位不存在：" + fieldKey);
+            }
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ServiceException("無法檢查表單選人 Resolver 設定");
         }
     }
 

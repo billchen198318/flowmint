@@ -59,6 +59,18 @@ public class FmDataActionSqlValidator {
 				&& !"INSERT".equals(statementType)) {
 			throw new ServiceException("GENERATED_KEY 僅適用於 INSERT");
 		}
+		int retryCount = step.getRetryCount() == null ? 0 : step.getRetryCount();
+		int retryDelayMillis = step.getRetryDelayMillis() == null
+				? 0 : step.getRetryDelayMillis();
+		if (retryCount < 0 || retryCount > 5
+				|| retryDelayMillis < 0 || retryDelayMillis > 5000) {
+			throw new ServiceException("Step 重試次數必須為 0～5，間隔必須為 0～5000ms");
+		}
+		if (retryCount > 0 && (!"QUERY".equals(normalized(actionType))
+				|| !statementType.startsWith("SELECT")
+				|| !"ONCE".equals(executionMode))) {
+			throw new ServiceException("第一版重試政策只允許 QUERY Action 的 ONCE SELECT Step");
+		}
 		conditionEvaluator.validate(step.getContinueCondition());
 		Matcher matcher = PARAMETER_PATTERN.matcher(sql);
 		while (matcher.find()) {

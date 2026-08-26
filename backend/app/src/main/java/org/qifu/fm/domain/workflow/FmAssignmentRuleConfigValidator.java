@@ -32,6 +32,7 @@ public class FmAssignmentRuleConfigValidator {
             case "ORG_TITLE" -> requireText(config, "titleId");
             case "ORG_DUTY" -> requireText(config, "dutyId");
             case "APPROVAL_AUTHORITY" -> requireText(config, "approvalAuthorityId");
+            case "FORM_ACCOUNT_FIELD" -> requireText(config, "fieldKey");
             default -> {
                 // These resolvers do not require an additional identifier.
             }

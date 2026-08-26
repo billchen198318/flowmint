@@ -1,5 +1,6 @@
 package org.qifu.fm.logic.impl;
 
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -201,6 +202,24 @@ public class FmDataActionLogicServiceImpl
 				action.getActionId(), selectedVersion);
 		return success(executor.execute(action, selectedVersion, steps,
 				request, loginAccount, false));
+	}
+
+	@Override
+	public void stream(String tenantId, String actionCode, Integer versionNo,
+			Map<String, Object> request, String loginAccount, OutputStream outputStream)
+			throws ServiceException {
+		FmDataAction action = findPublishedAction(tenantId, actionCode);
+		Integer selectedVersion = versionNo == null
+				? action.getCurrentVersionNo() : versionNo;
+		FmDataActionVersion version = findVersion(tenantId,
+				action.getActionId(), selectedVersion);
+		if (!"PUBLISHED".equals(version.getVersionStatus())) {
+			throw new ServiceException("Data Action Version is not published");
+		}
+		List<FmDataActionStep> steps = loadSteps(tenantId,
+				action.getActionId(), selectedVersion);
+		executor.stream(action, selectedVersion, steps, request,
+				loginAccount, outputStream);
 	}
 
 	@Override
@@ -460,6 +479,18 @@ public class FmDataActionLogicServiceImpl
 		step.setQueryTimeoutSeconds(Objects.requireNonNullElse(
 				command.queryTimeoutSeconds(), 30));
 		step.setMaxRows(Objects.requireNonNullElse(command.maxRows(), 1000));
+		step.setRetryCount(Objects.requireNonNullElse(command.retryCount(), 0));
+		step.setRetryDelayMillis(Objects.requireNonNullElse(command.retryDelayMillis(), 0));
+		if (step.getRetryCount() < 0 || step.getRetryCount() > 5
+				|| step.getRetryDelayMillis() < 0 || step.getRetryDelayMillis() > 5000) {
+			throw new ServiceException("Step 重試次數必須為 0～5，間隔必須為 0～5000ms");
+		}
+		if (step.getRetryCount() > 0
+				&& (!"QUERY".equals(action.getActionType())
+						|| !Set.of("SELECT_ONE", "SELECT_LIST")
+								.contains(step.getStatementType()))) {
+			throw new ServiceException("第一版重試政策只允許 QUERY Action 的 SELECT Step");
+		}
 		step.setStatus(StringUtils.defaultIfBlank(command.status(), "ACTIVE"));
 		return step;
 	}
@@ -571,6 +602,8 @@ public class FmDataActionLogicServiceImpl
 				step.getContinueCondition(),
 				step.getQueryTimeoutSeconds(),
 				step.getMaxRows(),
+				step.getRetryCount(),
+				step.getRetryDelayMillis(),
 				step.getStatus());
 	}
 

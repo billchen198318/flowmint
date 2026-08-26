@@ -16,5 +16,7 @@ public record FmDataActionStepView(
 		String continueCondition,
 		Integer queryTimeoutSeconds,
 		Integer maxRows,
+		Integer retryCount,
+		Integer retryDelayMillis,
 		String status) {
 }

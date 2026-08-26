@@ -123,13 +123,38 @@
       FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
      WHERE CHANNEL_TYPE = 'EMAIL' AND DELIVERY_STATUS = 'PENDING'
        AND PROVIDER_MESSAGE_ID IS NOT NULL
+	   AND (NEXT_RETRY_DATE IS NULL OR NEXT_RETRY_DATE &lt;= NOW())
      ORDER BY CDATE
      LIMIT #{limit,jdbcType=INTEGER}
+  </select>
+  <select id="findEmailByProviderMessageId" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
+     WHERE CHANNEL_TYPE = 'EMAIL'
+       AND PROVIDER_MESSAGE_ID = #{providerMessageId,jdbcType=VARCHAR}
+     ORDER BY CDATE DESC
+     LIMIT 1
   </select>
   <update id="markDelivered" parameterType="java.util.HashMap">
     UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
        SET DELIVERY_STATUS = 'SENT', SENT_DATE = #{sentDate,jdbcType=TIMESTAMP},
            UUSERID = 'mail-sync', UDATE = #{sentDate,jdbcType=TIMESTAMP}
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND NOTIFICATION_ID = #{notificationId,jdbcType=VARCHAR}
+       AND PROVIDER_MESSAGE_ID = #{providerMessageId,jdbcType=VARCHAR}
+       AND CHANNEL_TYPE = 'EMAIL' AND DELIVERY_STATUS = 'PENDING'
+  </update>
+  <update id="markDeliveryAttemptFailed" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_notification
+       SET RETRY_COUNT = COALESCE(RETRY_COUNT, 0) + 1,
+           DELIVERY_STATUS = CASE
+               WHEN COALESCE(RETRY_COUNT, 0) + 1 &gt;= #{maxAttempts,jdbcType=INTEGER}
+               THEN 'FAILED' ELSE 'PENDING' END,
+           NEXT_RETRY_DATE = CASE
+               WHEN COALESCE(RETRY_COUNT, 0) + 1 &gt;= #{maxAttempts,jdbcType=INTEGER}
+               THEN NULL ELSE #{nextRetryDate,jdbcType=TIMESTAMP} END,
+           LAST_ERROR = #{errorMessage,jdbcType=VARCHAR},
+           UUSERID = 'mail-sender', UDATE = #{failedDate,jdbcType=TIMESTAMP}
      WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
        AND NOTIFICATION_ID = #{notificationId,jdbcType=VARCHAR}
        AND PROVIDER_MESSAGE_ID = #{providerMessageId,jdbcType=VARCHAR}

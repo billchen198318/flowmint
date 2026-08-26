@@ -135,6 +135,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
                     rule,
                     assignment,
                     variables == null ? Map.of() : variables);
+            case "FORM_ACCOUNT_FIELD" -> formAccountField(
+                    rule, variables == null ? Map.of() : variables);
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
@@ -429,6 +431,41 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
                     <= targetLevel.getLevelOrder();
             default -> false;
         };
+    }
+
+    private FmResolverPreviewView formAccountField(
+            FmTaskAssignmentRule rule,
+            Map<String, Object> variables) throws ServiceException {
+        String fieldKey = config(rule).path("fieldKey").asString();
+        if (StringUtils.isBlank(fieldKey)) {
+            return result(rule, "ERROR", "尚未選擇表單帳號欄位", List.of());
+        }
+        Object formValue = variables.get("form");
+        Object fieldValue = formValue instanceof Map<?, ?> form
+                ? form.get(fieldKey) : null;
+        List<?> accounts = fieldValue instanceof List<?> values
+                ? values : fieldValue == null ? List.of() : List.of(fieldValue);
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        for (Object value : accounts) {
+            if (candidates.size() >= rule.getMaxResults()) {
+                break;
+            }
+            String account = value == null ? null : value.toString().trim();
+            if (StringUtils.isBlank(account)) {
+                continue;
+            }
+            FmEmployee employee = activeEmployeeByAccount(rule.getTenantId(), account);
+            if (employee == null) {
+                return result(rule, "NOT_FOUND",
+                        "表單欄位包含不存在或未啟用的帳號：" + account, List.of());
+            }
+            candidates.putIfAbsent(employee.getEmployeeId(), candidate(employee));
+        }
+        if (candidates.isEmpty()) {
+            return result(rule, "NOT_FOUND", "表單帳號欄位沒有選擇有效人員", List.of());
+        }
+        return result(rule, "RESOLVED", "已由表單欄位「" + fieldKey + "」解析簽核人",
+                List.copyOf(candidates.values()));
     }
 
     private String levelMatchMode(JsonNode config) throws ServiceException {

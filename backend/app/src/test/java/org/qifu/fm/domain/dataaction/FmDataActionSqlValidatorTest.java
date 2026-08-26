@@ -71,6 +71,21 @@ class FmDataActionSqlValidatorTest {
 				step, "TRANSACTION", Set.of("itemCode")));
 	}
 
+	@Test
+	void acceptsRetryForQuerySelectAndRejectsMutationRetry() {
+		FmDataActionStep query = selectStep("SELECT 1 AS VALUE");
+		query.setRetryCount(2);
+		query.setRetryDelayMillis(100);
+		assertDoesNotThrow(() -> validator.validate(query, "QUERY", Set.of()));
+
+		FmDataActionStep mutation = selectStep(
+				"UPDATE request_item SET ITEM_CODE = :itemCode");
+		mutation.setStatementType("UPDATE");
+		mutation.setRetryCount(1);
+		assertThrows(ServiceException.class, () -> validator.validate(
+				mutation, "TRANSACTION", Set.of("itemCode")));
+	}
+
 	private FmDataActionStep selectStep(String sql) {
 		FmDataActionStep step = new FmDataActionStep();
 		step.setStatementType("SELECT_LIST");

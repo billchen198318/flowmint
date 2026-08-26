@@ -32,6 +32,8 @@ interface DataActionStepForm {
   continueCondition: string;
   queryTimeoutSeconds: number;
   maxRows: number;
+  retryCount: number;
+  retryDelayMillis: number;
   status: string;
 }
 
@@ -80,6 +82,8 @@ const newStep = (index: number): DataActionStepForm => ({
   continueCondition: "",
   queryTimeoutSeconds: 30,
   maxRows: 1000,
+  retryCount: 0,
+  retryDelayMillis: 0,
   status: "ACTIVE",
 });
 
@@ -684,6 +688,17 @@ onMounted(async () => {
               max="10000"
               class="form-control"
             />
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Transient 重試次數</label>
+            <input v-model.number="step.retryCount" type="number" min="0" max="5"
+              class="form-control" />
+          </div>
+          <div v-if="step.retryCount > 0" class="col-md-2">
+            <label class="form-label">重試間隔（ms）</label>
+            <input v-model.number="step.retryDelayMillis" type="number" min="0" max="5000"
+              class="form-control" />
+            <div class="form-text">僅 QUERY 的 SELECT 與暫時性資料庫錯誤可重試。</div>
           </div>
         </div>
       </div>

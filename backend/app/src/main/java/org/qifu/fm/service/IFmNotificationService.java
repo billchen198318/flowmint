@@ -21,6 +21,12 @@ public interface IFmNotificationService extends IBaseService<FmNotification, Str
 
 	List<FmNotification> findPendingEmail(int limit);
 
+	FmNotification findEmailByProviderMessageId(String providerMessageId);
+
 	boolean markDelivered(String tenantId, String notificationId,
 			String providerMessageId, Date sentDate);
+
+	boolean markDeliveryAttemptFailed(String tenantId, String notificationId,
+			String providerMessageId, Date failedDate, Date nextRetryDate,
+			int maxAttempts, String errorMessage);
 }
