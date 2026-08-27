@@ -1,6 +1,9 @@
 package org.qifu.fm.domain.dataaction;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -16,10 +19,18 @@ import org.qifu.fm.dto.view.FmDataActionExecutionView;
 import org.qifu.fm.entity.FmDataAction;
 import org.qifu.fm.entity.FmDataActionStep;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class FmDataActionExecutor {
@@ -27,13 +38,104 @@ public class FmDataActionExecutor {
 	private final FmDataSourcePoolRegistry poolRegistry;
 	private final FmDataActionParameterResolver parameterResolver;
 	private final FmDataActionSqlValidator sqlValidator;
+	private final FmDataActionExecutionAuditRecorder auditRecorder;
+	private final FmDataActionRateLimiter rateLimiter;
+	private final FmDataActionContinueConditionEvaluator conditionEvaluator;
+	private final ObjectMapper objectMapper;
 
 	public FmDataActionExecutor(FmDataSourcePoolRegistry poolRegistry,
 			FmDataActionParameterResolver parameterResolver,
-			FmDataActionSqlValidator sqlValidator) {
+			FmDataActionSqlValidator sqlValidator,
+			FmDataActionExecutionAuditRecorder auditRecorder,
+			FmDataActionRateLimiter rateLimiter,
+			FmDataActionContinueConditionEvaluator conditionEvaluator,
+			ObjectMapper objectMapper) {
 		this.poolRegistry = poolRegistry;
 		this.parameterResolver = parameterResolver;
 		this.sqlValidator = sqlValidator;
+		this.auditRecorder = auditRecorder;
+		this.rateLimiter = rateLimiter;
+		this.conditionEvaluator = conditionEvaluator;
+		this.objectMapper = objectMapper;
+	}
+
+	public void stream(FmDataAction action, Integer versionNo,
+			List<FmDataActionStep> steps, Map<String, Object> request,
+			String loginAccount, OutputStream outputStream) throws ServiceException {
+		Map<String, Object> parameters = parameterResolver.resolve(
+				action.getRequestSchema(), request, action.getTenantId(), loginAccount);
+		validateSteps(action, steps, parameters.keySet());
+		FmDataActionStep step = requireStreamingStep(action, steps);
+		String executionId = UUID.randomUUID().toString();
+		Instant startedAt = Instant.now();
+		Throwable failure = null;
+		try {
+			rateLimiter.check(action, loginAccount);
+			DataSource dataSource = poolRegistry.get(
+					action.getTenantId(), action.getPoolId());
+			NamedParameterJdbcTemplate jdbcTemplate =
+					new NamedParameterJdbcTemplate(dataSource);
+			jdbcTemplate.getJdbcTemplate().setQueryTimeout(
+					step.getQueryTimeoutSeconds() == null
+							? 30 : step.getQueryTimeoutSeconds());
+			int maxRows = step.getMaxRows() == null ? 1000 : step.getMaxRows();
+			jdbcTemplate.getJdbcTemplate().setMaxRows(maxRows + 1);
+			int[] rowCount = {0};
+			jdbcTemplate.query(step.getSqlContent(), parameters, resultSet -> {
+				rowCount[0]++;
+				if (rowCount[0] > maxRows) {
+					throw new DataActionStreamRuntimeException(
+							new ServiceException("Streaming result exceeds Step maxRows"));
+				}
+				Map<String, Object> row = new LinkedHashMap<>();
+				var metadata = resultSet.getMetaData();
+				for (int index = 1; index <= metadata.getColumnCount(); index++) {
+					String columnName = toLowerCamel(metadata.getColumnLabel(index));
+					if (row.containsKey(columnName)) {
+						throw new DataActionStreamRuntimeException(
+								new ServiceException("Duplicate streaming column: " + columnName));
+					}
+					row.put(columnName, resultSet.getObject(index));
+				}
+				try {
+					outputStream.write(objectMapper.writeValueAsBytes(row));
+					outputStream.write('\n');
+					outputStream.flush();
+				} catch (IOException exception) {
+					throw new DataActionStreamRuntimeException(exception);
+				}
+			});
+		} catch (DataActionStreamRuntimeException exception) {
+			failure = exception.getCause();
+			if (exception.getCause() instanceof ServiceException serviceException) {
+				throw serviceException;
+			}
+			throw new ServiceException("Data Action streaming output failed");
+		} catch (RuntimeException exception) {
+			failure = exception;
+			throw exception;
+		} finally {
+			auditRecorder.record(executionId, action, versionNo, loginAccount,
+					false, 1, parameters.size(), startedAt, failure);
+		}
+	}
+
+	static FmDataActionStep requireStreamingStep(FmDataAction action,
+			List<FmDataActionStep> steps) throws ServiceException {
+		List<FmDataActionStep> activeSteps = steps.stream()
+				.filter(step -> "ACTIVE".equals(step.getStatus())).toList();
+		if (!"QUERY".equals(action.getActionType()) || activeSteps.size() != 1) {
+			throw new ServiceException(
+					"Streaming requires a QUERY Action with exactly one active Step");
+		}
+		FmDataActionStep step = activeSteps.get(0);
+		if (!"SELECT_LIST".equals(step.getStatementType())
+				|| !"ONCE".equals(step.getExecutionMode())
+				|| (step.getRetryCount() != null && step.getRetryCount() > 0)) {
+			throw new ServiceException(
+					"Streaming requires an ONCE SELECT_LIST Step without retry");
+		}
+		return step;
 	}
 
 	public FmDataActionExecutionView execute(FmDataAction action,
@@ -48,20 +150,33 @@ public class FmDataActionExecutor {
 		NamedParameterJdbcTemplate jdbcTemplate =
 				new NamedParameterJdbcTemplate(dataSource);
 		String executionId = UUID.randomUUID().toString();
-		Map<String, Object> data;
-		if ("TRANSACTION".equals(action.getActionType()) || rollback) {
-			data = executeInTransaction(dataSource, jdbcTemplate,
-					steps, parameters, rollback);
-		} else {
-			data = executeSteps(jdbcTemplate, steps, parameters);
+		Instant startedAt = Instant.now();
+		Throwable failure = null;
+		try {
+			rateLimiter.check(action, loginAccount);
+			Map<String, Object> data;
+			if ("TRANSACTION".equals(action.getActionType()) || rollback) {
+				data = executeInTransaction(dataSource, jdbcTemplate,
+						steps, parameters, request, action.getRequestSchema(), rollback);
+			} else {
+				data = executeSteps(jdbcTemplate, steps, parameters,
+						request, action.getRequestSchema());
+			}
+			return new FmDataActionExecutionView(executionId,
+					action.getActionCode(), versionNo, rollback, data);
+		} catch (RuntimeException exception) {
+			failure = exception;
+			throw exception;
+		} finally {
+			auditRecorder.record(executionId, action, versionNo, loginAccount,
+					rollback, steps.size(), parameters.size(), startedAt, failure);
 		}
-		return new FmDataActionExecutionView(executionId,
-				action.getActionCode(), versionNo, rollback, data);
 	}
 
 	private Map<String, Object> executeInTransaction(DataSource dataSource,
 			NamedParameterJdbcTemplate jdbcTemplate,
 			List<FmDataActionStep> steps, Map<String, Object> parameters,
+			Map<String, Object> request, String requestSchema,
 			boolean rollback) throws ServiceException {
 		PlatformTransactionManager transactionManager =
 				new org.springframework.jdbc.datasource.DataSourceTransactionManager(
@@ -74,7 +189,7 @@ public class FmDataActionExecutor {
 			return transactionTemplate.execute(status -> {
 				try {
 					Map<String, Object> result = executeSteps(
-							jdbcTemplate, steps, parameters);
+							jdbcTemplate, steps, parameters, request, requestSchema);
 					if (rollback) {
 						status.setRollbackOnly();
 					}
@@ -90,7 +205,8 @@ public class FmDataActionExecutor {
 
 	private Map<String, Object> executeSteps(
 			NamedParameterJdbcTemplate jdbcTemplate,
-			List<FmDataActionStep> steps, Map<String, Object> parameters)
+			List<FmDataActionStep> steps, Map<String, Object> parameters,
+			Map<String, Object> request, String requestSchema)
 			throws ServiceException {
 		Map<String, Object> data = new LinkedHashMap<>();
 		for (FmDataActionStep step : steps) {
@@ -98,7 +214,18 @@ public class FmDataActionExecutor {
 				continue;
 			}
 			try {
-				Object result = executeStep(jdbcTemplate, step, parameters);
+				if (!conditionEvaluator.evaluate(step.getContinueCondition(), request, data)) {
+					continue;
+				}
+				Object result;
+				if ("FOR_EACH".equals(step.getExecutionMode())) {
+					result = executeForEach(jdbcTemplate, step, parameters,
+							request, requestSchema, data);
+				} else {
+					Map<String, Object> stepParameters = parameterResolver.resolveForStep(
+							requestSchema, parameters, request, data, null);
+					result = executeStepWithRetry(jdbcTemplate, step, stepParameters);
+				}
 				if (!"NONE".equals(step.getResultMode())) {
 					data.put(step.getResultKey(), result);
 				}
@@ -110,6 +237,90 @@ public class FmDataActionExecutor {
 			}
 		}
 		return data;
+	}
+
+	private Object executeStepWithRetry(
+			NamedParameterJdbcTemplate jdbcTemplate,
+			FmDataActionStep step,
+			Map<String, Object> parameters) throws ServiceException {
+		int retryCount = step.getRetryCount() == null ? 0 : step.getRetryCount();
+		int attempt = 0;
+		while (true) {
+			try {
+				return executeStep(jdbcTemplate, step, parameters);
+			} catch (TransientDataAccessException | RecoverableDataAccessException exception) {
+				if (attempt >= retryCount) {
+					throw exception;
+				}
+				attempt++;
+				pauseBeforeRetry(step);
+			}
+		}
+	}
+
+	private void pauseBeforeRetry(FmDataActionStep step) throws ServiceException {
+		int delay = step.getRetryDelayMillis() == null ? 0 : step.getRetryDelayMillis();
+		if (delay <= 0) {
+			return;
+		}
+		try {
+			Thread.sleep(delay);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new ServiceException("Data Action Step 重試等待被中斷");
+		}
+	}
+
+	private Object executeForEach(NamedParameterJdbcTemplate jdbcTemplate,
+			FmDataActionStep step, Map<String, Object> baseParameters,
+			Map<String, Object> request, String requestSchema,
+			Map<String, Object> stepResults) throws ServiceException {
+		Object source = parameterResolver.readRequestPath(request, step.getArrayPath());
+		if (!(source instanceof List<?> items)) {
+			throw new ServiceException("FOR_EACH Array Path 不是陣列："
+					+ step.getStepCode());
+		}
+		int maxItems = step.getMaxRows() == null ? 1000 : step.getMaxRows();
+		if (items.size() > maxItems) {
+			throw new ServiceException("FOR_EACH 筆數超過上限：" + step.getStepCode());
+		}
+		List<Map<String, Object>> batchParameters = new ArrayList<>();
+		for (Object item : items) {
+			batchParameters.add(parameterResolver.resolveForStep(requestSchema,
+					baseParameters, request, stepResults, item));
+		}
+		if ("GENERATED_KEY".equals(step.getResultMode())) {
+			List<Object> keys = new ArrayList<>();
+			int affectedRows = 0;
+			for (Map<String, Object> itemParameters : batchParameters) {
+				Map<String, Object> result = executeMutation(
+						jdbcTemplate, step, itemParameters, true);
+				affectedRows += (Integer) result.get("affectedRows");
+				keys.add(result.get("generatedKey"));
+			}
+			Map<String, Object> result = new LinkedHashMap<>();
+			result.put("affectedRows", affectedRows);
+			result.put("generatedKeys", keys);
+			return result;
+		}
+		SqlParameterSource[] batch = batchParameters.stream()
+				.map(MapSqlParameterSource::new)
+				.toArray(SqlParameterSource[]::new);
+		int[] counts = jdbcTemplate.batchUpdate(step.getSqlContent(), batch);
+		int affectedRows = 0;
+		for (int index = 0; index < counts.length; index++) {
+			int count = counts[index];
+			if (step.getExpectAffectedRows() != null
+					&& step.getExpectAffectedRows() != count) {
+				throw new ServiceException("Affected Rows 不符合預期："
+						+ step.getStepCode() + "，索引 " + index);
+			}
+			affectedRows += Math.max(count, 0);
+		}
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("affectedRows", affectedRows);
+		result.put("batchSize", items.size());
+		return result;
 	}
 
 	private Object executeStep(NamedParameterJdbcTemplate jdbcTemplate,
@@ -130,10 +341,86 @@ public class FmDataActionExecutor {
 			return rows.isEmpty() ? null : rows.get(0);
 		}
 		if ("SELECT_LIST".equals(statementType)) {
+			if (parameters.containsKey("page") || parameters.containsKey("pageSize")) {
+				return executePagedList(jdbcTemplate, step, parameters);
+			}
 			return normalizeRows(jdbcTemplate.queryForList(
 					step.getSqlContent(), parameters), step.getMaxRows());
 		}
-		int affectedRows = jdbcTemplate.update(step.getSqlContent(), parameters);
+		return executeMutation(jdbcTemplate, step, parameters,
+				"GENERATED_KEY".equals(step.getResultMode()));
+	}
+
+	private Map<String, Object> executePagedList(
+			NamedParameterJdbcTemplate jdbcTemplate, FmDataActionStep step,
+			Map<String, Object> parameters) throws ServiceException {
+		if (!(parameters.get("page") instanceof Integer page)
+				|| !(parameters.get("pageSize") instanceof Integer pageSize)) {
+			throw new ServiceException("分頁查詢必須同時提供 page 與 pageSize");
+		}
+		int maxPageSize = step.getMaxRows() == null ? 1000 : step.getMaxRows();
+		if (pageSize > maxPageSize) {
+			throw new ServiceException("pageSize 超過 Step 最大回傳筆數");
+		}
+		long offsetValue = (long) (page - 1) * pageSize;
+		if (offsetValue > Integer.MAX_VALUE - pageSize) {
+			throw new ServiceException("分頁範圍過大");
+		}
+		String countSql = "SELECT COUNT(*) FROM ("
+				+ stripTopLevelOrderBy(step.getSqlContent())
+				+ ") FM_DATA_ACTION_COUNT";
+		Long total = jdbcTemplate.queryForObject(countSql, parameters, Long.class);
+		jdbcTemplate.getJdbcTemplate().setMaxRows((int) offsetValue + pageSize);
+		List<Map<String, Object>> source = jdbcTemplate.queryForList(
+				step.getSqlContent(), parameters);
+		int from = Math.min((int) offsetValue, source.size());
+		int to = Math.min(from + pageSize, source.size());
+		List<Map<String, Object>> items = normalizeRows(
+				new ArrayList<>(source.subList(from, to)), pageSize);
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("items", items);
+		result.put("page", page);
+		result.put("pageSize", pageSize);
+		result.put("total", total == null ? 0L : total);
+		result.put("totalPages", total == null ? 0L
+				: (total + pageSize - 1) / pageSize);
+		return result;
+	}
+
+	static String stripTopLevelOrderBy(String sql) {
+		String upper = sql.toUpperCase(Locale.ROOT);
+		int depth = 0;
+		boolean quoted = false;
+		for (int index = 0; index < upper.length() - 8; index++) {
+			char current = upper.charAt(index);
+			if (current == '\'') {
+				quoted = !quoted;
+			} else if (!quoted && current == '(') {
+				depth++;
+			} else if (!quoted && current == ')') {
+				depth--;
+			} else if (!quoted && depth == 0
+					&& upper.startsWith("ORDER BY", index)
+					&& (index == 0 || Character.isWhitespace(upper.charAt(index - 1)))) {
+				return sql.substring(0, index).trim();
+			}
+		}
+		return sql;
+	}
+
+	private Map<String, Object> executeMutation(
+			NamedParameterJdbcTemplate jdbcTemplate, FmDataActionStep step,
+			Map<String, Object> parameters, boolean returnGeneratedKey)
+			throws ServiceException {
+		int affectedRows;
+		KeyHolder keyHolder = null;
+		if (returnGeneratedKey) {
+			keyHolder = new GeneratedKeyHolder();
+			affectedRows = jdbcTemplate.update(step.getSqlContent(),
+					new MapSqlParameterSource(parameters), keyHolder);
+		} else {
+			affectedRows = jdbcTemplate.update(step.getSqlContent(), parameters);
+		}
 		if (step.getExpectAffectedRows() != null
 				&& step.getExpectAffectedRows() != affectedRows) {
 			throw new ServiceException("Affected Rows 不符合預期："
@@ -141,8 +428,17 @@ public class FmDataActionExecutor {
 		}
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("affectedRows", affectedRows);
+		if (returnGeneratedKey) {
+			Number key = keyHolder.getKey();
+			if (key == null) {
+				throw new ServiceException("資料庫未回傳 Generated Key："
+						+ step.getStepCode());
+			}
+			result.put("generatedKey", key);
+		}
 		return result;
 	}
+
 
 	static List<Map<String, Object>> normalizeRows(
 			List<Map<String, Object>> source, Integer configuredMaxRows)
@@ -210,6 +506,16 @@ public class FmDataActionExecutor {
 
 		private ServiceException getServiceException() {
 			return serviceException;
+		}
+	}
+
+	private static final class DataActionStreamRuntimeException
+			extends RuntimeException {
+
+		private static final long serialVersionUID = 1L;
+
+		private DataActionStreamRuntimeException(Throwable cause) {
+			super(cause);
 		}
 	}
 }

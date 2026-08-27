@@ -16,6 +16,7 @@ import org.flowable.bpmn.model.BpmnModel;
 import org.flowable.bpmn.model.ExclusiveGateway;
 import org.flowable.bpmn.model.FlowNode;
 import org.flowable.bpmn.model.InclusiveGateway;
+import org.flowable.bpmn.model.ParallelGateway;
 import org.flowable.bpmn.model.SequenceFlow;
 import org.qifu.base.exception.ServiceException;
 
@@ -116,6 +117,15 @@ public class FmBpmnDesignValidator {
         for (FlowNode gateway : model.getMainProcess().findFlowElementsOfType(
                 InclusiveGateway.class)) {
             validateGateway(gateway, ((InclusiveGateway) gateway).getDefaultFlow());
+        }
+        for (ParallelGateway gateway : model.getMainProcess().findFlowElementsOfType(
+                ParallelGateway.class)) {
+            for (SequenceFlow flow : gateway.getOutgoingFlows()) {
+                if (StringUtils.isNotBlank(flow.getConditionExpression())) {
+                    throw new ServiceException(
+                            "Parallel Gateway 的 Sequence Flow 不可設定條件：" + label(flow));
+                }
+            }
         }
     }
 

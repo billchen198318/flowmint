@@ -1,5 +1,6 @@
 package org.qifu.fm.logic;
 
+import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +33,10 @@ public interface IFmDataActionLogicService {
 	DefaultResult<FmDataActionExecutionView> execute(String tenantId,
 			String actionCode, Integer versionNo, Map<String, Object> request,
 			String loginAccount) throws ServiceException;
+
+	void stream(String tenantId, String actionCode, Integer versionNo,
+			Map<String, Object> request, String loginAccount, OutputStream outputStream)
+			throws ServiceException;
 
 	DefaultResult<List<FmOptionView>> poolOptions(String tenantId)
 			throws ServiceException;

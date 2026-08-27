@@ -24,6 +24,7 @@ public class FmDataAction implements Serializable {
 	private String responseMode;
 	private String status;
 	private Integer currentVersionNo;
+	private Integer rateLimitPerMinute;
 	private String description;
 	private Integer lockVersion;
 	private String cuserid;
@@ -119,6 +120,9 @@ public class FmDataAction implements Serializable {
 	public void setCurrentVersionNo(Integer currentVersionNo) {
 		this.currentVersionNo = currentVersionNo;
 	}
+
+	public Integer getRateLimitPerMinute() { return rateLimitPerMinute; }
+	public void setRateLimitPerMinute(Integer value) { rateLimitPerMinute = value; }
 
 	public String getDescription() {
 		return description;

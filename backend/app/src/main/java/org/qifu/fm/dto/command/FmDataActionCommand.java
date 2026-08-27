@@ -14,6 +14,7 @@ public record FmDataActionCommand(
 		String status,
 		Integer versionNo,
 		Integer lockVersion,
+		Integer rateLimitPerMinute,
 		String description,
 		List<FmDataActionStepCommand> steps) {
 }

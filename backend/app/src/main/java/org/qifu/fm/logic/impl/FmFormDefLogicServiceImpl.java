@@ -217,6 +217,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 version.getSchemaContent(),
                 version.getUiSchemaContent(),
                 version.getCustomScriptContent());
+        assertRuntimeFormioSchema(content.schemaContent());
         validatePublishedDataActionBindings(version.getTenantId(), content.uiSchemaContent());
         FmFormDef formDef = findDef(version.getTenantId(), version.getFormId());
         assertFormActive(formDef);
@@ -430,6 +431,14 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         return StringUtils.defaultString(customScriptContent)
                 .replace("\r\n", "\n")
                 .replace('\r', '\n');
+    }
+
+    private void assertRuntimeFormioSchema(String schemaContent) throws ServiceException {
+        try {
+            formDesignValidator.validateRuntimeSchema(objectMapper.readTree(schemaContent));
+        } catch (JacksonException exception) {
+            throw new ServiceException("表單 Schema 無法解析");
+        }
     }
 
     private void validatePublishedDataActionBindings(String tenantId, String uiSchemaContent)

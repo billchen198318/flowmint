@@ -16,6 +16,7 @@ import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.logic.IFmDataActionLogicService;
 import org.qifu.fm.service.IFmTenantAccountService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @RestController
 @ResponseBody
@@ -111,6 +113,27 @@ public class FmDataActionController extends CoreApiSupport {
 		if (membership == null) {
 			throw new ServiceException("目前帳號不屬於指定 Tenant");
 		}
+	}
+
+	@PostMapping(value = "/{actionCode}/stream",
+			produces = "application/x-ndjson")
+	public ResponseEntity<StreamingResponseBody> stream(
+			@PathVariable String actionCode,
+			@RequestHeader("X-FlowMint-Tenant") String tenantId,
+			@RequestHeader(value = "X-FlowMint-Action-Version",
+					required = false) Integer versionNo,
+			@RequestBody(required = false) Map<String, Object> request)
+			throws ServiceException {
+		String account = UserUtils.getCurrentUser().getUsername();
+		validateTenantMembership(tenantId, account);
+		Map<String, Object> safeRequest = request == null
+				? new HashMap<>() : new HashMap<>(request);
+		StreamingResponseBody body = outputStream -> actionLogicService.stream(
+				tenantId, actionCode, versionNo, safeRequest, account, outputStream);
+		return ResponseEntity.ok()
+				.contentType(MediaType.parseMediaType("application/x-ndjson"))
+				.header("Cache-Control", "no-store")
+				.body(body);
 	}
 
 	private boolean effective(FmTenantAccount value, Date now) {

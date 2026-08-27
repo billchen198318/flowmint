@@ -34,7 +34,7 @@ class FmProcessMultiInstanceBpmnTest {
                 policy("orderedApproval", "SEQUENTIAL")));
         FmProcessDefLogicServiceImpl service = new FmProcessDefLogicServiceImpl(
                 null, null, null, null, null, policies, null, null, null,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
         FmProcessVersion version = new FmProcessVersion();
         version.setTenantId("T1");
         version.setProcessDefId("P1");

@@ -3,10 +3,20 @@ package org.qifu.fm.domain.workflow;
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
 
+import java.util.Set;
+
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 public class FmAssignmentRuleConfigValidator {
+
+    private static final Set<String> LEVEL_MATCH_MODES = Set.of(
+            "EXACT", "EXACT_OR_HIGHER", "UP_TO_LEVEL");
+    private static final Set<String> RESOLVER_TYPES = Set.of(
+            "FIXED_ACCOUNT", "APPROVAL_GROUP", "INITIATOR_ORG_HEAD",
+            "PARENT_ORG_HEAD", "NEXT_HIGHER_LEVEL_HEAD", "TARGET_LEVEL_HEAD",
+            "LEVEL_HEAD_CHAIN", "ROOT_ORG_HEAD", "DIRECT_MANAGER", "MANAGER_CHAIN",
+            "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD");
 
     private final ObjectMapper objectMapper;
 
@@ -20,16 +30,42 @@ public class FmAssignmentRuleConfigValidator {
         switch (resolverType) {
             case "FIXED_ACCOUNT" -> requireTextArray(config, "accounts");
             case "APPROVAL_GROUP" -> requireText(config, "approvalGroupId");
-            case "TARGET_LEVEL_HEAD" -> requireText(config, "approvalLevelId");
+            case "TARGET_LEVEL_HEAD" -> {
+                requireText(config, "approvalLevelId");
+                validateLevelMatchMode(config);
+            }
             case "ORG_TITLE" -> requireText(config, "titleId");
             case "ORG_DUTY" -> requireText(config, "dutyId");
             case "APPROVAL_AUTHORITY" -> requireText(config, "approvalAuthorityId");
+            case "FORM_ACCOUNT_FIELD" -> requireText(config, "fieldKey");
             default -> {
                 // These resolvers do not require an additional identifier.
             }
         }
         if (StringUtils.isNotBlank(fallbackConfig)) {
-            parseObject(fallbackConfig, "Fallback Config");
+            JsonNode fallback = parseObject(fallbackConfig, "Fallback Config");
+            if (fallback.isEmpty()) {
+                return;
+            }
+            String fallbackType = fallback.path("resolverType").asString();
+            JsonNode fallbackResolverConfig = fallback.path("resolverConfig");
+            if (!RESOLVER_TYPES.contains(fallbackType)
+                    || fallbackType.equals(resolverType)
+                    || !fallbackResolverConfig.isObject()) {
+                throw new ServiceException(
+                        "Fallback Config 必須指定不同的有效 resolverType 與 resolverConfig");
+            }
+            validate(fallbackType,
+                    objectMapper.writeValueAsString(fallbackResolverConfig), null);
+        }
+    }
+
+    private void validateLevelMatchMode(JsonNode config) throws ServiceException {
+        JsonNode value = config.path("levelMatchMode");
+        if (!value.isMissingNode()
+                && (!value.isString() || !LEVEL_MATCH_MODES.contains(value.asString()))) {
+            throw new ServiceException(
+                    "Resolver Config 的 levelMatchMode 僅允許 EXACT、EXACT_OR_HIGHER 或 UP_TO_LEVEL");
         }
     }
 

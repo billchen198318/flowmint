@@ -101,6 +101,19 @@ const condition = (rule: any) => {
 const setCondition = (rule: any, value: any) => {
   rule.conditionConfig = JSON.stringify(value);
 };
+const levelMatchMode = (rule: any) => {
+  try {
+    return JSON.parse(rule.resolverConfig || "{}").levelMatchMode || "EXACT";
+  } catch {
+    return "EXACT";
+  }
+};
+const setLevelMatchMode = (rule: any, value: string) => {
+  rule.resolverConfig = JSON.stringify({ levelMatchMode: value });
+};
+const setLevelMatchModeFromEvent = (rule: any, event: Event) => {
+  setLevelMatchMode(rule, (event.target as HTMLSelectElement).value);
+};
 const targetOptions = (type: string) => ({
   APPROVAL_LEVEL: props.levels,
   ORG_TITLE: props.titles,
@@ -242,6 +255,15 @@ onMounted(load);
               <select v-model="rule.stopAfterApproval" class="form-select">
                 <option value="N">否</option>
                 <option value="Y">是</option>
+              </select>
+            </div>
+            <div v-if="rule.targetType === 'APPROVAL_LEVEL'" class="col-md-6">
+              <label class="form-label">層級匹配模式</label>
+              <select :value="levelMatchMode(rule)" class="form-select"
+                @change="setLevelMatchModeFromEvent(rule, $event)">
+                <option value="EXACT">精確層級</option>
+                <option value="EXACT_OR_HIGHER">精確層級或第一位更高主管</option>
+                <option value="UP_TO_LEVEL">逐級簽到指定或更高層級</option>
               </select>
             </div>
           </div>

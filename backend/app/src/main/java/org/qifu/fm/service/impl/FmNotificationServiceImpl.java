@@ -69,6 +69,13 @@ public class FmNotificationServiceImpl extends BaseService<FmNotification, Strin
 	}
 
 	@Override
+	public FmNotification findEmailByProviderMessageId(String providerMessageId) {
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("providerMessageId", providerMessageId);
+		return mapper.findEmailByProviderMessageId(parameters);
+	}
+
+	@Override
 	@Transactional(rollbackFor = Exception.class)
 	public boolean markDelivered(String tenantId, String notificationId,
 			String providerMessageId, Date sentDate) {
@@ -78,6 +85,22 @@ public class FmNotificationServiceImpl extends BaseService<FmNotification, Strin
 		parameters.put("providerMessageId", providerMessageId);
 		parameters.put("sentDate", sentDate);
 		return mapper.markDelivered(parameters) == 1;
+	}
+
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public boolean markDeliveryAttemptFailed(String tenantId, String notificationId,
+			String providerMessageId, Date failedDate, Date nextRetryDate,
+			int maxAttempts, String errorMessage) {
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("tenantId", tenantId);
+		parameters.put("notificationId", notificationId);
+		parameters.put("providerMessageId", providerMessageId);
+		parameters.put("failedDate", failedDate);
+		parameters.put("nextRetryDate", nextRetryDate);
+		parameters.put("maxAttempts", maxAttempts);
+		parameters.put("errorMessage", errorMessage);
+		return mapper.markDeliveryAttemptFailed(parameters) == 1;
 	}
 
 	private Map<String, Object> identity(String tenantId, String account) {

@@ -71,6 +71,9 @@ import org.qifu.fm.service.IFmOrgTitleService;
 import org.qifu.fm.service.IFmOrgDutyService;
 import org.qifu.fm.service.IFmOrgUnitService;
 import org.qifu.fm.service.IFmTenantService;
+import org.qifu.fm.service.IFmTenantAccountService;
+import org.qifu.fm.service.IFmApprovalAuthorityService;
+import org.qifu.fm.service.IFmApprovalAuthorityRuleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -106,6 +109,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmOrgTitleService orgTitleService;
     private final IFmOrgDutyService orgDutyService;
     private final IFmOrgUnitService orgUnitService;
+    private final IFmTenantAccountService tenantAccountService;
+    private final IFmApprovalAuthorityService approvalAuthorityService;
+    private final IFmApprovalAuthorityRuleService approvalAuthorityRuleService;
     private final RepositoryService repositoryService;
     private final FmTenantAccessGuard tenantAccessGuard;
 
@@ -125,6 +131,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmOrgTitleService orgTitleService,
             IFmOrgDutyService orgDutyService,
             IFmOrgUnitService orgUnitService,
+            IFmTenantAccountService tenantAccountService,
+            IFmApprovalAuthorityService approvalAuthorityService,
+            IFmApprovalAuthorityRuleService approvalAuthorityRuleService,
             RepositoryService repositoryService,
             FmTenantAccessGuard tenantAccessGuard) {
         this.processDefService = processDefService;
@@ -142,6 +151,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.orgTitleService = orgTitleService;
         this.orgDutyService = orgDutyService;
         this.orgUnitService = orgUnitService;
+        this.tenantAccountService = tenantAccountService;
+        this.approvalAuthorityService = approvalAuthorityService;
+        this.approvalAuthorityRuleService = approvalAuthorityRuleService;
         this.repositoryService = repositoryService;
         this.tenantAccessGuard = tenantAccessGuard;
     }
@@ -312,6 +324,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         validateGatewayFormFieldsForPublish(version);
         validateTaskPoliciesForPublish(version, taskKeys);
         validateAssignmentRulesForPublish(version);
+        validateLevelMatchModesForPublish(version);
         validateApprovalGroupModesForPublish(version);
         validateStartPoliciesForPublish(version);
         String runtimeBpmnXml = runtimeBpmnXml(version);
@@ -892,7 +905,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return Set.of("FIXED_ACCOUNT", "APPROVAL_GROUP", "INITIATOR_ORG_HEAD",
                 "PARENT_ORG_HEAD", "NEXT_HIGHER_LEVEL_HEAD", "TARGET_LEVEL_HEAD",
                 "LEVEL_HEAD_CHAIN", "ROOT_ORG_HEAD", "DIRECT_MANAGER", "MANAGER_CHAIN",
-                "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY");
+                "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD");
     }
 
     private FmTaskAssignmentRule copyAssignmentRule(FmProcessVersion version,
@@ -1158,6 +1171,14 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
 
     private void validateAssignmentRulesForPublish(FmProcessVersion version)
             throws ServiceException {
+        Map<String, FmPublishedFormOptionView> forms = taskFormRuleService
+                .publishedFormOptions(version.getTenantId()).stream()
+                .collect(Collectors.toMap(
+                        value -> value.formId() + ":" + value.formVersionNo(),
+                        value -> value,
+                        (first, ignored) -> first));
+        Map<String, FmTaskFormRule> taskForms = taskFormRules(version).stream()
+                .collect(Collectors.toMap(FmTaskFormRule::getTaskDefKey, value -> value));
         for (FmTaskAssignmentRule rule : assignmentRules(version)) {
             if (!"ACTIVE".equals(rule.getStatus())) {
                 continue;
@@ -1166,6 +1187,200 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     rule.getResolverType(),
                     rule.getResolverConfig(),
                     rule.getFallbackConfig());
+            validateResolverReference(rule.getTenantId(), rule.getResolverType(),
+                    rule.getResolverConfig());
+            validateFallbackReference(rule);
+            if ("FORM_ACCOUNT_FIELD".equals(rule.getResolverType())) {
+                validateFormAccountField(rule, taskForms, forms);
+            }
+        }
+    }
+
+    private void validateFallbackReference(FmTaskAssignmentRule rule)
+            throws ServiceException {
+        if (StringUtils.isBlank(rule.getFallbackConfig())) {
+            return;
+        }
+        try {
+            tools.jackson.databind.JsonNode fallback =
+                    new tools.jackson.databind.ObjectMapper().readTree(rule.getFallbackConfig());
+            if (fallback.isObject() && fallback.isEmpty()) {
+                return;
+            }
+            validateResolverReference(rule.getTenantId(),
+                    fallback.path("resolverType").asString(),
+                    new tools.jackson.databind.ObjectMapper().writeValueAsString(
+                            fallback.path("resolverConfig")));
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ServiceException("無法檢查 Fallback Resolver 引用資料");
+        }
+    }
+
+    private void validateResolverReference(String tenantId, String resolverType,
+            String resolverConfig) throws ServiceException {
+        tools.jackson.databind.JsonNode config;
+        try {
+            config = new tools.jackson.databind.ObjectMapper().readTree(
+                    StringUtils.defaultIfBlank(resolverConfig, "{}"));
+        } catch (Exception exception) {
+            throw new ServiceException("無法檢查 Resolver 引用資料");
+        }
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        boolean valid = switch (resolverType) {
+            case "FIXED_ACCOUNT" -> validateFixedAccounts(
+                    tenantId, config.path("accounts"));
+            case "APPROVAL_GROUP" -> exists(approvalGroupService, parameters,
+                    "approvalGroupId", config.path("approvalGroupId").asString());
+            case "TARGET_LEVEL_HEAD" -> exists(orgApprovalLevelService, parameters,
+                    "approvalLevelId", config.path("approvalLevelId").asString());
+            case "ORG_TITLE" -> exists(orgTitleService, parameters,
+                    "titleId", config.path("titleId").asString());
+            case "ORG_DUTY" -> exists(orgDutyService, parameters,
+                    "dutyId", config.path("dutyId").asString());
+            case "APPROVAL_AUTHORITY" -> exists(approvalAuthorityService, parameters,
+                    "approvalAuthorityId", config.path("approvalAuthorityId").asString())
+                    && validateAuthorityTargets(tenantId,
+                            config.path("approvalAuthorityId").asString());
+            default -> true;
+        };
+        if (!valid) {
+            throw new ServiceException("Resolver " + resolverType
+                    + " 引用的主檔不存在、未啟用或無有效 Tenant membership");
+        }
+    }
+
+    private boolean validateAuthorityTargets(String tenantId, String authorityId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        for (org.qifu.fm.entity.FmApprovalAuthorityRule rule
+                : approvalAuthorityRuleService.findByAuthority(tenantId, authorityId)) {
+            if (!"ACTIVE".equals(rule.getStatus())) {
+                continue;
+            }
+            boolean valid = switch (rule.getTargetType()) {
+                case "APPROVAL_LEVEL" -> exists(orgApprovalLevelService, parameters,
+                        "approvalLevelId", rule.getTargetRefId());
+                case "ORG_TITLE" -> exists(orgTitleService, parameters,
+                        "titleId", rule.getTargetRefId());
+                case "ORG_DUTY" -> exists(orgDutyService, parameters,
+                        "dutyId", rule.getTargetRefId());
+                case "APPROVAL_GROUP" -> exists(approvalGroupService, parameters,
+                        "approvalGroupId", rule.getTargetRefId());
+                case "FIXED_ACCOUNT" -> validateFixedAccount(
+                        tenantId, rule.getTargetRefId());
+                default -> false;
+            };
+            if (!valid) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean validateFixedAccount(String tenantId, String account)
+            throws ServiceException {
+        tools.jackson.databind.node.ArrayNode accounts =
+                new tools.jackson.databind.ObjectMapper().createArrayNode();
+        accounts.add(account);
+        return validateFixedAccounts(tenantId, accounts);
+    }
+
+    private boolean validateFixedAccounts(String tenantId,
+            tools.jackson.databind.JsonNode accounts) throws ServiceException {
+        for (tools.jackson.databind.JsonNode accountNode : accounts) {
+            String account = accountNode.asString();
+            Map<String, Object> employeeParameters = activeOptionParameters(tenantId);
+            employeeParameters.put("account", account);
+            if (employeeService.selectListByParams(employeeParameters).getValue().isEmpty()) {
+                return false;
+            }
+            Map<String, Object> membershipParameters = activeOptionParameters(tenantId);
+            membershipParameters.put("account", account);
+            boolean membership = tenantAccountService
+                    .selectListByParams(membershipParameters).getValue().stream()
+                    .anyMatch(value -> effective(value.getEffectiveFrom(), value.getEffectiveTo()));
+            if (!membership) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean exists(org.qifu.base.service.IBaseService<?, String> service,
+            Map<String, Object> baseParameters, String key, String value)
+            throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>(baseParameters);
+        parameters.put(key, value);
+        return !service.selectListByParams(parameters).getValue().isEmpty();
+    }
+
+    private boolean effective(Date from, Date to) {
+        Date now = new Date();
+        return (from == null || !from.after(now)) && (to == null || to.after(now));
+    }
+
+    private void validateFormAccountField(
+            FmTaskAssignmentRule rule,
+            Map<String, FmTaskFormRule> taskForms,
+            Map<String, FmPublishedFormOptionView> forms) throws ServiceException {
+        FmTaskFormRule taskForm = taskForms.get(rule.getTaskDefKey());
+        if (taskForm == null) {
+            throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                    + "」尚未選擇表單，無法使用表單選人 Resolver");
+        }
+        FmPublishedFormOptionView form = forms.get(
+                taskForm.getFormId() + ":" + taskForm.getFormVersionNo());
+        if (form == null) {
+            throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                    + "」引用的表單版本不存在或尚未發布");
+        }
+        try {
+            tools.jackson.databind.JsonNode config = new tools.jackson.databind.ObjectMapper()
+                    .readTree(rule.getResolverConfig());
+            String fieldKey = config.path("fieldKey").asString();
+            if (!formFieldCatalog.fields(form.schemaContent()).contains(fieldKey)) {
+                throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                        + "」的表單選人欄位不存在：" + fieldKey);
+            }
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ServiceException("無法檢查表單選人 Resolver 設定");
+        }
+    }
+
+    private void validateLevelMatchModesForPublish(FmProcessVersion version)
+            throws ServiceException {
+        Map<String, String> assignmentModes = taskPolicies(version).stream()
+                .collect(Collectors.toMap(
+                        FmTaskPolicy::getTaskDefKey,
+                        FmTaskPolicy::getAssignmentMode));
+        for (FmTaskAssignmentRule rule : assignmentRules(version)) {
+            if (!"ACTIVE".equals(rule.getStatus()) || !usesUpToLevel(rule)) {
+                continue;
+            }
+            if (!"SEQUENTIAL".equals(assignmentModes.get(rule.getTaskDefKey()))) {
+                throw new ServiceException("User Task「" + rule.getTaskDefKey()
+                        + "」使用 UP_TO_LEVEL 時，派送方式必須設定為 SEQUENTIAL");
+            }
+        }
+    }
+
+    private boolean usesUpToLevel(FmTaskAssignmentRule rule) throws ServiceException {
+        try {
+            tools.jackson.databind.JsonNode config = new tools.jackson.databind.ObjectMapper().readTree(
+                    StringUtils.defaultIfBlank(rule.getResolverConfig(), "{}"));
+            if ("TARGET_LEVEL_HEAD".equals(rule.getResolverType())) {
+                return "UP_TO_LEVEL".equals(
+                        config.path("levelMatchMode").asString("EXACT"));
+            }
+            return false;
+        } catch (ServiceException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new ServiceException("無法檢查簽核層級匹配模式");
         }
     }
 

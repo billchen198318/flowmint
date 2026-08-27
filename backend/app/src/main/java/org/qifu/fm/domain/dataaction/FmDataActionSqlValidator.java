@@ -12,11 +12,17 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class FmDataActionSqlValidator {
+	private final FmDataActionContinueConditionEvaluator conditionEvaluator;
+
+	public FmDataActionSqlValidator(FmDataActionContinueConditionEvaluator conditionEvaluator) {
+		this.conditionEvaluator = conditionEvaluator;
+	}
 
 	private static final Pattern PARAMETER_PATTERN = Pattern.compile(
 			"(?<!:):([A-Za-z][A-Za-z0-9_]*)");
 	private static final Set<String> STATEMENT_TYPES = Set.of(
 			"SELECT_ONE", "SELECT_LIST", "INSERT", "UPDATE", "DELETE");
+	private static final Set<String> EXECUTION_MODES = Set.of("ONCE", "FOR_EACH");
 
 	public void validate(FmDataActionStep step, String actionType,
 			Set<String> availableParameters) throws ServiceException {
@@ -39,9 +45,33 @@ public class FmDataActionSqlValidator {
 				&& !statementType.startsWith("SELECT")) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
-		if (!"ONCE".equals(normalized(step.getExecutionMode()))) {
-			throw new ServiceException("第一版目前僅支援 ONCE 執行模式");
+		String executionMode = normalized(step.getExecutionMode());
+		if (!EXECUTION_MODES.contains(executionMode)) {
+			throw new ServiceException("不支援的執行模式");
 		}
+		if ("FOR_EACH".equals(executionMode)
+				&& (step.getArrayPath() == null
+						|| !step.getArrayPath().trim().startsWith("$.")
+						|| statementType.startsWith("SELECT"))) {
+			throw new ServiceException("FOR_EACH 僅支援異動 SQL，且必須設定 Array Path");
+		}
+		if ("GENERATED_KEY".equals(normalized(step.getResultMode()))
+				&& !"INSERT".equals(statementType)) {
+			throw new ServiceException("GENERATED_KEY 僅適用於 INSERT");
+		}
+		int retryCount = step.getRetryCount() == null ? 0 : step.getRetryCount();
+		int retryDelayMillis = step.getRetryDelayMillis() == null
+				? 0 : step.getRetryDelayMillis();
+		if (retryCount < 0 || retryCount > 5
+				|| retryDelayMillis < 0 || retryDelayMillis > 5000) {
+			throw new ServiceException("Step 重試次數必須為 0～5，間隔必須為 0～5000ms");
+		}
+		if (retryCount > 0 && (!"QUERY".equals(normalized(actionType))
+				|| !statementType.startsWith("SELECT")
+				|| !"ONCE".equals(executionMode))) {
+			throw new ServiceException("第一版重試政策只允許 QUERY Action 的 ONCE SELECT Step");
+		}
+		conditionEvaluator.validate(step.getContinueCondition());
 		Matcher matcher = PARAMETER_PATTERN.matcher(sql);
 		while (matcher.find()) {
 			if (!availableParameters.contains(matcher.group(1))) {

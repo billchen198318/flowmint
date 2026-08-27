@@ -34,4 +34,14 @@ class FmDataActionExecutorColumnNameTest {
         assertThrows(org.qifu.base.exception.ServiceException.class,
                 () -> FmDataActionExecutor.normalizeRows(List.of(row), 100));
     }
+
+    @Test
+    void removesOnlyTopLevelOrderByForCountQuery() {
+        String sql = "SELECT * FROM (SELECT * FROM x ORDER BY code) nested "
+                + "WHERE name='ORDER BY kept' ORDER BY created_at DESC";
+
+        assertEquals("SELECT * FROM (SELECT * FROM x ORDER BY code) nested "
+                        + "WHERE name='ORDER BY kept'",
+                FmDataActionExecutor.stripTopLevelOrderBy(sql));
+    }
 }

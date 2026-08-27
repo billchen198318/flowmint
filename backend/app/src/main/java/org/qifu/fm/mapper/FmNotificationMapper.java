@@ -22,5 +22,9 @@ public interface FmNotificationMapper extends IBaseMapper<FmNotification, String
 
 	List<FmNotification> findPendingEmail(Map<String, Object> paramMap);
 
+	FmNotification findEmailByProviderMessageId(Map<String, Object> paramMap);
+
 	int markDelivered(Map<String, Object> paramMap);
+
+	int markDeliveryAttemptFailed(Map<String, Object> paramMap);
 }

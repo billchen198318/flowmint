@@ -106,17 +106,31 @@ public class FmFormSubmissionValidator {
         if (!isLayout(type) && component.path("input").asBoolean(true)) {
             validateValue(component, value, path, errors);
         }
-        if ("container".equals(type) && value instanceof Map<?, ?> nested) {
-            validateScope(component.path("components"), stringMap(nested), path, errors);
+        if ("container".equals(type)) {
+            if (!isEmpty(value) && !(value instanceof Map<?, ?>)) {
+                errors.add(label(component, path) + " 必須為物件");
+                return;
+            }
+            if (value instanceof Map<?, ?> nested) {
+                validateScope(component.path("components"), stringMap(nested), path, errors);
+            }
             return;
         }
-        if (("datagrid".equals(type) || "editgrid".equals(type))
-                && value instanceof Collection<?> rows) {
+        if ("datagrid".equals(type) || "editgrid".equals(type)) {
+            if (!isEmpty(value) && !(value instanceof Collection<?>)) {
+                errors.add(label(component, path) + " 必須為陣列");
+                return;
+            }
+            if (!(value instanceof Collection<?> rows)) {
+                return;
+            }
             int index = 0;
             for (Object row : rows) {
                 if (row instanceof Map<?, ?> nested) {
                     validateScope(component.path("components"), stringMap(nested),
                             path + "[" + index + "]", errors);
+                } else {
+                    errors.add(path + "[" + index + "] 必須為物件");
                 }
                 index++;
             }

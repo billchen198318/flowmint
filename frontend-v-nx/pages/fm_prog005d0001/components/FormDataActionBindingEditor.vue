@@ -19,6 +19,7 @@ interface DataActionMetadata {
   versionNo: number;
   requestFields: string[];
   responseKeys: string[];
+  responseFields?: Array<{ path: string; type: string }>;
 }
 
 interface MappingRow {
@@ -69,6 +70,28 @@ const buttonEvents = computed(() => {
   } catch {
     return [];
   }
+});
+
+const formFields = computed(() => {
+  try {
+    const schema = JSON.parse(props.schemaContent || "{}");
+    const fields = new Set<string>();
+    const collect = (components: any[]) => {
+      for (const component of components || []) {
+        if (component?.key && component?.input !== false && component?.type !== "button") fields.add(component.key);
+        collect(component?.components || []);
+        for (const column of component?.columns || []) collect(column?.components || []);
+        for (const row of component?.rows || []) for (const cell of row || []) collect(cell?.components || []);
+      }
+    };
+    collect(schema.components || []);
+    return [...fields].sort();
+  } catch { return []; }
+});
+
+const responseFields = computed(() => {
+  if (metadata.value?.responseFields?.length) return metadata.value.responseFields;
+  return (metadata.value?.responseKeys || []).map((path) => ({ path, type: "ANY" }));
 });
 
 const collectButtonEvents = (components: any[], events: Set<string>) => {
@@ -343,7 +366,7 @@ watch(buttonEvents, (events) => {
               <div v-for="(row, index) in requestMapping" :key="index" class="mapping-row">
                 <input v-model="row.target" class="form-control" placeholder="API 欄位" />
                 <i class="bi bi-arrow-left-right"></i>
-                <input v-model="row.source" class="form-control" placeholder="submission.field" />
+                <input v-model="row.source" list="fm-binding-form-paths" class="form-control" placeholder="submission.field" />
                 <button type="button" class="btn btn-outline-danger" @click="requestMapping.splice(index, 1)">
                   <i class="bi bi-x"></i>
                 </button>
@@ -359,15 +382,15 @@ watch(buttonEvents, (events) => {
               </div>
               <div v-if="!responseMapping.length" class="mapping-empty">尚未設定回填欄位</div>
               <div v-for="(row, index) in responseMapping" :key="index" class="mapping-row">
-                <input v-model="row.source" class="form-control" placeholder="result.path" />
+                <input v-model="row.source" list="fm-binding-response-paths" class="form-control" placeholder="result.path" />
                 <i class="bi bi-arrow-right"></i>
-                <input v-model="row.target" class="form-control" placeholder="formField" />
+                <input v-model="row.target" list="fm-binding-field-keys" class="form-control" placeholder="formField" />
                 <button type="button" class="btn btn-outline-danger" @click="responseMapping.splice(index, 1)">
                   <i class="bi bi-x"></i>
                 </button>
               </div>
-              <div v-if="metadata.responseKeys?.length" class="form-text">
-                Result Keys：{{ metadata.responseKeys.join(", ") }}
+              <div v-if="responseFields.length" class="form-text">
+                Response 路徑：{{ responseFields.map((field) => `${field.path} (${field.type})`).join(", ") }}
               </div>
             </div>
           </div>
@@ -375,14 +398,18 @@ watch(buttonEvents, (events) => {
           <div class="row g-3 mt-1">
             <div class="col-md-6">
               <label class="form-label">狀態回填欄位</label>
-              <input v-model="statusTarget" class="form-control" placeholder="dataActionStatus" />
+              <input v-model="statusTarget" list="fm-binding-field-keys" class="form-control" placeholder="dataActionStatus" />
             </div>
             <div class="col-md-6">
               <label class="form-label">錯誤回填欄位</label>
-              <input v-model="errorTarget" class="form-control" placeholder="dataActionError" />
+              <input v-model="errorTarget" list="fm-binding-field-keys" class="form-control" placeholder="dataActionError" />
             </div>
           </div>
         </template>
+
+        <datalist id="fm-binding-form-paths"><option v-for="field in formFields" :key="field" :value="`submission.${field}`" /></datalist>
+        <datalist id="fm-binding-field-keys"><option v-for="field in formFields" :key="field" :value="field" /></datalist>
+        <datalist id="fm-binding-response-paths"><option v-for="field in responseFields" :key="field.path" :value="field.path" :label="field.type" /></datalist>
 
         <div class="d-flex gap-2 mt-3">
           <button type="button" class="btn btn-primary" :disabled="!metadata" @click="saveBinding">

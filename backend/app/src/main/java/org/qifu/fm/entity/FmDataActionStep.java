@@ -31,6 +31,8 @@ public class FmDataActionStep implements Serializable {
 	private String continueCondition;
 	private Integer queryTimeoutSeconds;
 	private Integer maxRows;
+	private Integer retryCount;
+	private Integer retryDelayMillis;
 	private String status;
 	private String cuserid;
 	private Date cdate;
@@ -180,6 +182,22 @@ public class FmDataActionStep implements Serializable {
 
 	public void setMaxRows(Integer maxRows) {
 		this.maxRows = maxRows;
+	}
+
+	public Integer getRetryCount() {
+		return retryCount;
+	}
+
+	public void setRetryCount(Integer retryCount) {
+		this.retryCount = retryCount;
+	}
+
+	public Integer getRetryDelayMillis() {
+		return retryDelayMillis;
+	}
+
+	public void setRetryDelayMillis(Integer retryDelayMillis) {
+		this.retryDelayMillis = retryDelayMillis;
 	}
 
 	public String getStatus() {

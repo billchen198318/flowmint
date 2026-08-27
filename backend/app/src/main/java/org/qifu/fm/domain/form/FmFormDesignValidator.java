@@ -38,6 +38,14 @@ public class FmFormDesignValidator {
         validateBindings(uiSchema.path("dataActions"), keys, buttonEvents);
     }
 
+    public void validateRuntimeSchema(JsonNode schema) throws ServiceException {
+        if (!schema.isObject()
+                || !"form".equals(schema.path("display").asString())
+                || !schema.path("components").isArray()) {
+            throw invalid("發布只允許 Form.io Schema；請先以表單設計器轉換舊 JSON Schema");
+        }
+    }
+
     private void validateComponents(JsonNode components, Set<String> keys,
             Set<String> buttonEvents, String path) throws ServiceException {
         if (!components.isArray()) {
