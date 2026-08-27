@@ -20,10 +20,12 @@ import org.qifu.fm.dto.command.FmAssignmentSnapshotCommand;
 import org.qifu.fm.dto.view.FmResolverCandidateView;
 import org.qifu.fm.dto.view.FmResolverPreviewView;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
+import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmTaskActionService;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.ObjectMapper;
@@ -47,6 +49,7 @@ public class FmTaskAssignmentListener implements TaskListener {
     private final ObjectMapper objectMapper;
     private final FmAssignmentIncidentRecorder incidentRecorder;
     private final FmNotificationPublisher notificationPublisher;
+    private final IFmTaskActionService taskActionService;
 
     public FmTaskAssignmentListener(
             IFmTaskAssignmentRuleService assignmentRuleService,
@@ -55,6 +58,7 @@ public class FmTaskAssignmentListener implements TaskListener {
             IFmRuntimeAuditLogicService runtimeAuditService,
             FmAssignmentIncidentRecorder incidentRecorder,
             FmNotificationPublisher notificationPublisher,
+            IFmTaskActionService taskActionService,
             ObjectMapper objectMapper) {
         this.assignmentRuleService = assignmentRuleService;
         this.taskPolicyService = taskPolicyService;
@@ -62,6 +66,7 @@ public class FmTaskAssignmentListener implements TaskListener {
         this.runtimeAuditService = runtimeAuditService;
         this.incidentRecorder = incidentRecorder;
         this.notificationPublisher = notificationPublisher;
+        this.taskActionService = taskActionService;
         this.objectMapper = objectMapper;
     }
 
@@ -90,7 +95,8 @@ public class FmTaskAssignmentListener implements TaskListener {
             }
             ResolvedAssignment resolved = resolveAssignment(
                     context,
-                    task.getTaskDefinitionKey());
+                    task.getTaskDefinitionKey(), policy,
+                    task.getProcessInstanceId());
             applyAssignment(task, policy, resolved.accounts());
             Date now = new Date();
             runtimeAuditService.recordAssignmentSnapshot(
@@ -130,7 +136,10 @@ public class FmTaskAssignmentListener implements TaskListener {
     public List<String> multiInstanceAccounts(
             DelegateExecution execution, String taskDefKey) {
         try {
-            return List.copyOf(resolveAssignment(context(execution), taskDefKey).accounts());
+            RuntimeContext context = context(execution);
+            FmTaskPolicy policy = policy(context, taskDefKey);
+            return List.copyOf(resolveAssignment(context, taskDefKey, policy,
+                    execution.getProcessInstanceId()).accounts());
         } catch (ServiceException exception) {
             throw new FlowableException("FlowMint Multi-instance 指派失敗："
                     + exception.getMessage(), exception);
@@ -205,7 +214,8 @@ public class FmTaskAssignmentListener implements TaskListener {
                 .orElseThrow(() -> new ServiceException("找不到 User Task 派送政策"));
     }
 
-    private ResolvedAssignment resolveAssignment(RuntimeContext context, String taskDefKey)
+    private ResolvedAssignment resolveAssignment(RuntimeContext context, String taskDefKey,
+            FmTaskPolicy policy, String processInstanceId)
             throws ServiceException {
         List<FmTaskAssignmentRule> rules = assignmentRuleService.findByVersion(
                 context.tenantId(),
@@ -244,6 +254,12 @@ public class FmTaskAssignmentListener implements TaskListener {
         if (accounts.isEmpty()) {
             throw new ServiceException("簽核人規則沒有解析出有效帳號");
         }
+        applySelfApprovalPolicy(policy, context.initiatorAccount(), accounts, candidates);
+        applyDuplicatePolicy(policy, context.tenantId(), processInstanceId,
+                accounts, candidates);
+        if (accounts.isEmpty()) {
+            throw new ServiceException("套用自簽與重複簽核政策後沒有可指派的簽核人");
+        }
         String resolverType = rules.size() == 1
                 ? rules.getFirst().getResolverType() : "COMPOSITE";
         return new ResolvedAssignment(
@@ -251,6 +267,60 @@ public class FmTaskAssignmentListener implements TaskListener {
                 List.copyOf(candidates.values()),
                 resolverType,
                 objectMapper.writeValueAsString(resolutionPath));
+    }
+
+    private void applySelfApprovalPolicy(FmTaskPolicy policy, String initiatorAccount,
+            Set<String> accounts, Map<String, FmResolverCandidateView> candidates)
+            throws ServiceException {
+        if (!accounts.contains(initiatorAccount)) {
+            return;
+        }
+        switch (policy.getSelfApprovalPolicy()) {
+            case "ALLOW" -> { return; }
+            case "INCIDENT" -> throw new ServiceException(
+                    "自簽政策要求建立 Assignment Incident");
+            case "SKIP_TO_NEXT", "REQUIRE_ALTERNATE" -> {
+                accounts.remove(initiatorAccount);
+                candidates.remove(initiatorAccount);
+                if ("REQUIRE_ALTERNATE".equals(policy.getSelfApprovalPolicy())
+                        && accounts.isEmpty()) {
+                    throw new ServiceException(
+                            "自簽政策要求替代簽核人，但 Resolver 沒有其他人員");
+                }
+            }
+            default -> throw new ServiceException("不支援的自簽政策");
+        }
+    }
+
+    private void applyDuplicatePolicy(FmTaskPolicy policy, String tenantId,
+            String processInstanceId, Set<String> accounts,
+            Map<String, FmResolverCandidateView> candidates) throws ServiceException {
+        if ("KEEP_EACH_LEVEL".equals(policy.getDuplicatePolicy())) {
+            return;
+        }
+        Map<String, Object> parameters = new java.util.HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("processInstanceId", processInstanceId);
+        parameters.put("actionType", "APPROVE");
+        List<FmTaskAction> approved = taskActionService.selectListByParams(
+                parameters, "ACTION_DATE", "ASC").getValue();
+        if (approved == null || approved.isEmpty()) {
+            return;
+        }
+        Set<String> excluded = new LinkedHashSet<>();
+        if ("SKIP_ALREADY_APPROVED".equals(policy.getDuplicatePolicy())) {
+            approved.stream().map(FmTaskAction::getActorAccount)
+                    .filter(StringUtils::isNotBlank).forEach(excluded::add);
+        } else if ("MERGE_CONSECUTIVE".equals(policy.getDuplicatePolicy())) {
+            String last = approved.getLast().getActorAccount();
+            if (StringUtils.isNotBlank(last)) {
+                excluded.add(last);
+            }
+        } else {
+            throw new ServiceException("不支援的重複簽核政策");
+        }
+        accounts.removeAll(excluded);
+        excluded.forEach(candidates::remove);
     }
 
     private void applyAssignment(

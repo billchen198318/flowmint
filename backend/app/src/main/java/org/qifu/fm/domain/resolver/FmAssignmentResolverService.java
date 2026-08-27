@@ -26,6 +26,7 @@ import org.qifu.fm.entity.FmOrgUnitVersion;
 import org.qifu.fm.entity.FmOrgApprovalLevel;
 import org.qifu.fm.entity.FmOrgTitle;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
+import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmApprovalAuthorityRuleService;
@@ -38,6 +39,7 @@ import org.qifu.fm.service.IFmOrgUnitHeadService;
 import org.qifu.fm.service.IFmOrgUnitVersionService;
 import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmOrgTitleService;
+import org.qifu.fm.service.IFmTenantAccountService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,6 +64,7 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private final IFmApprovalAuthorityService approvalAuthorityService;
     private final IFmApprovalAuthorityRuleService approvalAuthorityRuleService;
     private final FmApprovalAuthorityConditionEvaluator conditionEvaluator;
+    private final IFmTenantAccountService tenantAccountService;
 
     public FmAssignmentResolverService(
             IFmEmployeeService employeeService,
@@ -77,6 +80,7 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             IFmApprovalAuthorityService approvalAuthorityService,
             IFmApprovalAuthorityRuleService approvalAuthorityRuleService,
             FmApprovalAuthorityConditionEvaluator conditionEvaluator,
+            IFmTenantAccountService tenantAccountService,
             ObjectMapper objectMapper) {
         this.employeeService = employeeService;
         this.assignmentService = assignmentService;
@@ -91,6 +95,7 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         this.approvalAuthorityService = approvalAuthorityService;
         this.approvalAuthorityRuleService = approvalAuthorityRuleService;
         this.conditionEvaluator = conditionEvaluator;
+        this.tenantAccountService = tenantAccountService;
         this.objectMapper = objectMapper;
     }
 
@@ -113,11 +118,20 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         if (initiator == null) {
             return result(rule, "NOT_FOUND", "找不到啟用中的申請人", List.of());
         }
-        FmEmployeeOrgAssignment assignment = primaryAssignment(
-                rule.getTenantId(), initiator.getEmployeeId());
-        if (assignment == null) {
+        FmEmployeeOrgAssignment assignment = requiresPrimaryAssignment(rule.getResolverType())
+                ? primaryAssignment(rule.getTenantId(), initiator.getEmployeeId()) : null;
+        if (requiresPrimaryAssignment(rule.getResolverType()) && assignment == null) {
             return result(rule, "NOT_FOUND", "申請人沒有啟用中的主要部門配置", List.of());
         }
+        Map<String, Object> safeVariables = variables == null ? Map.of() : variables;
+        FmResolverPreviewView resolved = resolveType(rule, assignment, safeVariables);
+        return "RESOLVED".equals(resolved.resultStatus())
+                ? resolved : resolveFallback(rule, initiator, resolved, safeVariables);
+    }
+
+    private FmResolverPreviewView resolveType(FmTaskAssignmentRule rule,
+            FmEmployeeOrgAssignment assignment, Map<String, Object> variables)
+            throws ServiceException {
         return switch (rule.getResolverType()) {
             case "FIXED_ACCOUNT" -> fixedAccounts(rule);
             case "APPROVAL_GROUP" -> approvalGroup(rule);
@@ -134,9 +148,9 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             case "APPROVAL_AUTHORITY" -> approvalAuthority(
                     rule,
                     assignment,
-                    variables == null ? Map.of() : variables);
+                    variables);
             case "FORM_ACCOUNT_FIELD" -> formAccountField(
-                    rule, variables == null ? Map.of() : variables);
+                    rule, variables);
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
@@ -256,6 +270,15 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         String titleId = config(rule).path("titleId").asString();
         if (StringUtils.isBlank(titleId)) {
             return result(rule, "ERROR", "尚未選擇組織職稱", List.of());
+        }
+        Map<String, Object> titleParameters = activeParameters(rule.getTenantId());
+        titleParameters.put("titleId", titleId);
+        FmOrgTitle title = orgTitleService.selectListByParams(titleParameters)
+                .getValue().stream()
+                .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
+                .findFirst().orElse(null);
+        if (title == null) {
+            return result(rule, "NOT_FOUND", "組織職稱不存在、未啟用或尚未生效", List.of());
         }
         Map<String, Object> parameters = activeParameters(rule.getTenantId());
         parameters.put("orgUnitId", orgUnitId);
@@ -433,6 +456,53 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         };
     }
 
+    private FmResolverPreviewView resolveFallback(FmTaskAssignmentRule sourceRule,
+            FmEmployee initiator, FmResolverPreviewView primaryResult,
+            Map<String, Object> variables) throws ServiceException {
+        if (StringUtils.isBlank(sourceRule.getFallbackConfig())) {
+            return primaryResult;
+        }
+        JsonNode fallback;
+        try {
+            fallback = objectMapper.readTree(sourceRule.getFallbackConfig());
+        } catch (RuntimeException exception) {
+            throw new ServiceException("Fallback Config JSON 格式錯誤");
+        }
+        if (fallback.isObject() && fallback.isEmpty()) {
+            return primaryResult;
+        }
+        String fallbackType = fallback.path("resolverType").asString();
+        JsonNode fallbackResolverConfig = fallback.path("resolverConfig");
+        if (StringUtils.isBlank(fallbackType) || !fallbackResolverConfig.isObject()) {
+            throw new ServiceException("Fallback Config 必須包含 resolverType 與 resolverConfig");
+        }
+        FmTaskAssignmentRule fallbackRule = new FmTaskAssignmentRule();
+        fallbackRule.setTenantId(sourceRule.getTenantId());
+        fallbackRule.setTaskDefKey(sourceRule.getTaskDefKey());
+        fallbackRule.setRuleSeq(sourceRule.getRuleSeq());
+        fallbackRule.setResolverType(fallbackType);
+        fallbackRule.setResolverConfig(objectMapper.writeValueAsString(fallbackResolverConfig));
+        fallbackRule.setMaxResults(sourceRule.getMaxResults());
+        FmEmployeeOrgAssignment assignment = requiresPrimaryAssignment(fallbackType)
+                ? primaryAssignment(sourceRule.getTenantId(), initiator.getEmployeeId()) : null;
+        if (requiresPrimaryAssignment(fallbackType) && assignment == null) {
+            return result(sourceRule, "NOT_FOUND",
+                    "主 Resolver 與 Fallback 均無法解析有效簽核人", List.of());
+        }
+        FmResolverPreviewView fallbackResult = resolveType(
+                fallbackRule, assignment, variables);
+        return new FmResolverPreviewView(sourceRule.getTaskDefKey(),
+                sourceRule.getRuleSeq(), sourceRule.getResolverType(),
+                fallbackResult.resultStatus(),
+                "Fallback " + fallbackType + ": " + fallbackResult.message(),
+                fallbackResult.candidates());
+    }
+
+    private boolean requiresPrimaryAssignment(String resolverType) {
+        return !Set.of("FIXED_ACCOUNT", "APPROVAL_GROUP", "FORM_ACCOUNT_FIELD")
+                .contains(resolverType);
+    }
+
     private FmResolverPreviewView formAccountField(
             FmTaskAssignmentRule rule,
             Map<String, Object> variables) throws ServiceException {
@@ -441,8 +511,7 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             return result(rule, "ERROR", "尚未選擇表單帳號欄位", List.of());
         }
         Object formValue = variables.get("form");
-        Object fieldValue = formValue instanceof Map<?, ?> form
-                ? form.get(fieldKey) : null;
+        Object fieldValue = readFormField(formValue, fieldKey);
         List<?> accounts = fieldValue instanceof List<?> values
                 ? values : fieldValue == null ? List.of() : List.of(fieldValue);
         Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
@@ -450,7 +519,10 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             if (candidates.size() >= rule.getMaxResults()) {
                 break;
             }
-            String account = value == null ? null : value.toString().trim();
+            Object accountValue = value instanceof Map<?, ?> option
+                    && option.containsKey("value") ? option.get("value") : value;
+            String account = accountValue == null
+                    ? null : accountValue.toString().trim();
             if (StringUtils.isBlank(account)) {
                 continue;
             }
@@ -466,6 +538,32 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         }
         return result(rule, "RESOLVED", "已由表單欄位「" + fieldKey + "」解析簽核人",
                 List.copyOf(candidates.values()));
+    }
+
+    private Object readFormField(Object source, String fieldKey) {
+        if (!(source instanceof Map<?, ?> form)) {
+            return null;
+        }
+        if (fieldKey.contains(".")) {
+            Object current = form;
+            for (String segment : fieldKey.split("\\.")) {
+                if (!(current instanceof Map<?, ?> currentMap)) {
+                    return null;
+                }
+                current = currentMap.get(segment);
+            }
+            return current;
+        }
+        if (form.containsKey(fieldKey)) {
+            return form.get(fieldKey);
+        }
+        for (Object nested : form.values()) {
+            Object found = readFormField(nested, fieldKey);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
     }
 
     private String levelMatchMode(JsonNode config) throws ServiceException {
@@ -714,6 +812,7 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         return employeeService.selectListByParams(parameters).getValue().stream()
                 .filter(employee -> isEffective(
                         employee.getEffectiveFrom(), employee.getEffectiveTo()))
+                .filter(employee -> hasActiveMembership(tenantId, employee.getAccount()))
                 .findFirst().orElse(null);
     }
 
@@ -724,7 +823,24 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         return employeeService.selectListByParams(parameters).getValue().stream()
                 .filter(employee -> isEffective(
                         employee.getEffectiveFrom(), employee.getEffectiveTo()))
+                .filter(employee -> hasActiveMembership(tenantId, employee.getAccount()))
                 .findFirst().orElse(null);
+    }
+
+    private boolean hasActiveMembership(String tenantId, String account) {
+        if (StringUtils.isBlank(account)) {
+            return false;
+        }
+        Map<String, Object> parameters = activeParameters(tenantId);
+        parameters.put("account", account);
+        try {
+            List<FmTenantAccount> memberships = tenantAccountService
+                    .selectListByParams(parameters).getValue();
+            return memberships != null && memberships.stream().anyMatch(value ->
+                    isEffective(value.getEffectiveFrom(), value.getEffectiveTo()));
+        } catch (ServiceException exception) {
+            return false;
+        }
     }
 
     private FmEmployeeOrgAssignment primaryAssignment(String tenantId, String employeeId)

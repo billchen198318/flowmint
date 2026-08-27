@@ -12,6 +12,11 @@ public class FmAssignmentRuleConfigValidator {
 
     private static final Set<String> LEVEL_MATCH_MODES = Set.of(
             "EXACT", "EXACT_OR_HIGHER", "UP_TO_LEVEL");
+    private static final Set<String> RESOLVER_TYPES = Set.of(
+            "FIXED_ACCOUNT", "APPROVAL_GROUP", "INITIATOR_ORG_HEAD",
+            "PARENT_ORG_HEAD", "NEXT_HIGHER_LEVEL_HEAD", "TARGET_LEVEL_HEAD",
+            "LEVEL_HEAD_CHAIN", "ROOT_ORG_HEAD", "DIRECT_MANAGER", "MANAGER_CHAIN",
+            "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD");
 
     private final ObjectMapper objectMapper;
 
@@ -38,7 +43,20 @@ public class FmAssignmentRuleConfigValidator {
             }
         }
         if (StringUtils.isNotBlank(fallbackConfig)) {
-            parseObject(fallbackConfig, "Fallback Config");
+            JsonNode fallback = parseObject(fallbackConfig, "Fallback Config");
+            if (fallback.isEmpty()) {
+                return;
+            }
+            String fallbackType = fallback.path("resolverType").asString();
+            JsonNode fallbackResolverConfig = fallback.path("resolverConfig");
+            if (!RESOLVER_TYPES.contains(fallbackType)
+                    || fallbackType.equals(resolverType)
+                    || !fallbackResolverConfig.isObject()) {
+                throw new ServiceException(
+                        "Fallback Config 必須指定不同的有效 resolverType 與 resolverConfig");
+            }
+            validate(fallbackType,
+                    objectMapper.writeValueAsString(fallbackResolverConfig), null);
         }
     }
 
