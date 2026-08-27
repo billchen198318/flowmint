@@ -14,6 +14,14 @@ class FmFormDesignValidatorTest {
     private final FmFormDesignValidator validator = new FmFormDesignValidator();
 
     @Test
+    void runtimePublishingAcceptsOnlyFormioSchema() throws Exception {
+        assertDoesNotThrow(() -> validator.validateRuntimeSchema(objectMapper.readTree(
+                "{\"display\":\"form\",\"components\":[]}")));
+        assertThrows(ServiceException.class, () -> validator.validateRuntimeSchema(
+                objectMapper.readTree("{\"type\":\"object\",\"properties\":{}}")));
+    }
+
+    @Test
     void acceptsValidNestedFormAndBinding() throws Exception {
         var schema = objectMapper.readTree("""
                 {"display":"form","components":[

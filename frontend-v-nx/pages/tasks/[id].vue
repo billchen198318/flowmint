@@ -322,9 +322,9 @@ const submitActionOnce = async () => {
         return;
       }
       try {
-        editedFormData = withoutFlowmintDisplayFields(
+        editedFormData = serializeAttachmentFields(withoutFlowmintDisplayFields(
           (await formInstance?.submit?.())?.data,
-        );
+        ));
       } catch {
         toast.warning("送出前處理後表單檢核未通過，請確認欄位內容");
         return;

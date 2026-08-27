@@ -72,6 +72,32 @@ class FmFormSubmissionValidatorTest {
     }
 
     @Test
+    void rejectsNonObjectGridRowsAndWrongGridContainerType() {
+        Map<String, Object> scalarRow = Map.of(
+                "subject", "CNC", "amount", 2500,
+                "items", List.of("not-an-object"));
+        Map<String, Object> wrongGridType = Map.of(
+                "subject", "CNC", "amount", 2500,
+                "items", "not-an-array");
+
+        assertThrows(ServiceException.class, () -> validator.validate(SCHEMA, scalarRow));
+        assertThrows(ServiceException.class, () -> validator.validate(SCHEMA, wrongGridType));
+    }
+
+    @Test
+    void rejectsNonObjectContainerValue() {
+        String schema = """
+                {"components":[
+                  {"type":"container","key":"requester","label":"申請人",
+                   "components":[{"type":"textfield","key":"account"}]}
+                ]}
+                """;
+
+        assertThrows(ServiceException.class, () -> validator.validate(
+                schema, Map.of("requester", "not-an-object")));
+    }
+
+    @Test
     void rejectsInvalidPublishedSchema() {
         assertThrows(ServiceException.class, () -> validator.validate("{}", Map.of()));
         assertThrows(ServiceException.class, () -> validator.validate("not-json", Map.of()));
