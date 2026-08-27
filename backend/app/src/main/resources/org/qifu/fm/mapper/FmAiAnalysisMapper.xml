@@ -78,35 +78,198 @@
 	</select>
 	<insert id="insert" parameterType="org.qifu.fm.entity.FmAiAnalysis">
 		INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
-			(OID, TENANT_ID, ANALYSIS_ID, PROCESS_INSTANCE_ID, TASK_ID, TASK_DEF_KEY,
-			 FORM_DATA_ID, FORM_REVISION, ACTOR_ACCOUNT, PROVIDER_CODE, PROVIDER_TYPE,
-			 MODEL_ID, CONFIG_VERSION, PROMPT_TEMPLATE_VERSION, CONTENT_HASH, GENERATION_NO,
-			 FORCE_REFRESH_FLAG, EXECUTION_STATUS, ERROR_CODE, START_DATE, COMPLETE_DATE,
-			 ELAPSED_MILLIS, INPUT_TOKENS, OUTPUT_TOKENS, RESULT_CONTENT, CUSERID, CDATE)
-		VALUES
-			(#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{analysisId,jdbcType=VARCHAR},
-			 #{processInstanceId,jdbcType=VARCHAR}, #{taskId,jdbcType=VARCHAR},
-			 #{taskDefKey,jdbcType=VARCHAR}, #{formDataId,jdbcType=VARCHAR},
-			 #{formRevision,jdbcType=INTEGER}, #{actorAccount,jdbcType=VARCHAR},
-			 #{providerCode,jdbcType=VARCHAR}, #{providerType,jdbcType=VARCHAR},
-			 #{modelId,jdbcType=VARCHAR}, #{configVersion,jdbcType=INTEGER},
-			 #{promptTemplateVersion,jdbcType=INTEGER}, #{contentHash,jdbcType=CHAR},
-			 #{generationNo,jdbcType=INTEGER}, #{forceRefreshFlag,jdbcType=CHAR},
-			 #{executionStatus,jdbcType=VARCHAR}, #{errorCode,jdbcType=VARCHAR},
-			 #{startDate,jdbcType=TIMESTAMP}, #{completeDate,jdbcType=TIMESTAMP},
-			 #{elapsedMillis,jdbcType=BIGINT}, #{inputTokens,jdbcType=INTEGER},
-			 #{outputTokens,jdbcType=INTEGER}, #{resultContent,jdbcType=LONGVARCHAR},
-			 #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="oid != null">
+				OID,
+			</if>
+			<if test="tenantId != null">
+				TENANT_ID,
+			</if>
+			<if test="analysisId != null">
+				ANALYSIS_ID,
+			</if>
+			<if test="processInstanceId != null">
+				PROCESS_INSTANCE_ID,
+			</if>
+			<if test="taskId != null">
+				TASK_ID,
+			</if>
+			<if test="taskDefKey != null">
+				TASK_DEF_KEY,
+			</if>
+			<if test="formDataId != null">
+				FORM_DATA_ID,
+			</if>
+			<if test="formRevision != null">
+				FORM_REVISION,
+			</if>
+			<if test="actorAccount != null">
+				ACTOR_ACCOUNT,
+			</if>
+			<if test="providerCode != null">
+				PROVIDER_CODE,
+			</if>
+			<if test="providerType != null">
+				PROVIDER_TYPE,
+			</if>
+			<if test="modelId != null">
+				MODEL_ID,
+			</if>
+			<if test="configVersion != null">
+				CONFIG_VERSION,
+			</if>
+			<if test="promptTemplateVersion != null">
+				PROMPT_TEMPLATE_VERSION,
+			</if>
+			<if test="contentHash != null">
+				CONTENT_HASH,
+			</if>
+			<if test="generationNo != null">
+				GENERATION_NO,
+			</if>
+			<if test="forceRefreshFlag != null">
+				FORCE_REFRESH_FLAG,
+			</if>
+			<if test="executionStatus != null">
+				EXECUTION_STATUS,
+			</if>
+			<if test="errorCode != null">
+				ERROR_CODE,
+			</if>
+			<if test="startDate != null">
+				START_DATE,
+			</if>
+			<if test="completeDate != null">
+				COMPLETE_DATE,
+			</if>
+			<if test="elapsedMillis != null">
+				ELAPSED_MILLIS,
+			</if>
+			<if test="inputTokens != null">
+				INPUT_TOKENS,
+			</if>
+			<if test="outputTokens != null">
+				OUTPUT_TOKENS,
+			</if>
+			<if test="resultContent != null">
+				RESULT_CONTENT,
+			</if>
+			<if test="cuserid != null">
+				CUSERID,
+			</if>
+			<if test="cdate != null">
+				CDATE,
+			</if>
+		</trim>
+		<trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+			<if test="oid != null">
+				#{oid,jdbcType=CHAR},
+			</if>
+			<if test="tenantId != null">
+				#{tenantId,jdbcType=VARCHAR},
+			</if>
+			<if test="analysisId != null">
+				#{analysisId,jdbcType=VARCHAR},
+			</if>
+			<if test="processInstanceId != null">
+				#{processInstanceId,jdbcType=VARCHAR},
+			</if>
+			<if test="taskId != null">
+				#{taskId,jdbcType=VARCHAR},
+			</if>
+			<if test="taskDefKey != null">
+				#{taskDefKey,jdbcType=VARCHAR},
+			</if>
+			<if test="formDataId != null">
+				#{formDataId,jdbcType=VARCHAR},
+			</if>
+			<if test="formRevision != null">
+				#{formRevision,jdbcType=INTEGER},
+			</if>
+			<if test="actorAccount != null">
+				#{actorAccount,jdbcType=VARCHAR},
+			</if>
+			<if test="providerCode != null">
+				#{providerCode,jdbcType=VARCHAR},
+			</if>
+			<if test="providerType != null">
+				#{providerType,jdbcType=VARCHAR},
+			</if>
+			<if test="modelId != null">
+				#{modelId,jdbcType=VARCHAR},
+			</if>
+			<if test="configVersion != null">
+				#{configVersion,jdbcType=INTEGER},
+			</if>
+			<if test="promptTemplateVersion != null">
+				#{promptTemplateVersion,jdbcType=INTEGER},
+			</if>
+			<if test="contentHash != null">
+				#{contentHash,jdbcType=CHAR},
+			</if>
+			<if test="generationNo != null">
+				#{generationNo,jdbcType=INTEGER},
+			</if>
+			<if test="forceRefreshFlag != null">
+				#{forceRefreshFlag,jdbcType=CHAR},
+			</if>
+			<if test="executionStatus != null">
+				#{executionStatus,jdbcType=VARCHAR},
+			</if>
+			<if test="errorCode != null">
+				#{errorCode,jdbcType=VARCHAR},
+			</if>
+			<if test="startDate != null">
+				#{startDate,jdbcType=TIMESTAMP},
+			</if>
+			<if test="completeDate != null">
+				#{completeDate,jdbcType=TIMESTAMP},
+			</if>
+			<if test="elapsedMillis != null">
+				#{elapsedMillis,jdbcType=BIGINT},
+			</if>
+			<if test="inputTokens != null">
+				#{inputTokens,jdbcType=INTEGER},
+			</if>
+			<if test="outputTokens != null">
+				#{outputTokens,jdbcType=INTEGER},
+			</if>
+			<if test="resultContent != null">
+				#{resultContent,jdbcType=LONGVARCHAR},
+			</if>
+			<if test="cuserid != null">
+				#{cuserid,jdbcType=VARCHAR},
+			</if>
+			<if test="cdate != null">
+				#{cdate,jdbcType=TIMESTAMP},
+			</if>
+		</trim>
 	</insert>
 	<update id="update" parameterType="org.qifu.fm.entity.FmAiAnalysis">
 		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
-		   SET EXECUTION_STATUS = #{executionStatus,jdbcType=VARCHAR},
-		       ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
-		       COMPLETE_DATE = #{completeDate,jdbcType=TIMESTAMP},
-		       ELAPSED_MILLIS = #{elapsedMillis,jdbcType=BIGINT},
-		       INPUT_TOKENS = #{inputTokens,jdbcType=INTEGER},
-		       OUTPUT_TOKENS = #{outputTokens,jdbcType=INTEGER},
-		       RESULT_CONTENT = #{resultContent,jdbcType=LONGVARCHAR}
+		<set>
+			<if test="executionStatus != null">
+				EXECUTION_STATUS = #{executionStatus,jdbcType=VARCHAR},
+			</if>
+			<if test="errorCode != null">
+				ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
+			</if>
+			<if test="completeDate != null">
+				COMPLETE_DATE = #{completeDate,jdbcType=TIMESTAMP},
+			</if>
+			<if test="elapsedMillis != null">
+				ELAPSED_MILLIS = #{elapsedMillis,jdbcType=BIGINT},
+			</if>
+			<if test="inputTokens != null">
+				INPUT_TOKENS = #{inputTokens,jdbcType=INTEGER},
+			</if>
+			<if test="outputTokens != null">
+				OUTPUT_TOKENS = #{outputTokens,jdbcType=INTEGER},
+			</if>
+			<if test="resultContent != null">
+				RESULT_CONTENT = #{resultContent,jdbcType=LONGVARCHAR},
+			</if>
+		</set>
 		 WHERE OID = #{oid,jdbcType=CHAR}
 		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
 		   AND EXECUTION_STATUS IN ('PENDING', 'RUNNING')

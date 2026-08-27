@@ -60,19 +60,90 @@
 	</select>
 	<insert id="insert" parameterType="org.qifu.fm.entity.FmAiAnalysisAccess">
 		INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
-			(OID, TENANT_ID, ACCESS_ID, ANALYSIS_ID, TASK_ID, ACTOR_ACCOUNT,
-			 ACCESS_TYPE, RESULT_STATUS, ERROR_CODE, REQUEST_DATE, CUSERID, CDATE)
-		VALUES
-			(#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR},
-			 #{accessId,jdbcType=VARCHAR}, #{analysisId,jdbcType=VARCHAR},
-			 #{taskId,jdbcType=VARCHAR}, #{actorAccount,jdbcType=VARCHAR},
-			 #{accessType,jdbcType=VARCHAR}, #{resultStatus,jdbcType=VARCHAR},
-			 #{errorCode,jdbcType=VARCHAR}, #{requestDate,jdbcType=TIMESTAMP},
-			 #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="oid != null">
+				OID,
+			</if>
+			<if test="tenantId != null">
+				TENANT_ID,
+			</if>
+			<if test="accessId != null">
+				ACCESS_ID,
+			</if>
+			<if test="analysisId != null">
+				ANALYSIS_ID,
+			</if>
+			<if test="taskId != null">
+				TASK_ID,
+			</if>
+			<if test="actorAccount != null">
+				ACTOR_ACCOUNT,
+			</if>
+			<if test="accessType != null">
+				ACCESS_TYPE,
+			</if>
+			<if test="resultStatus != null">
+				RESULT_STATUS,
+			</if>
+			<if test="errorCode != null">
+				ERROR_CODE,
+			</if>
+			<if test="requestDate != null">
+				REQUEST_DATE,
+			</if>
+			<if test="cuserid != null">
+				CUSERID,
+			</if>
+			<if test="cdate != null">
+				CDATE,
+			</if>
+		</trim>
+		<trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+			<if test="oid != null">
+				#{oid,jdbcType=CHAR},
+			</if>
+			<if test="tenantId != null">
+				#{tenantId,jdbcType=VARCHAR},
+			</if>
+			<if test="accessId != null">
+				#{accessId,jdbcType=VARCHAR},
+			</if>
+			<if test="analysisId != null">
+				#{analysisId,jdbcType=VARCHAR},
+			</if>
+			<if test="taskId != null">
+				#{taskId,jdbcType=VARCHAR},
+			</if>
+			<if test="actorAccount != null">
+				#{actorAccount,jdbcType=VARCHAR},
+			</if>
+			<if test="accessType != null">
+				#{accessType,jdbcType=VARCHAR},
+			</if>
+			<if test="resultStatus != null">
+				#{resultStatus,jdbcType=VARCHAR},
+			</if>
+			<if test="errorCode != null">
+				#{errorCode,jdbcType=VARCHAR},
+			</if>
+			<if test="requestDate != null">
+				#{requestDate,jdbcType=TIMESTAMP},
+			</if>
+			<if test="cuserid != null">
+				#{cuserid,jdbcType=VARCHAR},
+			</if>
+			<if test="cdate != null">
+				#{cdate,jdbcType=TIMESTAMP},
+			</if>
+		</trim>
 	</insert>
 	<update id="update" parameterType="org.qifu.fm.entity.FmAiAnalysisAccess">
 		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
-		   SET ERROR_CODE = #{errorCode,jdbcType=VARCHAR}
+		<set>
+			<if test="errorCode != null">
+				ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
+			</if>
+		</set>
 		 WHERE OID = #{oid,jdbcType=CHAR}
 		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
 	</update>
