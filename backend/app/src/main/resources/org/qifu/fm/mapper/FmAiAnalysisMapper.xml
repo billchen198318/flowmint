@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmAiAnalysisMapper">
+	<resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmAiAnalysis">
+		<id column="OID" jdbcType="CHAR" property="oid" />
+		<result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+		<result column="ANALYSIS_ID" jdbcType="VARCHAR" property="analysisId" />
+		<result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId" />
+		<result column="TASK_ID" jdbcType="VARCHAR" property="taskId" />
+		<result column="TASK_DEF_KEY" jdbcType="VARCHAR" property="taskDefKey" />
+		<result column="FORM_DATA_ID" jdbcType="VARCHAR" property="formDataId" />
+		<result column="FORM_REVISION" jdbcType="INTEGER" property="formRevision" />
+		<result column="ACTOR_ACCOUNT" jdbcType="VARCHAR" property="actorAccount" />
+		<result column="PROVIDER_CODE" jdbcType="VARCHAR" property="providerCode" />
+		<result column="PROVIDER_TYPE" jdbcType="VARCHAR" property="providerType" />
+		<result column="MODEL_ID" jdbcType="VARCHAR" property="modelId" />
+		<result column="CONFIG_VERSION" jdbcType="INTEGER" property="configVersion" />
+		<result column="PROMPT_TEMPLATE_VERSION" jdbcType="INTEGER" property="promptTemplateVersion" />
+		<result column="CONTENT_HASH" jdbcType="CHAR" property="contentHash" />
+		<result column="GENERATION_NO" jdbcType="INTEGER" property="generationNo" />
+		<result column="FORCE_REFRESH_FLAG" jdbcType="CHAR" property="forceRefreshFlag" />
+		<result column="EXECUTION_STATUS" jdbcType="VARCHAR" property="executionStatus" />
+		<result column="ERROR_CODE" jdbcType="VARCHAR" property="errorCode" />
+		<result column="START_DATE" jdbcType="TIMESTAMP" property="startDate" />
+		<result column="COMPLETE_DATE" jdbcType="TIMESTAMP" property="completeDate" />
+		<result column="ELAPSED_MILLIS" jdbcType="BIGINT" property="elapsedMillis" />
+		<result column="INPUT_TOKENS" jdbcType="INTEGER" property="inputTokens" />
+		<result column="OUTPUT_TOKENS" jdbcType="INTEGER" property="outputTokens" />
+		<result column="RESULT_CONTENT" jdbcType="LONGVARCHAR" property="resultContent" />
+		<result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+		<result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+	</resultMap>
+	<sql id="BaseColumnList">
+		OID, TENANT_ID, ANALYSIS_ID, PROCESS_INSTANCE_ID, TASK_ID, TASK_DEF_KEY,
+		FORM_DATA_ID, FORM_REVISION, ACTOR_ACCOUNT, PROVIDER_CODE, PROVIDER_TYPE,
+		MODEL_ID, CONFIG_VERSION, PROMPT_TEMPLATE_VERSION, CONTENT_HASH, GENERATION_NO,
+		FORCE_REFRESH_FLAG, EXECUTION_STATUS, ERROR_CODE, START_DATE, COMPLETE_DATE,
+		ELAPSED_MILLIS, INPUT_TOKENS, OUTPUT_TOKENS, RESULT_CONTENT, CUSERID, CDATE
+	</sql>
+	<sql id="baseConditions">
+		<if test="tenantId != null and tenantId != ''">
+			AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		</if>
+		<if test="analysisId != null and analysisId != ''">
+			AND ANALYSIS_ID = #{analysisId,jdbcType=VARCHAR}
+		</if>
+		<if test="taskId != null and taskId != ''">
+			AND TASK_ID = #{taskId,jdbcType=VARCHAR}
+		</if>
+		<if test="contentHash != null and contentHash != ''">
+			AND CONTENT_HASH = #{contentHash,jdbcType=CHAR}
+		</if>
+	</sql>
+	<select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		 WHERE OID = #{oid,jdbcType=CHAR}
+	</select>
+	<select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		 WHERE 1 = 1 <include refid="baseConditions" />
+		<if test="orderBy != null and orderBy != ''">
+			ORDER BY ${orderBy} ${sortType}
+		</if>
+	</select>
+	<select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+		<include refid="org.qifu.core.mapper.DB1Config.sql1" />
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		 WHERE 1 = 1 <include refid="baseConditions" />
+		<include refid="org.qifu.core.mapper.DB1Config.sql2" />
+	</select>
+	<select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+		SELECT COUNT(*)
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		 WHERE 1 = 1 <include refid="baseConditions" />
+	</select>
+	<insert id="insert" parameterType="org.qifu.fm.entity.FmAiAnalysis">
+		INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+			(OID, TENANT_ID, ANALYSIS_ID, PROCESS_INSTANCE_ID, TASK_ID, TASK_DEF_KEY,
+			 FORM_DATA_ID, FORM_REVISION, ACTOR_ACCOUNT, PROVIDER_CODE, PROVIDER_TYPE,
+			 MODEL_ID, CONFIG_VERSION, PROMPT_TEMPLATE_VERSION, CONTENT_HASH, GENERATION_NO,
+			 FORCE_REFRESH_FLAG, EXECUTION_STATUS, ERROR_CODE, START_DATE, COMPLETE_DATE,
+			 ELAPSED_MILLIS, INPUT_TOKENS, OUTPUT_TOKENS, RESULT_CONTENT, CUSERID, CDATE)
+		VALUES
+			(#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{analysisId,jdbcType=VARCHAR},
+			 #{processInstanceId,jdbcType=VARCHAR}, #{taskId,jdbcType=VARCHAR},
+			 #{taskDefKey,jdbcType=VARCHAR}, #{formDataId,jdbcType=VARCHAR},
+			 #{formRevision,jdbcType=INTEGER}, #{actorAccount,jdbcType=VARCHAR},
+			 #{providerCode,jdbcType=VARCHAR}, #{providerType,jdbcType=VARCHAR},
+			 #{modelId,jdbcType=VARCHAR}, #{configVersion,jdbcType=INTEGER},
+			 #{promptTemplateVersion,jdbcType=INTEGER}, #{contentHash,jdbcType=CHAR},
+			 #{generationNo,jdbcType=INTEGER}, #{forceRefreshFlag,jdbcType=CHAR},
+			 #{executionStatus,jdbcType=VARCHAR}, #{errorCode,jdbcType=VARCHAR},
+			 #{startDate,jdbcType=TIMESTAMP}, #{completeDate,jdbcType=TIMESTAMP},
+			 #{elapsedMillis,jdbcType=BIGINT}, #{inputTokens,jdbcType=INTEGER},
+			 #{outputTokens,jdbcType=INTEGER}, #{resultContent,jdbcType=LONGVARCHAR},
+			 #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+	</insert>
+	<update id="update" parameterType="org.qifu.fm.entity.FmAiAnalysis">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		   SET EXECUTION_STATUS = #{executionStatus,jdbcType=VARCHAR},
+		       ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
+		       COMPLETE_DATE = #{completeDate,jdbcType=TIMESTAMP},
+		       ELAPSED_MILLIS = #{elapsedMillis,jdbcType=BIGINT},
+		       INPUT_TOKENS = #{inputTokens,jdbcType=INTEGER},
+		       OUTPUT_TOKENS = #{outputTokens,jdbcType=INTEGER},
+		       RESULT_CONTENT = #{resultContent,jdbcType=LONGVARCHAR}
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND EXECUTION_STATUS IN ('PENDING', 'RUNNING')
+	</update>
+	<delete id="delete" parameterType="org.qifu.fm.entity.FmAiAnalysis">
+		DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+	</delete>
+	<select id="findLatestSucceeded" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		 WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND CONTENT_HASH = #{contentHash,jdbcType=CHAR}
+		   AND EXECUTION_STATUS = 'SUCCEEDED'
+		 ORDER BY GENERATION_NO DESC
+		 LIMIT 1
+	</select>
+	<select id="findNextGenerationNo" parameterType="java.util.HashMap" resultType="java.lang.Integer">
+		SELECT COALESCE(MAX(GENERATION_NO), 0) + 1
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		 WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND CONTENT_HASH = #{contentHash,jdbcType=CHAR}
+	</select>
+	<update id="complete" parameterType="java.util.HashMap">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		   SET EXECUTION_STATUS = 'SUCCEEDED', ERROR_CODE = NULL,
+		       COMPLETE_DATE = #{completeDate,jdbcType=TIMESTAMP},
+		       ELAPSED_MILLIS = #{elapsedMillis,jdbcType=BIGINT},
+		       INPUT_TOKENS = #{inputTokens,jdbcType=INTEGER},
+		       OUTPUT_TOKENS = #{outputTokens,jdbcType=INTEGER},
+		       RESULT_CONTENT = #{resultContent,jdbcType=LONGVARCHAR}
+		 WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND ANALYSIS_ID = #{analysisId,jdbcType=VARCHAR}
+		   AND EXECUTION_STATUS IN ('PENDING', 'RUNNING')
+	</update>
+	<update id="fail" parameterType="java.util.HashMap">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis
+		   SET EXECUTION_STATUS = 'FAILED', ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
+		       COMPLETE_DATE = #{completeDate,jdbcType=TIMESTAMP},
+		       ELAPSED_MILLIS = #{elapsedMillis,jdbcType=BIGINT}
+		 WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND ANALYSIS_ID = #{analysisId,jdbcType=VARCHAR}
+		   AND EXECUTION_STATUS IN ('PENDING', 'RUNNING')
+	</update>
+</mapper>

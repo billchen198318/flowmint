@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmAiAnalysisAccessMapper">
+	<resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmAiAnalysisAccess">
+		<id column="OID" jdbcType="CHAR" property="oid" />
+		<result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+		<result column="ACCESS_ID" jdbcType="VARCHAR" property="accessId" />
+		<result column="ANALYSIS_ID" jdbcType="VARCHAR" property="analysisId" />
+		<result column="TASK_ID" jdbcType="VARCHAR" property="taskId" />
+		<result column="ACTOR_ACCOUNT" jdbcType="VARCHAR" property="actorAccount" />
+		<result column="ACCESS_TYPE" jdbcType="VARCHAR" property="accessType" />
+		<result column="RESULT_STATUS" jdbcType="VARCHAR" property="resultStatus" />
+		<result column="ERROR_CODE" jdbcType="VARCHAR" property="errorCode" />
+		<result column="REQUEST_DATE" jdbcType="TIMESTAMP" property="requestDate" />
+		<result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+		<result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+	</resultMap>
+	<sql id="BaseColumnList">
+		OID, TENANT_ID, ACCESS_ID, ANALYSIS_ID, TASK_ID, ACTOR_ACCOUNT,
+		ACCESS_TYPE, RESULT_STATUS, ERROR_CODE, REQUEST_DATE, CUSERID, CDATE
+	</sql>
+	<sql id="baseConditions">
+		<if test="tenantId != null and tenantId != ''">
+			AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		</if>
+		<if test="analysisId != null and analysisId != ''">
+			AND ANALYSIS_ID = #{analysisId,jdbcType=VARCHAR}
+		</if>
+		<if test="taskId != null and taskId != ''">
+			AND TASK_ID = #{taskId,jdbcType=VARCHAR}
+		</if>
+		<if test="actorAccount != null and actorAccount != ''">
+			AND ACTOR_ACCOUNT = #{actorAccount,jdbcType=VARCHAR}
+		</if>
+	</sql>
+	<select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
+		 WHERE OID = #{oid,jdbcType=CHAR}
+	</select>
+	<select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
+		 WHERE 1 = 1 <include refid="baseConditions" />
+		<if test="orderBy != null and orderBy != ''">
+			ORDER BY ${orderBy} ${sortType}
+		</if>
+	</select>
+	<select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+		<include refid="org.qifu.core.mapper.DB1Config.sql1" />
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
+		 WHERE 1 = 1 <include refid="baseConditions" />
+		<include refid="org.qifu.core.mapper.DB1Config.sql2" />
+	</select>
+	<select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+		SELECT COUNT(*)
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
+		 WHERE 1 = 1 <include refid="baseConditions" />
+	</select>
+	<insert id="insert" parameterType="org.qifu.fm.entity.FmAiAnalysisAccess">
+		INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
+			(OID, TENANT_ID, ACCESS_ID, ANALYSIS_ID, TASK_ID, ACTOR_ACCOUNT,
+			 ACCESS_TYPE, RESULT_STATUS, ERROR_CODE, REQUEST_DATE, CUSERID, CDATE)
+		VALUES
+			(#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR},
+			 #{accessId,jdbcType=VARCHAR}, #{analysisId,jdbcType=VARCHAR},
+			 #{taskId,jdbcType=VARCHAR}, #{actorAccount,jdbcType=VARCHAR},
+			 #{accessType,jdbcType=VARCHAR}, #{resultStatus,jdbcType=VARCHAR},
+			 #{errorCode,jdbcType=VARCHAR}, #{requestDate,jdbcType=TIMESTAMP},
+			 #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+	</insert>
+	<update id="update" parameterType="org.qifu.fm.entity.FmAiAnalysisAccess">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
+		   SET ERROR_CODE = #{errorCode,jdbcType=VARCHAR}
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+	</update>
+	<delete id="delete" parameterType="org.qifu.fm.entity.FmAiAnalysisAccess">
+		DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_analysis_access
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+	</delete>
+</mapper>
