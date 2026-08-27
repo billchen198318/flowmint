@@ -67,6 +67,18 @@ class FmBpmnDesignValidatorTest {
                 """), "TEST_PROCESS"));
     }
 
+    @Test
+    void rejectsConditionOnParallelGatewayOutgoingFlow() {
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <parallelGateway id="parallel" />
+                <userTask id="approval" />
+                <sequenceFlow id="flow_conditional" sourceRef="parallel" targetRef="approval">
+                  <conditionExpression xsi:type="tFormalExpression">${flowmintFormData.totalAmountTwd &gt; 300000}</conditionExpression>
+                </sequenceFlow>
+                <sequenceFlow id="flow_end" sourceRef="parallel" targetRef="end" />
+                """), "TEST_PROCESS"));
+    }
+
     private String process(String body) {
         return process(body, "");
     }

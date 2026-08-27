@@ -586,15 +586,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             String account,
             Date now) throws ServiceException {
         if ("APPROVE".equals(request.actionType())) {
-            taskService.complete(task.getId());
-            boolean running = runtimeService.createProcessInstanceQuery()
-                    .processInstanceId(process.getProcessInstanceId()).singleResult() != null;
-            if (running) {
-                return "RUNNING";
-            }
-            transitionProcess(process, "COMPLETED", now, account);
-            updateFormStatus(formData, "COMPLETED", account, now);
-            return "COMPLETED";
+            return completeTask(task, process, formData, account, now);
         }
         if ("REJECT".equals(request.actionType())) {
             runtimeService.deleteProcessInstance(
@@ -604,8 +596,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             return "REJECTED";
         }
         if ("RESUBMIT".equals(request.actionType())) {
-            taskService.complete(task.getId());
-            return "RUNNING";
+            return completeTask(task, process, formData, account, now);
         }
         runtimeService.createChangeActivityStateBuilder()
                 .processInstanceId(process.getProcessInstanceId())
@@ -614,6 +605,19 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 .changeState();
         updateFormStatus(formData, "RETURNED", account, now);
         return "RUNNING";
+    }
+
+    String completeTask(Task task, FmProcessInstance process,
+            FmFormData formData, String account, Date now) {
+        taskService.complete(task.getId());
+        boolean running = runtimeService.createProcessInstanceQuery()
+                .processInstanceId(process.getProcessInstanceId()).singleResult() != null;
+        if (running) {
+            return "RUNNING";
+        }
+        transitionProcess(process, "COMPLETED", now, account);
+        updateFormStatus(formData, "COMPLETED", account, now);
+        return "COMPLETED";
     }
 
     private void validateActionRequest(FmTaskActionRequest request)
@@ -658,7 +662,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                     .stream().anyMatch(value -> value.taskDefKey()
                             .equals(request.targetTaskDefKey()));
             if (!validTarget) {
-                throw new ServiceException("退回目標不是已完成的前置 User Task");
+                throw new ServiceException("退回目標不是此流程版本的申請人補件節點");
             }
         }
     }
