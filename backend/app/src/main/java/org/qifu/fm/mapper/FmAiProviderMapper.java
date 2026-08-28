@@ -21,11 +21,24 @@
  */
 package org.qifu.fm.mapper;
 
+import java.util.Date;
+import java.util.List;
+
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 import org.qifu.base.mapper.IBaseMapper;
 import org.qifu.fm.entity.FmAiProvider;
 
 @Mapper
 public interface FmAiProviderMapper extends IBaseMapper<FmAiProvider, String> {
 
+	public List<String> lockByTenant(@Param("tenantId") String tenantId);
+
+	public int updateTestStatus(@Param("oid") String oid,
+			@Param("tenantId") String tenantId,
+			@Param("lastTestStatus") String lastTestStatus,
+			@Param("lastTestDate") Date lastTestDate,
+			@Param("lockVersion") Integer lockVersion,
+			@Param("uuserid") String uuserid,
+			@Param("udate") Date udate);
 }

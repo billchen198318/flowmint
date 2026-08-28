@@ -12,6 +12,7 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
+import org.qifu.core.util.UserUtils;
 import org.qifu.fm.domain.ai.FmAiApiKeyCipher;
 import org.qifu.fm.domain.ai.FmAiProviderCatalog;
 import org.qifu.fm.domain.ai.FmAiProviderConfig;
@@ -62,7 +63,7 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 		apply(provider, command, true);
 		clearOtherDefaults(provider);
 		providerService.insert(provider);
-		return success(view(provider), BaseSystemMessage.insertSuccess());
+		return success(view(required(provider.getOid())), BaseSystemMessage.insertSuccess());
 	}
 
 	@Override
@@ -88,7 +89,7 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 		apply(provider, command, false);
 		clearOtherDefaults(provider);
 		providerService.update(provider);
-		return success(view(provider), BaseSystemMessage.updateSuccess());
+		return success(view(required(provider.getOid())), BaseSystemMessage.updateSuccess());
 	}
 
 	@Override
@@ -98,7 +99,7 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 		provider.setStatus("INACTIVE");
 		provider.setDefaultFlag("N");
 		providerService.update(provider);
-		return success(view(provider), BaseSystemMessage.updateSuccess());
+		return success(view(required(provider.getOid())), BaseSystemMessage.updateSuccess());
 	}
 
 	@Override
@@ -115,18 +116,17 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 					provider.getTimeoutSeconds()));
 			provider.setLastTestStatus("SUCCESS");
 		} catch (ServiceException exception) {
-			provider.setLastTestStatus("FAILED");
-			provider.setLastTestDate(new Date());
-			providerService.update(provider);
+			Date testedAt = new Date();
+			providerService.updateTestStatus(provider, "FAILED", testedAt);
 			DefaultResult<FmAiProviderView> result = new DefaultResult<>();
 			result.setSuccess(YesNoKeyProvide.NO);
-			result.setValue(view(provider));
+			result.setValue(view(required(provider.getOid())));
 			result.setMessage(exception.getMessage());
 			return result;
 		}
-		provider.setLastTestDate(new Date());
-		providerService.update(provider);
-		return success(view(provider), "AI Provider 連線測試成功");
+		providerService.updateTestStatus(provider, "SUCCESS", new Date());
+		return success(view(required(provider.getOid())),
+				"AI Provider 連線測試成功");
 	}
 
 	@Override
@@ -149,9 +149,16 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 		parameters.put("status", "ACTIVE");
 		DefaultResult<List<FmOptionView>> result = new DefaultResult<>();
 		result.setSuccess(YesNoKeyProvide.YES);
-		result.setValue(tenantService
+		var tenants = tenantService
 				.selectListByParams(parameters, "TENANT_CODE", "ASC")
-				.getValue().stream()
+				.getValue();
+		if (!UserUtils.isAdmin()) {
+			var accessibleTenantIds = tenantAccessGuard.accessibleTenantIds();
+			tenants = tenants.stream()
+					.filter(tenant -> accessibleTenantIds.contains(tenant.getTenantId()))
+					.toList();
+		}
+		result.setValue(tenants.stream()
 				.map(tenant -> new FmOptionView(tenant.getTenantId(),
 						tenant.getTenantCode() + " / " + tenant.getTenantName()))
 				.toList());
@@ -210,6 +217,7 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 		if (!"Y".equals(provider.getDefaultFlag())) {
 			return;
 		}
+		providerService.lockByTenant(provider.getTenantId());
 		Map<String, Object> parameters = new HashMap<>();
 		parameters.put("tenantId", provider.getTenantId());
 		for (FmAiProvider current : providerService.selectListByParams(parameters).getValue()) {

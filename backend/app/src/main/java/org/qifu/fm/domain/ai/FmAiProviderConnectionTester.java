@@ -1,7 +1,6 @@
 package org.qifu.fm.domain.ai;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -14,8 +13,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class FmAiProviderConnectionTester {
 
-	private static final int MAX_RESPONSE_BYTES = 64 * 1024;
-
 	public void test(FmAiProviderConfig config) throws ServiceException {
 		FmAiProviderCatalog.requireBaseUrl(config.providerType(), config.baseUrl());
 		HttpRequest request = request(config);
@@ -24,13 +21,8 @@ public class FmAiProviderConnectionTester {
 				.followRedirects(HttpClient.Redirect.NEVER)
 				.build();
 		try {
-			HttpResponse<InputStream> response = client.send(request,
-					HttpResponse.BodyHandlers.ofInputStream());
-			try (InputStream body = response.body()) {
-				if (body.readNBytes(MAX_RESPONSE_BYTES + 1).length > MAX_RESPONSE_BYTES) {
-					throw new ServiceException("AI Provider 回應超過安全上限");
-				}
-			}
+			HttpResponse<Void> response = client.send(request,
+					HttpResponse.BodyHandlers.discarding());
 			if (response.statusCode() < 200 || response.statusCode() >= 300) {
 				throw new ServiceException("AI Provider 連線測試失敗，HTTP "
 						+ response.statusCode());

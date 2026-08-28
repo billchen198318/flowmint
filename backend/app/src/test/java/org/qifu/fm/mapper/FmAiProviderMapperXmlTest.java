@@ -25,6 +25,8 @@ class FmAiProviderMapperXmlTest {
 		assertTrue(configuration.hasStatement(namespace + "insert"));
 		assertTrue(configuration.hasStatement(namespace + "update"));
 		assertTrue(configuration.hasStatement(namespace + "delete"));
+		assertTrue(configuration.hasStatement(namespace + "lockByTenant"));
+		assertTrue(configuration.hasStatement(namespace + "updateTestStatus"));
 	}
 
 	private void parse(Configuration configuration, String resource) throws Exception {

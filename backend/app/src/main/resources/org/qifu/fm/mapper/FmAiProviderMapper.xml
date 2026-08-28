@@ -268,4 +268,23 @@
 		 WHERE OID = #{oid,jdbcType=CHAR}
 		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
 	</delete>
+
+	<select id="lockByTenant" resultType="java.lang.String">
+		SELECT OID
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		 WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		 FOR UPDATE
+	</select>
+
+	<update id="updateTestStatus">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		   SET LAST_TEST_STATUS = #{lastTestStatus,jdbcType=VARCHAR},
+		       LAST_TEST_DATE = #{lastTestDate,jdbcType=TIMESTAMP},
+		       LOCK_VERSION = LOCK_VERSION + 1,
+		       UUSERID = #{uuserid,jdbcType=VARCHAR},
+		       UDATE = #{udate,jdbcType=TIMESTAMP}
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+	</update>
 </mapper>
