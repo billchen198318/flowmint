@@ -11,11 +11,11 @@ import org.qifu.fm.dto.view.FmTaskActionView;
 import org.qifu.fm.dto.view.FmTaskDetailView;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class FmAiContextBuilder {
@@ -143,7 +143,7 @@ public class FmAiContextBuilder {
 		}
 		if (value.isObject()) {
 			ObjectNode result = objectMapper.createObjectNode();
-			Iterator<Map.Entry<String, JsonNode>> fields = value.fields();
+			Iterator<Map.Entry<String, JsonNode>> fields = value.properties().iterator();
 			while (fields.hasNext()) {
 				Map.Entry<String, JsonNode> field = fields.next();
 				if (!SENSITIVE_KEY_PARTS.stream().anyMatch(
@@ -163,7 +163,7 @@ public class FmAiContextBuilder {
 				throw new ServiceException("AI Context 表單 Schema 無效");
 			}
 			return schema;
-		} catch (JsonProcessingException exception) {
+		} catch (JacksonException exception) {
 			throw new ServiceException("AI Context 表單 Schema 無效");
 		}
 	}

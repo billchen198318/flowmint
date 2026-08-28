@@ -11,8 +11,8 @@ import java.net.http.HttpRequest;
 import org.junit.jupiter.api.Test;
 import org.qifu.base.exception.ServiceException;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 class FmOpenAiProviderClientTest {
 
@@ -54,7 +54,7 @@ class FmOpenAiProviderClientTest {
 		JsonNode content = objectMapper.createObjectNode()
 				.put("type", "output_text")
 				.put("text", result);
-		((com.fasterxml.jackson.databind.node.ObjectNode) response)
+		((tools.jackson.databind.node.ObjectNode) response)
 				.putArray("output").addObject().putArray("content").add(content);
 
 		FmAiAnalysisResponse parsed = client.parseResponse(response.toString());

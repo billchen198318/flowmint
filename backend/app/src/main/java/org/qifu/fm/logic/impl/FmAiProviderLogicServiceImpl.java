@@ -1,7 +1,9 @@
 package org.qifu.fm.logic.impl;
 
 import java.math.BigDecimal;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -12,12 +14,16 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.fm.domain.ai.FmAiApiKeyCipher;
 import org.qifu.fm.domain.ai.FmAiProviderCatalog;
+import org.qifu.fm.domain.ai.FmAiProviderConfig;
+import org.qifu.fm.domain.ai.FmAiProviderConnectionTester;
 import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmAiProviderCommand;
 import org.qifu.fm.dto.view.FmAiProviderView;
+import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmAiProvider;
 import org.qifu.fm.logic.IFmAiProviderLogicService;
 import org.qifu.fm.service.IFmAiProviderService;
+import org.qifu.fm.service.IFmTenantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,12 +34,18 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 	private final IFmAiProviderService providerService;
 	private final FmAiApiKeyCipher apiKeyCipher;
 	private final FmTenantAccessGuard tenantAccessGuard;
+	private final IFmTenantService tenantService;
+	private final FmAiProviderConnectionTester connectionTester;
 
 	public FmAiProviderLogicServiceImpl(IFmAiProviderService providerService,
-			FmAiApiKeyCipher apiKeyCipher, FmTenantAccessGuard tenantAccessGuard) {
+			FmAiApiKeyCipher apiKeyCipher, FmTenantAccessGuard tenantAccessGuard,
+			IFmTenantService tenantService,
+			FmAiProviderConnectionTester connectionTester) {
 		this.providerService = providerService;
 		this.apiKeyCipher = apiKeyCipher;
 		this.tenantAccessGuard = tenantAccessGuard;
+		this.tenantService = tenantService;
+		this.connectionTester = connectionTester;
 	}
 
 	@Override
@@ -90,6 +102,34 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 	}
 
 	@Override
+	@Transactional(readOnly = false, rollbackFor = Exception.class)
+	public DefaultResult<FmAiProviderView> testConnection(String oid)
+			throws ServiceException {
+		FmAiProvider provider = required(oid);
+		String apiKey = apiKeyCipher.decrypt(provider.getApiKeyContent());
+		try {
+			connectionTester.test(new FmAiProviderConfig(provider.getProviderCode(),
+					provider.getProviderType(), provider.getBaseUrl(),
+					provider.getModelId(), apiKey,
+					provider.getTemperature(), provider.getMaxOutputTokens(),
+					provider.getTimeoutSeconds()));
+			provider.setLastTestStatus("SUCCESS");
+		} catch (ServiceException exception) {
+			provider.setLastTestStatus("FAILED");
+			provider.setLastTestDate(new Date());
+			providerService.update(provider);
+			DefaultResult<FmAiProviderView> result = new DefaultResult<>();
+			result.setSuccess(YesNoKeyProvide.NO);
+			result.setValue(view(provider));
+			result.setMessage(exception.getMessage());
+			return result;
+		}
+		provider.setLastTestDate(new Date());
+		providerService.update(provider);
+		return success(view(provider), "AI Provider 連線測試成功");
+	}
+
+	@Override
 	public FmAiProviderView view(FmAiProvider provider) throws ServiceException {
 		boolean configured = StringUtils.isNotBlank(provider.getApiKeyContent());
 		return new FmAiProviderView(provider.getOid(), provider.getTenantId(),
@@ -101,6 +141,21 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 				provider.getConfigVersion(), provider.getStatus(),
 				provider.getLastTestStatus(), provider.getLastTestDate(),
 				provider.getLockVersion());
+	}
+
+	@Override
+	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("status", "ACTIVE");
+		DefaultResult<List<FmOptionView>> result = new DefaultResult<>();
+		result.setSuccess(YesNoKeyProvide.YES);
+		result.setValue(tenantService
+				.selectListByParams(parameters, "TENANT_CODE", "ASC")
+				.getValue().stream()
+				.map(tenant -> new FmOptionView(tenant.getTenantId(),
+						tenant.getTenantCode() + " / " + tenant.getTenantName()))
+				.toList());
+		return result;
 	}
 
 	private void validate(FmAiProviderCommand command, boolean apiKeyRequired)

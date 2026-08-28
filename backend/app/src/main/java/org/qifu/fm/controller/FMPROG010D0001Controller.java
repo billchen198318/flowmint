@@ -11,6 +11,7 @@ import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmAiProviderCommand;
 import org.qifu.fm.dto.view.FmAiProviderView;
+import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmAiProvider;
 import org.qifu.fm.logic.IFmAiProviderLogicService;
 import org.qifu.fm.service.IFmAiProviderService;
@@ -47,6 +48,7 @@ public class FMPROG010D0001Controller extends CoreApiSupport {
 		try {
 			Map<String, Object> parameters = queryParameter(body)
 					.fullEquals("tenantId")
+					.fullEquals("status")
 					.value();
 			String tenantId = parameters.get("tenantId") == null
 					? null : String.valueOf(parameters.get("tenantId"));
@@ -113,6 +115,35 @@ public class FMPROG010D0001Controller extends CoreApiSupport {
 		try {
 			setDefaultResponseJsonResult(
 					providerLogicService.deactivate(body.get("oid")), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG010D0001U", check = true)
+	@PostMapping("/test-connection")
+	public ResponseEntity<DefaultControllerJsonResultObj<FmAiProviderView>>
+			testConnection(@RequestBody Map<String, String> body) {
+		DefaultControllerJsonResultObj<FmAiProviderView> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(
+					providerLogicService.testConnection(body.get("oid")), result);
+		} catch (Exception exception) {
+			exceptionResult(result, exception);
+		}
+		return ResponseEntity.ok(result);
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG010D0001Q", check = true)
+	@PostMapping("/tenant-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			tenantOptions() {
+		DefaultControllerJsonResultObj<List<FmOptionView>> result =
+				initDefaultJsonResult();
+		try {
+			setDefaultResponseJsonResult(providerLogicService.tenantOptions(), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}

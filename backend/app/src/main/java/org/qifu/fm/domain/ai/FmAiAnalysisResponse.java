@@ -1,6 +1,6 @@
 package org.qifu.fm.domain.ai;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 public record FmAiAnalysisResponse(
 		JsonNode result,

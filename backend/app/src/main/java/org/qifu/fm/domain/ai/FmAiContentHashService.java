@@ -10,11 +10,11 @@ import java.util.List;
 import org.qifu.base.exception.ServiceException;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class FmAiContentHashService {
@@ -40,7 +40,7 @@ public class FmAiContentHashService {
 			byte[] bytes = objectMapper.writeValueAsBytes(content);
 			return java.util.HexFormat.of().formatHex(
 					MessageDigest.getInstance("SHA-256").digest(bytes));
-		} catch (JsonProcessingException | NoSuchAlgorithmException exception) {
+		} catch (JacksonException | NoSuchAlgorithmException exception) {
 			throw new ServiceException("AI Content Hash 建立失敗");
 		}
 	}
@@ -57,7 +57,7 @@ public class FmAiContentHashService {
 		if (value.isObject()) {
 			ObjectNode result = objectMapper.createObjectNode();
 			List<String> names = new ArrayList<>();
-			value.fieldNames().forEachRemaining(names::add);
+			value.properties().forEach(property -> names.add(property.getKey()));
 			names.sort(Comparator.naturalOrder());
 			names.forEach(name -> result.set(name, canonical(value.get(name))));
 			return result;

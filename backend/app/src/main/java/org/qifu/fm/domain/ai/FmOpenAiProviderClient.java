@@ -11,11 +11,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class FmOpenAiProviderClient implements FmAiProviderClient {
@@ -89,7 +89,7 @@ public class FmOpenAiProviderClient implements FmAiProviderClient {
 					.POST(HttpRequest.BodyPublishers.ofString(
 							objectMapper.writeValueAsString(body)))
 					.build();
-		} catch (IllegalArgumentException | JsonProcessingException exception) {
+		} catch (IllegalArgumentException | JacksonException exception) {
 			throw new ServiceException("OpenAI API Request 建立失敗");
 		}
 	}
@@ -107,7 +107,7 @@ public class FmOpenAiProviderClient implements FmAiProviderClient {
 					integerOrNull(usage, "input_tokens"),
 					integerOrNull(usage, "output_tokens"),
 					response.path("id").asText(null));
-		} catch (JsonProcessingException exception) {
+		} catch (JacksonException exception) {
 			throw new ServiceException("OpenAI API 回應不是有效 JSON");
 		}
 	}

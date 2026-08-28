@@ -37,9 +37,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @Transactional(readOnly = true)
@@ -239,7 +239,7 @@ public class FmAiTaskRuntimeLogicServiceImpl implements IFmAiTaskRuntimeLogicSer
 					analysis.getProviderType(), analysis.getModelId(), analysis.getGenerationNo(),
 					cacheHit, objectMapper.readTree(analysis.getResultContent()),
 					analysis.getInputTokens(), analysis.getOutputTokens(), DISCLAIMER);
-		} catch (JsonProcessingException exception) {
+		} catch (JacksonException exception) {
 			throw new ServiceException("AI 分析結果格式錯誤");
 		}
 	}

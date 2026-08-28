@@ -1,6 +1,6 @@
 package org.qifu.fm.dto.view;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 
 public record FmAiAnalysisView(
 		String analysisId,
