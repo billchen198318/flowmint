@@ -5893,7 +5893,7 @@ INSERT INTO `tb_sys_prog` VALUES
 ('410698de-8c1c-11f1-a791-005056c00001','FM_PROG001D0001A','FA01 - Tenant 與帳號範圍（新增）','#/fm_prog001d0001/create','N','N',0,0,'CORE','ITEM','COMPANY','building-add','admin','2026-07-30 21:40:25',NULL,NULL),
 ('410ad0ae-8c1c-11f1-a791-005056c00001','FM_PROG001D0001E','FA01 - Tenant 與帳號範圍（編輯）','#/fm_prog001d0001/edit','Y','N',0,0,'CORE','ITEM','COMPANY','building-gear','admin','2026-07-30 21:40:25',NULL,NULL),
 ('41fa29d8-3a53-4fbd-b2b1-cdbfd0729767','CORE_PROG001D0004Q','ZA04 - Freemarker樣板','#/prog001d0004','N','N',0,0,'CORE','ITEM','TEMPLATE','file-text','admin','2017-05-12 10:36:41','admin','2023-08-16 21:48:29'),
-('430d1e4a-a21e-11f1-a8b5-005056c00001','FM_PROG010D','FJ. FlowMint AI 服務','/','N','N',0,0,'CORE','FOLDER','ORGANIZATION','robot','admin','2026-08-27 21:49:41',NULL,NULL),
+('430d1e4a-a21e-11f1-a8b5-005056c00001','FM_PROG010D','FJ. API-整合服務','/','N','N',0,0,'CORE','FOLDER','ORGANIZATION','robot','admin','2026-08-27 21:49:41','admin','2026-08-28 20:34:09'),
 ('4310265e-a21e-11f1-a8b5-005056c00001','FM_PROG010D0001Q','FJ01 - AI Provider 管理','#/fm_prog010d0001','N','N',0,0,'CORE','ITEM','ORGANIZATION','robot','admin','2026-08-27 21:49:41',NULL,NULL),
 ('43120fac-a21e-11f1-a8b5-005056c00001','FM_PROG010D0001A','FJ01 - AI Provider 管理（新增）','#/fm_prog010d0001/create','N','N',0,0,'CORE','ITEM','ORGANIZATION','robot','admin','2026-08-27 21:49:41',NULL,NULL),
 ('4313c9b6-a21e-11f1-a8b5-005056c00001','FM_PROG010D0001E','FJ01 - AI Provider 管理（編輯）','#/fm_prog010d0001/edit','Y','N',0,0,'CORE','ITEM','ORGANIZATION','robot','admin','2026-08-27 21:49:41',NULL,NULL),
@@ -6218,4 +6218,4 @@ SET AUTOCOMMIT=@OLD_AUTOCOMMIT;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*M!100616 SET NOTE_VERBOSITY=@OLD_NOTE_VERBOSITY */;
 
--- Dump completed on 2026-08-28 10:57:07
+-- Dump completed on 2026-08-28 20:41:02

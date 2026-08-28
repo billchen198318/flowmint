@@ -8,16 +8,18 @@ FlowMint 的定位是「可配置的簽核平台」，不是 HR、ERP、法人�
 
 ## 目前狀態
 
-FlowMint Phase 1～5 平台能力及近期 Runtime／Workspace 重構已完成程式實作，目前進入整合部署與實機驗收階段；「程式完成」不等同「瀏覽器 E2E 已驗收」。
+FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解說精靈第一版已完成程式實作，目前進入整合部署與實機驗收階段；「程式完成」不等同「瀏覽器 E2E 已驗收」。
 
 - Phase 1～4 核心功能已完成。
 - Phase 5 營運功能已完成。
 - Workspace 已改為摘要與導覽，正式起單移至獨立申請中心及填單頁。
 - 共用單據編號、正式附件、申請追蹤、目前簽核人與 BPMN 流程進度已完成 Java／Vue 實作與自動驗證。
-- A01 請購表單與流程已發布，仍需以多帳號完成附件、簽核流轉與流程進度的瀏覽器 E2E。
+- A01 請購表單已發布；`FM_PURCHASE_APPROVAL` Version 2 已發布，Version 1 已退休，仍需以多帳號完成逐級核決、附件、簽核流轉與流程進度的瀏覽器 E2E。
+- AI Provider 管理、OpenAI／Gemini／Groq／OpenRouter Adapter、Task AI 分析、快取與稽核已完成；尚未使用真實 API Key 完成 Provider 與瀏覽器 E2E，不能標示為正式上線。
+- 採購單／驗收單、公司名片申請單及外部系統 API 管理／流程拋單目前只有規劃文件，尚未建立正式 Form、Process、Data Action 或 `FM_PROG010D0002` 程式。
 - 正式業務表單屬應用配置，不計入平台本體程式。
 - 尚待完成正式環境部署、Program／角色配置、完整瀏覽器 E2E 與真實資料量效能驗證。
-- Email 成功狀態可同步；永久失敗狀態受 QIFU4 Mail Helper 目前缺少最終失敗欄位限制。
+- Email 成功與永久失敗狀態均可同步；FlowMint 以既有 notification 欄位保存重試與最終失敗，不修改 QIFU4 Mail Helper schema。
 
 詳細紀錄請參考 [開發進度](backend/doc/18-開發進度.md) 與 [開發路線](backend/doc/12-開發路線.md)。
 
@@ -91,7 +93,7 @@ FlowMint Phase 1～5 平台能力及近期 Runtime／Workspace 重構已完成�
 - 穩定事件 ID 與資料庫去重。
 - QIFU4 `SysMailHelperServiceImpl`／Mail Helper Outbox 整合。
 - QIFU4 Template Manager／FreeMarker 通知範本。
-- Email 寄送成功狀態同步。
+- Email 寄送成功、延遲重試與第三次失敗後永久 `FAILED` 狀態同步。
 
 ### 營運與稽核
 
@@ -110,6 +112,16 @@ FlowMint Phase 1～5 平台能力及近期 Runtime／Workspace 重構已完成�
 - 依流程定義統計起單量、完成率與平均耗時。
 - User Task 節點平均及最長處理時間排名。
 - 日期區間預設 30 天，最大 366 天。
+
+### AI 簽核解說精靈
+
+- `FM_PROG010D0001` 管理 Tenant-scoped OpenAI、Gemini、Groq 與 OpenRouter Provider。
+- API Key 使用 AES-GCM 加密保存，管理畫面只顯示遮罩值，並提供受控 Provider 連線測試。
+- 正式待辦可由目前合法處理人主動選擇 Provider 執行 AI 解說，不點擊就不呼叫外部服務。
+- Context 只包含受控表單欄位、流程資料及已保存簽核歷史，排除密碼、Token、SQL、Script 與連線設定。
+- 分析結果使用 Content Hash、Generation、快取與 append-only access ledger，保存受控錯誤碼、Token 用量及耗時。
+- AI 只提供摘要、風險、問題與參考建議，不修改表單、不執行核准，也不取代 Resolver 或簽核責任。
+- 第一版不解析附件內容；真實 Provider Key、多帳號權限及密鑰遮罩瀏覽器 E2E 尚待完成。
 
 ## 完整功能說明
 
@@ -337,6 +349,7 @@ FlowMint Phase 1～5 平台能力及近期 Runtime／Workspace 重構已完成�
 - Transaction Preview 可 rollback，避免試跑污染外部資料。
 - 發布前驗證 SQL、Named Parameter、Step、Pool 與 mapping。
 - 公用入口為 `POST /api/fm/data-actions/{actionCode}/execute`。
+- Query SELECT Step 支援受控 transient retry；單一 `ONCE / SELECT_LIST` Query 另提供 NDJSON Streaming 端點。
 - 執行稽核可記錄 Action／版本、表單、流程、事件、操作者、時間、筆數、狀態與 request／response digest。
 
 ### 15. Workspace（`/workspace`）
@@ -442,7 +455,7 @@ FlowMint Phase 1～5 平台能力及近期 Runtime／Workspace 重構已完成�
 - 每封信建立 `EMAIL/PENDING` notification delivery record。
 - `PROVIDER_MESSAGE_ID` 精確保存 QIFU4 `MAIL_ID`。
 - `FmNotificationDeliverySyncJob` 每三分鐘把 QIFU4 `SUCCESS_FLAG=Y` 的信件同步為 `SENT` 並保存成功時間。
-- QIFU4 Mail Helper 目前沒有永久失敗終態與錯誤欄位，因此 FlowMint 不用逾時猜測 `FAILED`。
+- FlowMint 提供 app 層 `SendMailHelperJob` 相容替代版本；寄送失敗會更新 notification 的重試次數、下次重試時間與受控錯誤，第三次失敗後轉為 `FAILED` 並停止重送。
 - 使用 QIFU4 Template Manager／FreeMarker 範本：`FMTASKASG`、`FMPROCMP`、`FMPROREJ`、`FMPROCAN`、`FMTASKDUE`、`FMTASKOVD`。
 - 站內與 Email 共用相同範本語意；範本缺失或 render 失敗時使用內建安全 fallback，不讓文案錯誤阻斷流程。
 
@@ -600,6 +613,9 @@ cmd /c "mariadb -u root -p flowmint < C:\home\flowmint\backend\doc\flowmint.sql"
 - `FM_PROG005D0001-register.sql`：表單設計。
 - `FM_PROG006D0001`～`0002-register.sql`：資料來源與 Data Action。
 - `FM_PROG008D-register.sql`：流程監控、Incident 與營運報表。
+- `FM_PROG010D0001-register.sql`：`FJ. API-整合服務` 下的 AI Provider 管理。
+
+`FM_PROG010D0002` 外部系統 API 管理目前仍是規劃，尚無可匯入的註冊 SQL 或 UI Page。
 
 匯入範例：
 
@@ -736,7 +752,7 @@ FlowMint event
 - Notification Template 位於 QIFU4 `tb_sys_template`／`tb_sys_template_param`。
 - `FmTaskDeadlineNotificationJob` 每五分鐘檢查期限。
 - SLA 目前以曆時小時計算；工作日曆不在目前核心範圍。
-- 現有 QIFU4 Mail Helper 沒有永久失敗欄位，因此不可用時間猜測 `FAILED`。
+- FlowMint app 層寄信 Job 以 `fm_notification` 保存跨排程重試狀態，第三次失敗後轉為 `FAILED`；非 FlowMint 的 QIFU4 郵件維持既有行為。
 
 ## 重要頁面
 
@@ -822,9 +838,10 @@ git diff --check
 
 已知技術限制：
 
-- Email 永久失敗狀態需先擴充 QIFU4 Mail Helper 最終失敗欄位與錯誤訊息。
 - 完整交付仍需正式資料 E2E 與實際量級效能驗證。
 - 最近完成的附件、申請追蹤、目前簽核人及 BPMN 進度仍需重新啟動完整環境後，以申請人和實際簽核人執行瀏覽器回歸。
+- AI 解說尚未以真實 Provider Key、正式網路與多帳號完成 E2E；第一版不解析附件。
+- Data Action 仍需跨資料庫整合與實際資料量驗收。
 - 業務表單及流程須由導入人員依企業規則配置。
 
 ## 文件索引
@@ -854,6 +871,10 @@ git diff --check
 - [平行加簽規劃](backend/doc/26-平行加簽規劃.md)
 - [正式會簽配置與實作指南](backend/doc/27-正式會簽配置與實作指南.md)
 - [流程簽核改派規劃](backend/doc/28-流程簽核改派規劃.md)
+- [AI 簽核解說精靈規劃](backend/doc/29-AI簽核解說精靈規劃.md)
+- [採購單與驗收單表單流程配置規劃](backend/doc/30-採購單與驗收單表單流程配置規劃.md)
+- [公司名片申請單表單流程配置規劃](backend/doc/31-公司名片申請單表單流程配置規劃.md)
+- [外部系統 API 管理與流程拋單規劃](backend/doc/32-外部系統API管理與流程拋單規劃.md)
 
 ## License
 
