@@ -211,6 +211,25 @@ public class FMPROG010D0001Controller extends CoreApiSupport {
 	@PostMapping("/tenant-options")
 	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
 			tenantOptions() {
+		return tenantOptionsResponse();
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG010D0001A", check = true)
+	@PostMapping("/create/tenant-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			createTenantOptions() {
+		return tenantOptionsResponse();
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG010D0001E", check = true)
+	@PostMapping("/edit/tenant-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			editTenantOptions() {
+		return tenantOptionsResponse();
+	}
+
+	private ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			tenantOptionsResponse() {
 		DefaultControllerJsonResultObj<List<FmOptionView>> result =
 				initDefaultJsonResult();
 		try {

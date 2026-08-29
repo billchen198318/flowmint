@@ -95,6 +95,25 @@ public class FMPROG010D0002Controller extends CoreApiSupport {
 	@PostMapping("/tenant-options")
 	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
 			tenantOptions() {
+		return tenantOptionsResponse();
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG010D0002A", check = true)
+	@PostMapping("/create/tenant-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			createTenantOptions() {
+		return tenantOptionsResponse();
+	}
+
+	@ControllerMethodAuthority(programId = "FM_PROG010D0002E", check = true)
+	@PostMapping("/edit/tenant-options")
+	public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			editTenantOptions() {
+		return tenantOptionsResponse();
+	}
+
+	private ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>>
+			tenantOptionsResponse() {
 		DefaultControllerJsonResultObj<List<FmOptionView>> result =
 				initDefaultJsonResult();
 		try {
@@ -171,7 +190,7 @@ public class FMPROG010D0002Controller extends CoreApiSupport {
 				.throwHtmlMessage();
 	}
 
-	@ControllerMethodAuthority(programId = "FM_PROG010D0002E", check = true)
+	@ControllerMethodAuthority(programId = "FM_PROG010D0002D", check = true)
 	@PostMapping("/deactivate")
 	public ResponseEntity<DefaultControllerJsonResultObj<FmApiClientView>> deactivate(
 			@RequestBody Map<String, String> body) {
@@ -200,21 +219,21 @@ public class FMPROG010D0002Controller extends CoreApiSupport {
 		return ResponseEntity.ok(result);
 	}
 
-	@ControllerMethodAuthority(programId = "FM_PROG010D0002E", check = true)
+	@ControllerMethodAuthority(programId = "FM_PROG010D0002X", check = true)
 	@PostMapping("/keys/issue")
 	public ResponseEntity<DefaultControllerJsonResultObj<FmApiKeyIssueView>> issueKey(
 			@RequestBody FmApiKeyIssueCommand command) {
 		return issue(command, false);
 	}
 
-	@ControllerMethodAuthority(programId = "FM_PROG010D0002E", check = true)
+	@ControllerMethodAuthority(programId = "FM_PROG010D0002X", check = true)
 	@PostMapping("/keys/rotate")
 	public ResponseEntity<DefaultControllerJsonResultObj<FmApiKeyIssueView>> rotateKey(
 			@RequestBody FmApiKeyIssueCommand command) {
 		return issue(command, true);
 	}
 
-	@ControllerMethodAuthority(programId = "FM_PROG010D0002E", check = true)
+	@ControllerMethodAuthority(programId = "FM_PROG010D0002D", check = true)
 	@PostMapping("/keys/revoke")
 	public ResponseEntity<DefaultControllerJsonResultObj<FmApiClientKeyView>> revokeKey(
 			@RequestBody FmApiKeyRevokeCommand command) {

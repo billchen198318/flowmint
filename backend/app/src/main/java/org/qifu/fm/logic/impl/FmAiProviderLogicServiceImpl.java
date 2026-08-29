@@ -82,7 +82,8 @@ public class FmAiProviderLogicServiceImpl implements IFmAiProviderLogicService {
 		FmAiProvider provider = required(command.oid());
 		if (!Objects.equals(provider.getTenantId(), command.tenantId())
 				|| !provider.getProviderCode().equalsIgnoreCase(command.providerCode())
-				|| !Objects.equals(provider.getLockVersion(), command.lockVersion())) {
+				|| !Objects.equals(provider.getLockVersion(), command.lockVersion())
+				|| !Objects.equals(provider.getStatus(), command.status())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		validate(command, false);

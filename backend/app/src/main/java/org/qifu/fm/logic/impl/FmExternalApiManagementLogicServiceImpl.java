@@ -112,7 +112,8 @@ public class FmExternalApiManagementLogicServiceImpl
 		String code = FmExternalApiPolicy.normalizeClientCode(command.clientCode());
 		if (!Objects.equals(client.getTenantId(), command.tenantId())
 				|| !client.getClientCode().equalsIgnoreCase(code)
-				|| !Objects.equals(client.getLockVersion(), command.lockVersion())) {
+				|| !Objects.equals(client.getLockVersion(), command.lockVersion())
+				|| !Objects.equals(client.getStatus(), command.status())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		apply(client, command);

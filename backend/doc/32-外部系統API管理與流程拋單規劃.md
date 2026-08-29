@@ -35,7 +35,8 @@ Client 的授權範圍；不得因持有 Key 就能任意冒用帳號發單、�
 ```text
 FJ. API-整合服務                          FM_PROG010D（FOLDER）
 ├─ FJ01 - AI Provider 管理                FM_PROG010D0001Q（既有 ITEM）
-└─ FJ02 - 外部系統 API 管理               FM_PROG010D0002Q（新增 ITEM）
+├─ FJ02 - 外部系統 API 管理               FM_PROG010D0002Q（新增 ITEM）
+└─ FJ03 - 外部系統 API 說明               FM_PROG010D0003Q（新增 ITEM）
 ```
 
 選單 URL 與前端實體目錄固定為：
@@ -44,14 +45,13 @@ FJ. API-整合服務                          FM_PROG010D（FOLDER）
 Query URL       #/fm_prog010d0002
 Create URL      #/fm_prog010d0002/create
 Edit URL        #/fm_prog010d0002/edit/{clientId}
-API 說明 URL    #/fm_prog010d0002/docs
+API 說明 URL    #/fm_prog010d0003
 
 C:\home\flowmint\frontend-v-nx\pages\fm_prog010d0002\
 ├── index.vue
 ├── create.vue
 ├── edit\
 │   └── [id].vue
-├── docs.vue
 ├── config.ts
 ├── QueryPageStore.ts
 └── components\
@@ -59,16 +59,21 @@ C:\home\flowmint\frontend-v-nx\pages\fm_prog010d0002\
     ├── ApiKeyOneTimeDialog.vue
     ├── ApiKeyRotateDialog.vue
     └── ApiAccessLogDialog.vue
+
+C:\home\flowmint\frontend-v-nx\pages\fm_prog010d0003\
+├── index.vue
+└── config.ts
 ```
 
-`docs.vue` 由 Query 頁的「API 說明」按鈕進入，不另外建立左側選單 Item；它仍須檢查
-`FM_PROG010D0002Q`。Create／Edit 頁依 QIFU4 慣例註冊實際 Page Item，撤銷、輪替、停用、
+`fm_prog010d0003/index.vue` 以獨立的左側選單 Item 進入，並檢查 `FM_PROG010D0003Q`；API 文件閱讀權限可與 Client
+管理權限分開配置。Create／Edit 頁依 QIFU4 慣例註冊實際 Page Item，撤銷、輪替、停用、
 下載 OpenAPI 等 Controller Command 只作權限，不為每個按鈕建立選單項目。
 
 部署時新增可重複執行的 `backend/doc/FM_PROG010D0002-register.sql`。該 SQL 先安全更新既有
 `FM_PROG010D` Folder 顯示名稱，再註冊 `FM_PROG010D0002` 實際 Query／Create／Edit Page；不得
 重建或改號既有 `FM_PROG010D0001`，也不自動授予任何角色。權限由 QIFU4 管理配置給系統整合
-管理員。
+管理員。API 說明頁另由可重複執行的 `backend/doc/FM_PROG010D0003-register.sql` 註冊實際 Page
+Page；選單關聯由 QIFU4 選單管理功能配置，不在註冊 SQL 直接異動 `tb_sys_menu`，同樣不自動授予角色。
 
 查詢條件：Tenant、Client Code、名稱、狀態、Key 狀態及最後使用日期。Grid 顯示：
 
@@ -77,8 +82,8 @@ C:\home\flowmint\frontend-v-nx\pages\fm_prog010d0002\
 - Key Prefix／末四碼、建立日、到期日、最後使用日及最後來源 IP。
 - Rate Limit、建立人及更新人。
 
-操作按鈕：新增 Client、編輯、產生 Key、輪替 Key、撤銷 Key、停用 Client、檢視稽核，以及
-固定顯示的「API 說明」。
+操作按鈕：新增 Client、編輯、產生 Key、輪替 Key、撤銷 Key、停用 Client及檢視稽核。API 說明
+改由 `FJ03 - 外部系統 API 說明` 選單進入，不放在 Client 管理 Query 頁。
 
 權限建議：
 
@@ -89,6 +94,7 @@ C:\home\flowmint\frontend-v-nx\pages\fm_prog010d0002\
 | `FM_PROG010D0002E` | 修改名稱、Scopes、IP、期限及配額 |
 | `FM_PROG010D0002D` | 撤銷 Key、停用 Client |
 | `FM_PROG010D0002X` | 輪替 Key、查看高風險稽核及測試發單 |
+| `FM_PROG010D0003Q` | 開啟 API 說明及下載 OpenAPI 契約 |
 
 ### 2.2 API Key 產生與輪替
 

@@ -80,6 +80,55 @@ const clear = () => {
   form.value = newForm();
   checkFields.value = {};
 };
+const validate = () => {
+  const errors: Record<string, string> = {};
+  if (!form.value.tenantId.trim()) errors.tenantId = "請選擇 Tenant";
+  if (!form.value.providerCode.trim())
+    errors.providerCode = "請輸入 Provider 代碼";
+  else if (form.value.providerCode.length > 50)
+    errors.providerCode = "Provider 代碼不可超過 50 字";
+  if (!Object.hasOwn(defaults, form.value.providerType))
+    errors.providerType = "Provider 類型不正確";
+  if (!form.value.displayName.trim()) errors.displayName = "請輸入顯示名稱";
+  else if (form.value.displayName.length > 100)
+    errors.displayName = "顯示名稱不可超過 100 字";
+  if (!form.value.baseUrl.trim()) errors.baseUrl = "請輸入 Base URL";
+  else if (form.value.baseUrl.length > 500)
+    errors.baseUrl = "Base URL 不可超過 500 字";
+  if (!form.value.modelId.trim()) errors.modelId = "請輸入 Model ID";
+  else if (form.value.modelId.length > 100)
+    errors.modelId = "Model ID 不可超過 100 字";
+  if (!props.edit && !form.value.apiKey.trim()) errors.apiKey = "請輸入 API Key";
+  if (
+    !Number.isFinite(form.value.temperature) ||
+    form.value.temperature < 0 ||
+    form.value.temperature > 2
+  )
+    errors.temperature = "Temperature 必須介於 0 到 2";
+  if (
+    !Number.isInteger(form.value.maxOutputTokens) ||
+    form.value.maxOutputTokens < 256 ||
+    form.value.maxOutputTokens > 32000
+  )
+    errors.maxOutputTokens = "最大輸出 Token 必須介於 256 到 32000";
+  if (
+    !Number.isInteger(form.value.timeoutSeconds) ||
+    form.value.timeoutSeconds < 10 ||
+    form.value.timeoutSeconds > 120
+  )
+    errors.timeoutSeconds = "逾時秒數必須介於 10 到 120";
+  if (!["Y", "N"].includes(form.value.defaultFlag))
+    errors.defaultFlag = "Tenant 預設值不正確";
+  if (!["ACTIVE", "INACTIVE"].includes(form.value.status))
+    errors.status = "狀態不正確";
+  checkFields.value = errors;
+  const message = Object.values(errors).join("<br>");
+  if (message) {
+    toast.warning(escapeQifuHtmlMsg(message));
+    return false;
+  }
+  return true;
+};
 const load = async () => {
   if (!props.edit) return;
   showLoading();
@@ -100,7 +149,19 @@ const load = async () => {
     hideLoading();
   }
 };
-const save = async () => {
+const save = () => {
+  if (!validate()) return;
+  if (props.edit && form.value.apiKey.trim()) {
+    confirmFire(
+      "儲存後會立即以新 API Key 取代現有 Key，且無法還原。確定繼續？",
+      saveConfirmed,
+      form.value.oid,
+    );
+    return;
+  }
+  void saveConfirmed();
+};
+const saveConfirmed = async () => {
   showLoading();
   try {
     const response = await post(props.edit ? "/update" : "/save", form.value);
@@ -171,7 +232,10 @@ watch(() => form.value.providerType, (type, oldType) => {
 });
 onMounted(async () => {
   try {
-    tenants.value = (await post("/tenant-options")).data?.value || [];
+    const tenantPath = props.edit
+      ? "/edit/tenant-options"
+      : "/create/tenant-options";
+    tenants.value = (await post(tenantPath)).data?.value || [];
     await load();
   } catch (error: unknown) {
     toast.error(escapeQifuHtmlMsg(
@@ -218,12 +282,14 @@ onMounted(async () => {
         </div>
         <div class="col-md-4">
           <label for="providerType" class="form-label">Provider 類型 *</label>
-          <select id="providerType" v-model="form.providerType" class="form-select">
+          <select id="providerType" v-model="form.providerType"
+            :class="['form-select', checkInvalid('providerType', checkFields) ? 'is-invalid' : '']">
             <option value="OPENAI">OpenAI</option>
             <option value="GEMINI">Gemini</option>
             <option value="GROQ">Groq</option>
             <option value="OPENROUTER">OpenRouter</option>
           </select>
+          <div class="invalid-feedback">{{ invalidFeedback("providerType", checkFields) }}</div>
         </div>
         <div class="col-md-8">
           <label for="baseUrl" class="form-label">Base URL *</label>
@@ -265,15 +331,19 @@ onMounted(async () => {
         </div>
         <div class="col-md-4">
           <label for="defaultFlag" class="form-label">Tenant 預設</label>
-          <select id="defaultFlag" v-model="form.defaultFlag" class="form-select">
+          <select id="defaultFlag" v-model="form.defaultFlag"
+            :class="['form-select', checkInvalid('defaultFlag', checkFields) ? 'is-invalid' : '']">
             <option value="N">否</option><option value="Y">是</option>
           </select>
+          <div class="invalid-feedback">{{ invalidFeedback("defaultFlag", checkFields) }}</div>
         </div>
         <div class="col-md-4">
           <label for="status" class="form-label">狀態</label>
-          <select id="status" v-model="form.status" class="form-select">
+          <select id="status" v-model="form.status" :disabled="props.edit"
+            :class="['form-select', checkInvalid('status', checkFields) ? 'is-invalid' : '']">
             <option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option>
           </select>
+          <div class="invalid-feedback">{{ invalidFeedback("status", checkFields) }}</div>
         </div>
         <div v-if="props.edit" class="col-md-4">
           <label class="form-label">設定版本</label>
@@ -291,18 +361,25 @@ onMounted(async () => {
           </div>
         </div>
         <div class="col-12 d-flex gap-2">
-          <button class="btn btn-primary" @click="save"><i class="bi bi-save"></i> 儲存</button>
-          <button v-if="!props.edit" class="btn btn-outline-secondary" @click="clear">清除</button>
-          <button v-if="props.edit" class="btn btn-outline-secondary" @click="load">重新載入</button>
+          <button type="button" class="btn btn-primary" @click="save"><i class="bi bi-save"></i> 儲存</button>
+          <button v-if="!props.edit" type="button" class="btn btn-outline-secondary" @click="clear">
+            <i class="bi bi-eraser"></i> 清除
+          </button>
+          <button v-if="props.edit" type="button" class="btn btn-outline-secondary" @click="load">
+            <i class="bi bi-repeat"></i> 重新載入
+          </button>
           <button
             v-if="props.edit"
+            type="button"
             class="btn btn-outline-primary"
             @click="confirmFire('連線測試會連至此 Provider 的官方 API，確定繼續？', testConnection, form.oid)"
           >
             測試連線
           </button>
-          <button v-if="props.edit && form.status === 'ACTIVE'" class="btn btn-outline-danger"
-            @click="confirmFire('確定停用此 AI Provider？', deactivate, form.oid)">停用</button>
+          <button v-if="props.edit && form.status === 'ACTIVE'" type="button" class="btn btn-outline-danger"
+            @click="confirmFire('確定停用此 AI Provider？', deactivate, form.oid)">
+            <i class="bi bi-slash-circle"></i> 停用
+          </button>
         </div>
       </div>
     </div>

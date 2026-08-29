@@ -116,8 +116,9 @@ const validate = () => {
   if (!form.value.allowedScopes.length)
     errors.allowedScopes = "請至少選擇一個 API Scope";
   checkFields.value = errors;
-  if (Object.keys(errors).length) {
-    toast.warning(escapeQifuHtmlMsg("請修正欄位錯誤後再儲存。"));
+  const message = Object.values(errors).join("<br>");
+  if (message) {
+    toast.warning(escapeQifuHtmlMsg(message));
     return false;
   }
   return true;
@@ -140,6 +141,7 @@ const load = async () => {
     toast.error(
       escapeQifuHtmlMsg(error instanceof Error ? error.message : "載入失敗。"),
     );
+    await router.push(PageConstants.frontendNamespace);
   } finally {
     hideLoading();
   }
@@ -178,14 +180,36 @@ const deactivate = async () => {
     apply(response.data.value);
     await loadKeys();
     toast.success("Client 已停用。");
+  } catch (error: unknown) {
+    toast.error(
+      escapeQifuHtmlMsg(
+        error instanceof Error ? error.message : "停用 Client 失敗。",
+      ),
+    );
   } finally {
     hideLoading();
   }
 };
 const loadKeys = async () => {
   if (!form.value.oid) return;
-  const response = await post("/keys", { clientOid: form.value.oid });
-  keys.value = response.data?.value || [];
+  try {
+    const response = await post("/keys", { clientOid: form.value.oid });
+    if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
+      toast.warning(
+        escapeQifuHtmlMsg(response.data?.message || "載入 API Key 失敗。"),
+      );
+      keys.value = [];
+      return;
+    }
+    keys.value = response.data?.value || [];
+  } catch (error: unknown) {
+    keys.value = [];
+    toast.error(
+      escapeQifuHtmlMsg(
+        error instanceof Error ? error.message : "載入 API Key 失敗。",
+      ),
+    );
+  }
 };
 const issue = async (rotate: boolean) => {
   showLoading();
@@ -205,6 +229,16 @@ const issue = async (rotate: boolean) => {
     issuedApiKey.value = response.data.value?.apiKey || "";
     issuedNotice.value = response.data.value?.notice || "此 Key 只會顯示一次。";
     await loadKeys();
+  } catch (error: unknown) {
+    toast.error(
+      escapeQifuHtmlMsg(
+        error instanceof Error
+          ? error.message
+          : rotate
+            ? "輪替 Key 失敗。"
+            : "簽發 Key 失敗。",
+      ),
+    );
   } finally {
     hideLoading();
   }
@@ -217,18 +251,25 @@ const confirmDeactivate = () =>
   );
 const confirmRotate = () =>
   confirmFire(
-    "輪替會簽發新 Key，舊 Key 仍需另行撤銷。確定繼續？",
+    "輪替會立即撤銷所有有效舊 Key並簽發新 Key，確定繼續？",
     () => issue(true),
     form.value.oid,
   );
-const revoke = async (key: ApiKeyView) => {
-  const reason = window.prompt("請輸入撤銷原因（必填）：");
-  if (!reason?.trim()) return;
+const revoke = (key: ApiKeyView) => {
+  const reason = window.prompt("請輸入撤銷原因（必填）：")?.trim();
+  if (!reason) return;
+  confirmFire(
+    `撤銷後無法復原，確定撤銷 ${key.maskedKey}？`,
+    () => revokeConfirmed(key, reason),
+    key.oid,
+  );
+};
+const revokeConfirmed = async (key: ApiKeyView, reason: string) => {
   showLoading();
   try {
     const response = await post("/keys/revoke", {
       keyOid: key.oid,
-      reason: reason.trim(),
+      reason,
     });
     if (response.data?.success !== import.meta.env.VITE_SUCCESS_FLAG) {
       toast.warning(
@@ -238,6 +279,12 @@ const revoke = async (key: ApiKeyView) => {
     }
     await loadKeys();
     toast.success("Key 已撤銷。");
+  } catch (error: unknown) {
+    toast.error(
+      escapeQifuHtmlMsg(
+        error instanceof Error ? error.message : "撤銷 Key 失敗。",
+      ),
+    );
   } finally {
     hideLoading();
   }
@@ -253,7 +300,10 @@ const closeKey = () => {
 onBeforeUnmount(closeKey);
 onMounted(async () => {
   try {
-    tenants.value = (await post("/tenant-options")).data?.value || [];
+    const tenantPath = props.edit
+      ? "/edit/tenant-options"
+      : "/create/tenant-options";
+    tenants.value = (await post(tenantPath)).data?.value || [];
     await load();
   } catch (error: unknown) {
     toast.error(
@@ -283,8 +333,12 @@ onMounted(async () => {
         class="form-control font-monospace"
         readonly
       />
-      <button class="btn btn-outline-dark" @click="copyKey">複製</button>
-      <button class="btn btn-dark" @click="closeKey">我已保存並關閉</button>
+      <button type="button" class="btn btn-outline-dark" @click="copyKey">
+        複製
+      </button>
+      <button type="button" class="btn btn-dark" @click="closeKey">
+        我已保存並關閉
+      </button>
     </div>
   </div>
   <div class="card mb-3">
@@ -398,7 +452,7 @@ onMounted(async () => {
           ><select
             v-model="form.status"
             class="form-select"
-            :disabled="props.edit && form.status === 'INACTIVE'"
+            :disabled="props.edit"
           >
             <option value="ACTIVE">ACTIVE</option>
             <option value="INACTIVE">INACTIVE</option>
@@ -486,6 +540,7 @@ onMounted(async () => {
         </div>
         <div class="col-md-8">
           <button
+            type="button"
             class="btn btn-primary me-2"
             :disabled="form.status !== 'ACTIVE'"
             @click="issue(false)"
@@ -493,6 +548,7 @@ onMounted(async () => {
             簽發 Key
           </button>
           <button
+            type="button"
             class="btn btn-outline-primary"
             :disabled="form.status !== 'ACTIVE'"
             @click="confirmRotate"
@@ -543,6 +599,7 @@ onMounted(async () => {
               <td>
                 <button
                   v-if="key.status === 'ACTIVE'"
+                  type="button"
                   class="btn btn-outline-danger btn-sm"
                   @click="revoke(key)"
                 >
@@ -559,13 +616,32 @@ onMounted(async () => {
     </div>
   </div>
   <div class="d-flex gap-2">
-    <button class="btn btn-primary" @click="save">儲存</button>
+    <button type="button" class="btn btn-primary" @click="save">
+      <i class="bi bi-save"></i> 儲存
+    </button>
+    <button
+      v-if="!props.edit"
+      type="button"
+      class="btn btn-outline-secondary"
+      @click="apply(newForm())"
+    >
+      <i class="bi bi-eraser"></i> 清除
+    </button>
+    <button
+      v-if="props.edit"
+      type="button"
+      class="btn btn-outline-secondary"
+      @click="load"
+    >
+      <i class="bi bi-repeat"></i> 重新載入
+    </button>
     <button
       v-if="props.edit && form.status === 'ACTIVE'"
+      type="button"
       class="btn btn-outline-danger"
       @click="confirmDeactivate"
     >
-      停用 Client
+      <i class="bi bi-slash-circle"></i> 停用 Client
     </button>
   </div>
 </template>
