@@ -61,7 +61,9 @@ public class FMPROG010D0001Controller extends CoreApiSupport {
 					parameters,
 					body.getPageOf().orderBy("PROVIDER_CODE").sortTypeAsc());
 			QueryResult<List<FmAiProviderView>> view = new QueryResult<>();
-			view.setValue(query.getValue().stream()
+			List<FmAiProvider> providers = query.getValue() == null
+					? List.of() : query.getValue();
+			view.setValue(providers.stream()
 					.map(this::safeView)
 					.toList());
 			view.setMessage(query.getMessage());

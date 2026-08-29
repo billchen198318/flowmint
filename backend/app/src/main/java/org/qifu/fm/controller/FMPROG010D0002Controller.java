@@ -3,6 +3,9 @@ package org.qifu.fm.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.qifu.base.exception.ControllerException;
+import org.qifu.base.exception.ServiceException;
+import org.qifu.base.model.CheckControllerFieldHandler;
 import org.qifu.base.model.ControllerMethodAuthority;
 import org.qifu.base.model.DefaultControllerJsonResultObj;
 import org.qifu.base.model.QueryResult;
@@ -63,7 +66,9 @@ public class FMPROG010D0002Controller extends CoreApiSupport {
 			QueryResult<List<FmApiClient>> query = clientService.findPage(parameters,
 					body.getPageOf().orderBy("CLIENT_CODE").sortTypeAsc());
 			QueryResult<List<FmApiClientView>> views = new QueryResult<>();
-			views.setValue(query.getValue().stream().map(this::safeView).toList());
+			List<FmApiClient> clients = query.getValue() == null
+					? List.of() : query.getValue();
+			views.setValue(clients.stream().map(this::safeView).toList());
 			views.setMessage(query.getMessage());
 			setQueryResponseJsonResult(views, result, body.getPageOf());
 		} catch (Exception exception) {
@@ -78,6 +83,7 @@ public class FMPROG010D0002Controller extends CoreApiSupport {
 			@RequestBody FmApiClientCommand command) {
 		DefaultControllerJsonResultObj<FmApiClientView> result = initDefaultJsonResult();
 		try {
+			validateClient(result, command);
 			setDefaultResponseJsonResult(managementService.create(command), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
@@ -118,11 +124,51 @@ public class FMPROG010D0002Controller extends CoreApiSupport {
 			@RequestBody FmApiClientCommand command) {
 		DefaultControllerJsonResultObj<FmApiClientView> result = initDefaultJsonResult();
 		try {
+			validateClient(result, command);
 			setDefaultResponseJsonResult(managementService.update(command), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}
 		return ResponseEntity.ok(result);
+	}
+
+	private void validateClient(
+			DefaultControllerJsonResultObj<FmApiClientView> result,
+			FmApiClientCommand command)
+			throws ControllerException, ServiceException {
+		@SuppressWarnings("rawtypes")
+		CheckControllerFieldHandler check = getCheckControllerFieldHandler(result);
+		check.testField("tenantId", command,
+				"@org.apache.commons.lang3.StringUtils@isBlank(tenantId)",
+				"請選擇 Tenant")
+				.testField("clientCode", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(clientCode)",
+						"請輸入 Client Code")
+				.testField("clientCode", command,
+						"clientCode != null && clientCode.length() > 50",
+						"Client Code 不可超過 50 字")
+				.testField("clientName", command,
+						"@org.apache.commons.lang3.StringUtils@isBlank(clientName)",
+						"請輸入 Client 名稱")
+				.testField("clientName", command,
+						"clientName != null && clientName.length() > 100",
+						"Client 名稱不可超過 100 字")
+				.testField("systemType", command,
+						"!@org.apache.commons.lang3.StringUtils@equalsAny(systemType, \"ERP\", \"MES\", \"HR\", \"OTHER\")",
+						"系統類型不正確")
+				.testField("rateLimitPerMinute", command,
+						"rateLimitPerMinute == null || rateLimitPerMinute < 1 || rateLimitPerMinute > 100000",
+						"每分鐘上限必須介於 1 到 100000")
+				.testField("dailyQuota", command,
+						"dailyQuota == null || dailyQuota < 1",
+						"每日配額必須大於或等於 1")
+				.testField("allowedScopes", command,
+						"allowedScopes == null || allowedScopes.isEmpty()",
+						"請至少選擇一個 API Scope")
+				.testField("status", command,
+						"!@org.apache.commons.lang3.StringUtils@equalsAny(status, \"ACTIVE\", \"INACTIVE\")",
+						"狀態不正確")
+				.throwHtmlMessage();
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG010D0002E", check = true)
