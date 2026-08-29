@@ -388,7 +388,7 @@ frontend-v-nx/pages/fm_prog005d0001/components/FormDesigner.vue
 建議新增：
 
 ```text
-backend/doc/FM_FORM_DATA_ACTION_DEMO-seed.sql
+示範 Seed 已合併至 `backend/doc/flowmint.sql`
 ```
 
 ### 6.1 Seed 原則
@@ -606,7 +606,7 @@ npm run build
 ### 新增
 
 ```text
-backend/doc/FM_FORM_DATA_ACTION_DEMO-seed.sql
+示範 Seed 已合併至 `backend/doc/flowmint.sql`
 frontend-v-nx/types/formDataAction.ts
 frontend-v-nx/composables/useFormDataAction.ts
 frontend-v-nx/composables/useFormioDataActionBridge.ts

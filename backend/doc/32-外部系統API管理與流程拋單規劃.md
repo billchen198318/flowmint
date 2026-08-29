@@ -69,11 +69,10 @@ C:\home\flowmint\frontend-v-nx\pages\fm_prog010d0003\
 管理權限分開配置。Create／Edit 頁依 QIFU4 慣例註冊實際 Page Item，撤銷、輪替、停用、
 下載 OpenAPI 等 Controller Command 只作權限，不為每個按鈕建立選單項目。
 
-部署時新增可重複執行的 `backend/doc/FM_PROG010D0002-register.sql`。該 SQL 先安全更新既有
-`FM_PROG010D` Folder 顯示名稱，再註冊 `FM_PROG010D0002` 實際 Query／Create／Edit Page；不得
-重建或改號既有 `FM_PROG010D0001`，也不自動授予任何角色。權限由 QIFU4 管理配置給系統整合
-管理員。API 說明頁另由可重複執行的 `backend/doc/FM_PROG010D0003-register.sql` 註冊實際 Page
-Page；選單關聯由 QIFU4 選單管理功能配置，不在註冊 SQL 直接異動 `tb_sys_menu`，同樣不自動授予角色。
+Program 基準資料統一保存在 `backend/doc/flowmint.sql`，包含 `FM_PROG010D0002` Query／Create／Edit
+Page 與 `FM_PROG010D0003Q` API 說明 Page；不得重建或改號既有 `FM_PROG010D0001`。既有環境的
+Program、選單與角色關聯由正式部署程序或 QIFU4 管理功能配置，`doc` 不另存 register SQL，也不
+以 SQL 自動授予角色。
 
 查詢條件：Tenant、Client Code、名稱、狀態、Key 狀態及最後使用日期。Grid 顯示：
 

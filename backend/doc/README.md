@@ -55,8 +55,7 @@ FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 H
 
 ## SQL
 
-- [完整核心 DDL](flowmint-core-schema.sql)
-- [初始層級與根部門 Seed](flowmint-core-seed.sql)
+- [完整資料庫 DDL、主資料與 Program 註冊](flowmint.sql)
 
 ## Schema 邊界
 
@@ -72,4 +71,10 @@ Enterprise Group、Legal Entity、Location、Employment、Job、Grade、Position
 
 ## 實作規則
 
-後續不得先改舊 `flowmint.sql` 再回頭補文件。必須先核准本規格，從 `flowmint-core-schema.sql` 建立隔離資料庫並通過驗證，再開始 Entity／Mapper／Service／API／UI 與 migration。
+後續資料庫基準只保留 `flowmint.sql`。必須先核准規格，從該主檔建立隔離資料庫並通過驗證，再開始 Entity／Mapper／Service／API／UI 與正式 migration；不得在 `doc` 另留一次性 SQL。
+
+## SQL 檔案政策
+
+`backend/doc` 只保留 `flowmint.sql`，作為完整 DDL、主資料、Program 與目前選單資料的文件基準。
+一次性 schema、seed、資料修正與 Program register SQL 執行完成並併入主檔後必須刪除；既有環境的
+增量升級應放在正式 migration 位置或由 QIFU4 管理功能處理，不得再於 `doc` 新增其他 `.sql`。
