@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmApiAccessLogMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmApiAccessLog">
+    <id column="OID" jdbcType="CHAR" property="oid"/>
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId"/>
+    <result column="ACCESS_ID" jdbcType="CHAR" property="accessId"/>
+    <result column="CLIENT_ID" jdbcType="CHAR" property="clientId"/>
+    <result column="KEY_ID" jdbcType="CHAR" property="keyId"/>
+    <result column="REQUEST_ID" jdbcType="VARCHAR" property="requestId"/>
+    <result column="TRACE_ID" jdbcType="VARCHAR" property="traceId"/>
+    <result column="ENDPOINT_CODE" jdbcType="VARCHAR" property="endpointCode"/>
+    <result column="REQUIRED_SCOPE" jdbcType="VARCHAR" property="requiredScope"/>
+    <result column="SOURCE_IP" jdbcType="VARCHAR" property="sourceIp"/>
+    <result column="USER_AGENT_SUMMARY" jdbcType="VARCHAR" property="userAgentSummary"/>
+    <result column="HTTP_STATUS" jdbcType="INTEGER" property="httpStatus"/>
+    <result column="RESULT_CODE" jdbcType="VARCHAR" property="resultCode"/>
+    <result column="ELAPSED_MILLIS" jdbcType="BIGINT" property="elapsedMillis"/>
+    <result column="REQUEST_BYTES" jdbcType="BIGINT" property="requestBytes"/>
+    <result column="RESPONSE_BYTES" jdbcType="BIGINT" property="responseBytes"/>
+    <result column="IDEMPOTENCY_KEY_HASH" jdbcType="CHAR" property="idempotencyKeyHash"/>
+    <result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId"/>
+    <result column="BUSINESS_KEY" jdbcType="VARCHAR" property="businessKey"/>
+    <result column="REQUEST_DATE" jdbcType="TIMESTAMP" property="requestDate"/>
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate"/>
+  </resultMap>
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, ACCESS_ID, CLIENT_ID, KEY_ID, REQUEST_ID, TRACE_ID,
+    ENDPOINT_CODE, REQUIRED_SCOPE, SOURCE_IP, USER_AGENT_SUMMARY, HTTP_STATUS,
+    RESULT_CODE, ELAPSED_MILLIS, REQUEST_BYTES, RESPONSE_BYTES,
+    IDEMPOTENCY_KEY_HASH, PROCESS_INSTANCE_ID, BUSINESS_KEY, REQUEST_DATE,
+    CUSERID, CDATE
+  </sql>
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="clientId != null and clientId != ''">
+      AND CLIENT_ID = #{clientId,jdbcType=CHAR}
+    </if>
+    <if test="requestId != null and requestId != ''">
+      AND REQUEST_ID = #{requestId,jdbcType=VARCHAR}
+    </if>
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+  <select id="countClientRequestsSince" parameterType="java.util.HashMap"
+      resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND CLIENT_ID = #{clientId,jdbcType=CHAR}
+       AND REQUEST_DATE &gt;= #{since,jdbcType=TIMESTAMP}
+  </select>
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmApiAccessLog">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+    (OID, TENANT_ID, ACCESS_ID, CLIENT_ID, KEY_ID, REQUEST_ID, TRACE_ID, ENDPOINT_CODE, REQUIRED_SCOPE, SOURCE_IP, USER_AGENT_SUMMARY, HTTP_STATUS, RESULT_CODE, ELAPSED_MILLIS, REQUEST_BYTES, RESPONSE_BYTES, IDEMPOTENCY_KEY_HASH, PROCESS_INSTANCE_ID, BUSINESS_KEY, REQUEST_DATE, CUSERID, CDATE)
+    VALUES (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{accessId,jdbcType=CHAR}, #{clientId,jdbcType=CHAR}, #{keyId,jdbcType=CHAR}, #{requestId,jdbcType=VARCHAR}, #{traceId,jdbcType=VARCHAR}, #{endpointCode,jdbcType=VARCHAR}, #{requiredScope,jdbcType=VARCHAR}, #{sourceIp,jdbcType=VARCHAR}, #{userAgentSummary,jdbcType=VARCHAR}, #{httpStatus,jdbcType=INTEGER}, #{resultCode,jdbcType=VARCHAR}, #{elapsedMillis,jdbcType=BIGINT}, #{requestBytes,jdbcType=BIGINT}, #{responseBytes,jdbcType=BIGINT}, #{idempotencyKeyHash,jdbcType=CHAR}, #{processInstanceId,jdbcType=VARCHAR}, #{businessKey,jdbcType=VARCHAR}, #{requestDate,jdbcType=TIMESTAMP}, #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+  </insert>
+  <update id="update" parameterType="org.qifu.fm.entity.FmApiAccessLog">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+       SET OID = OID
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND 1 = 0
+  </update>
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmApiAccessLog">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_access_log
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND 1 = 0
+  </delete>
+</mapper>

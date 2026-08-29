@@ -366,14 +366,23 @@ public class FmProcessRuntimeLogicServiceImpl
     @Transactional(readOnly = false, rollbackFor = Exception.class)
     public DefaultResult<FmProcessSubmitView> submit(FmProcessSubmitCommand command)
             throws ServiceException {
+		return submitAs(command, UserUtils.getCurrentUser().getUsername());
+	}
+
+	@Override
+	@Transactional(readOnly = false, rollbackFor = Exception.class)
+	public DefaultResult<FmProcessSubmitView> submitAs(FmProcessSubmitCommand command,
+			String starterAccount) throws ServiceException {
         validate(command);
+		if (StringUtils.isBlank(starterAccount)) {
+			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
+		}
         FmProcessVersion processVersion = publishedProcessVersion(
                 command.tenantId(), command.processDefId());
         FmFormVersion formVersion = publishedFormVersion(command);
         ensureFormBound(command, processVersion);
         formSubmissionValidator.validate(formVersion.getSchemaContent(), command.formData());
         FmEmployee applicant = activeApplicant(command.tenantId(), command.applicantAccount());
-        String starterAccount = UserUtils.getCurrentUser().getUsername();
         validateTenantMembership(command.tenantId(), starterAccount);
         activeApplicant(command.tenantId(), starterAccount);
         authorizeProxy(
@@ -406,7 +415,8 @@ public class FmProcessRuntimeLogicServiceImpl
                 processVersion.getFlowableProcessDefId(),
                 businessKey,
                 runtimeVariables(
-                        command, processVersion, assignment, formData, businessKey));
+                        command, processVersion, assignment, formData, businessKey,
+						starterAccount));
         FmProcessInstance processInstance = insertProcessInstance(
                 command,
                 processVersion,
@@ -777,7 +787,8 @@ public class FmProcessRuntimeLogicServiceImpl
             FmProcessVersion processVersion,
             FmEmployeeOrgAssignment assignment,
             FmFormData formData,
-            String businessKey) {
+            String businessKey,
+			String starterAccount) {
         Map<String, Object> variables = new HashMap<>();
         variables.put(FmTaskAssignmentListener.VARIABLE_TENANT_ID, command.tenantId());
         variables.put(FmTaskAssignmentListener.VARIABLE_PROCESS_DEF_ID,
@@ -792,8 +803,7 @@ public class FmProcessRuntimeLogicServiceImpl
         variables.put(FmTaskAssignmentListener.VARIABLE_FORM_DATA_ID,
                 formData.getFormDataId());
         variables.put("flowmintBusinessKey", businessKey);
-        variables.put("flowmintStarterAccount",
-                UserUtils.getCurrentUser().getUsername());
+		variables.put("flowmintStarterAccount", starterAccount);
         return variables;
     }
 

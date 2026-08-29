@@ -48,6 +48,12 @@ const delegationId = ref("");
 const attachments = ref<any[]>([]);
 const showProcessProgress = ref(false);
 const processProgressMounted = ref(false);
+const showAiAssistant = ref(false);
+const aiProviderLoading = ref(false);
+const aiProviderOptions = ref<any[]>([]);
+const selectedAiProviderCode = ref("");
+const aiAnalysisLoading = ref(false);
+const aiAnalysis = ref<any>(null);
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
@@ -67,6 +73,59 @@ const post = (path: string, body: any) =>
     body,
     headers: { "X-FlowMint-Tenant": tenantId },
   });
+const openAiAssistant = async () => {
+  showAiAssistant.value = true;
+  if (aiProviderOptions.value.length || aiProviderLoading.value) return;
+  aiProviderLoading.value = true;
+  try {
+    const response: any = await useApi("/fm/tasks/ai-provider-options", {
+      method: "POST",
+      body: { taskId: route.params.id },
+      headers: { "X-FlowMint-Tenant": tenantId },
+    });
+    if (!ok(response)) {
+      toast.warning(response?.message || "無法載入 AI Provider");
+      return;
+    }
+    aiProviderOptions.value = response.value || [];
+    selectedAiProviderCode.value =
+      aiProviderOptions.value.find((item: any) => item.defaultProvider)?.providerCode
+      || aiProviderOptions.value[0]?.providerCode
+      || "";
+  } catch (error) {
+    toast.error(escapeQifuHtmlMsg(
+      error instanceof Error ? error.message : "無法載入 AI Provider",
+    ));
+  } finally {
+    aiProviderLoading.value = false;
+  }
+};
+const analyzeWithAi = async (forceRefresh = false) => {
+  if (!selectedAiProviderCode.value || aiAnalysisLoading.value) return;
+  aiAnalysisLoading.value = true;
+  try {
+    const response: any = await useApi("/fm/tasks/ai-analysis", {
+      method: "POST",
+      body: {
+        taskId: route.params.id,
+        providerCode: selectedAiProviderCode.value,
+        forceRefresh,
+      },
+      headers: { "X-FlowMint-Tenant": tenantId },
+    });
+    if (!ok(response)) {
+      toast.warning(response?.message || "AI 分析失敗");
+      return;
+    }
+    aiAnalysis.value = response.value;
+  } catch (error) {
+    toast.error(escapeQifuHtmlMsg(
+      error instanceof Error ? error.message : "AI 分析失敗",
+    ));
+  } finally {
+    aiAnalysisLoading.value = false;
+  }
+};
 const destroyForm = async () => {
   detachDataActionBridge?.();
   detachDataActionBridge = null;
@@ -519,6 +578,102 @@ onBeforeUnmount(() => void destroyForm());
         </div>
 
         <div class="col-xl-4">
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+              <strong>AI 簽核解說精靈</strong>
+              <span class="badge text-bg-light border">僅供參考</span>
+            </div>
+            <div class="card-body">
+              <p class="small text-muted mb-3">
+                依最後已保存的表單版本與既有簽核紀錄產生解說，不包含尚未送出的畫面修改。
+              </p>
+              <button
+                v-if="!showAiAssistant"
+                type="button"
+                class="btn btn-outline-primary w-100"
+                @click="openAiAssistant"
+              >
+                <i class="bi bi-stars me-1"></i>AI 解說精靈
+              </button>
+              <template v-else>
+                <div v-if="aiProviderLoading" class="text-center text-muted py-2">
+                  <span class="spinner-border spinner-border-sm me-2"></span>載入 AI Provider…
+                </div>
+                <div v-else-if="!aiProviderOptions.length" class="alert alert-warning small mb-0">
+                  目前尚未設定 AI API，請聯絡系統管理員至 AI Provider 管理新增並啟用設定。
+                </div>
+                <template v-else>
+                  <label class="form-label">分析來源</label>
+                  <select v-model="selectedAiProviderCode" class="form-select mb-3">
+                    <option
+                      v-for="provider in aiProviderOptions"
+                      :key="provider.providerCode"
+                      :value="provider.providerCode"
+                    >
+                      {{ provider.displayName }}／{{ provider.modelId }}
+                    </option>
+                  </select>
+                  <div class="d-flex gap-2 mb-3">
+                    <button
+                      type="button"
+                      class="btn btn-primary flex-grow-1"
+                      :disabled="aiAnalysisLoading || !selectedAiProviderCode"
+                      @click="analyzeWithAi(false)"
+                    >
+                      <span v-if="aiAnalysisLoading" class="spinner-border spinner-border-sm me-2"></span>
+                      {{ aiAnalysisLoading ? "分析中…" : "開始 AI 解說" }}
+                    </button>
+                    <button
+                      v-if="aiAnalysis"
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      :disabled="aiAnalysisLoading"
+                      @click="analyzeWithAi(true)"
+                    >
+                      重新分析
+                    </button>
+                  </div>
+                  <div v-if="aiAnalysis" class="border rounded p-3 mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                      <strong>分析結果</strong>
+                      <span v-if="aiAnalysis.cacheHit" class="badge text-bg-light border">快取結果</span>
+                    </div>
+                    <div v-if="aiAnalysis.result?.summary" class="mb-3">
+                      {{ aiAnalysis.result.summary }}
+                    </div>
+                    <div v-if="aiAnalysis.result?.keyFacts?.length" class="mb-3">
+                      <div class="fw-semibold small mb-1">重點</div>
+                      <ul class="small mb-0 ps-3">
+                        <li v-for="item in aiAnalysis.result.keyFacts" :key="item">{{ item }}</li>
+                      </ul>
+                    </div>
+                    <div v-if="aiAnalysis.result?.risks?.length" class="mb-3">
+                      <div class="fw-semibold small mb-1">風險與提醒</div>
+                      <ul class="small mb-0 ps-3">
+                        <li v-for="item in aiAnalysis.result.risks" :key="`${item.level}-${item.title}`">
+                          <span class="fw-semibold">[{{ item.level }}] {{ item.title }}</span>：{{ item.detail }}
+                        </li>
+                      </ul>
+                    </div>
+                    <div v-if="aiAnalysis.result?.questions?.length" class="mb-3">
+                      <div class="fw-semibold small mb-1">建議確認</div>
+                      <ul class="small mb-0 ps-3">
+                        <li v-for="item in aiAnalysis.result.questions" :key="item">{{ item }}</li>
+                      </ul>
+                    </div>
+                    <div v-if="aiAnalysis.result?.recommendation" class="alert alert-light border small">
+                      <div class="fw-semibold">{{ aiAnalysis.result.recommendation.action }}</div>
+                      <div>{{ aiAnalysis.result.recommendation.reason }}</div>
+                    </div>
+                    <div class="small text-muted">{{ aiAnalysis.disclaimer }}</div>
+                  </div>
+                  <div v-if="!aiAnalysis" class="alert alert-info small mb-0">
+                    Provider 選擇已接通；正式分析與結果面板將在下一階段啟用。
+                  </div>
+                </template>
+              </template>
+            </div>
+          </div>
           <div v-if="attachments.length" class="card border-0 shadow-sm mb-4">
             <div class="card-header bg-white py-3"><strong>附件</strong></div>
             <div class="list-group list-group-flush">

@@ -29,4 +29,7 @@ public interface IFmProcessRuntimeLogicService {
 
 	DefaultResult<FmProcessSubmitView> submit(FmProcessSubmitCommand command)
 			throws ServiceException;
+
+	DefaultResult<FmProcessSubmitView> submitAs(FmProcessSubmitCommand command,
+			String starterAccount) throws ServiceException;
 }

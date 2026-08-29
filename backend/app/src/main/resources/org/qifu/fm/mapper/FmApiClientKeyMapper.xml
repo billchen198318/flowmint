@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmApiClientKeyMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmApiClientKey">
+    <id column="OID" jdbcType="CHAR" property="oid"/>
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId"/>
+    <result column="CLIENT_ID" jdbcType="CHAR" property="clientId"/>
+    <result column="KEY_ID" jdbcType="CHAR" property="keyId"/>
+    <result column="KEY_PREFIX" jdbcType="VARCHAR" property="keyPrefix"/>
+    <result column="KEY_LAST_FOUR" jdbcType="CHAR" property="keyLastFour"/>
+    <result column="SECRET_HASH" jdbcType="CHAR" property="secretHash"/>
+    <result column="EFFECTIVE_FROM" jdbcType="TIMESTAMP" property="effectiveFrom"/>
+    <result column="EXPIRES_AT" jdbcType="TIMESTAMP" property="expiresAt"/>
+    <result column="REVOKED_AT" jdbcType="TIMESTAMP" property="revokedAt"/>
+    <result column="REVOKED_BY" jdbcType="VARCHAR" property="revokedBy"/>
+    <result column="REVOKE_REASON" jdbcType="VARCHAR" property="revokeReason"/>
+    <result column="LAST_USED_AT" jdbcType="TIMESTAMP" property="lastUsedAt"/>
+    <result column="LAST_SOURCE_IP" jdbcType="VARCHAR" property="lastSourceIp"/>
+    <result column="FAILED_COUNT" jdbcType="INTEGER" property="failedCount"/>
+    <result column="STATUS" jdbcType="VARCHAR" property="status"/>
+    <result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion"/>
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate"/>
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid"/>
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate"/>
+  </resultMap>
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, CLIENT_ID, KEY_ID, KEY_PREFIX, KEY_LAST_FOUR, SECRET_HASH,
+    EFFECTIVE_FROM, EXPIRES_AT, REVOKED_AT, REVOKED_BY, REVOKE_REASON,
+    LAST_USED_AT, LAST_SOURCE_IP, FAILED_COUNT, STATUS, LOCK_VERSION,
+    CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="clientId != null and clientId != ''">
+      AND CLIENT_ID = #{clientId,jdbcType=CHAR}
+    </if>
+    <if test="keyId != null and keyId != ''">
+      AND KEY_ID = #{keyId,jdbcType=CHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmApiClientKey">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+    (OID, TENANT_ID, CLIENT_ID, KEY_ID, KEY_PREFIX, KEY_LAST_FOUR, SECRET_HASH,
+     EFFECTIVE_FROM, EXPIRES_AT, FAILED_COUNT, STATUS, LOCK_VERSION, CUSERID, CDATE)
+    VALUES (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{clientId,jdbcType=CHAR},
+     #{keyId,jdbcType=CHAR}, #{keyPrefix,jdbcType=VARCHAR}, #{keyLastFour,jdbcType=CHAR},
+     #{secretHash,jdbcType=CHAR}, #{effectiveFrom,jdbcType=TIMESTAMP},
+     #{expiresAt,jdbcType=TIMESTAMP}, #{failedCount,jdbcType=INTEGER},
+     #{status,jdbcType=VARCHAR}, #{lockVersion,jdbcType=INTEGER},
+     #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+  </insert>
+  <update id="update" parameterType="org.qifu.fm.entity.FmApiClientKey">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+       SET EXPIRES_AT = #{expiresAt,jdbcType=TIMESTAMP},
+           STATUS = #{status,jdbcType=VARCHAR},
+           LOCK_VERSION = LOCK_VERSION + 1,
+           UUSERID = #{uuserid,jdbcType=VARCHAR}, UDATE = #{udate,jdbcType=TIMESTAMP}
+     WHERE OID = #{oid,jdbcType=CHAR} AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+  </update>
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmApiClientKey">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key WHERE OID = #{oid,jdbcType=CHAR} AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </delete>
+  <select id="selectByKeyId" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+     WHERE KEY_ID = #{keyId,jdbcType=CHAR}
+  </select>
+  <update id="revoke" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+       SET STATUS = 'REVOKED', REVOKED_AT = #{revokedAt,jdbcType=TIMESTAMP},
+           REVOKED_BY = #{revokedBy,jdbcType=VARCHAR}, REVOKE_REASON = #{revokeReason,jdbcType=VARCHAR},
+           LOCK_VERSION = LOCK_VERSION + 1, UUSERID = #{revokedBy,jdbcType=VARCHAR}, UDATE = #{udate,jdbcType=TIMESTAMP}
+     WHERE OID = #{oid,jdbcType=CHAR} AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND STATUS = 'ACTIVE' AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+  </update>
+  <update id="markUsed" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client_key
+       SET LAST_USED_AT = #{usedAt,jdbcType=TIMESTAMP}, LAST_SOURCE_IP = #{sourceIp,jdbcType=VARCHAR}, FAILED_COUNT = 0
+     WHERE KEY_ID = #{keyId,jdbcType=CHAR} AND STATUS = 'ACTIVE'
+  </update>
+</mapper>

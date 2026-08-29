@@ -121,6 +121,7 @@ export const popularIcons = [
   { name: 'box-seam', label: 'Box Seam' }, { name: 'cup-hot', label: 'Cup Hot' }, { name: 'puzzle', label: 'Puzzle' },
   { name: 'diagram-3', label: 'Diagram 3'}, { name: 'person-add', label: 'Person add'}, { name: 'person-gear', label: 'Person gear'},
   { name: 'diagram-2', label: 'Diagram 2'}, { name: 'person-workspace', label: 'Person workspace'}, { name: 'database', label: 'Database'},
-  { name: 'exclamation-triangle', label: 'Exclamation triangle'}, { name: 'bar-chart-line', label: 'Bar chart line'}
+  { name: 'exclamation-triangle', label: 'Exclamation triangle'}, { name: 'bar-chart-line', label: 'Bar chart line'},
+  { name: 'robot', label: 'Robot'}
   
 ];

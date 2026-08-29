@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmAiProviderMapper">
+	<resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmAiProvider">
+		<id column="OID" jdbcType="CHAR" property="oid" />
+		<result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+		<result column="PROVIDER_CODE" jdbcType="VARCHAR" property="providerCode" />
+		<result column="PROVIDER_TYPE" jdbcType="VARCHAR" property="providerType" />
+		<result column="DISPLAY_NAME" jdbcType="VARCHAR" property="displayName" />
+		<result column="BASE_URL" jdbcType="VARCHAR" property="baseUrl" />
+		<result column="MODEL_ID" jdbcType="VARCHAR" property="modelId" />
+		<result column="API_KEY_CONTENT" jdbcType="LONGVARCHAR" property="apiKeyContent" />
+		<result column="TEMPERATURE" jdbcType="DECIMAL" property="temperature" />
+		<result column="MAX_OUTPUT_TOKENS" jdbcType="INTEGER" property="maxOutputTokens" />
+		<result column="TIMEOUT_SECONDS" jdbcType="INTEGER" property="timeoutSeconds" />
+		<result column="DEFAULT_FLAG" jdbcType="CHAR" property="defaultFlag" />
+		<result column="CONFIG_VERSION" jdbcType="INTEGER" property="configVersion" />
+		<result column="STATUS" jdbcType="VARCHAR" property="status" />
+		<result column="LAST_TEST_STATUS" jdbcType="VARCHAR" property="lastTestStatus" />
+		<result column="LAST_TEST_DATE" jdbcType="TIMESTAMP" property="lastTestDate" />
+		<result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion" />
+		<result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+		<result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+		<result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+		<result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+	</resultMap>
+
+	<sql id="BaseColumnList">
+		OID, TENANT_ID, PROVIDER_CODE, PROVIDER_TYPE, DISPLAY_NAME, BASE_URL,
+		MODEL_ID, API_KEY_CONTENT, TEMPERATURE, MAX_OUTPUT_TOKENS, TIMEOUT_SECONDS,
+		DEFAULT_FLAG, CONFIG_VERSION, STATUS, LAST_TEST_STATUS, LAST_TEST_DATE,
+		LOCK_VERSION, CUSERID, CDATE, UUSERID, UDATE
+	</sql>
+
+	<select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		 WHERE OID = #{oid,jdbcType=CHAR}
+	</select>
+
+	<sql id="baseConditions">
+		<if test="tenantId != null and tenantId != ''">
+			AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		</if>
+		<if test="providerCode != null and providerCode != ''">
+			AND PROVIDER_CODE = #{providerCode,jdbcType=VARCHAR}
+		</if>
+		<if test="status != null and status != ''">
+			AND STATUS = #{status,jdbcType=VARCHAR}
+		</if>
+	</sql>
+
+	<select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		 WHERE 1 = 1
+		<include refid="baseConditions" />
+		<if test="orderBy != null and orderBy != ''">
+			ORDER BY ${orderBy} ${sortType}
+		</if>
+	</select>
+
+	<select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+		<include refid="org.qifu.core.mapper.DB1Config.sql1" />
+		SELECT <include refid="BaseColumnList" />
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		 WHERE 1 = 1
+		<include refid="baseConditions" />
+		<include refid="org.qifu.core.mapper.DB1Config.sql2" />
+	</select>
+
+	<select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+		SELECT COUNT(*)
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		 WHERE 1 = 1
+		<include refid="baseConditions" />
+	</select>
+
+	<insert id="insert" parameterType="org.qifu.fm.entity.FmAiProvider">
+		INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		<trim prefix="(" suffix=")" suffixOverrides=",">
+			<if test="oid != null">
+				OID,
+			</if>
+			<if test="tenantId != null">
+				TENANT_ID,
+			</if>
+			<if test="providerCode != null">
+				PROVIDER_CODE,
+			</if>
+			<if test="providerType != null">
+				PROVIDER_TYPE,
+			</if>
+			<if test="displayName != null">
+				DISPLAY_NAME,
+			</if>
+			<if test="baseUrl != null">
+				BASE_URL,
+			</if>
+			<if test="modelId != null">
+				MODEL_ID,
+			</if>
+			<if test="apiKeyContent != null">
+				API_KEY_CONTENT,
+			</if>
+			<if test="temperature != null">
+				TEMPERATURE,
+			</if>
+			<if test="maxOutputTokens != null">
+				MAX_OUTPUT_TOKENS,
+			</if>
+			<if test="timeoutSeconds != null">
+				TIMEOUT_SECONDS,
+			</if>
+			<if test="defaultFlag != null">
+				DEFAULT_FLAG,
+			</if>
+			<if test="configVersion != null">
+				CONFIG_VERSION,
+			</if>
+			<if test="status != null">
+				STATUS,
+			</if>
+			<if test="lastTestStatus != null">
+				LAST_TEST_STATUS,
+			</if>
+			<if test="lastTestDate != null">
+				LAST_TEST_DATE,
+			</if>
+			<if test="lockVersion != null">
+				LOCK_VERSION,
+			</if>
+			<if test="cuserid != null">
+				CUSERID,
+			</if>
+			<if test="cdate != null">
+				CDATE,
+			</if>
+			<if test="uuserid != null">
+				UUSERID,
+			</if>
+			<if test="udate != null">
+				UDATE,
+			</if>
+		</trim>
+		<trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+			<if test="oid != null">
+				#{oid,jdbcType=CHAR},
+			</if>
+			<if test="tenantId != null">
+				#{tenantId,jdbcType=VARCHAR},
+			</if>
+			<if test="providerCode != null">
+				#{providerCode,jdbcType=VARCHAR},
+			</if>
+			<if test="providerType != null">
+				#{providerType,jdbcType=VARCHAR},
+			</if>
+			<if test="displayName != null">
+				#{displayName,jdbcType=VARCHAR},
+			</if>
+			<if test="baseUrl != null">
+				#{baseUrl,jdbcType=VARCHAR},
+			</if>
+			<if test="modelId != null">
+				#{modelId,jdbcType=VARCHAR},
+			</if>
+			<if test="apiKeyContent != null">
+				#{apiKeyContent,jdbcType=LONGVARCHAR},
+			</if>
+			<if test="temperature != null">
+				#{temperature,jdbcType=DECIMAL},
+			</if>
+			<if test="maxOutputTokens != null">
+				#{maxOutputTokens,jdbcType=INTEGER},
+			</if>
+			<if test="timeoutSeconds != null">
+				#{timeoutSeconds,jdbcType=INTEGER},
+			</if>
+			<if test="defaultFlag != null">
+				#{defaultFlag,jdbcType=CHAR},
+			</if>
+			<if test="configVersion != null">
+				#{configVersion,jdbcType=INTEGER},
+			</if>
+			<if test="status != null">
+				#{status,jdbcType=VARCHAR},
+			</if>
+			<if test="lastTestStatus != null">
+				#{lastTestStatus,jdbcType=VARCHAR},
+			</if>
+			<if test="lastTestDate != null">
+				#{lastTestDate,jdbcType=TIMESTAMP},
+			</if>
+			<if test="lockVersion != null">
+				#{lockVersion,jdbcType=INTEGER},
+			</if>
+			<if test="cuserid != null">
+				#{cuserid,jdbcType=VARCHAR},
+			</if>
+			<if test="cdate != null">
+				#{cdate,jdbcType=TIMESTAMP},
+			</if>
+			<if test="uuserid != null">
+				#{uuserid,jdbcType=VARCHAR},
+			</if>
+			<if test="udate != null">
+				#{udate,jdbcType=TIMESTAMP},
+			</if>
+		</trim>
+	</insert>
+
+	<update id="update" parameterType="org.qifu.fm.entity.FmAiProvider">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		<set>
+			<if test="providerType != null">
+				PROVIDER_TYPE = #{providerType,jdbcType=VARCHAR},
+			</if>
+			<if test="displayName != null">
+				DISPLAY_NAME = #{displayName,jdbcType=VARCHAR},
+			</if>
+			<if test="baseUrl != null">
+				BASE_URL = #{baseUrl,jdbcType=VARCHAR},
+			</if>
+			<if test="modelId != null">
+				MODEL_ID = #{modelId,jdbcType=VARCHAR},
+			</if>
+			<if test="apiKeyContent != null">
+				API_KEY_CONTENT = #{apiKeyContent,jdbcType=LONGVARCHAR},
+			</if>
+			<if test="temperature != null">
+				TEMPERATURE = #{temperature,jdbcType=DECIMAL},
+			</if>
+			<if test="maxOutputTokens != null">
+				MAX_OUTPUT_TOKENS = #{maxOutputTokens,jdbcType=INTEGER},
+			</if>
+			<if test="timeoutSeconds != null">
+				TIMEOUT_SECONDS = #{timeoutSeconds,jdbcType=INTEGER},
+			</if>
+			<if test="defaultFlag != null">
+				DEFAULT_FLAG = #{defaultFlag,jdbcType=CHAR},
+			</if>
+			CONFIG_VERSION = CONFIG_VERSION + 1,
+			<if test="status != null">
+				STATUS = #{status,jdbcType=VARCHAR},
+			</if>
+			<if test="lastTestStatus != null">
+				LAST_TEST_STATUS = #{lastTestStatus,jdbcType=VARCHAR},
+			</if>
+			<if test="lastTestDate != null">
+				LAST_TEST_DATE = #{lastTestDate,jdbcType=TIMESTAMP},
+			</if>
+			LOCK_VERSION = LOCK_VERSION + 1,
+			<if test="uuserid != null">
+				UUSERID = #{uuserid,jdbcType=VARCHAR},
+			</if>
+			<if test="udate != null">
+				UDATE = #{udate,jdbcType=TIMESTAMP},
+			</if>
+		</set>
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+	</update>
+
+	<delete id="delete" parameterType="org.qifu.fm.entity.FmAiProvider">
+		DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+	</delete>
+
+	<select id="lockByTenant" resultType="java.lang.String">
+		SELECT OID
+		  FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		 WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		 FOR UPDATE
+	</select>
+
+	<update id="updateTestStatus">
+		UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_ai_provider
+		   SET LAST_TEST_STATUS = #{lastTestStatus,jdbcType=VARCHAR},
+		       LAST_TEST_DATE = #{lastTestDate,jdbcType=TIMESTAMP},
+		       LOCK_VERSION = LOCK_VERSION + 1,
+		       UUSERID = #{uuserid,jdbcType=VARCHAR},
+		       UDATE = #{udate,jdbcType=TIMESTAMP}
+		 WHERE OID = #{oid,jdbcType=CHAR}
+		   AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+		   AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+	</update>
+</mapper>
