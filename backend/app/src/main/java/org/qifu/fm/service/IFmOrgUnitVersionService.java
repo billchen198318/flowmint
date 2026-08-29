@@ -2,6 +2,7 @@ package org.qifu.fm.service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Date;
 
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.model.DefaultResult;
@@ -18,4 +19,9 @@ public interface IFmOrgUnitVersionService extends IBaseService<FmOrgUnitVersion,
 	QueryResult<List<FmOrgUnitView>> findCurrentPage(Map<String, Object> paramMap, PageOf pageOf) throws ServiceException;
 
 	DefaultResult<Long> countCurrent(Map<String, Object> paramMap);
+
+	FmOrgUnitView selectEffective(String tenantId, String orgUnitId, Date effectiveAt);
+
+	List<FmOrgUnitView> selectEffectiveTree(String tenantId, Date effectiveAt,
+			boolean includeInactive);
 }

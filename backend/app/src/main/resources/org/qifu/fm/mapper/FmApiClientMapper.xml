@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmApiClientMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmApiClient">
+    <id column="OID" jdbcType="CHAR" property="oid"/>
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId"/>
+    <result column="CLIENT_ID" jdbcType="CHAR" property="clientId"/>
+    <result column="CLIENT_CODE" jdbcType="VARCHAR" property="clientCode"/>
+    <result column="CLIENT_NAME" jdbcType="VARCHAR" property="clientName"/>
+    <result column="SYSTEM_TYPE" jdbcType="VARCHAR" property="systemType"/>
+    <result column="DESCRIPTION" jdbcType="VARCHAR" property="description"/>
+    <result column="ALLOWED_SCOPES" jdbcType="LONGVARCHAR" property="allowedScopes"/>
+    <result column="ALLOWED_PROCESS_IDS" jdbcType="LONGVARCHAR" property="allowedProcessIds"/>
+    <result column="ALLOWED_INITIATOR_ACCOUNTS" jdbcType="LONGVARCHAR" property="allowedInitiatorAccounts"/>
+    <result column="IP_ALLOWLIST" jdbcType="LONGVARCHAR" property="ipAllowlist"/>
+    <result column="RATE_LIMIT_PER_MINUTE" jdbcType="INTEGER" property="rateLimitPerMinute"/>
+    <result column="DAILY_QUOTA" jdbcType="INTEGER" property="dailyQuota"/>
+    <result column="STATUS" jdbcType="VARCHAR" property="status"/>
+    <result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion"/>
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate"/>
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid"/>
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate"/>
+  </resultMap>
+  <sql id="BaseColumnList">
+    OID, TENANT_ID, CLIENT_ID, CLIENT_CODE, CLIENT_NAME, SYSTEM_TYPE,
+    DESCRIPTION, ALLOWED_SCOPES, ALLOWED_PROCESS_IDS,
+    ALLOWED_INITIATOR_ACCOUNTS, IP_ALLOWLIST, RATE_LIMIT_PER_MINUTE,
+    DAILY_QUOTA, STATUS, LOCK_VERSION, CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="clientId != null and clientId != ''">
+      AND CLIENT_ID = #{clientId,jdbcType=CHAR}
+    </if>
+    <if test="clientCode != null and clientCode != ''">
+      AND CLIENT_CODE = #{clientCode,jdbcType=VARCHAR}
+    </if>
+    <if test="clientCodeLike != null and clientCodeLike != ''">
+      AND CLIENT_CODE LIKE #{clientCodeLike,jdbcType=VARCHAR}
+    </if>
+    <if test="clientNameLike != null and clientNameLike != ''">
+      AND CLIENT_NAME LIKE #{clientNameLike,jdbcType=VARCHAR}
+    </if>
+    <if test="systemType != null and systemType != ''">
+      AND SYSTEM_TYPE = #{systemType,jdbcType=VARCHAR}
+    </if>
+    <if test="status != null and status != ''">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmApiClient">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client
+    (OID, TENANT_ID, CLIENT_ID, CLIENT_CODE, CLIENT_NAME, SYSTEM_TYPE, DESCRIPTION, ALLOWED_SCOPES, ALLOWED_PROCESS_IDS, ALLOWED_INITIATOR_ACCOUNTS, IP_ALLOWLIST, RATE_LIMIT_PER_MINUTE, DAILY_QUOTA, STATUS, LOCK_VERSION, CUSERID, CDATE)
+    VALUES (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR}, #{clientId,jdbcType=CHAR}, #{clientCode,jdbcType=VARCHAR}, #{clientName,jdbcType=VARCHAR}, #{systemType,jdbcType=VARCHAR}, #{description,jdbcType=VARCHAR}, #{allowedScopes,jdbcType=LONGVARCHAR}, #{allowedProcessIds,jdbcType=LONGVARCHAR}, #{allowedInitiatorAccounts,jdbcType=LONGVARCHAR}, #{ipAllowlist,jdbcType=LONGVARCHAR}, #{rateLimitPerMinute,jdbcType=INTEGER}, #{dailyQuota,jdbcType=INTEGER}, #{status,jdbcType=VARCHAR}, #{lockVersion,jdbcType=INTEGER}, #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP})
+  </insert>
+  <update id="update" parameterType="org.qifu.fm.entity.FmApiClient">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client
+    SET CLIENT_NAME = #{clientName,jdbcType=VARCHAR}, SYSTEM_TYPE = #{systemType,jdbcType=VARCHAR}, DESCRIPTION = #{description,jdbcType=VARCHAR}, ALLOWED_SCOPES = #{allowedScopes,jdbcType=LONGVARCHAR}, ALLOWED_PROCESS_IDS = #{allowedProcessIds,jdbcType=LONGVARCHAR}, ALLOWED_INITIATOR_ACCOUNTS = #{allowedInitiatorAccounts,jdbcType=LONGVARCHAR}, IP_ALLOWLIST = #{ipAllowlist,jdbcType=LONGVARCHAR}, RATE_LIMIT_PER_MINUTE = #{rateLimitPerMinute,jdbcType=INTEGER}, DAILY_QUOTA = #{dailyQuota,jdbcType=INTEGER}, STATUS = #{status,jdbcType=VARCHAR}, LOCK_VERSION = LOCK_VERSION + 1, UUSERID = #{uuserid,jdbcType=VARCHAR}, UDATE = #{udate,jdbcType=TIMESTAMP}
+    WHERE OID = #{oid,jdbcType=CHAR} AND TENANT_ID = #{tenantId,jdbcType=VARCHAR} AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+  </update>
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmApiClient">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_client
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </delete>
+</mapper>

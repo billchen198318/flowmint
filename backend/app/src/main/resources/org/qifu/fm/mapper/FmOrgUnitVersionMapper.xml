@@ -309,10 +309,63 @@
     </if>
   </sql>
 
+  <sql id="effectiveSelect">
+    SELECT u.OID AS UNIT_OID,
+           u.TENANT_ID,
+           u.ORG_UNIT_ID,
+           u.UNIT_CODE,
+           v.VERSION_NO AS CURRENT_VERSION_NO,
+           v.OID AS VERSION_OID,
+           v.PARENT_ORG_UNIT_ID,
+           v.UNIT_NAME,
+           v.SHORT_NAME,
+           v.UNIT_TYPE,
+           v.TREE_DEPTH,
+           v.PATH,
+           v.SORT_NO,
+           v.IS_VIRTUAL,
+           v.STATUS,
+           v.EFFECTIVE_FROM,
+           v.EFFECTIVE_TO,
+           v.DESCRIPTION
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit u
+      JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version v
+        ON v.TENANT_ID = u.TENANT_ID
+       AND v.ORG_UNIT_ID = u.ORG_UNIT_ID
+  </sql>
+
   <select id="selectCurrentTree" parameterType="java.util.HashMap" resultMap="CurrentViewResultMap">
     <include refid="currentSelect" />
      WHERE 1 = 1
     <include refid="currentConditions" />
+     ORDER BY v.PATH ASC, v.SORT_NO ASC, u.UNIT_CODE ASC
+  </select>
+
+  <select id="selectEffective" resultMap="CurrentViewResultMap">
+    <include refid="effectiveSelect" />
+     WHERE u.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND u.ORG_UNIT_ID = #{orgUnitId,jdbcType=VARCHAR}
+       AND v.EFFECTIVE_FROM &lt;= #{effectiveAt,jdbcType=TIMESTAMP}
+       AND (v.EFFECTIVE_TO IS NULL OR v.EFFECTIVE_TO &gt; #{effectiveAt,jdbcType=TIMESTAMP})
+     ORDER BY v.VERSION_NO DESC
+     LIMIT 1
+  </select>
+
+  <select id="selectEffectiveTree" resultMap="CurrentViewResultMap">
+    <include refid="effectiveSelect" />
+     WHERE u.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND v.EFFECTIVE_FROM &lt;= #{effectiveAt,jdbcType=TIMESTAMP}
+       AND (v.EFFECTIVE_TO IS NULL OR v.EFFECTIVE_TO &gt; #{effectiveAt,jdbcType=TIMESTAMP})
+       AND (#{includeInactive,jdbcType=BOOLEAN} = TRUE OR v.STATUS = 'ACTIVE')
+       AND NOT EXISTS (
+         SELECT 1
+           FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit_version newer
+          WHERE newer.TENANT_ID = v.TENANT_ID
+            AND newer.ORG_UNIT_ID = v.ORG_UNIT_ID
+            AND newer.VERSION_NO &gt; v.VERSION_NO
+            AND newer.EFFECTIVE_FROM &lt;= #{effectiveAt,jdbcType=TIMESTAMP}
+            AND (newer.EFFECTIVE_TO IS NULL OR newer.EFFECTIVE_TO &gt; #{effectiveAt,jdbcType=TIMESTAMP})
+       )
      ORDER BY v.PATH ASC, v.SORT_NO ASC, u.UNIT_CODE ASC
   </select>
 

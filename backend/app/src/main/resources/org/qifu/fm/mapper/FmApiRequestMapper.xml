@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmApiRequestMapper">
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmApiRequest">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="API_REQUEST_ID" jdbcType="CHAR" property="apiRequestId" />
+    <result column="CLIENT_ID" jdbcType="CHAR" property="clientId" />
+    <result column="KEY_ID" jdbcType="CHAR" property="keyId" />
+    <result column="IDEMPOTENCY_KEY_HASH" jdbcType="CHAR" property="idempotencyKeyHash" />
+    <result column="PAYLOAD_HASH" jdbcType="CHAR" property="payloadHash" />
+    <result column="PROCESS_DEF_ID" jdbcType="CHAR" property="processDefId" />
+    <result column="PROCESS_VERSION_NO" jdbcType="INTEGER" property="processVersionNo" />
+    <result column="FORM_ID" jdbcType="CHAR" property="formId" />
+    <result column="FORM_VERSION_NO" jdbcType="INTEGER" property="formVersionNo" />
+    <result column="FORM_SCHEMA_HASH" jdbcType="CHAR" property="formSchemaHash" />
+    <result column="INITIATOR_ACCOUNT" jdbcType="VARCHAR" property="initiatorAccount" />
+    <result column="APPLICANT_ACCOUNT" jdbcType="VARCHAR" property="applicantAccount" />
+    <result column="APPLICANT_ORG_UNIT_ID" jdbcType="CHAR" property="applicantOrgUnitId" />
+    <result column="SOURCE_SYSTEM" jdbcType="VARCHAR" property="sourceSystem" />
+    <result column="SOURCE_DOCUMENT_TYPE" jdbcType="VARCHAR" property="sourceDocumentType" />
+    <result column="SOURCE_DOCUMENT_NO" jdbcType="VARCHAR" property="sourceDocumentNo" />
+    <result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId" />
+    <result column="FLOWABLE_PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="flowableProcessInstanceId" />
+    <result column="BUSINESS_KEY" jdbcType="VARCHAR" property="businessKey" />
+    <result column="DOCUMENT_NUMBER" jdbcType="VARCHAR" property="documentNumber" />
+    <result column="FORM_DATA_ID" jdbcType="CHAR" property="formDataId" />
+    <result column="REQUEST_STATUS" jdbcType="VARCHAR" property="requestStatus" />
+    <result column="RESULT_CODE" jdbcType="VARCHAR" property="resultCode" />
+    <result column="SAFE_ERROR_MESSAGE" jdbcType="VARCHAR" property="safeErrorMessage" />
+    <result column="COMPLETED_AT" jdbcType="TIMESTAMP" property="completedAt" />
+    <result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+  <sql id="BaseColumns">
+    OID, TENANT_ID, API_REQUEST_ID, CLIENT_ID, KEY_ID, IDEMPOTENCY_KEY_HASH,
+    PAYLOAD_HASH, PROCESS_DEF_ID, PROCESS_VERSION_NO, FORM_ID, FORM_VERSION_NO,
+    FORM_SCHEMA_HASH, INITIATOR_ACCOUNT, APPLICANT_ACCOUNT, APPLICANT_ORG_UNIT_ID,
+    SOURCE_SYSTEM, SOURCE_DOCUMENT_TYPE, SOURCE_DOCUMENT_NO, PROCESS_INSTANCE_ID,
+    FLOWABLE_PROCESS_INSTANCE_ID, BUSINESS_KEY, DOCUMENT_NUMBER, FORM_DATA_ID,
+    REQUEST_STATUS, RESULT_CODE, SAFE_ERROR_MESSAGE, COMPLETED_AT, LOCK_VERSION,
+    CUSERID, CDATE, UUSERID, UDATE
+  </sql>
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="apiRequestId != null and apiRequestId != ''">
+      AND API_REQUEST_ID = #{apiRequestId,jdbcType=CHAR}
+    </if>
+    <if test="clientId != null and clientId != ''">
+      AND CLIENT_ID = #{clientId,jdbcType=CHAR}
+    </if>
+    <if test="processInstanceId != null and processInstanceId != ''">
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+    </if>
+    <if test="businessKey != null and businessKey != ''">
+      AND BUSINESS_KEY = #{businessKey,jdbcType=VARCHAR}
+    </if>
+    <if test="documentNumber != null and documentNumber != ''">
+      AND DOCUMENT_NUMBER = #{documentNumber,jdbcType=VARCHAR}
+    </if>
+    <if test="requestStatus != null and requestStatus != ''">
+      AND REQUEST_STATUS = #{requestStatus,jdbcType=VARCHAR}
+    </if>
+  </sql>
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumns" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+     WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumns" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumns" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+     ORDER BY CDATE DESC, API_REQUEST_ID DESC
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+     WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+  <select id="selectByIdempotency" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumns" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND CLIENT_ID = #{clientId,jdbcType=CHAR}
+       AND IDEMPOTENCY_KEY_HASH = #{idempotencyKeyHash,jdbcType=CHAR}
+  </select>
+  <select id="selectByExternalReference" parameterType="java.util.HashMap"
+      resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumns" />
+      FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND CLIENT_ID = #{clientId,jdbcType=CHAR}
+       AND SOURCE_SYSTEM = #{sourceSystem,jdbcType=VARCHAR}
+       AND SOURCE_DOCUMENT_TYPE = #{sourceDocumentType,jdbcType=VARCHAR}
+       AND SOURCE_DOCUMENT_NO = #{sourceDocumentNo,jdbcType=VARCHAR}
+  </select>
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmApiRequest">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+    (<include refid="BaseColumns" />)
+    VALUES
+    (#{oid,jdbcType=CHAR}, #{tenantId,jdbcType=VARCHAR},
+     #{apiRequestId,jdbcType=CHAR}, #{clientId,jdbcType=CHAR},
+     #{keyId,jdbcType=CHAR}, #{idempotencyKeyHash,jdbcType=CHAR},
+     #{payloadHash,jdbcType=CHAR}, #{processDefId,jdbcType=CHAR},
+     #{processVersionNo,jdbcType=INTEGER}, #{formId,jdbcType=CHAR},
+     #{formVersionNo,jdbcType=INTEGER}, #{formSchemaHash,jdbcType=CHAR},
+     #{initiatorAccount,jdbcType=VARCHAR}, #{applicantAccount,jdbcType=VARCHAR},
+     #{applicantOrgUnitId,jdbcType=CHAR}, #{sourceSystem,jdbcType=VARCHAR},
+     #{sourceDocumentType,jdbcType=VARCHAR}, #{sourceDocumentNo,jdbcType=VARCHAR},
+     #{processInstanceId,jdbcType=VARCHAR},
+     #{flowableProcessInstanceId,jdbcType=VARCHAR},
+     #{businessKey,jdbcType=VARCHAR}, #{documentNumber,jdbcType=VARCHAR},
+     #{formDataId,jdbcType=CHAR}, #{requestStatus,jdbcType=VARCHAR},
+     #{resultCode,jdbcType=VARCHAR}, #{safeErrorMessage,jdbcType=VARCHAR},
+     #{completedAt,jdbcType=TIMESTAMP}, #{lockVersion,jdbcType=INTEGER},
+     #{cuserid,jdbcType=VARCHAR}, #{cdate,jdbcType=TIMESTAMP},
+     #{uuserid,jdbcType=VARCHAR}, #{udate,jdbcType=TIMESTAMP})
+  </insert>
+  <sql id="ResultUpdate">
+    REQUEST_STATUS = #{requestStatus,jdbcType=VARCHAR},
+    RESULT_CODE = #{resultCode,jdbcType=VARCHAR},
+    SAFE_ERROR_MESSAGE = #{safeErrorMessage,jdbcType=VARCHAR},
+    COMPLETED_AT = #{completedAt,jdbcType=TIMESTAMP},
+    PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR},
+    FLOWABLE_PROCESS_INSTANCE_ID = #{flowableProcessInstanceId,jdbcType=VARCHAR},
+    BUSINESS_KEY = #{businessKey,jdbcType=VARCHAR},
+    DOCUMENT_NUMBER = #{documentNumber,jdbcType=VARCHAR},
+    FORM_DATA_ID = #{formDataId,jdbcType=CHAR},
+    PROCESS_VERSION_NO = #{processVersionNo,jdbcType=INTEGER},
+    FORM_VERSION_NO = #{formVersionNo,jdbcType=INTEGER},
+    UUSERID = #{uuserid,jdbcType=VARCHAR},
+    UDATE = #{udate,jdbcType=TIMESTAMP},
+    LOCK_VERSION = LOCK_VERSION + 1
+  </sql>
+  <update id="update" parameterType="org.qifu.fm.entity.FmApiRequest">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+       SET <include refid="ResultUpdate" />
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+       AND REQUEST_STATUS = 'PROCESSING'
+  </update>
+  <update id="updateResult" parameterType="org.qifu.fm.entity.FmApiRequest">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+       SET <include refid="ResultUpdate" />
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND LOCK_VERSION = #{lockVersion,jdbcType=INTEGER}
+       AND REQUEST_STATUS = 'PROCESSING'
+  </update>
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmApiRequest">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_api_request
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND 1 = 0
+  </delete>
+</mapper>

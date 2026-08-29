@@ -40,6 +40,16 @@ public class FmAssignmentIncidentRecorder {
              WHERE TENANT_ID = :tenantId AND INCIDENT_ID = :incidentId
                AND INCIDENT_STATUS = 'OPEN'
             """;
+    private static final String SELECT_PROCESS_SQL = """
+            SELECT INCIDENT_ID, PROCESS_INSTANCE_ID, TASK_ID, TASK_DEF_KEY,
+                   INCIDENT_TYPE, ERROR_CODE, ERROR_MESSAGE, CONTEXT_DATA,
+                   INCIDENT_STATUS, RESOLVED_BY, RESOLVED_DATE, RESOLUTION_NOTE, CDATE
+              FROM fm_assignment_incident
+             WHERE TENANT_ID = :tenantId
+               AND PROCESS_INSTANCE_ID = :processInstanceId
+               AND (:status IS NULL OR INCIDENT_STATUS = :status)
+             ORDER BY CDATE DESC
+            """;
     private static final String IGNORE_PROCESS_SQL = """
             UPDATE fm_assignment_incident
                SET INCIDENT_STATUS = 'IGNORED', RESOLVED_BY = :actor,
@@ -93,6 +103,23 @@ public class FmAssignmentIncidentRecorder {
         return find(tenantId, "OPEN").stream()
                 .filter(value -> incidentId.equals(value.incidentId()))
                 .findFirst().orElse(null);
+    }
+
+    public List<FmAssignmentIncidentView> findByProcess(String tenantId,
+            String processInstanceId, String status) {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", tenantId);
+        parameters.put("processInstanceId", processInstanceId);
+        parameters.put("status", status);
+        return jdbcTemplate.query(SELECT_PROCESS_SQL, parameters,
+                (rs, rowNum) -> new FmAssignmentIncidentView(
+                        rs.getString("INCIDENT_ID"), rs.getString("PROCESS_INSTANCE_ID"),
+                        rs.getString("TASK_ID"), rs.getString("TASK_DEF_KEY"),
+                        rs.getString("INCIDENT_TYPE"), rs.getString("ERROR_CODE"),
+                        rs.getString("ERROR_MESSAGE"), rs.getString("CONTEXT_DATA"),
+                        rs.getString("INCIDENT_STATUS"), rs.getString("RESOLVED_BY"),
+                        rs.getTimestamp("RESOLVED_DATE"),
+                        rs.getString("RESOLUTION_NOTE"), rs.getTimestamp("CDATE")));
     }
 
     public boolean resolve(

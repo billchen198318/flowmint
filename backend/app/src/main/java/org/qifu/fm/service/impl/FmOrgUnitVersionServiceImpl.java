@@ -2,6 +2,7 @@ package org.qifu.fm.service.impl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Date;
 
 import ognl.OgnlException;
 
@@ -53,6 +54,19 @@ public class FmOrgUnitVersionServiceImpl extends BaseService<FmOrgUnitVersion, S
 	@Override
 	public DefaultResult<Long> countCurrent(Map<String, Object> paramMap) {
 		return success(orgUnitVersionMapper.countCurrent(paramMap));
+	}
+
+	@Override
+	public FmOrgUnitView selectEffective(String tenantId, String orgUnitId,
+			Date effectiveAt) {
+		return orgUnitVersionMapper.selectEffective(tenantId, orgUnitId, effectiveAt);
+	}
+
+	@Override
+	public List<FmOrgUnitView> selectEffectiveTree(String tenantId, Date effectiveAt,
+			boolean includeInactive) {
+		return orgUnitVersionMapper.selectEffectiveTree(tenantId, effectiveAt,
+				includeInactive);
 	}
 
 	private <T> DefaultResult<T> success(T value) {

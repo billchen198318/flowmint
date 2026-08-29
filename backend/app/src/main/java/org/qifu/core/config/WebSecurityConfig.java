@@ -33,6 +33,7 @@ import org.qifu.base.support.TokenStoreValidateBuilder;
 import org.qifu.core.util.CookieUtils;
 import org.qifu.core.filter.CsrfCookieFilter;
 import org.qifu.core.filter.JwtUserContextFilter;
+import org.qifu.fm.filter.FmExternalApiAuthenticationFilter;
 import org.qifu.core.handler.CustomAccessDeniedHandler;
 import org.qifu.core.handler.SpaCsrfTokenRequestHandler;
 import org.qifu.core.support.JwtAuthEntryPoint;
@@ -80,16 +81,21 @@ public class WebSecurityConfig {
     private final CustomAccessDeniedHandler accessDeniedHandler;
 
     private final JwtUserContextFilter jwtUserContextFilter;
+
+	private final FmExternalApiAuthenticationFilter externalApiAuthenticationFilter;
     
     public WebSecurityConfig(BaseUserDetailsService baseUserDetailsService, 
     		JwtAuthEntryPoint unauthorizedHandler, PasswordEncoder passwordEncoder,
-    		CustomAccessDeniedHandler accessDeniedHandler, JwtUserContextFilter jwtUserContextFilter) {
+			CustomAccessDeniedHandler accessDeniedHandler,
+			JwtUserContextFilter jwtUserContextFilter,
+			FmExternalApiAuthenticationFilter externalApiAuthenticationFilter) {
 		super();
 		this.baseUserDetailsService = baseUserDetailsService;
 		this.unauthorizedHandler = unauthorizedHandler;
 		this.passwordEncoder = passwordEncoder;
 		this.accessDeniedHandler = accessDeniedHandler;
 		this.jwtUserContextFilter = jwtUserContextFilter;
+		this.externalApiAuthenticationFilter = externalApiAuthenticationFilter;
 	}
 
 	@Bean
@@ -137,7 +143,8 @@ public class WebSecurityConfig {
     	DefaultBearerTokenResolver headerResolver = new DefaultBearerTokenResolver();
     	return request -> {
     		String servletPath = request.getServletPath();
-    		if (servletPath != null && servletPath.startsWith("/api/auth/")) {
+		if (servletPath != null && (servletPath.startsWith("/api/auth/")
+				|| servletPath.startsWith(FmExternalApiAuthenticationFilter.BASE_PATH))) {
     			return null;
     		}
     		String token = headerResolver.resolve(request);
@@ -157,6 +164,16 @@ public class WebSecurityConfig {
     	registration.setEnabled(false);
     	return registration;
     }
+
+	@Bean
+	public FilterRegistrationBean<FmExternalApiAuthenticationFilter>
+			externalApiAuthenticationFilterRegistration(
+				FmExternalApiAuthenticationFilter filter) {
+		FilterRegistrationBean<FmExternalApiAuthenticationFilter> registration =
+				new FilterRegistrationBean<>(filter);
+		registration.setEnabled(false);
+		return registration;
+	}
     
     @Bean
     protected SecurityFilterChain filterChain(HttpSecurity http) throws Exception {   
@@ -172,8 +189,9 @@ public class WebSecurityConfig {
     					matcher(JASPERREPORT_MATCHER),
     					matcher(CoreAppConstants.API_AUTH_SIGNIN),
     					matcher(CoreAppConstants.API_AUTH_LOGOUT),
-    					matcher(CoreAppConstants.API_AUTH_VALID_LOGINED),
-    					matcher(CoreAppConstants.WEBSERVICE_PATH)
+					matcher(CoreAppConstants.API_AUTH_VALID_LOGINED),
+					matcher("/api/fm/external/v1/**"),
+					matcher(CoreAppConstants.WEBSERVICE_PATH)
     			) // 需排除 refreshNewToken , 因 refreshNewToken 需要 CSRF 處理
     		)
     		// Force our aggressive filter to run before standard CsrfFilter
@@ -185,17 +203,20 @@ public class WebSecurityConfig {
     					matcher(CoreAppConstants.API_AUTH_LOGOUT),
     					matcher(CoreAppConstants.API_AUTH_VALID_LOGINED),
     					matcher(CoreAppConstants.API_AUTH_REFRESH_TOKEN)).permitAll();
-    			for (String par : CoreAppConstants.getWebConfiginterceptorExcludePathPatterns()) {
-    				auth.requestMatchers(matcher(par)).permitAll();
-    			}
-    			auth.anyRequest().authenticated();
+			for (String par : CoreAppConstants.getWebConfiginterceptorExcludePathPatterns()) {
+				auth.requestMatchers(matcher(par)).permitAll();
+			}
+			auth.requestMatchers(matcher("/api/fm/external/v1/**")).permitAll();
+			auth.anyRequest().authenticated();
     		});
     	http.oauth2ResourceServer(oauth2 -> oauth2
     			.bearerTokenResolver(bearerTokenResolver())
     			.jwt(Customizer.withDefaults())
     			.authenticationEntryPoint(this.unauthorizedHandler)
-    	);
-    	http.addFilterAfter(this.jwtUserContextFilter, BearerTokenAuthenticationFilter.class);
+	);
+		http.addFilterBefore(this.externalApiAuthenticationFilter,
+				BearerTokenAuthenticationFilter.class);
+	http.addFilterAfter(this.jwtUserContextFilter, BearerTokenAuthenticationFilter.class);
 		http.exceptionHandling(exeConfig -> exeConfig
 				.authenticationEntryPoint(this.unauthorizedHandler)
 				.accessDeniedHandler(this.accessDeniedHandler)
