@@ -10,11 +10,17 @@ FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 H
 
 新 FlowMint 業務 Schema 只保留 34 張 `fm_*` 表；QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不在核心 DDL 重建。
 
-## 目前狀態（2026-08-28）
+## 目前狀態（2026-08-31）
 
 - Phase 1～5 核心簽核與營運程式已完成，請購流程 Version 2 已發布；完整瀏覽器、多帳號及實際資料量 E2E 仍待完成。
 - `FM_PROG010D0001` AI Provider 管理、四種 Provider Adapter、Task AI 分析、快取與稽核已完成程式實作，但尚未使用真實 API Key 完成正式整合驗收。
-- `30` 採購單／驗收單、`31` 公司名片申請單及 `32` 外部系統 API 管理／流程拋單目前都是設計規劃，不代表功能已建立或上線。
+- `31` 公司名片申請單的 Form、Data Action、Document Number Rule、BPMN、Task Policy 與 Resolver
+  Version 1 均已發布並完成配置，目前只待真實多帳號瀏覽器／MariaDB／Flowable E2E 驗收；`30`
+  採購單／驗收單及 `32` 外部系統 API 管理／流程拋單的個別狀態以各自文件為準。
+- 共用待辦頁已修正 `REJECT／RETURN` 誤執行完整 Form.io 與 Custom JavaScript `beforeSubmit`
+  驗證的問題；目前只有 `APPROVE／RESUBMIT` 會提交並驗證表單資料。請購單與公司名片申請單
+  均已建立 Form Version 2 草稿，修正待辦階段重載或改寫申請人、任職及路由欄位的問題；兩個
+  草稿尚未發布，也尚未變更正式流程綁定。
 - 本機 `flowmint.tb_sys_prog` 的 `FM_PROG010D` Folder 名稱已更新為 `FJ. API-整合服務`；既有 `FM_PROG010D0001` 維持不變，規劃中的外部 API 管理使用 `FM_PROG010D0002`。
 
 ## 閱讀順序

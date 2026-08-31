@@ -113,6 +113,10 @@ public class FmFormDesignValidator {
             throws ServiceException {
         for (String property : EXECUTABLE_PROPERTIES) {
             JsonNode value = component.path(property);
+            if ("calculateServer".equals(property)
+                    && value.isBoolean() && !value.asBoolean()) {
+                continue;
+            }
             if (!value.isMissingNode() && !value.isNull()
                     && (!value.isString() || StringUtils.isNotBlank(value.asString()))) {
                 throw invalid(path + " 不允許內嵌可執行設定：" + property);

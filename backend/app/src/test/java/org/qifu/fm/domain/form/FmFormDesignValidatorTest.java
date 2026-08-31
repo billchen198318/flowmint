@@ -74,6 +74,25 @@ class FmFormDesignValidatorTest {
     }
 
     @Test
+    void acceptsDisabledServerCalculationButRejectsEnabledServerCalculation() throws Exception {
+        var disabled = objectMapper.readTree("""
+                {"components":[{
+                  "type":"number","key":"total","calculateServer":false
+                }]}
+                """);
+        var enabled = objectMapper.readTree("""
+                {"components":[{
+                  "type":"number","key":"total","calculateServer":true
+                }]}
+                """);
+
+        assertDoesNotThrow(
+                () -> validator.validate(disabled, objectMapper.createObjectNode()));
+        assertThrows(ServiceException.class,
+                () -> validator.validate(enabled, objectMapper.createObjectNode()));
+    }
+
+    @Test
     void rejectsBindingToMissingEventOrField() throws Exception {
         var schema = objectMapper.readTree("""
                 {"components":[

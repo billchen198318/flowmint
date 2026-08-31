@@ -35,7 +35,7 @@ const categories = computed<ProcessStartCategory[]>(() => {
   return [...grouped.entries()].map(([code, items]) => ({
     code,
     label: items[0]?.categoryLabel || code,
-    icon: `bi-${items[0]?.categoryIcon || "grid"}`,
+    icon: `bi-${(items[0]?.categoryIcon || "grid").replace(/^bi-/, "")}`,
     processes: items.sort((a, b) => a.processSortOrder - b.processSortOrder
       || a.processName.localeCompare(b.processName, "zh-TW")),
   })).sort((a, b) => (a.processes[0]?.categorySortOrder || 999)

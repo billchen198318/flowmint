@@ -351,7 +351,7 @@ const submitActionOnce = async () => {
   }
   acting.value = true;
   try {
-    const submitsForm = ["APPROVE", "REJECT", "RETURN", "RESUBMIT"].includes(
+    const submitsForm = ["APPROVE", "RESUBMIT"].includes(
       actionType.value,
     );
     let editedFormData: Record<string, unknown> | null = null;
