@@ -8,5 +8,6 @@ public record FmTaskActionRequest(
         String comment,
         String reason,
         String targetTaskDefKey,
+        Integer formRevisionNo,
         Map<String, Object> formData) {
 }

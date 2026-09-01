@@ -8,7 +8,7 @@
 
 FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 HR 職務職等與其他未證明必要性的核心主檔；這是產品範圍決策，不是未完成 Backlog，也不應作為企業簽核完成度的扣分項目。Tenant 是唯一資料隔離範圍，「總公司」是部門樹根節點。
 
-本機 `flowmint` 目前共有 55 張 `fm_*` 表，包含核心簽核、後續營運／整合擴充，以及採購單並行占額使用的 `fm_purchase_order_reservation`。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
+本機 `flowmint` 目前共有 56 張 `fm_*` 表，包含核心簽核、後續營運／整合擴充，以及採購單與驗收單並行占額使用的 `fm_purchase_order_reservation`、`fm_goods_acceptance_reservation`。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
 
 ## 目前狀態（2026-08-31）
 
@@ -84,3 +84,12 @@ Enterprise Group、Legal Entity、Location、Employment、Job、Grade、Position
 `backend/doc` 只保留 `flowmint.sql`，作為完整 DDL、主資料、Program 與目前選單資料的文件基準。
 一次性 schema、seed、資料修正與 Program register SQL 執行完成並併入主檔後必須刪除；既有環境的
 增量升級應放在正式 migration 位置或由 QIFU4 管理功能處理，不得再於 `doc` 新增其他 `.sql`。
+
+## 2026-09-01 驗收單最新狀態
+
+`FM_GOODS_ACCEPTANCE` Form Version 5 與 `FM_GOODS_ACCEPTANCE_APPROVAL` Process Version 1
+目前仍為 Draft；其依賴的 `GA_VALIDATE_BEFORE_SUBMIT` Version 4、`GA_RESERVE_QUANTITY`
+Version 3、`GA_RECALCULATE_PO_STATUS` Version 1 均已發布。完整欄位、流程、共用 Runtime 修正與
+待驗收項目請以 [採購單與驗收單表單流程配置規劃](30-採購單與驗收單表單流程配置規劃.md) 為準。
+
+`backend/doc` 僅保留 `flowmint.sql` 作為 SQL 文件基準；舊的 Form Designer Demo 文件已移除。

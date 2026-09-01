@@ -53,4 +53,26 @@ class FmTaskFieldPolicyValidatorTest {
                 Map.of("attachments", List.of(Map.of(
                         "attachmentId", "different-attachment")))));
     }
+
+    @Test
+    void allowsOnlyConfiguredDataGridChildFieldToChange() {
+        String policy = "{\"default\":\"READ\",\"fields\":{"
+                + "\"acceptanceItems[].assetTag\":\"EDIT\"}}";
+        Map<String, Object> current = Map.of("acceptanceItems", List.of(Map.of(
+                "orderLineNo", 1,
+                "acceptedQuantity", 2,
+                "assetTag", "")));
+        Map<String, Object> tagChanged = Map.of("acceptanceItems", List.of(Map.of(
+                "orderLineNo", 1,
+                "acceptedQuantity", 2,
+                "assetTag", "A-001")));
+        Map<String, Object> quantityChanged = Map.of("acceptanceItems", List.of(Map.of(
+                "orderLineNo", 1,
+                "acceptedQuantity", 99,
+                "assetTag", "A-001")));
+
+        assertDoesNotThrow(() -> validator.validateChanges(policy, current, tagChanged));
+        assertThrows(ServiceException.class,
+                () -> validator.validateChanges(policy, current, quantityChanged));
+    }
 }

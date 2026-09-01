@@ -439,6 +439,7 @@ const submitActionOnce = async () => {
           comment: comment.value,
           reason: reason.value,
           targetTaskDefKey: actionType.value === "RETURN" ? targetTaskDefKey.value : null,
+          formRevisionNo: detail.value?.formRevisionNo,
           formData: editedFormData,
             });
     if (!ok(response)) {

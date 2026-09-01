@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -444,26 +445,60 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     private void validatePublishedDataActionBindings(String tenantId, String uiSchemaContent)
             throws ServiceException {
         try {
-            JsonNode bindings = objectMapper.readTree(uiSchemaContent).path("dataActions");
-            if (!bindings.isArray()) {
-                return;
-            }
-            for (JsonNode binding : bindings) {
-                String bindingId = binding.path("bindingId").asString("");
-                String actionCode = binding.path("actionCode").asString("");
-                FmDataAction action = findPublishedDataAction(tenantId, actionCode, bindingId);
-                Integer versionNo = binding.hasNonNull("actionVersion")
-                        ? binding.path("actionVersion").asInt(0)
-                        : action.getCurrentVersionNo();
-                if (versionNo == null || versionNo <= 0) {
-                    throw bindingInvalid(bindingId, "actionVersion 必須是正整數");
+            JsonNode uiSchema = objectMapper.readTree(uiSchemaContent);
+            JsonNode bindings = uiSchema.path("dataActions");
+            if (bindings.isArray()) {
+                for (JsonNode binding : bindings) {
+                    String bindingId = binding.path("bindingId").asString("");
+                    String actionCode = binding.path("actionCode").asString("");
+                    FmDataAction action = findPublishedDataAction(
+                            tenantId, actionCode, bindingId);
+                    Integer versionNo = binding.hasNonNull("actionVersion")
+                            ? binding.path("actionVersion").asInt(0)
+                            : action.getCurrentVersionNo();
+                    if (versionNo == null || versionNo <= 0) {
+                        throw bindingInvalid(bindingId, "actionVersion 必須是正整數");
+                    }
+                    assertPublishedDataActionVersion(
+                            tenantId, action, versionNo, bindingId);
+                    validateDataActionMetadata(
+                            tenantId, action, versionNo, binding, bindingId);
                 }
-                assertPublishedDataActionVersion(tenantId, action, versionNo, bindingId);
-                validateDataActionMetadata(tenantId, action, versionNo, binding, bindingId);
             }
+            validateTaskActionHooks(tenantId, uiSchema.path("taskActionHooks"));
         } catch (JacksonException exception) {
             throw new ServiceException("表單 Data Action Binding JSON 格式錯誤："
                     + exception.getMessage());
+        }
+    }
+
+    private void validateTaskActionHooks(String tenantId, JsonNode hooks)
+            throws ServiceException {
+        if (hooks.isMissingNode() || hooks.isNull()) {
+            return;
+        }
+        if (!hooks.isArray()) {
+            throw new ServiceException("taskActionHooks 必須是陣列");
+        }
+        Set<String> hookIds = new HashSet<>();
+        for (JsonNode hook : hooks) {
+            String hookId = hook.path("hookId").asString("");
+            String phase = hook.path("phase").asString("");
+            String taskDefKey = hook.path("taskDefKey").asString("");
+            String actionCode = hook.path("actionCode").asString("");
+            int versionNo = hook.path("actionVersion").asInt(0);
+            if (StringUtils.isAnyBlank(hookId, phase, taskDefKey, actionCode)
+                    || !hookIds.add(hookId)
+                    || !Set.of("BEFORE_FORM_UPDATE", "AFTER_PROCESS_COMPLETE")
+                            .contains(phase)
+                    || !hook.path("actionTypes").isArray()
+                    || !hook.path("requestMapping").isObject()
+                    || versionNo <= 0) {
+                throw bindingInvalid(hookId, "Task Action Hook 設定不完整或重複");
+            }
+            FmDataAction action = findPublishedDataAction(tenantId, actionCode, hookId);
+            assertPublishedDataActionVersion(tenantId, action, versionNo, hookId);
+            validateDataActionMetadata(tenantId, action, versionNo, hook, hookId);
         }
     }
 

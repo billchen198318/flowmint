@@ -33,6 +33,9 @@ class FmAssignmentRuleConfigValidatorTest {
                 "{\"approvalLevelId\":\"level01\",\"levelMatchMode\":\"UP_TO_LEVEL\"}", null));
         assertDoesNotThrow(() -> validator.validate(
                 "FORM_ACCOUNT_FIELD", "{\"fieldKey\":\"approverAccounts\"}", null));
+        assertDoesNotThrow(() -> validator.validate(
+                "FORM_ACCOUNT_FIELD_MANAGER",
+                "{\"fieldKey\":\"applicantAccount\"}", null));
     }
 
     @Test
@@ -43,6 +46,8 @@ class FmAssignmentRuleConfigValidatorTest {
                 () -> validator.validate("FIXED_ACCOUNT", "{\"accounts\":[]}", null));
         assertThrows(ServiceException.class,
                 () -> validator.validate("FORM_ACCOUNT_FIELD", "{}", null));
+        assertThrows(ServiceException.class,
+                () -> validator.validate("FORM_ACCOUNT_FIELD_MANAGER", "{}", null));
         assertThrows(ServiceException.class,
                 () -> validator.validate("TARGET_LEVEL_HEAD",
                         "{\"approvalLevelId\":\"level01\",\"levelMatchMode\":\"HIGHER_ONLY\"}", null));

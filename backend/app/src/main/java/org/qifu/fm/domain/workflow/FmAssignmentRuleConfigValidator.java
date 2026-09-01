@@ -16,7 +16,8 @@ public class FmAssignmentRuleConfigValidator {
             "FIXED_ACCOUNT", "APPROVAL_GROUP", "INITIATOR_ORG_HEAD",
             "PARENT_ORG_HEAD", "NEXT_HIGHER_LEVEL_HEAD", "TARGET_LEVEL_HEAD",
             "LEVEL_HEAD_CHAIN", "ROOT_ORG_HEAD", "DIRECT_MANAGER", "MANAGER_CHAIN",
-            "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD");
+            "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD",
+            "FORM_ACCOUNT_FIELD_MANAGER");
 
     private final ObjectMapper objectMapper;
 
@@ -37,7 +38,8 @@ public class FmAssignmentRuleConfigValidator {
             case "ORG_TITLE" -> requireText(config, "titleId");
             case "ORG_DUTY" -> requireText(config, "dutyId");
             case "APPROVAL_AUTHORITY" -> requireText(config, "approvalAuthorityId");
-            case "FORM_ACCOUNT_FIELD" -> requireText(config, "fieldKey");
+            case "FORM_ACCOUNT_FIELD", "FORM_ACCOUNT_FIELD_MANAGER" ->
+                    requireText(config, "fieldKey");
             default -> {
                 // These resolvers do not require an additional identifier.
             }
