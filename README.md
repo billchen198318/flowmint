@@ -14,9 +14,10 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - Phase 5 營運功能已完成。
 - Workspace 已改為摘要與導覽，正式起單移至獨立申請中心及填單頁。
 - 共用單據編號、正式附件、申請追蹤、目前簽核人與 BPMN 流程進度已完成 Java／Vue 實作與自動驗證。
-- A01 請購表單已發布；`FM_PURCHASE_APPROVAL` Version 2 已發布，Version 1 已退休，仍需以多帳號完成逐級核決、附件、簽核流轉與流程進度的瀏覽器 E2E。
+- A01 的請購、採購單、驗收單與公司名片 Form／Process 目前均已發布，Process 已部署至 Flowable；仍需以多帳號完成逐級核決、條件分支、退回重驗、附件、簽核流轉與流程進度的瀏覽器 E2E。
 - AI Provider 管理、OpenAI／Gemini／Groq／OpenRouter Adapter、Task AI 分析、快取與稽核已完成；尚未使用真實 API Key 完成 Provider 與瀏覽器 E2E，不能標示為正式上線。
-- 採購單／驗收單、公司名片申請單及外部系統 API 管理／流程拋單目前只有規劃文件，尚未建立正式 Form、Process、Data Action 或 `FM_PROG010D0002` 程式。
+- A01 現行版本為 `FM_PURCHASE_REQUEST` v1／`FM_PURCHASE_APPROVAL` v1、`FM_PURCHASE_ORDER` v3／`FM_PURCHASE_ORDER_APPROVAL` v1、`FM_GOODS_ACCEPTANCE` v5／`FM_GOODS_ACCEPTANCE_APPROVAL` v1，以及 `FM_BUSINESS_CARD_REQUEST` v1／`FM_BUSINESS_CARD_APPROVAL` v1；發布與部署完成不等同真實業務 E2E 已驗收。
+- 外部系統 API 管理、Client／Key／Scope／IP／配額、Request Audit、外部發單 Ledger、流程狀態查詢及獨立 API 說明頁均已實作並套用 MariaDB；仍待正式外部 Client 與多帳號端到端驗收。
 - 正式業務表單屬應用配置，不計入平台本體程式。
 - 尚待完成正式環境部署、Program／角色配置、完整瀏覽器 E2E 與真實資料量效能驗證。
 - Email 成功與永久失敗狀態均可同步；FlowMint 以既有 notification 欄位保存重試與最終失敗，不修改 QIFU4 Mail Helper schema。
@@ -122,6 +123,15 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 分析結果使用 Content Hash、Generation、快取與 append-only access ledger，保存受控錯誤碼、Token 用量及耗時。
 - AI 只提供摘要、風險、問題與參考建議，不修改表單、不執行核准，也不取代 Resolver 或簽核責任。
 - 第一版不解析附件內容；真實 Provider Key、多帳號權限及密鑰遮罩瀏覽器 E2E 尚待完成。
+
+### 外部系統 API 與流程拋單
+
+- `FM_PROG010D0002` 管理 Tenant-scoped API Client、Scope、來源 IP、期限、配額與狀態。
+- API Key 僅在簽發或輪替時顯示一次，資料庫保存安全雜湊；管理畫面只顯示遮罩資訊。
+- 外部請求經 Key、Client、Scope、IP、期限與配額驗證，並保存 Request Audit 與受控錯誤碼。
+- 外部發單使用 Idempotency Key 與 Request Ledger，重試不會重複建立流程。
+- 提供外部流程狀態查詢；Tenant、Client 與可用流程範圍均由後端強制限制。
+- `FM_PROG010D0003` 提供獨立 API 說明頁，依 Springdoc OpenAPI 契約顯示可用端點。
 
 ## 完整功能說明
 
@@ -296,6 +306,9 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 發布後版本不可直接改寫；Runtime 固定使用流程正式綁定的表單 ID 與版本號。
 - 流程可把表單綁定在起單或指定 User Task。
 - 節點欄位政策支援 Hidden、Read、Edit，後端也會重新檢查可寫欄位。
+- Form.io 輸入元件 key 必須在同一表單版本內唯一，包含 Data Grid／Edit Grid 內的子欄位。
+- 客製 JavaScript 的 `onFieldChange` 由單一 `ctx` 取得事件，欄位 key 位於 `ctx.changed?.component?.key`。
+- 純日期欄位使用 Form.io `input` 搭配 `inputType = date`，產生瀏覽器原生 `<input type="date">`。
 
 #### 12.1 Submission 驗證
 
@@ -519,6 +532,23 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 每個正式業務應用通常需要配置表單版本、流程版本、節點政策、Assignment Rule、起單政策、表單綁定、通知範本及 Program／角色權限。這些屬於導入設定，不代表 FlowMint 平台本體功能尚未完成。
 
+### 29. AI Provider 與簽核解說（`FM_PROG010D0001`）
+
+- 管理 Tenant-scoped OpenAI、Gemini、Groq 與 OpenRouter Provider，API Key 以 AES-GCM 加密保存。
+- 正式待辦只在合法處理人主動操作時送出受控 Context，不會自動呼叫外部 AI。
+- 分析結果包含摘要、風險、問題與參考建議，不修改表單或代替使用者核准。
+- Content Hash、Generation、快取、Token 用量、耗時與 append-only access ledger 提供重現與稽核依據。
+- 第一版不解析附件；真實 Provider Key、正式網路與多帳號 E2E 尚待完成。
+
+### 30. 外部系統 API（`FM_PROG010D0002`／`FM_PROG010D0003`）
+
+- FJ02 提供 API Client 查詢、新增、編輯、停用、Key 簽發／輪替／撤銷及高風險操作稽核。
+- Key 認證同時檢查 Tenant、Client 狀態、Scope、IP、有效期限與配額，不接受外部呼叫者覆寫安全 Context。
+- 外部發單以 Idempotency Key、Request Ledger 與既有 Runtime 起單核心避免重複流程及繞過表單／起單政策。
+- 提供流程狀態查詢與受控 Form／Process／組織人員唯讀 API。
+- FJ03 使用獨立 Program 權限顯示 Springdoc OpenAPI 說明，不從 Client 管理頁洩漏未授權契約。
+- 程式、MariaDB Schema、Program 與管理 UI 已完成；正式外部 Client、流量與跨 Tenant E2E 尚待驗收。
+
 ## 技術架構
 
 | 層級 | 技術 |
@@ -566,7 +596,7 @@ flowmint/
 - JDK 21
 - Maven 3.9+
 - Node.js 20+ 與 npm
-- MariaDB 10.6+（或與目前 Schema 相容版本）
+- MariaDB 10.11+（或與目前 Schema 相容版本）
 - Redis
 - 可選：SMTP Server（若要驗證 Email 實際寄送）
 
@@ -592,38 +622,23 @@ CREATE DATABASE flowmint
     COLLATE utf8mb4_unicode_ci;
 ```
 
-將完整 Schema 匯入空資料庫：
+將完整 Schema 匯入空資料庫。Windows 本機依專案 MariaDB 操作規範使用 CLI 絕對路徑並加入
+`--skip-ssl`：
 
 ```powershell
-cmd /c "mariadb -u root -p flowmint < C:\home\flowmint\backend\doc\flowmint.sql"
+cmd /c '""C:\Program Files\MariaDB 12.3\bin\mariadb.exe" --host=127.0.0.1 --port=3306 --user=root --password --skip-ssl flowmint < "C:\home\flowmint\backend\doc\flowmint.sql""'
 ```
 
 `flowmint.sql` 包含 QIFU4、Flowable 與 FlowMint 所需資料結構。請先備份既有資料庫；不要對已有正式資料的環境直接重建。
 
-### 2. 匯入 Program 註冊 SQL
+### 2. Program 與角色配置
 
-`backend/doc` 內的 `FM_PROG*-register.sql` 用於註冊實際 UI Program。檔案採 `NOT EXISTS`，可重複執行且不自動授權角色。
+Program 基準資料已統一包含在 `backend/doc/flowmint.sql`，repository 不再保留個別
+`FM_PROG*-register.sql`。完整匯入後會建立 FlowMint 主檔、設計器、營運、AI Provider、
+外部 API Client 管理及 API 說明頁所需 Program。
 
-目前主要註冊檔包括：
-
-- `FM_PROG001D0001-register.sql`：Tenant。
-- `FM_PROG002D0001`～`0006-register.sql`：員工與組織。
-- `FM_PROG003D0001`～`0002-register.sql`：簽核群組與代理。
-- `FM_PROG004D0001-register.sql`：流程設計。
-- `FM_PROG005D0001-register.sql`：表單設計。
-- `FM_PROG006D0001`～`0002-register.sql`：資料來源與 Data Action。
-- `FM_PROG008D-register.sql`：流程監控、Incident 與營運報表。
-- `FM_PROG010D0001-register.sql`：`FJ. API-整合服務` 下的 AI Provider 管理。
-
-`FM_PROG010D0002` 外部系統 API 管理目前仍是規劃，尚無可匯入的註冊 SQL 或 UI Page。
-
-匯入範例：
-
-```powershell
-cmd /c "mariadb -u root -p flowmint < C:\home\flowmint\backend\doc\FM_PROG008D-register.sql"
-```
-
-匯入 Program 後，請透過 QIFU4 權限管理配置角色，不要直接在註冊 SQL 寫死正式環境角色。
+Program 註冊不等於角色授權。匯入後仍須透過 QIFU4 權限管理配置 Query／Create／Edit／
+Deactivate／高風險操作權限，不要在資料庫種子中寫死正式環境角色。
 
 ### 3. 設定後端
 
@@ -767,6 +782,9 @@ FlowMint event
 | `/operations/incidents` | 指派異常處理 |
 | `/operations/processes` | 流程實例監控與稽核明細 |
 | `/operations/reports` | 流程營運報表 |
+| `#/fm_prog010d0001` | AI Provider 管理 |
+| `#/fm_prog010d0002` | 外部系統 API Client、Key、Scope 與配額管理 |
+| `#/fm_prog010d0003` | 外部系統 API 說明 |
 
 其他主檔與設計器頁面由 QIFU4 Program 選單提供，不建議依賴手動輸入 URL。
 
@@ -875,6 +893,8 @@ git diff --check
 - [採購單與驗收單表單流程配置規劃](backend/doc/30-採購單與驗收單表單流程配置規劃.md)
 - [公司名片申請單表單流程配置規劃](backend/doc/31-公司名片申請單表單流程配置規劃.md)
 - [外部系統 API 管理與流程拋單規劃](backend/doc/32-外部系統API管理與流程拋單規劃.md)
+- [表單 Custom JavaScript 規劃說明](backend/doc/FM_PROG005D0001_cust_js規劃說明.md)
+- [Data Action 使用說明](backend/doc/使用FM_PROG006D0002說明.md)
 
 ## License
 
