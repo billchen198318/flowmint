@@ -38,11 +38,57 @@ public class FmTaskFieldPolicyValidator {
         keys.addAll(submittedData.keySet());
         for (String key : keys) {
             String access = normalized(fields.path(key).asString(defaultPolicy));
-            if (!"EDIT".equals(access)
-                    && !equivalent(currentData.get(key), submittedData.get(key))) {
+            if ("EDIT".equals(access)
+                    || equivalent(currentData.get(key), submittedData.get(key))) {
+                continue;
+            }
+            if (validateNestedGridChanges(
+                    key, currentData.get(key), submittedData.get(key), fields)) {
+                continue;
+            }
+            if (!"EDIT".equals(access)) {
                 throw new ServiceException("欄位「" + key + "」不允許在目前關卡修改");
             }
         }
+    }
+
+    private boolean validateNestedGridChanges(
+            String key, Object currentValue, Object submittedValue, JsonNode fields)
+            throws ServiceException {
+        String prefix = key + "[].";
+        Map<String, String> nestedPolicies = new java.util.LinkedHashMap<>();
+        fields.properties().forEach(entry -> {
+            if (entry.getKey().startsWith(prefix) && entry.getValue().isString()) {
+                nestedPolicies.put(
+                        entry.getKey().substring(prefix.length()),
+                        normalized(entry.getValue().asString()));
+            }
+        });
+        if (nestedPolicies.isEmpty()
+                || !(currentValue instanceof List<?> currentRows)
+                || !(submittedValue instanceof List<?> submittedRows)
+                || currentRows.size() != submittedRows.size()) {
+            return false;
+        }
+        for (int index = 0; index < currentRows.size(); index++) {
+            if (!(currentRows.get(index) instanceof Map<?, ?> currentRow)
+                    || !(submittedRows.get(index) instanceof Map<?, ?> submittedRow)) {
+                return false;
+            }
+            Set<Object> rowKeys = new HashSet<>(currentRow.keySet());
+            rowKeys.addAll(submittedRow.keySet());
+            for (Object rowKeyValue : rowKeys) {
+                String rowKey = String.valueOf(rowKeyValue);
+                if (equivalent(currentRow.get(rowKeyValue), submittedRow.get(rowKeyValue))) {
+                    continue;
+                }
+                if (!"EDIT".equals(nestedPolicies.get(rowKey))) {
+                    throw new ServiceException("欄位「" + key + "[" + index + "]."
+                            + rowKey + "」不允許在目前關卡修改");
+                }
+            }
+        }
+        return true;
     }
 
     private boolean equivalent(Object currentValue, Object submittedValue) {

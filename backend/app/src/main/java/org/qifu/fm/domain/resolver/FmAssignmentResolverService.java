@@ -151,6 +151,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
                     variables);
             case "FORM_ACCOUNT_FIELD" -> formAccountField(
                     rule, variables);
+            case "FORM_ACCOUNT_FIELD_MANAGER" -> formAccountFieldManager(
+                    rule, variables);
             default -> result(rule, "UNSUPPORTED",
                     "此 Resolver 類型尚未納入第一階段預覽", List.of());
         };
@@ -499,7 +501,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     }
 
     private boolean requiresPrimaryAssignment(String resolverType) {
-        return !Set.of("FIXED_ACCOUNT", "APPROVAL_GROUP", "FORM_ACCOUNT_FIELD")
+        return !Set.of("FIXED_ACCOUNT", "APPROVAL_GROUP", "FORM_ACCOUNT_FIELD",
+                "FORM_ACCOUNT_FIELD_MANAGER")
                 .contains(resolverType);
     }
 
@@ -538,6 +541,37 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         }
         return result(rule, "RESOLVED", "已由表單欄位「" + fieldKey + "」解析簽核人",
                 List.copyOf(candidates.values()));
+    }
+
+    private FmResolverPreviewView formAccountFieldManager(
+            FmTaskAssignmentRule rule,
+            Map<String, Object> variables) throws ServiceException {
+        String fieldKey = config(rule).path("fieldKey").asString();
+        if (StringUtils.isBlank(fieldKey)) {
+            return result(rule, "ERROR", "尚未選擇表單帳號欄位", List.of());
+        }
+        Object fieldValue = readFormField(variables.get("form"), fieldKey);
+        Object accountValue = fieldValue instanceof Map<?, ?> option
+                && option.containsKey("value") ? option.get("value") : fieldValue;
+        String account = accountValue == null ? null : accountValue.toString().trim();
+        if (StringUtils.isBlank(account)) {
+            return result(rule, "NOT_FOUND", "表單帳號欄位沒有選擇有效人員", List.of());
+        }
+        FmEmployee employee = activeEmployeeByAccount(rule.getTenantId(), account);
+        if (employee == null) {
+            return result(rule, "NOT_FOUND",
+                    "表單欄位包含不存在或未啟用的帳號：" + account, List.of());
+        }
+        FmEmployeeOrgAssignment employeeAssignment = primaryAssignment(
+                rule.getTenantId(), employee.getEmployeeId());
+        if (employeeAssignment == null) {
+            return result(rule, "NOT_FOUND", "表單指定人員沒有有效主要任職", List.of());
+        }
+        FmResolverPreviewView manager = directManager(rule, employeeAssignment);
+        return "RESOLVED".equals(manager.resultStatus())
+                ? result(rule, "RESOLVED", "已由表單欄位「" + fieldKey
+                        + "」解析人員的直屬主管", manager.candidates())
+                : manager;
     }
 
     private Object readFormField(Object source, String fieldKey) {

@@ -194,7 +194,7 @@ Program Family Folder 是選單目錄，不是業務 Page，可依選單需要�
 FM_PROG001D
 ```
 
-不得直接修改正式資料庫或未經確認覆寫 `flowmint.sql`。需要註冊時提供明確 INSERT SQL，由部署／資料庫變更程序執行。
+不得直接修改正式資料庫或未經確認覆寫 `flowmint.sql`。Program 註冊定義統一納入 `flowmint.sql`；既有環境由部署／資料庫變更程序或 QIFU4 管理功能執行，不在 `doc` 另存 register SQL。
 
 ## 8. API、Cookie 與 CSRF
 

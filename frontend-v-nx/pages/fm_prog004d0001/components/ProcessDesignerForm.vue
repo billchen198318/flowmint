@@ -1212,6 +1212,7 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="ORG_DUTY">組織職務</option>
                       <option value="APPROVAL_AUTHORITY">簽核權限</option>
                       <option value="FORM_ACCOUNT_FIELD">表單選擇簽核人</option>
+                      <option value="FORM_ACCOUNT_FIELD_MANAGER">表單指定人員的直屬主管</option>
                     </select>
                   </div>
                   <div v-if="selectedAssignmentRule.resolverType === 'FIXED_ACCOUNT'"
@@ -1294,7 +1295,7 @@ onBeforeUnmount(() => modeler?.destroy());
                       :accounts="resolverAccounts" :groups="approvalGroups"
                       :levels="approvalLevels" :titles="orgTitles" :duties="orgDuties" />
                   </div>
-                  <div v-else-if="selectedAssignmentRule.resolverType === 'FORM_ACCOUNT_FIELD'"
+                  <div v-else-if="['FORM_ACCOUNT_FIELD', 'FORM_ACCOUNT_FIELD_MANAGER'].includes(selectedAssignmentRule.resolverType)"
                     class="mb-3">
                     <label class="form-label">人員帳號欄位</label>
                     <select v-model="selectedFormAccountField"

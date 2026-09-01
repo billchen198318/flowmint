@@ -905,7 +905,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return Set.of("FIXED_ACCOUNT", "APPROVAL_GROUP", "INITIATOR_ORG_HEAD",
                 "PARENT_ORG_HEAD", "NEXT_HIGHER_LEVEL_HEAD", "TARGET_LEVEL_HEAD",
                 "LEVEL_HEAD_CHAIN", "ROOT_ORG_HEAD", "DIRECT_MANAGER", "MANAGER_CHAIN",
-                "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD");
+                "ORG_TITLE", "ORG_DUTY", "APPROVAL_AUTHORITY", "FORM_ACCOUNT_FIELD",
+                "FORM_ACCOUNT_FIELD_MANAGER");
     }
 
     private FmTaskAssignmentRule copyAssignmentRule(FmProcessVersion version,
@@ -1190,7 +1191,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             validateResolverReference(rule.getTenantId(), rule.getResolverType(),
                     rule.getResolverConfig());
             validateFallbackReference(rule);
-            if ("FORM_ACCOUNT_FIELD".equals(rule.getResolverType())) {
+            if (Set.of("FORM_ACCOUNT_FIELD", "FORM_ACCOUNT_FIELD_MANAGER")
+                    .contains(rule.getResolverType())) {
                 validateFormAccountField(rule, taskForms, forms);
             }
         }

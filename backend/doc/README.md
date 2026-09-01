@@ -8,13 +8,19 @@
 
 FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 HR 職務職等與其他未證明必要性的核心主檔；這是產品範圍決策，不是未完成 Backlog，也不應作為企業簽核完成度的扣分項目。Tenant 是唯一資料隔離範圍，「總公司」是部門樹根節點。
 
-新 FlowMint 業務 Schema 只保留 34 張 `fm_*` 表；QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不在核心 DDL 重建。
+本機 `flowmint` 目前共有 56 張 `fm_*` 表，包含核心簽核、後續營運／整合擴充，以及採購單與驗收單並行占額使用的 `fm_purchase_order_reservation`、`fm_goods_acceptance_reservation`。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
 
-## 目前狀態（2026-08-28）
+## 目前狀態（2026-08-31）
 
 - Phase 1～5 核心簽核與營運程式已完成，請購流程 Version 2 已發布；完整瀏覽器、多帳號及實際資料量 E2E 仍待完成。
 - `FM_PROG010D0001` AI Provider 管理、四種 Provider Adapter、Task AI 分析、快取與稽核已完成程式實作，但尚未使用真實 API Key 完成正式整合驗收。
-- `30` 採購單／驗收單、`31` 公司名片申請單及 `32` 外部系統 API 管理／流程拋單目前都是設計規劃，不代表功能已建立或上線。
+- `31` 公司名片申請單的 Form、Data Action、Document Number Rule、BPMN、Task Policy 與 Resolver
+  Version 1 均已發布並完成配置，目前只待真實多帳號瀏覽器／MariaDB／Flowable E2E 驗收；`30`
+  採購單／驗收單及 `32` 外部系統 API 管理／流程拋單的個別狀態以各自文件為準。
+- 共用待辦頁已修正 `REJECT／RETURN` 誤執行完整 Form.io 與 Custom JavaScript `beforeSubmit`
+  驗證的問題；目前只有 `APPROVE／RESUBMIT` 會提交並驗證表單資料。請購單與公司名片申請單
+  均已建立 Form Version 2 草稿，修正待辦階段重載或改寫申請人、任職及路由欄位的問題；兩個
+  草稿尚未發布，也尚未變更正式流程綁定。
 - 本機 `flowmint.tb_sys_prog` 的 `FM_PROG010D` Folder 名稱已更新為 `FJ. API-整合服務`；既有 `FM_PROG010D0001` 維持不變，規劃中的外部 API 管理使用 `FM_PROG010D0002`。
 
 ## 閱讀順序
@@ -55,8 +61,7 @@ FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 H
 
 ## SQL
 
-- [完整核心 DDL](flowmint-core-schema.sql)
-- [初始層級與根部門 Seed](flowmint-core-seed.sql)
+- [完整資料庫 DDL、主資料與 Program 註冊](flowmint.sql)
 
 ## Schema 邊界
 
@@ -72,4 +77,19 @@ Enterprise Group、Legal Entity、Location、Employment、Job、Grade、Position
 
 ## 實作規則
 
-後續不得先改舊 `flowmint.sql` 再回頭補文件。必須先核准本規格，從 `flowmint-core-schema.sql` 建立隔離資料庫並通過驗證，再開始 Entity／Mapper／Service／API／UI 與 migration。
+後續資料庫基準只保留 `flowmint.sql`。必須先核准規格，從該主檔建立隔離資料庫並通過驗證，再開始 Entity／Mapper／Service／API／UI 與正式 migration；不得在 `doc` 另留一次性 SQL。
+
+## SQL 檔案政策
+
+`backend/doc` 只保留 `flowmint.sql`，作為完整 DDL、主資料、Program 與目前選單資料的文件基準。
+一次性 schema、seed、資料修正與 Program register SQL 執行完成並併入主檔後必須刪除；既有環境的
+增量升級應放在正式 migration 位置或由 QIFU4 管理功能處理，不得再於 `doc` 新增其他 `.sql`。
+
+## 2026-09-01 驗收單最新狀態
+
+`FM_GOODS_ACCEPTANCE` Form Version 5 與 `FM_GOODS_ACCEPTANCE_APPROVAL` Process Version 1
+目前仍為 Draft；其依賴的 `GA_VALIDATE_BEFORE_SUBMIT` Version 4、`GA_RESERVE_QUANTITY`
+Version 3、`GA_RECALCULATE_PO_STATUS` Version 1 均已發布。完整欄位、流程、共用 Runtime 修正與
+待驗收項目請以 [採購單與驗收單表單流程配置規劃](30-採購單與驗收單表單流程配置規劃.md) 為準。
+
+`backend/doc` 僅保留 `flowmint.sql` 作為 SQL 文件基準；舊的 Form Designer Demo 文件已移除。

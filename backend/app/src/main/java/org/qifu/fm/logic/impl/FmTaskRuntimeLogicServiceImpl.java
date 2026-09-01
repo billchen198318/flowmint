@@ -33,6 +33,7 @@ import org.qifu.fm.dto.view.FmTaskHistoryView;
 import org.qifu.fm.dto.view.FmTaskInboxView;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
 import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
+import org.qifu.fm.domain.runtime.FmTaskActionHookExecutor;
 import org.qifu.fm.domain.runtime.FmDelegationScopeEvaluator;
 import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.entity.FmFormData;
@@ -106,6 +107,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService;
     private final FmFormSubmissionValidator formSubmissionValidator;
     private final FmTaskFieldPolicyValidator taskFieldPolicyValidator;
+    private final FmTaskActionHookExecutor taskActionHookExecutor;
     private final ObjectMapper objectMapper;
     private final FmDelegationScopeEvaluator delegationScopeEvaluator;
     private final FmNotificationPublisher notificationPublisher;
@@ -133,6 +135,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService,
             FmFormSubmissionValidator formSubmissionValidator,
             FmTaskFieldPolicyValidator taskFieldPolicyValidator,
+            FmTaskActionHookExecutor taskActionHookExecutor,
             FmNotificationPublisher notificationPublisher,
             ObjectMapper objectMapper) {
         this.taskService = taskService;
@@ -157,6 +160,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.parallelAddSignRuntimeLogicService = parallelAddSignRuntimeLogicService;
         this.formSubmissionValidator = formSubmissionValidator;
         this.taskFieldPolicyValidator = taskFieldPolicyValidator;
+        this.taskActionHookExecutor = taskActionHookExecutor;
         this.notificationPublisher = notificationPublisher;
         this.objectMapper = objectMapper;
         this.delegationScopeEvaluator = new FmDelegationScopeEvaluator(objectMapper);
@@ -247,6 +251,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 formVersion.getCustomScriptContent(),
                 formRule.getFieldPolicy(),
                 taskFormData,
+                formData.getRevisionNo(),
                 !parallelAddSignTask
                         && "APPLICANT_CORRECTION".equals(policy.getAssignmentMode()),
                 !parallelAddSignTask && "Y".equals(policy.getAllowReject()),
@@ -292,7 +297,24 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 task.getTaskDefinitionKey());
         claimIfRequired(task, account);
         Date now = new Date();
+        FmFormVersion taskFormVersion = formVersion(tenantId, formRule);
         if (request.formData() != null) {
+            if (request.formRevisionNo() == null
+                    || !request.formRevisionNo().equals(formData.getRevisionNo())) {
+                throw new ServiceException("表單已被其他處理人更新，請重新載入後再操作");
+            }
+            taskActionHookExecutor.execute(
+                    taskFormVersion.getUiSchemaContent(),
+                    FmTaskActionHookExecutor.BEFORE_FORM_UPDATE,
+                    tenantId,
+                    task.getTaskDefinitionKey(),
+                    request.actionType(),
+                    account,
+                    request.formData(),
+                    Map.of(
+                            "taskId", task.getId(),
+                            "processInstanceId", process.getProcessInstanceId(),
+                            "businessKey", formData.getBusinessKey()));
             updateTaskForm(request, formData, formVersion(
                     tenantId, formRule), formRule.getFieldPolicy(), account, now);
             runtimeService.setVariable(process.getProcessInstanceId(),
@@ -318,6 +340,20 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
                 assignmentSnapshot,
                 now);
         String status = executeAction(request, task, process, formData, account, now);
+        if ("COMPLETED".equals(status)) {
+            taskActionHookExecutor.execute(
+                    taskFormVersion.getUiSchemaContent(),
+                    FmTaskActionHookExecutor.AFTER_PROCESS_COMPLETE,
+                    tenantId,
+                    task.getTaskDefinitionKey(),
+                    request.actionType(),
+                    account,
+                    parseData(formData.getDataContent()),
+                    Map.of(
+                            "taskId", task.getId(),
+                            "processInstanceId", process.getProcessInstanceId(),
+                            "businessKey", formData.getBusinessKey()));
+        }
         if (Set.of("COMPLETED", "REJECTED").contains(status)) {
             notificationPublisher.processStatusChanged(
                     tenantId, process.getProcessInstanceId(), status,

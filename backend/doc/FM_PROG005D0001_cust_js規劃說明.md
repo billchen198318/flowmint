@@ -1052,7 +1052,7 @@ return {
 
 截至 2026-08-19，已完成 Phase 1、Phase 2、發起表單 Runtime，以及簽核任務 Renderer 的核心接線：
 
-- 新增 migration：FM_PROG005D0001-custom-script-schema.sql。
+- 資料庫欄位已納入 `flowmint.sql`；既有環境以正式 migration 升級，不在 `doc` 保存一次性 SQL。
 - 新增 fm_form_version.CUSTOM_SCRIPT_CONTENT。
 - 完成 Entity、Mapper、Command／View DTO。
 - 完成草稿保存、版本複製、發布鎖定及 Script Hash。

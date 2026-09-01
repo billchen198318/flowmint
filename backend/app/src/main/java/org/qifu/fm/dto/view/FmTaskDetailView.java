@@ -13,6 +13,7 @@ public record FmTaskDetailView(
         String customScriptContent,
         String fieldPolicy,
         Map<String, Object> formData,
+        Integer formRevisionNo,
         boolean correctionTask,
         boolean allowReject,
         boolean allowReturn,
