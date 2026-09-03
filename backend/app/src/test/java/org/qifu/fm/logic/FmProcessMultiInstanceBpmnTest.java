@@ -54,6 +54,12 @@ class FmProcessMultiInstanceBpmnTest {
                 .getFlowElement("candidateApproval");
         UserTask ordered = (UserTask) model.getMainProcess()
                 .getFlowElement("orderedApproval");
+        for (UserTask task : List.of(candidate, all, ordered)) {
+            assertTrue(task.getTaskListeners().stream()
+                    .anyMatch(listener -> "create".equals(listener.getEvent())
+                            && "${fmTaskAssignmentListener}"
+                                    .equals(listener.getImplementation())));
+        }
         assertNotNull(all.getLoopCharacteristics());
         assertNull(candidate.getLoopCharacteristics());
         assertFalse(all.getLoopCharacteristics().isSequential());

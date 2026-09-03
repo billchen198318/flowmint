@@ -75,7 +75,18 @@ onMounted(() => {
   <div v-if="baseStore.isLoggedIn" class="app sidebar-mini" :class="{ 'sidenav-toggled': isSidebarToggled }">
     <!-- Navbar-->
     <header class="app-header">
-      <a class="app-header__logo" href="#" @click.prevent="reloadPageLogoClick">FlowMint</a>
+      <a
+        class="app-header__logo"
+        href="/"
+        aria-label="FlowMint 首頁"
+        @click.prevent="reloadPageLogoClick"
+      >
+        <img
+          class="app-header__logo-image"
+          src="/img/flowmint-logo.svg"
+          alt="FlowMint"
+        >
+      </a>
       <!-- Sidebar toggle button-->
       <a class="app-sidebar__toggle" href="#" @click.prevent="toggleSidebar" aria-label="Hide Sidebar">
         <h4 style="margin-top: 10px;"><i class="bi bi-list"></i></h4>
@@ -147,6 +158,27 @@ onMounted(() => {
 
 <style scoped>
 /* 原有的 CSS 如果有需要可以保留或在此優化 */
+.app-header__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.app-header__logo-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 190px;
+  max-height: 38px;
+}
+
+@media (max-width: 767.98px) {
+  .app-header__logo-image {
+    max-width: 160px;
+    max-height: 36px;
+  }
+}
+
 .treeview-indicator {
   transition: transform 0.3s ease;
 }

@@ -27,9 +27,7 @@ const capabilities = [
       <div class="hero-glow hero-glow-two"></div>
 
       <div class="hero-content">
-        <div class="brand-mark" aria-hidden="true">
-          <i class="bi bi-diagram-3"></i>
-        </div>
+        <img class="brand-logo" src="/img/flowmint-logo.svg" alt="FlowMint">
         <div>
           <span class="eyebrow">WORKFLOW PLATFORM</span>
           <h1>讓每一段流程，<br />都清楚地向前流動。</h1>
@@ -126,17 +124,10 @@ const capabilities = [
   gap: clamp(1.5rem, 4vw, 3rem);
 }
 
-.brand-mark {
-  display: grid;
-  width: 5.5rem;
-  height: 5.5rem;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 1.4rem;
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  font-size: 2.7rem;
-  backdrop-filter: blur(8px);
+.brand-logo {
+  display: block;
+  width: clamp(10rem, 18vw, 14rem);
+  height: auto;
 }
 
 .eyebrow {
@@ -326,10 +317,8 @@ const capabilities = [
     border-radius: 1.1rem;
   }
 
-  .brand-mark {
-    width: 4.5rem;
-    height: 4.5rem;
-    font-size: 2.1rem;
+  .brand-logo {
+    width: 11rem;
   }
 
   .section-heading {

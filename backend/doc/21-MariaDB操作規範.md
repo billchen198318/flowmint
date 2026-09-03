@@ -1,5 +1,10 @@
 # 21 MariaDB 操作規範
 
+> [!IMPORTANT]
+> 本章是所有 Agent／開發者執行 MariaDB 工作前的強制 gate。只要任務提到資料庫資料、Schema、
+> SQL、Form／Process／Data Action 的實際配置，就必須在第一個資料庫命令前完整閱讀本章；不得
+> 以曾經讀過、應用程式 datasource 可連線或使用者未再次提醒為由跳過。
+
 ## 1. 連線資訊
 
 | 項目 | 設定值 |
@@ -14,6 +19,9 @@
 預設操作 database／schema 為 `flowmint`。若當次操作要使用其他 database／schema，必須先取得 user 明確同意，不得自行切換。
 
 PowerShell 執行時使用上述 CLI 絕對路徑；該目錄目前未加入系統 `PATH`。本機連線需加入 `--skip-ssl`，否則可能發生 Windows TLS credential 錯誤。
+
+禁止以讀取或解密應用程式 datasource 密碼、臨時 JDBC 程式、其他 client library 等方式取代
+本章指定的 CLI。這項限制的目的，是讓連線目標、認證方式及操作紀錄保持一致且可直接稽核。
 
 唯讀查詢命令範例：
 

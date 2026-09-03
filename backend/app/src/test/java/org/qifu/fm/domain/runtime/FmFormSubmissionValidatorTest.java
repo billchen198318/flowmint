@@ -127,4 +127,32 @@ class FmFormSubmissionValidatorTest {
         assertThrows(ServiceException.class, () -> validator.validate(
                 schema, Map.of("requestDate", 20260813)));
     }
+
+    @Test
+    void ignoresBlankFormIoValidationLimits() {
+        String schema = """
+                {"components":[
+                  {"type":"textfield","key":"nameZh","label":"中文姓名",
+                   "validate":{"required":true,"minLength":"","maxLength":""}},
+                  {"type":"number","key":"quantity","label":"印製數量",
+                   "validate":{"required":true,"min":"","max":""}}
+                ]}
+                """;
+
+        assertDoesNotThrow(() -> validator.validate(
+                schema, Map.of("nameZh", "王小明", "quantity", 100)));
+    }
+
+    @Test
+    void reportsMalformedValidationLimitsAsSchemaErrors() {
+        String schema = """
+                {"components":[
+                  {"type":"textfield","key":"subject","label":"主旨",
+                   "validate":{"maxLength":"not-a-number"}}
+                ]}
+                """;
+
+        assertThrows(ServiceException.class, () -> validator.validate(
+                schema, Map.of("subject", "名片申請")));
+    }
 }

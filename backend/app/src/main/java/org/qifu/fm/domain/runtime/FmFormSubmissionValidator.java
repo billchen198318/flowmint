@@ -202,21 +202,27 @@ public class FmFormSubmissionValidator {
     private void validateNumber(JsonNode rules, Number value, String name,
             List<String> errors) {
         BigDecimal number = new BigDecimal(value.toString());
-        if (rules.has("min") && number.compareTo(rules.path("min").decimalValue()) < 0) {
-            errors.add(name + " 不可小於 " + rules.path("min").asString());
+        BigDecimal min = decimalConstraint(rules.path("min"), name, "min", errors);
+        BigDecimal max = decimalConstraint(rules.path("max"), name, "max", errors);
+        if (min != null && number.compareTo(min) < 0) {
+            errors.add(name + " 不可小於 " + min.toPlainString());
         }
-        if (rules.has("max") && number.compareTo(rules.path("max").decimalValue()) > 0) {
-            errors.add(name + " 不可大於 " + rules.path("max").asString());
+        if (max != null && number.compareTo(max) > 0) {
+            errors.add(name + " 不可大於 " + max.toPlainString());
         }
     }
 
     private void validateText(JsonNode component, JsonNode rules, String value,
             String name, List<String> errors) {
-        if (rules.has("minLength") && value.length() < rules.path("minLength").asInt()) {
-            errors.add(name + " 長度不可少於 " + rules.path("minLength").asInt());
+        Integer minLength = integerConstraint(
+                rules.path("minLength"), name, "minLength", errors);
+        Integer maxLength = integerConstraint(
+                rules.path("maxLength"), name, "maxLength", errors);
+        if (minLength != null && value.length() < minLength) {
+            errors.add(name + " 長度不可少於 " + minLength);
         }
-        if (rules.has("maxLength") && value.length() > rules.path("maxLength").asInt()) {
-            errors.add(name + " 長度不可超過 " + rules.path("maxLength").asInt());
+        if (maxLength != null && value.length() > maxLength) {
+            errors.add(name + " 長度不可超過 " + maxLength);
         }
         String pattern = rules.path("pattern").asString("");
         if (StringUtils.isNotBlank(pattern)) {
@@ -231,6 +237,34 @@ public class FmFormSubmissionValidator {
         if ("email".equals(component.path("type").asString())
                 && !EMAIL_PATTERN.matcher(value).matches()) {
             errors.add(name + " 不是有效的 Email");
+        }
+    }
+
+    private Integer integerConstraint(JsonNode node, String name, String rule,
+            List<String> errors) {
+        String value = node.asString("");
+        if (StringUtils.isBlank(value)) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException exception) {
+            errors.add(name + " 的 Schema " + rule + " 必須為整數");
+            return null;
+        }
+    }
+
+    private BigDecimal decimalConstraint(JsonNode node, String name, String rule,
+            List<String> errors) {
+        String value = node.asString("");
+        if (StringUtils.isBlank(value)) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException exception) {
+            errors.add(name + " 的 Schema " + rule + " 必須為數值");
+            return null;
         }
     }
 
