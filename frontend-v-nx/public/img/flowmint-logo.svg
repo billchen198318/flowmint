@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" role="img" aria-labelledby="flowmintLogoTitle flowmintLogoDesc">
+  <title id="flowmintLogoTitle">FlowMint</title>
+  <desc id="flowmintLogoDesc">FlowMint logo with a blue-to-mint gradient icon</desc>
+  <defs>
+    <linearGradient id="flowmintGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#0d6efd"/>
+      <stop offset="1" stop-color="#20c997"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="4" y="4" width="56" height="56" rx="12" fill="url(#flowmintGradient)"/>
+  <path d="M19 18h27.125v7H26.875v7h15.75v7h-15.75v13.125H19z" fill="#fff"/>
+
+  <text x="72" y="43"
+        fill="#fff"
+        font-family="Inter, 'Segoe UI', Arial, sans-serif"
+        font-size="32"
+        font-weight="700"
+        letter-spacing="-.7">Flow<tspan fill="#20c997">Mint</tspan></text>
+</svg>

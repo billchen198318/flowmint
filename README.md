@@ -2,9 +2,276 @@
 
 > Open-source workflows, approvals made simple. 讓每一次簽核，都流暢有跡。
 
-FlowMint 是建立在 QIFU4 上的企業簽核與流程管理平台，整合表單設計、BPMN 流程、組織簽核人解析、簽核 Runtime、通知、稽核、異常處理與營運報表。平台以多租戶（Tenant）為資料邊界，適用於台灣與中國大陸企業的通用簽核情境。
+FlowMint 是一套開源的企業簽核與流程管理平台，整合視覺化表單設計、BPMN 流程編排、組織簽核人解析、待辦處理、通知、稽核、異常處理與營運報表。平台支援多租戶（Tenant）資料隔離，讓企業能以設定方式建立請購、驗收、費用、名片及其他內部申請流程，不必為每一種單據重新開發一套系統。
 
 FlowMint 的定位是「可配置的簽核平台」，不是 HR、ERP、法人主檔或專案管理系統。請購單、費用申請等業務單據應透過內建的表單與流程設計器配置，而不是寫死在平台程式中。
+
+## 使用 FlowMint
+
+FlowMint 將一個可執行的簽核應用拆成「組織與人員」、「表單」、「簽核流程」及「執行權限」四部分。建議依下列順序初始化；前一步尚未完成時，不要先發布後面的流程：
+
+```text
+建立 Tenant 與使用者 membership
+  → 建立員工、任職、部門與主管關係
+  → 建立簽核群組及核決規則
+  → 設計、驗證並發布 Form
+  → 設計 BPMN
+  → 為每個 User Task 綁定 Published Form、Task Policy 與 Assignment Rule
+  → Resolver Preview 與發布檢查
+  → 發布 BPMN Process
+  → 到申請中心測試起單、簽核、退回及流程進度
+```
+
+### 1. 初始化一個租戶專案
+
+FlowMint 以 Tenant 隔離資料。一個新 Tenant 至少需要完成以下設定，才具備可起單及可指派的基本條件：
+
+1. 建立 Tenant，並將管理者與測試帳號加入該 Tenant 的 membership。
+2. 建立組織版本、根部門及下層部門，設定組織層級。
+3. 建立員工與任職資料；每位申請人應有一筆有效的主要任職。
+4. 設定部門主管、直屬主管、職稱或部門職務。流程若使用主管 Resolver，對應關係不可缺少或形成循環。
+5. 建立流程會使用的簽核群組，設定模式、成員、順序及有效期間。
+6. 配置流程的起單政策，以及使用者需要的 QIFU4 Program／Role 權限。
+
+FlowMint 不在 README 提供預設帳密。登入帳號必須同時具備有效的 QIFU4 身分、Tenant membership，以及操作對應功能的 Program／Role 權限。
+
+### 2. 設計與發布 Form
+
+表單設計入口為 `FM_PROG005D0001`。建立表單主檔時先決定穩定且不可任意變更的 Form Code，例如 `LEAVE_REQUEST`；系統會建立可編輯的 Draft 版本。
+
+1. 使用 Form.io Designer 放入文字、數字、日期、選項、Email、Container、Columns、Table、Data Grid／Edit Grid、附件等元件。
+2. 為每個輸入元件設定唯一的 `key`。BPMN Gateway、核決規則、Data Action 與 Custom JavaScript 都以 key 讀取欄位，不要以顯示名稱作為程式契約。
+3. 設定 required、型別、長度、數值範圍、格式與明細欄位驗證。送單時後端會依同一份 Published Schema 再驗證。
+4. 如需查詢選項或回填外部資料，先發布 DataSource Pool／Data Action，再於表單建立 Binding；資料庫密碼及任意 SQL 不會下放瀏覽器。
+5. 如需欄位連動或送單前檢查，可加入表單級 Custom JavaScript，並在 Designer 內完成格式檢查與 Preview。
+6. 使用 Preview 測試初始載入、欄位變更、明細增刪、Data Action、附件與送單驗證。
+7. 驗證通過後發布 Form。Published 版本不可直接修改；後續調整應建立下一個 Draft 版本。
+
+Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afterSubmit` 等 lifecycle。它適合處理介面連動及補充驗證，但關鍵權限、金額與資料完整性仍由後端驗證，不能只依賴瀏覽器 Script。
+
+### 3. 設計與發布 BPMN 流程
+
+流程設計入口為 `FM_PROG004D0001`。建立流程主檔時設定穩定的 Process Key，例如 `LEAVE_APPROVAL`，再於 Draft 版本使用內嵌 bpmn-js Designer 編輯流程。
+
+1. 建立一個 Start Event、所需的 User Task／Gateway，以及可到達的 End Event。
+2. 每個 User Task 使用穩定且唯一的 Task Definition Key；版本升級時若節點業務意義相同，應保留相同 key。
+3. 點選 User Task，在同一個節點屬性面板選擇一張同 Tenant、已發布的 Form Version。每個 User Task 只能綁定一張表單。
+4. 設定 Task Policy，包括允許核准、駁回、退回、轉派、代理、加簽與否，意見是否必填，以及 SLA、提醒、自簽與重複簽核政策。
+5. 設定 Assignment Rule，例如申請人部門主管、直屬主管、上層主管、簽核群組、組織職稱、核決權限或固定帳號。
+6. 設定該節點的表單欄位權限：`HIDDEN`、`READ` 或 `EDIT`。申請內容通常唯讀，只有補件節點開放必要欄位修改。
+7. Gateway 條件只引用已綁定表單中的受控欄位，並為可能無法命中的分支設定 default flow。
+8. 使用 Resolver Preview 帶入實際申請人與測試表單資料，確認解析出的簽核帳號、順序與略過原因。
+9. 執行發布檢查。所有 User Task 都必須具有有效 Form Binding、Task Policy 及 Assignment Rule，BPMN 結構與條件也必須通過驗證。
+10. 發布流程。FlowMint 會在部署版本中為 User Task 注入 Assignment Listener，部署至 Flowable；設計器保存的原始 BPMN 不需要手工加入 listener。
+
+發布順序一定是 **Form 先、BPMN 後**。流程綁定的是明確的 Published Form Version，不會自動跟隨表單的最新草稿。表單建立新版本後，必須建立流程新 Draft、重新選擇該 Form Version、完成 Preview 與發布檢查，再發布新的 Process Version。既有流程實例仍使用啟動當時的版本，不會中途漂移。
+
+### 4. 起單與簽核
+
+1. 登入後由 `/workspace` 查看待辦、最近申請與通知摘要。
+2. 前往 `/requests/start` 申請中心，依分類或搜尋選擇可發起的流程。
+3. 在 `/requests/start/[processDefId]` 填寫正式表單、執行表單 Script／Data Action、上傳附件並送出。
+4. 簽核人在 `/tasks/[taskId]` 查看流程指定的表單版本與欄位權限，依 Task Policy 執行核准、駁回、退回、轉派、代理或加簽。
+5. 申請人可在 `/requests/[processInstanceId]` 查看單據狀態、目前關卡、目前簽核人、表單快照、附件及 BPMN 流程進度。
+
+遇到找不到簽核人、組織資料失效或解析設定錯誤時，FlowMint 會建立 Assignment Incident，不會默默略過必要簽核。營運人員可由 `/operations/incidents` 處理，並在 `/operations/processes` 與 `/operations/reports` 追蹤流程及統計。
+
+### 5. 版本與發布原則
+
+- Draft 可反覆編輯、驗證及 Preview；Published 內容不可直接改寫。
+- Form 與 BPMN Process 各自管理版本；相同的 `v1` 只代表各自主檔的第一個正式版本。
+- BPMN 的每個 User Task 固定綁定一個已發布 Form Version。
+- 發布 BPMN 時才產生 Flowable deployment，並將 FlowMint Assignment Listener 注入部署內容。
+- 新版本只影響之後建立的流程實例；執行中的實例繼續使用原本的 BPMN、Form 與指派快照。
+- 正式上線前至少測試正常核准、條件分流、金額邊界、退回補件、駁回、附件權限、找不到簽核人與跨 Tenant 存取。
+
+## 程式操作手冊
+
+### 程式入口總表
+
+實際選單名稱由 QIFU4 Program 設定決定；若帳號看不到某支程式，先檢查 Role 是否已配置該 Program，而不是直接輸入其他 Tenant 或繞過權限。
+
+| 程式／頁面 | 用途 | 建議使用時機 |
+|---|---|---|
+| `FM_PROG001D0001` | Tenant 與 membership | 建立租戶、加入或停用租戶帳號 |
+| `FM_PROG002D0001` | 員工與任職 | 建立員工、主要任職及直屬主管 |
+| `FM_PROG002D0002` | 部門與組織樹 | 建立部門階層、檢視組織樹 |
+| `FM_PROG002D0003` | 組織簽核層級 | 定義課、部、處等由低至高的核決層級 |
+| `FM_PROG002D0004` | 組織職稱 | 建立職稱並連結簽核層級 |
+| `FM_PROG002D0005` | 部門主管 | 指定 HEAD、DEPUTY_HEAD、ACTING_HEAD |
+| `FM_PROG002D0006` | 部門職務 | 定義特定部門職務及擔任人 |
+| `FM_PROG003D0001` | 簽核群組 | 建立財務、法務、資訊等可重用簽核群組 |
+| `FM_PROG003D0002` | 工作代理 | 設定期間代理與代理範圍 |
+| `FM_PROG004D0001` | BPMN 流程設計 | 設計、驗證、Preview 及發布流程 |
+| `FM_PROG005D0001` | Form 表單設計 | 設計、試跑及發布 Form.io 表單 |
+| `FM_PROG006D0001` | DataSource Pool | 建立供 Data Action 使用的外部資料庫連線 |
+| `FM_PROG006D0002` | Data Action | 建立受控查詢或異動，供表單欄位使用 |
+| `FM_PROG010D0001` | AI Provider | 設定簽核解說使用的 AI 供應商與模型 |
+| `FM_PROG010D0002` | 外部 API Client | 建立外部系統 Client、Key、Scope、配額及 IP 白名單 |
+| `FM_PROG010D0003` | 外部 API 說明 | 查看外部發單及流程查詢 API 的使用方式 |
+| `/workspace` | 工作台 | 查看待辦、最近申請與通知摘要 |
+| `/requests/start` | 申請中心 | 搜尋流程並開始填單 |
+| `/tasks/[taskId]` | 待辦處理 | 核准、駁回、退回、轉派、代理或加簽 |
+| `/requests/[processInstanceId]` | 申請詳情 | 查看表單、附件、簽核軌跡與 BPMN 進度 |
+| `/operations/incidents` | 指派異常 | 處理找不到簽核人等異常 |
+| `/operations/processes` | 流程監控 | 查詢執行中及已完成流程 |
+| `/operations/reports` | 營運報表 | 查看流程數量、處理時間與逾期待辦 |
+
+### 共通操作方式
+
+- 清單頁先輸入查詢條件，再按「查詢」；「清除」只重設條件，不會刪除資料。
+- 「新增」會進入建立頁；清單中的「編輯」會載入該筆資料及其明細。
+- 建立成功後，Tenant、Form Code、Process Key、Action Code 等穩定識別通常不可修改；名稱及說明才是顯示用途。
+- `ACTIVE` 代表可供 Runtime 使用；停用只阻止之後的新使用情境，不應破壞既有流程稽核資料。
+- 有生效與失效時間的設定，以 Runtime 執行當下是否落在有效期間判定。
+- 刪除或停用前先確認沒有流程、任職、群組或版本仍在引用；畫面若拒絕操作，應先解除相依關係。
+- 表單、流程及 Data Action 採版本發布制；「儲存草稿」與「發布」是不同動作。
+
+### Tenant 與帳號：`FM_PROG001D0001`
+
+1. 在清單以 Tenant 代碼或名稱查詢；按「新增」建立 Tenant。
+2. 填寫 Tenant ID、Tenant 代碼、名稱、預設語系、預設時區、狀態與說明後儲存。Tenant ID／代碼建立後視為穩定識別。
+3. 進入編輯頁，在 membership 區輸入既有 QIFU4 帳號；若勾選建立新帳號，另填初始密碼與確認密碼。
+4. 設定生效時間及是否為該帳號的預設 Tenant，再按加入。
+5. membership 清單可重設密碼、停用或重新啟用。停用 membership 不等於刪除 QIFU4 帳號。
+6. 使用該帳號重新登入，確認能取得正確 Tenant，且不能存取其他 Tenant 的資料。
+
+### 員工、部門與組織
+
+#### 員工與任職：`FM_PROG002D0001`
+
+1. 以員工編號、帳號或姓名查詢，按「新增」。
+2. 選擇 Tenant，填寫員工編號、登入帳號、顯示名稱、Email、手機、語系、時區、狀態與有效期間。
+3. 儲存員工後，在任職區選擇部門、職稱及直屬主管來源。
+4. 若主管來源為指定任職，選擇「指定直屬主管」；若由組織規則解析，確認部門主管資料已建立。
+5. 設定主要任職、狀態與有效期間後儲存。每位申請人在同一時間應只有一筆主要任職。
+6. 兼任可新增其他任職，但流程的申請人部門及主管鏈預設以主要任職解析。
+
+#### 部門與組織樹：`FM_PROG002D0002`
+
+1. 先建立根部門，再建立下層部門；填寫部門代碼、名稱、簡稱、父部門、類型、排序、虛擬部門、狀態與有效期間。
+2. 一般部門選擇 `DEPARTMENT`；純分類或矩陣組織才使用 `VIRTUAL`，避免讓虛擬節點誤入主管鏈。
+3. 使用「組織樹」選擇 Tenant 並載入樹狀結構；必要時勾選包含停用資料。
+4. 調整父部門前先確認不會形成循環；儲存時帶入畫面取得的版本，避免覆蓋其他管理者的異動。
+
+#### 簽核層級、職稱、主管與職務
+
+1. 在 `FM_PROG002D0003` 建立層級方案，設定方案代碼、名稱、是否預設、狀態與有效期間；於層級明細由低至高加入層級及排序。
+2. 在 `FM_PROG002D0004` 建立職稱，選擇其簽核 Level，設定是否為主管職稱、排序及有效期間。
+3. 在 `FM_PROG002D0005` 選擇部門與主管員工，設定主管類型、優先序及有效期間。正常主管使用 `HEAD`；副主管及代理主管依實際職責使用對應類型。
+4. 在 `FM_PROG002D0006` 選擇部門，建立職務代碼、名稱、用途及有效期間，再於擔任人區加入員工並指定主要擔任人。
+5. 完成後用 BPMN 的 Resolver Preview 分別測試 `INITIATOR_ORG_HEAD`、`DIRECT_MANAGER`、`ORG_TITLE` 或 `ORG_DUTY`，不要只確認主檔已儲存。
+
+### 簽核群組：`FM_PROG003D0001`
+
+1. 建立群組代碼、名稱、處理方式、狀態與說明。
+2. `CANDIDATE` 表示任一有效候選人可處理；`ALL` 表示群組內每位有效成員都必須完成；`SEQUENTIAL` 依優先序逐一處理。
+3. 儲存主檔後，在成員區選擇員工、設定優先序、狀態及有效期間。
+4. 編輯或刪除成員後重新執行流程 Resolver Preview，確認實際帳號與順序。
+5. BPMN User Task 的派送方式必須與群組處理方式相容，否則發布檢查會拒絕。
+
+### 工作代理：`FM_PROG003D0002`
+
+1. 選擇 Tenant、被代理人及代理人。
+2. 選擇代理範圍：全部工作、指定流程或指定簽核群組；後兩者需再選對應識別碼。
+3. 設定是否允許再次轉代理、狀態、開始時間、結束時間及原因後儲存。
+4. 代理必須已生效且雙方帳號有效。工作代理只影響待辦處理，不授權代理人代替委託人發起申請。
+5. 代理人收到 Delegated Task 後應先處理並 Resolve 歸還 owner；不能把代理中的 Task 當成一般待辦直接核准。
+
+### Form 完整操作：`FM_PROG005D0001`
+
+1. 在清單按「新增」，選擇 Tenant，輸入不可重複的表單代碼、表單名稱、狀態與說明；儲存後系統自動建立 Version 1 Draft。
+2. 進入編輯頁並選擇 Draft 版本。從左側工具箱拖曳元件到畫布，點選元件設定 Label、Key、預設值、驗證與顯示規則。
+3. 可使用「加入單據編號」建立平台管理的唯讀 `documentNumber`，或使用「加入申請人欄位」加入 Runtime Context 欄位；不要另寫 Script 偽造這些系統資料。
+4. 附件元件設定允許類型、單檔大小、檔案數量與總容量。Preview 不會真的上傳附件，正式附件需到申請頁驗證。
+5. Custom JavaScript 應保持可讀格式，使用 lifecycle 與 `ctx` API，不直接存取密碼、資料庫或任意外部網址。
+6. 若使用 Data Action Binding，選擇已發布 Action、事件、request mapping 及 response mapping；先在 Action Preview 驗證，再測試表單 Preview。
+7. 按「儲存草稿」保存 Designer、Schema、Script 與 Binding；再以 Preview 輸入資料並按「驗證送出」。
+8. 修正所有 required、型別、元件 key、Script 及 Binding 錯誤後按「發布草稿」。發布後該版本只可檢視。
+9. 需要修改時按「建立新版本」，由最新版複製成 Draft；修改、Preview、發布後，再到 BPMN 新版本重新綁定。
+
+### BPMN 完整操作：`FM_PROG004D0001`
+
+1. 在清單按「新增」，選擇 Tenant，輸入流程代碼、名稱、分類、分類內排序、狀態與說明；儲存後系統建立 Version 1 Draft。
+2. 若沒有合適分類，可在分類管理輸入分類代碼、顯示名稱、Bootstrap Icon 與排序後儲存。申請中心會使用此 metadata 顯示流程。
+3. 在畫布建立單一 Process，以及可完整連通的 Start Event、User Task、Gateway、Sequence Flow 與 End Event。
+4. 點選 User Task，確認節點代碼與名稱，再選擇「顯示表單」。清單只會列出同 Tenant 的 Published Form。
+5. 設定派送方式、自簽政策、重複簽核政策、意見必填、處理期限、提前提醒，以及允許的退回、駁回、轉派、代理和加簽動作。
+6. 設定解析方式及其必要參數：固定帳號、簽核群組、目標層級、職稱、職務或表單人員帳號欄位等。
+7. 設定欄位權限。原始申請資料通常採 `READ`，簽核專用欄位採 `EDIT`，內部或不適用欄位採 `HIDDEN`。
+8. 對 Exclusive／Inclusive Gateway 設定條件及 default flow；不得在 Parallel Gateway outgoing flow 上設定不會生效的條件。
+9. 按「儲存草稿」。Resolver Preview 使用已儲存規則，因此修改節點後要先儲存，再輸入測試表單 JSON 執行 Preview。
+10. 分別以一般申請人、兼任人員、簽核人本人及邊界金額測試解析結果。
+11. 按「發布草稿」。後端會驗證 BPMN、Process Key、每個 User Task 的 Form Binding／Policy／Rule、Gateway 條件及 Resolver，成功後才部署至 Flowable。
+12. 已發布版本只能檢視；修改流程時使用「建立新版本」，重新確認所有節點設定後再發布。
+
+### DataSource Pool 與 Data Action
+
+#### DataSource Pool：`FM_PROG006D0001`
+
+1. 選擇 Tenant，填寫連線池代碼、名稱、資料庫類型、JDBC URL、帳號、密碼及連線池參數。
+2. 驗證 SQL 應使用該資料庫安全且低成本的查詢，例如 `SELECT 1`。
+3. 按「測試連線」，確認畫面回傳資料庫產品、版本及耗時後再儲存並啟用。
+4. 編輯時密碼留空表示沿用現有密碼；輸入新密碼會取代原設定。
+5. 正被 Published Data Action 使用的連線池不要任意停用。
+
+#### Data Action：`FM_PROG006D0002`
+
+1. 選擇 Tenant 與 DataSource Pool，設定 Action Code、名稱、類型、Request Schema、每分鐘呼叫上限與說明。
+2. 依執行順序新增 Step，設定 Step Code、Statement、Execution Mode、SQL、Result Key、Result Mode、逾時及最大回傳筆數。
+3. SQL 使用 Named Parameter；值由 Request、Server Context、目前 item 或前一步結果綁定，不以字串拼接使用者輸入。
+4. 批次處理選擇 `FOR_EACH` 並設定 Array Path；有條件執行時設定 Continue Condition。
+5. 先儲存草稿，再輸入測試 JSON 執行 Preview。Preview 預設 Rollback；確認每一步參數、結果與異動筆數。
+6. 驗證預期異動筆數、錯誤回滾及空結果後發布版本。Form Binding 只能正式引用 Published Action。
+7. 由 Execution Audits 查看執行狀態、耗時與 digest；稽核資料不應保存明文密碼或敏感內容。
+
+### AI Provider：`FM_PROG010D0001`
+
+1. 選擇 Tenant，輸入 Provider 代碼、顯示名稱及 Provider 類型。
+2. 填寫 Base URL、Model ID、API Key、Temperature、最大輸出 Token 與逾時秒數。
+3. 同一 Tenant 可指定一個預設 Provider；啟用前先執行連線測試。
+4. 編輯時 API Key 留空表示不變；輸入新值會立即取代舊 Key，且無法由畫面讀回。
+5. Provider 停用或測試失敗時，Task AI 解說不可假裝成功，應查看錯誤訊息及稽核紀錄。
+
+### 外部 API Client：`FM_PROG010D0002`、`FM_PROG010D0003`
+
+1. 建立 Client Code、名稱、系統類型、每分鐘上限、每日配額、狀態與說明。
+2. 只勾選必要 Scope，並限制允許的流程、Initiator 帳號與 IP Allowlist。
+3. 產生或輪替 API Key 後立即複製並交由外部系統安全保存；明文 Key 關閉視窗後不再顯示。
+4. 外部系統依 `FM_PROG010D0003` 顯示的契約傳送 Tenant、Client、API Key、Idempotency Key 與 request body。
+5. 重送同一業務請求必須沿用 Idempotency Key；不要以重建 Key 或改變 business key 規避重複送單保護。
+6. 上線前測試有效請求、Scope 不足、IP 不符、配額超限、重複請求及流程狀態查詢。
+
+### 從零建立第一支流程：請假申請範例
+
+以下範例只示範操作順序，實際欄位與核決規則仍依公司制度設定：
+
+1. 在 `FM_PROG001D0001` 建立 Tenant，加入申請人、主管及管理者帳號。
+2. 在 `FM_PROG002D0002` 建立公司根部門與申請人部門。
+3. 在 `FM_PROG002D0001` 建立申請人與主管，配置有效主要任職。
+4. 在 `FM_PROG002D0005` 將主管設為申請人部門的 `HEAD`。
+5. 在 `FM_PROG005D0001` 建立 `LEAVE_REQUEST`，加入假別、開始日期、結束日期、天數及原因，完成 Preview 後發布 Form v1。
+6. 在 `FM_PROG004D0001` 建立 `LEAVE_APPROVAL`：Start → `managerApproval` → End。
+7. 選取 `managerApproval`，綁定 `LEAVE_REQUEST v1`，設定原申請欄位唯讀、簽核意見可編輯，Resolver 選擇 `INITIATOR_ORG_HEAD`。
+8. 儲存流程後，以申請人帳號執行 Resolver Preview；確認解析結果是預期主管，再發布 Process v1。
+9. 以申請人登入 `/requests/start` 起單；以主管登入 `/tasks/[taskId]` 核准。
+10. 回到 `/requests/[processInstanceId]` 確認狀態為完成，並檢查表單快照、簽核動作及 BPMN 進度。
+
+### 常見問題排除
+
+| 狀況 | 優先檢查 |
+|---|---|
+| 選單看不到程式 | QIFU4 Program 是否註冊、Role 是否授權、帳號是否有有效 Tenant membership |
+| 申請中心看不到流程 | Process 是否 Active 且 Published、分類是否有效、起單政策是否允許目前帳號 |
+| BPMN 選不到表單 | Form 是否屬於同一 Tenant 且已發布；Draft 不會出現在清單 |
+| 流程發布顯示 User Task 設定不完整 | 該節點是否同時具備 Form Binding、Task Policy 與至少一條 Assignment Rule |
+| Resolver Preview 找不到人 | 員工、membership、主要任職、主管／群組成員及有效期間是否完整 |
+| Gateway 沒有走預期分支 | 條件使用的欄位 key、型別與測試 JSON 是否一致，是否有 default flow |
+| Form Preview 可過但正式送單失敗 | 後端會重新驗證 Schema、欄位權限、Script、Data Action 與附件；依畫面錯誤逐項修正 |
+| Published 版本無法編輯 | 這是不可變版本設計；建立新 Draft 版本後修改 |
+| Data Action Preview 失敗 | Pool 連線、Named Parameter、Request Schema、Step 順序、逾時與預期異動筆數 |
+| 待辦沒有指派給任何人 | 到 `/operations/incidents` 查看解析路徑與失敗原因，修正組織或規則後再處理 Incident |
+| 修改 Form 後流程仍顯示舊欄位 | 流程固定綁定明確 Form Version；建立流程新版本並重新綁定後發布 |
 
 ## 目前狀態
 
@@ -16,7 +283,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 共用單據編號、正式附件、申請追蹤、目前簽核人與 BPMN 流程進度已完成 Java／Vue 實作與自動驗證。
 - A01 的請購、採購單、驗收單與公司名片 Form／Process 目前均已發布，Process 已部署至 Flowable；仍需以多帳號完成逐級核決、條件分支、退回重驗、附件、簽核流轉與流程進度的瀏覽器 E2E。
 - AI Provider 管理、OpenAI／Gemini／Groq／OpenRouter Adapter、Task AI 分析、快取與稽核已完成；尚未使用真實 API Key 完成 Provider 與瀏覽器 E2E，不能標示為正式上線。
-- A01 現行版本為 `FM_PURCHASE_REQUEST` v1／`FM_PURCHASE_APPROVAL` v1、`FM_PURCHASE_ORDER` v3／`FM_PURCHASE_ORDER_APPROVAL` v1、`FM_GOODS_ACCEPTANCE` v5／`FM_GOODS_ACCEPTANCE_APPROVAL` v1，以及 `FM_BUSINESS_CARD_REQUEST` v1／`FM_BUSINESS_CARD_APPROVAL` v1；發布與部署完成不等同真實業務 E2E 已驗收。
+- A01 現行的請購、採購單、驗收單與公司名片 Form／Process 均已重新整理為 `PUBLISHED v1`；所有 BPMN User Task 的 Form Binding 皆指向對應的 Published Form v1。發布與部署完成不等同真實業務 E2E 已驗收。
 - 外部系統 API 管理、Client／Key／Scope／IP／配額、Request Audit、外部發單 Ledger、流程狀態查詢及獨立 API 說明頁均已實作並套用 MariaDB；仍待正式外部 Client 與多帳號端到端驗收。
 - 正式業務表單屬應用配置，不計入平台本體程式。
 - 尚待完成正式環境部署、Program／角色配置、完整瀏覽器 E2E 與真實資料量效能驗證。
@@ -613,6 +880,8 @@ flowmint/
 ## 快速開始
 
 ### 1. 建立資料庫
+
+這一節只說明新環境初始化。若要連線查詢、備份、還原或異動既有 MariaDB，請先完整閱讀 [MariaDB 操作規範](backend/doc/21-MariaDB操作規範.md)；正式資料不得直接以 README 範例取代備份、唯讀確認及變更核准程序。
 
 建立 UTF-8 MariaDB database：
 

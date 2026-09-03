@@ -63,7 +63,7 @@ const loginBtnClick = async () => {
     <div class="ambient ambient-two"></div>
     <section class="login-shell">
       <aside class="brand-panel">
-        <div class="brand-mark"><i class="bi bi-bezier2"></i></div>
+        <img class="brand-logo" src="/img/flowmint-logo.svg" alt="FlowMint">
         <div class="brand-copy">
           <span class="eyebrow">Enterprise Workflow</span>
           <h1>讓每一次簽核，<br><span>清楚而流暢。</span></h1>
@@ -78,7 +78,9 @@ const loginBtnClick = async () => {
       </aside>
 
       <section class="auth-panel">
-        <div class="mobile-brand"><span class="brand-mark"><i class="bi bi-bezier2"></i></span><strong>FlowMint</strong></div>
+        <div class="mobile-brand">
+          <img src="/img/flowmint-logo.svg" alt="FlowMint">
+        </div>
         <form class="login-card" @submit.prevent="loginBtnClick">
           <header>
             <span class="eyebrow">WELCOME BACK</span>
@@ -125,7 +127,7 @@ const loginBtnClick = async () => {
 .login-shell { width: min(1080px, 100%); min-height: 650px; display: grid; grid-template-columns: 1.08fr .92fr; position: relative; z-index: 1; overflow: hidden; border: 1px solid rgba(255,255,255,.86); border-radius: 28px; background: rgba(255,255,255,.78); box-shadow: 0 30px 80px rgba(16,42,67,.16); backdrop-filter: blur(18px); }
 .brand-panel { display: flex; flex-direction: column; padding: 3.25rem; color: white; background: linear-gradient(145deg, #0a665c 0%, #0d826f 48%, #154f70 100%); position: relative; isolation: isolate; }
 .brand-panel::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .18; background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 24px 24px; mask-image: linear-gradient(to bottom right, #000, transparent 75%); }
-.brand-mark { width: 3rem; height: 3rem; display: inline-grid; place-items: center; border-radius: 14px; color: white; background: linear-gradient(135deg, #33d6a6, #168eaa); box-shadow: 0 10px 24px rgba(4,52,61,.25); font-size: 1.35rem; }
+.brand-logo { display: block; width: min(15rem, 72%); height: auto; }
 .brand-copy { margin: auto 0 2.6rem; max-width: 29rem; }
 .eyebrow { display: block; margin-bottom: 1rem; font-size: .72rem; font-weight: 800; letter-spacing: .18em; color: #9ff5d6; }
 .brand-copy h1 { margin: 0 0 1.4rem; font-size: clamp(2.6rem, 5vw, 4.2rem); line-height: 1.08; letter-spacing: -.05em; font-weight: 750; }
@@ -156,6 +158,6 @@ const loginBtnClick = async () => {
 .security-note { margin: 1.15rem 0 0; text-align: center; color: #829ab1; font-size: .76rem; }
 .security-note i { margin-right: .35rem; color: var(--mint-dark); }
 .mobile-brand { display: none; }
-@media (max-width: 820px) { .login-page { padding: 1rem; } .login-shell { min-height: auto; grid-template-columns: 1fr; } .brand-panel { display: none; } .auth-panel { min-height: calc(100vh - 2rem); padding: 2rem; } .mobile-brand { display: flex; align-items: center; gap: .75rem; position: absolute; top: 2rem; left: 2rem; font-size: 1.15rem; } .mobile-brand .brand-mark { width: 2.6rem; height: 2.6rem; border-radius: 12px; } .login-card { padding-top: 4rem; } }
+@media (max-width: 820px) { .login-page { padding: 1rem; } .login-shell { min-height: auto; grid-template-columns: 1fr; } .brand-panel { display: none; } .auth-panel { min-height: calc(100vh - 2rem); padding: 2rem; } .mobile-brand { display: flex; align-items: center; position: absolute; top: 2rem; left: 2rem; padding: .35rem .7rem; border-radius: 12px; background: #0d665f; box-shadow: 0 8px 18px rgba(8,127,106,.18); } .mobile-brand img { display: block; width: 9rem; height: auto; } .login-card { padding-top: 4rem; } }
 @media (max-width: 420px) { .auth-panel { padding: 1.35rem; } .mobile-brand { top: 1.35rem; left: 1.35rem; } .login-card h2 { font-size: 1.75rem; } }
 </style>

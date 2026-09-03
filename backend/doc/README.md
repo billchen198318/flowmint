@@ -1,5 +1,13 @@
 # FlowMint 2.0 全系統重新規劃
 
+> [!IMPORTANT]
+> **MariaDB 強制操作入口：**任何涉及 MariaDB、MySQL、資料庫資料、Schema、SQL、Form／Process／
+> Data Action 實際配置的工作，在執行第一個資料庫命令前，必須先完整閱讀
+> [21-MariaDB 操作規範](21-MariaDB操作規範.md)。必須使用該章指定的 MariaDB CLI 絕對路徑、
+> `flowmint` database 與 `--skip-ssl`；不得改從應用程式設定推測連線方式、解密 datasource 密碼或
+> 自行改用 JDBC。任何 `INSERT／UPDATE／DELETE` 都必須先以相同條件 `SELECT`，列明 SQL、目標表、
+> WHERE 條件與預計筆數，並就該次異動取得使用者明確同意。不得等待使用者提醒才套用本規範。
+
 日期：2026-07-30  
 適用：台灣、中國大陸  
 狀態：新系統設計與開發唯一規格集
@@ -10,17 +18,27 @@ FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 H
 
 本機 `flowmint` 目前共有 56 張 `fm_*` 表，包含核心簽核、後續營運／整合擴充，以及採購單與驗收單並行占額使用的 `fm_purchase_order_reservation`、`fm_goods_acceptance_reservation`。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
 
-## 目前狀態（2026-08-31）
+## 目前版本基準（2026-09-03）
 
-- Phase 1～5 核心簽核與營運程式已完成，請購流程 Version 2 已發布；完整瀏覽器、多帳號及實際資料量 E2E 仍待完成。
+- MariaDB 現行所有 Form 與 BPMN Process 均已重新整理為 Version 1；文件內較早出現的 Form
+  Version 2～5 或 Process Version 2，僅代表當時的開發與遷移紀錄，不再代表目前資料庫版本。
+- 後續規格、SQL、程式與測試不得再以舊版號判斷現行綁定；現況一律以 Form Version 1 與
+  Process Version 1 為準。Data Action 有自己的獨立版本生命週期，不受此版本重編影響。
+
+目前 A01 的四份 Form 與四個 BPMN Process 均為唯一的 `PUBLISHED` Version 1；所有 42 個
+User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一致，Form Rule 全部綁定
+已發布的 Form Version 1。
+
+## 開發狀態
+
+- Phase 1～5 核心簽核與營運程式已完成，請購流程現行 Version 1 已發布；完整瀏覽器、多帳號及實際資料量 E2E 仍待完成。
 - `FM_PROG010D0001` AI Provider 管理、四種 Provider Adapter、Task AI 分析、快取與稽核已完成程式實作，但尚未使用真實 API Key 完成正式整合驗收。
 - `31` 公司名片申請單的 Form、Data Action、Document Number Rule、BPMN、Task Policy 與 Resolver
   Version 1 均已發布並完成配置，目前只待真實多帳號瀏覽器／MariaDB／Flowable E2E 驗收；`30`
   採購單／驗收單及 `32` 外部系統 API 管理／流程拋單的個別狀態以各自文件為準。
 - 共用待辦頁已修正 `REJECT／RETURN` 誤執行完整 Form.io 與 Custom JavaScript `beforeSubmit`
-  驗證的問題；目前只有 `APPROVE／RESUBMIT` 會提交並驗證表單資料。請購單與公司名片申請單
-  均已建立 Form Version 2 草稿，修正待辦階段重載或改寫申請人、任職及路由欄位的問題；兩個
-  草稿尚未發布，也尚未變更正式流程綁定。
+  驗證的問題；目前只有 `APPROVE／RESUBMIT` 會提交並驗證表單資料。相關修正已整理至現行
+  Form Version 1，不再保留 Version 2 草稿作為目前狀態。
 - 本機 `flowmint.tb_sys_prog` 的 `FM_PROG010D` Folder 名稱已更新為 `FJ. API-整合服務`；既有 `FM_PROG010D0001` 維持不變，規劃中的外部 API 管理使用 `FM_PROG010D0002`。
 
 ## 閱讀順序
@@ -85,11 +103,11 @@ Enterprise Group、Legal Entity、Location、Employment、Job、Grade、Position
 一次性 schema、seed、資料修正與 Program register SQL 執行完成並併入主檔後必須刪除；既有環境的
 增量升級應放在正式 migration 位置或由 QIFU4 管理功能處理，不得再於 `doc` 新增其他 `.sql`。
 
-## 2026-09-01 驗收單最新狀態
+## 2026-09-03 驗收單最新狀態
 
-`FM_GOODS_ACCEPTANCE` Form Version 5 與 `FM_GOODS_ACCEPTANCE_APPROVAL` Process Version 1
-目前仍為 Draft；其依賴的 `GA_VALIDATE_BEFORE_SUBMIT` Version 4、`GA_RESERVE_QUANTITY`
-Version 3、`GA_RECALCULATE_PO_STATUS` Version 1 均已發布。完整欄位、流程、共用 Runtime 修正與
-待驗收項目請以 [採購單與驗收單表單流程配置規劃](30-採購單與驗收單表單流程配置規劃.md) 為準。
+`FM_GOODS_ACCEPTANCE` Form 與 `FM_GOODS_ACCEPTANCE_APPROVAL` Process 的現行版本均為
+Version 1。過去 Version 4／5 的內容已整理回新的 Version 1 基準；舊版號只保留在歷史紀錄中。
+其依賴的 Data Action 仍依各自版本生命週期管理。完整欄位、流程、共用 Runtime 修正與待驗收
+項目請以 [採購單與驗收單表單流程配置規劃](30-採購單與驗收單表單流程配置規劃.md) 為準。
 
 `backend/doc` 僅保留 `flowmint.sql` 作為 SQL 文件基準；舊的 Form Designer Demo 文件已移除。
