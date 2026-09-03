@@ -1,6 +1,8 @@
 # FlowMint
 
 > Open-source workflows, approvals made simple. 讓每一次簽核，都流暢有跡。
+> 
+> FlowMint application code was implemented entirely with AI coding agents. The product requirements, enterprise workflow concepts, domain model, and validation were human-directed.
 
 FlowMint 是一套開源的企業電子表單簽核系統平台(BPM)，整合視覺化表單設計、BPMN 流程編排、組織簽核人解析、待辦處理、通知、稽核、異常處理與營運報表。平台支援多租戶（Tenant）資料隔離，讓企業能以設定方式建立請購、驗收、費用、名片及其他內部申請流程，不必為每一種單據重新開發一套系統。
 
