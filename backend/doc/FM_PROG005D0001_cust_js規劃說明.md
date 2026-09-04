@@ -281,9 +281,9 @@ return {
 
 ```javascript
 ctx.response;
-ctx.processInstanceId;
-ctx.businessKey;
 ```
+
+`response` 是正式 API 成功回應。目前 Executor 沒有另外將 `processInstanceId` 或 `businessKey` 拆成 Context 頂層欄位；若 API response 含有這些值，應從 `ctx.response` 讀取。
 
 `afterSubmit` 發生錯誤時不得將已成功的後端交易顯示為送出失敗；畫面應清楚區分「表單已送出，但送出後 JavaScript 執行失敗」。
 
@@ -295,14 +295,19 @@ ctx.businessKey;
 
 ```typescript
 export interface FormCustomScriptContext {
-  mode: "DESIGNER_PREVIEW" | "RUNTIME_CREATE" | "RUNTIME_TASK" | "READ_ONLY";
+  mode: "DESIGNER_PREVIEW" | "RUNTIME_START" | "RUNTIME_TASK" | "READ_ONLY";
   tenantId: string;
   formId: string;
   formCode: string;
   versionNo: number;
-  processInstanceId?: string;
+  actionType?: string;
   taskId?: string;
-  businessKey?: string;
+  formData?: Record<string, any> | null;
+  actionCode?: string;
+  actionVersion?: number;
+  bindingId?: string;
+  request?: Record<string, any>;
+  error?: any;
   form: any;
   data: Record<string, any>;
   submission: Record<string, any>;
@@ -311,6 +316,11 @@ export interface FormCustomScriptContext {
   axios: AxiosInstance;
   getValue: (key: string) => any;
   setValue: (key: string, value: any) => Promise<void>;
+  setSelectOptions: (
+    key: string,
+    items: Array<{ label: string; value: any; disabled?: boolean }>,
+  ) => Promise<void>;
+  setComponentDisabled: (key: string, disabled: boolean) => Promise<void>;
   getComponent: (key: string) => any;
   redraw: () => Promise<void>;
   executeDataAction: (
@@ -324,6 +334,8 @@ export interface FormCustomScriptContext {
   error: (...values: any[]) => void;
 }
 ```
+
+上述介面以目前共用 Executor 實作為準。`processInstanceId` 與 `businessKey` 尚未注入 Script Context，不得視為可用欄位。
 
 ### 7.2 取值與設值
 
@@ -346,6 +358,17 @@ const amountComponent = ctx.getComponent("amount");
 amountComponent.disabled = true;
 await ctx.redraw();
 ```
+
+也可使用受控 helper 更新選項或停用狀態：
+
+```javascript
+await ctx.setSelectOptions("employeeId", [
+  { label: "王小明", value: "A001" },
+]);
+await ctx.setComponentDisabled("amount", true);
+```
+
+`READ_ONLY` 模式下，`setComponentDisabled()` 的有效結果固定為停用，不可藉由 Script 重新開放輸入。
 
 ### 7.4 Axios
 
@@ -640,18 +663,16 @@ syncSchemaFromDesigner
 
 ### 11.3 Console
 
-試跑 Console 每筆至少記錄：
+試跑 Console 每筆固定記錄：
 
 ```text
 時間
 等級：LOG／WARN／ERROR
 生命週期
-訊息
-錯誤行號
-Stack
+values
 ```
 
-Console 只存在目前瀏覽器頁面記憶體，不寫入表單版本。
+Console 只存在目前瀏覽器頁面記憶體，不寫入表單版本；目前單次 Runtime 最多保留 200 筆，超過時移除最舊記錄。`Error` 物件可放在 `values` 中，但目前未將行號與 Stack 拆成獨立結構欄位。
 
 ---
 
@@ -789,7 +810,7 @@ export interface FormCustomScriptError {
 - Runtime destroy 後忽略尚未完成的 Promise 結果。
 - Console 對單次 Session 設定最大筆數，避免瀏覽器記憶體持續增加。
 
-建議 Context 提供：
+下列為尚未實作的後續規劃，目前 Custom JavaScript 不可呼叫：
 
 ```javascript
 ctx.utils.debounce(key, milliseconds, callback);
@@ -1058,7 +1079,7 @@ return {
 - 完成草稿保存、版本複製、發布鎖定及 Script Hash。
 - 完成 JavaScript 編輯頁籤、範本與 compile validation。
 - 完成共用 Script Executor、Axios、Data Action helper 及試跑 Console。
-- Designer Preview 已接入 onFormLoad、onFieldChange 與 onDestroy。
+- Designer Preview 已接入 onFormLoad、onFieldChange、beforeSubmit 與 onDestroy；Preview 沒有正式後端送出交易，因此不執行 afterSubmit。
 - Executor 已提供 beforeSubmit、afterSubmit、onDataActionSuccess 與 onDataActionError 執行介面。
 - Workspace 發起表單已重用 `useFormCustomJavascript`，接入 `RUNTIME_START`、onFormLoad、onFieldChange、beforeSubmit、afterSubmit 與 onDestroy。
 - Task 表單已重用同一 Executor，接入 `RUNTIME_TASK`、onFormLoad、onFieldChange 與 onDestroy，並與 Data Action Bridge 共存。
