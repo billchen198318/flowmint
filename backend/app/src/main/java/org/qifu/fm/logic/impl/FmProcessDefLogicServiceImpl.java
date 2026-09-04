@@ -56,6 +56,7 @@ import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
 import org.qifu.fm.domain.workflow.FmAssignmentRuleConfigValidator;
 import org.qifu.fm.domain.workflow.FmBpmnDesignValidator;
 import org.qifu.fm.domain.workflow.FmProcessPublishValidator;
+import org.qifu.fm.domain.workflow.FmDataActionTaskPublishValidator;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessCategoryService;
@@ -114,6 +115,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmApprovalAuthorityRuleService approvalAuthorityRuleService;
     private final RepositoryService repositoryService;
     private final FmTenantAccessGuard tenantAccessGuard;
+    private final FmDataActionTaskPublishValidator dataActionTaskPublishValidator;
 
     public FmProcessDefLogicServiceImpl(
             IFmProcessDefService processDefService,
@@ -135,7 +137,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmApprovalAuthorityService approvalAuthorityService,
             IFmApprovalAuthorityRuleService approvalAuthorityRuleService,
             RepositoryService repositoryService,
-            FmTenantAccessGuard tenantAccessGuard) {
+            FmTenantAccessGuard tenantAccessGuard,
+            FmDataActionTaskPublishValidator dataActionTaskPublishValidator) {
         this.processDefService = processDefService;
         this.processCategoryService = processCategoryService;
         this.processVersionService = processVersionService;
@@ -156,6 +159,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.approvalAuthorityRuleService = approvalAuthorityRuleService;
         this.repositoryService = repositoryService;
         this.tenantAccessGuard = tenantAccessGuard;
+        this.dataActionTaskPublishValidator = dataActionTaskPublishValidator;
     }
 
     @Override
@@ -389,6 +393,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             org.flowable.bpmn.converter.BpmnXMLConverter converter =
                     new org.flowable.bpmn.converter.BpmnXMLConverter();
             org.flowable.bpmn.model.BpmnModel model = converter.convertToBpmnModel(reader);
+            dataActionTaskPublishValidator.validate(version.getTenantId(), model);
             for (org.flowable.bpmn.model.UserTask userTask
                     : model.getMainProcess().findFlowElementsOfType(
                             org.flowable.bpmn.model.UserTask.class)) {
@@ -418,6 +423,26 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     loop.setSequential("SEQUENTIAL".equals(policy.getAssignmentMode()));
                     userTask.setLoopCharacteristics(loop);
                 }
+            }
+            for (org.flowable.bpmn.model.ServiceTask serviceTask
+                    : model.getMainProcess().findFlowElementsOfType(
+                            org.flowable.bpmn.model.ServiceTask.class)) {
+                for (String property : List.of("actionCode", "actionVersion",
+                        "requestMapping", "responseMapping")) {
+                    org.flowable.bpmn.model.FieldExtension field =
+                            new org.flowable.bpmn.model.FieldExtension();
+                    field.setFieldName("flowmint" + Character.toUpperCase(property.charAt(0))
+                            + property.substring(1));
+                    field.setStringValue(serviceTask.getAttributeValue(
+                            FmDataActionTaskPublishValidator.FLOWMINT_NAMESPACE, property));
+                    serviceTask.getFieldExtensions().add(field);
+                }
+                serviceTask.setImplementationType(
+                        org.flowable.bpmn.model.ImplementationType
+                                .IMPLEMENTATION_TYPE_DELEGATEEXPRESSION);
+                serviceTask.setImplementation("${fmDataActionTaskDelegate}");
+                serviceTask.setAsynchronous(true);
+                serviceTask.setExclusive(true);
             }
             return new String(converter.convertToXML(model), StandardCharsets.UTF_8);
         } catch (RuntimeException | javax.xml.stream.XMLStreamException exception) {

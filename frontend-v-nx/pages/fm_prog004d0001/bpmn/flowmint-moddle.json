@@ -1,0 +1,21 @@
+{
+  "name": "FlowMint",
+  "uri": "https://flowmint.qifu.org/schema/bpmn",
+  "prefix": "flowmint",
+  "xml": {
+    "tagAlias": "lowerCase"
+  },
+  "types": [
+    {
+      "name": "DataActionTask",
+      "extends": ["bpmn:ServiceTask"],
+      "properties": [
+        { "name": "taskType", "type": "String", "isAttr": true },
+        { "name": "actionCode", "type": "String", "isAttr": true },
+        { "name": "actionVersion", "type": "Integer", "isAttr": true },
+        { "name": "requestMapping", "type": "String", "isAttr": true },
+        { "name": "responseMapping", "type": "String", "isAttr": true }
+      ]
+    }
+  ]
+}

@@ -10,6 +10,9 @@ import "vue3-toastify/dist/index.css";
 import Toolbar from "@/components/Toolbar.vue";
 import ApprovalAuthorityPanel from "./ApprovalAuthorityPanel.vue";
 import SequenceFlowConditionPanel from "./SequenceFlowConditionPanel.vue";
+import DataActionTaskPanel from "./DataActionTaskPanel.vue";
+import flowmintBpmnModule from "../bpmn/FlowmintPaletteProvider";
+import flowmintModdle from "../bpmn/flowmint-moddle.json";
 import {
   checkInvalid,
   escapeQifuHtmlMsg,
@@ -42,6 +45,7 @@ const selectedVersion = ref<any>(null);
 const publishedForms = ref<any[]>([]);
 const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
+const selectedSystemTask = ref<any>(null);
 const selectedFlow = ref<any>(null);
 const previewAccount = ref("");
 const previewFormData = ref("{}");
@@ -391,6 +395,10 @@ const bindModelerEvents = () => {
     element = element?.labelTarget || element;
     selectedElement.value = element || null;
     selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
+    selectedSystemTask.value = is(element, "bpmn:ServiceTask")
+      && element?.businessObject?.taskType === "DATA_ACTION"
+      ? element
+      : null;
     selectedFlow.value = is(element, "bpmn:SequenceFlow") ? element : null;
     ensureSelectedTaskPolicy();
     ensureSelectedAssignmentRule();
@@ -404,6 +412,8 @@ const bindModelerEvents = () => {
   modeler.get("eventBus").on("element.changed", (event: any) => {
     if (selectedTask.value?.id === event.element?.id)
       selectedTask.value = event.element;
+    if (selectedSystemTask.value?.id === event.element?.id)
+      selectedSystemTask.value = event.element;
     if (selectedFlow.value?.id === event.element?.id)
       selectedFlow.value = event.element;
   });
@@ -546,10 +556,15 @@ const openVersion = async (version: any) => {
   selectedVersion.value = version;
   selectedElement.value = null;
   selectedTask.value = null;
+  selectedSystemTask.value = null;
   selectedFlow.value = null;
   await nextTick();
   if (!modeler && canvas.value) {
-    modeler = new BpmnModeler({ container: canvas.value });
+    modeler = new BpmnModeler({
+      container: canvas.value,
+      additionalModules: [flowmintBpmnModule],
+      moddleExtensions: { flowmint: flowmintModdle },
+    });
     bindModelerEvents();
   }
   if (modeler && version?.bpmnXml) {
@@ -987,7 +1002,11 @@ onBeforeUnmount(() => modeler?.destroy());
         <div class="col-lg-3">
           <div class="card h-100 task-property-panel">
             <div class="card-header">
-              {{ selectedFlow ? "流程條件" : "UserTask 節點屬性" }}
+              {{ selectedFlow
+                ? "流程條件"
+                : selectedSystemTask
+                  ? "Data Action Task 屬性"
+                  : "UserTask 節點屬性" }}
             </div>
             <div class="card-body">
               <SequenceFlowConditionPanel
@@ -998,17 +1017,24 @@ onBeforeUnmount(() => modeler?.destroy());
                 :schema-content="conditionSchemaContent"
                 :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
               />
+              <DataActionTaskPanel
+                v-else-if="selectedSystemTask"
+                :key="selectedSystemTask.id"
+                :element="selectedSystemTask"
+                :modeler="modeler"
+                :tenant-id="form.tenantId"
+                :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+              />
               <div v-else-if="!selectedTask" class="text-muted">
                 <template v-if="selectedElement">
                   目前選取「{{
                     selectedElement.businessObject?.$type ||
                     selectedElement.type ||
                     "未知節點"
-                  }}」。請選取 UserTask 設定簽核人與表單，或選取
-                  Sequence Flow 設定分流條件。
+                  }}」。請選取 UserTask 設定簽核人與表單、選取 Data Action Task 設定自動執行，或選取 Sequence Flow 設定分流條件。
                 </template>
                 <template v-else>
-                  請在左側流程圖點選 UserTask 或 Sequence Flow。
+                  請在左側流程圖點選 UserTask、Data Action Task 或 Sequence Flow。
                 </template>
               </div>
               <template v-else>

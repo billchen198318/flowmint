@@ -42,6 +42,69 @@ class FmBpmnDesignValidatorTest {
     }
 
     @Test
+    void acceptsControlledDataActionTask() {
+        assertDoesNotThrow(() -> validator.validate(process("""
+                <serviceTask id="loadEmployee" name="Load employee"
+                    flowmint:taskType="DATA_ACTION"
+                    flowmint:actionCode="FM_GET_EMPLOYEE"
+                    flowmint:actionVersion="1"
+                    flowmint:requestMapping="{&quot;employeeId&quot;:&quot;FORM_DATA.employeeId&quot;}"
+                    flowmint:responseMapping="{&quot;employee.name&quot;:&quot;FORM_DATA.employeeName&quot;}" />
+                """, " xmlns:flowmint=\"https://flowmint.qifu.org/schema/bpmn\""),
+                "TEST_PROCESS"));
+    }
+
+    @Test
+    void rejectsDataActionTaskWithArbitraryRequestMapping() {
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <serviceTask id="unsafe"
+                    flowmint:taskType="DATA_ACTION"
+                    flowmint:actionCode="FM_GET_EMPLOYEE"
+                    flowmint:actionVersion="1"
+                    flowmint:requestMapping="{&quot;employeeId&quot;:&quot;${unsafeBean.execute()}&quot;}"
+                    flowmint:responseMapping="{}" />
+                """, " xmlns:flowmint=\"https://flowmint.qifu.org/schema/bpmn\""),
+                "TEST_PROCESS"));
+    }
+
+    @Test
+    void rejectsForeignServiceTaskExtensionAttributes() {
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <serviceTask id="unsafe"
+                    flowmint:taskType="DATA_ACTION"
+                    flowmint:actionCode="FM_GET_EMPLOYEE"
+                    flowmint:actionVersion="1"
+                    flowmint:requestMapping="{}"
+                    flowmint:responseMapping="{}"
+                    vendor:async="true" />
+                """, " xmlns:flowmint=\"https://flowmint.qifu.org/schema/bpmn\""
+                        + " xmlns:vendor=\"https://example.invalid/bpmn\""),
+                "TEST_PROCESS"));
+    }
+
+    @Test
+    void rejectsUnknownProcessContextAndEmptyFormPath() {
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <serviceTask id="badContext"
+                    flowmint:taskType="DATA_ACTION"
+                    flowmint:actionCode="FM_GET_EMPLOYEE"
+                    flowmint:actionVersion="1"
+                    flowmint:requestMapping="{&quot;employeeId&quot;:&quot;PROCESS_CONTEXT.wrongName&quot;}"
+                    flowmint:responseMapping="{}" />
+                """, " xmlns:flowmint=\"https://flowmint.qifu.org/schema/bpmn\""),
+                "TEST_PROCESS"));
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <serviceTask id="emptyPath"
+                    flowmint:taskType="DATA_ACTION"
+                    flowmint:actionCode="FM_GET_EMPLOYEE"
+                    flowmint:actionVersion="1"
+                    flowmint:requestMapping="{}"
+                    flowmint:responseMapping="{&quot;employee.name&quot;:&quot;FORM_DATA.&quot;}" />
+                """, " xmlns:flowmint=\"https://flowmint.qifu.org/schema/bpmn\""),
+                "TEST_PROCESS"));
+    }
+
+    @Test
     void rejectsArbitraryExpression() {
         assertThrows(ServiceException.class, () -> validator.validate(process("""
                 <exclusiveGateway id="gateway" default="flow_default" />

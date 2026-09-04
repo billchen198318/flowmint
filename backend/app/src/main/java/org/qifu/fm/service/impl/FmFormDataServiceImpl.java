@@ -36,4 +36,16 @@ public class FmFormDataServiceImpl extends BaseService<FmFormData, String>
 		paramMap.put("formDataId", formDataId);
 		return mapper.lockByFormDataId(paramMap);
 	}
+
+	@Override
+	@Transactional(readOnly = false)
+	public int updateDataContent(String tenantId, String formDataId,
+			String dataContent, int expectedLockVersion) {
+		Map<String, Object> paramMap = new HashMap<>();
+		paramMap.put("tenantId", tenantId);
+		paramMap.put("formDataId", formDataId);
+		paramMap.put("dataContent", dataContent);
+		paramMap.put("expectedLockVersion", expectedLockVersion);
+		return mapper.updateDataContent(paramMap);
+	}
 }
