@@ -11,6 +11,7 @@ import Toolbar from "@/components/Toolbar.vue";
 import ApprovalAuthorityPanel from "./ApprovalAuthorityPanel.vue";
 import SequenceFlowConditionPanel from "./SequenceFlowConditionPanel.vue";
 import DataActionTaskPanel from "./DataActionTaskPanel.vue";
+import BpmnDesignerHelp from "./BpmnDesignerHelp.vue";
 import flowmintBpmnModule from "../bpmn/FlowmintPaletteProvider";
 import flowmintModdle from "../bpmn/flowmint-moddle.json";
 import {
@@ -47,6 +48,23 @@ const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
 const selectedSystemTask = ref<any>(null);
 const selectedFlow = ref<any>(null);
+const designerHelp = ref<InstanceType<typeof BpmnDesignerHelp> | null>(null);
+const openSelectedHelp = () => {
+  const type = selectedElement.value?.businessObject?.$type;
+  const topic =
+    type === "bpmn:UserTask"
+      ? "user-task"
+      : type === "bpmn:ServiceTask"
+        ? "service-task"
+        : type === "bpmn:SequenceFlow"
+          ? "conditions"
+          : type?.endsWith("Gateway")
+            ? "gateways"
+            : ["bpmn:StartEvent", "bpmn:EndEvent"].includes(type)
+              ? "events"
+              : "quick-start";
+  designerHelp.value?.open(topic);
+};
 const previewAccount = ref("");
 const previewFormData = ref("{}");
 const resolverPreview = ref<any[]>([]);
@@ -70,7 +88,7 @@ const removeStartPolicy = (index: number) => {
   if (selectedVersion.value?.versionStatus !== "DRAFT") return;
   selectedVersion.value.startPolicies.splice(index, 1);
   selectedVersion.value.startPolicies.forEach(
-    (policy: any, policyIndex: number) => policy.policySeq = policyIndex + 1,
+    (policy: any, policyIndex: number) => (policy.policySeq = policyIndex + 1),
   );
 };
 const startPolicyOptions = (subjectType: string) => {
@@ -122,7 +140,8 @@ const selectedTaskPolicy = computed(() =>
 );
 const selectedAssignmentRule = computed(() =>
   selectedVersion.value?.assignmentRules?.find(
-    (item: any) => item.taskDefKey === selectedTask.value?.id && item.ruleSeq === 1,
+    (item: any) =>
+      item.taskDefKey === selectedTask.value?.id && item.ruleSeq === 1,
   ),
 );
 const ruleConfig = () => {
@@ -136,14 +155,18 @@ const selectedFixedAccounts = computed({
   get: () => ruleConfig().accounts || [],
   set: (accounts: string[]) => {
     if (selectedAssignmentRule.value)
-      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ accounts });
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({
+        accounts,
+      });
   },
 });
 const selectedApprovalGroup = computed({
   get: () => ruleConfig().approvalGroupId || "",
   set: (approvalGroupId: string) => {
     if (selectedAssignmentRule.value)
-      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalGroupId });
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({
+        approvalGroupId,
+      });
   },
 });
 const selectedApprovalLevel = computed({
@@ -186,18 +209,23 @@ const selectedApprovalAuthority = computed({
   get: () => ruleConfig().approvalAuthorityId || "",
   set: (approvalAuthorityId: string) => {
     if (selectedAssignmentRule.value)
-      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ approvalAuthorityId });
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({
+        approvalAuthorityId,
+      });
   },
 });
 const selectedFormAccountField = computed({
   get: () => ruleConfig().fieldKey || "",
   set: (fieldKey: string) => {
     if (selectedAssignmentRule.value)
-      selectedAssignmentRule.value.resolverConfig = JSON.stringify({ fieldKey });
+      selectedAssignmentRule.value.resolverConfig = JSON.stringify({
+        fieldKey,
+      });
   },
 });
 const ensureSelectedAssignmentRule = () => {
-  if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT") return;
+  if (!selectedTask.value || selectedVersion.value?.versionStatus !== "DRAFT")
+    return;
   selectedVersion.value.assignmentRules ||= [];
   if (!selectedAssignmentRule.value) {
     selectedVersion.value.assignmentRules.push({
@@ -246,10 +274,13 @@ const selectedFormValue = computed(() => {
   const rule = selectedTaskRule.value;
   return rule ? `${rule.formId}::${rule.formVersionNo}` : "";
 });
-const selectedPublishedForm = computed(() => publishedForms.value.find(
-  (item: any) => item.formId === selectedTaskRule.value?.formId
-    && item.formVersionNo === selectedTaskRule.value?.formVersionNo,
-));
+const selectedPublishedForm = computed(() =>
+  publishedForms.value.find(
+    (item: any) =>
+      item.formId === selectedTaskRule.value?.formId &&
+      item.formVersionNo === selectedTaskRule.value?.formVersionNo,
+  ),
+);
 const selectedFormFields = computed(() => {
   const content = selectedPublishedForm.value?.schemaContent;
   if (!content) return [];
@@ -257,14 +288,17 @@ const selectedFormFields = computed(() => {
     const result: Array<{ value: string; label: string }> = [];
     const collect = (components: any[] = [], insideGrid = false) => {
       for (const component of components) {
-        const nestedGrid = insideGrid || ["datagrid", "editgrid"].includes(component?.type);
+        const nestedGrid =
+          insideGrid || ["datagrid", "editgrid"].includes(component?.type);
         if (component?.key && component?.input !== false && !insideGrid)
           result.push({
             value: component.key,
             label: `${component.label || component.key}／${component.key}`,
           });
         collect(component?.components, nestedGrid);
-        for (const column of Array.isArray(component?.columns) ? component.columns : [])
+        for (const column of Array.isArray(component?.columns)
+          ? component.columns
+          : [])
           collect(column?.components, nestedGrid);
         for (const row of Array.isArray(component?.rows) ? component.rows : [])
           for (const cell of Array.isArray(row) ? row : [])
@@ -280,21 +314,28 @@ const selectedFormFields = computed(() => {
 const conditionSchemaContent = computed(() => {
   const bindings = selectedVersion.value?.taskForms || [];
   const schemas = bindings
-    .map((binding: any) => publishedForms.value.find(
-      (item: any) => item.formId === binding.formId
-        && item.formVersionNo === binding.formVersionNo,
-    )?.schemaContent)
+    .map(
+      (binding: any) =>
+        publishedForms.value.find(
+          (item: any) =>
+            item.formId === binding.formId &&
+            item.formVersionNo === binding.formVersionNo,
+        )?.schemaContent,
+    )
     .filter(Boolean);
   if (!schemas.length || schemas.length !== bindings.length) return "";
   const catalogs = schemas.map((content: string) => {
     const fields = new Map<string, any>();
     const collect = (components: any[] = [], insideGrid = false) => {
       for (const component of components) {
-        const nestedGrid = insideGrid || ["datagrid", "editgrid"].includes(component?.type);
+        const nestedGrid =
+          insideGrid || ["datagrid", "editgrid"].includes(component?.type);
         if (component?.key && component?.input !== false && !insideGrid)
           fields.set(component.key, component);
         collect(component?.components, nestedGrid);
-        for (const column of Array.isArray(component?.columns) ? component.columns : [])
+        for (const column of Array.isArray(component?.columns)
+          ? component.columns
+          : [])
           collect(column?.components, nestedGrid);
         for (const row of Array.isArray(component?.rows) ? component.rows : [])
           for (const cell of Array.isArray(row) ? row : [])
@@ -323,9 +364,12 @@ const loadProcessCategories = async () => {
     tenantId: form.value.tenantId,
   });
   processCategories.value = response.data?.value || [];
-  if (!processCategories.value.some(
-    (item: any) => item.categoryCode === form.value.category,
-  )) form.value.category = "";
+  if (
+    !processCategories.value.some(
+      (item: any) => item.categoryCode === form.value.category,
+    )
+  )
+    form.value.category = "";
 };
 const loadCategoryList = async () => {
   categoryRows.value = [];
@@ -343,8 +387,10 @@ const editCategory = (item: any) => {
 };
 const saveCategory = async () => {
   categoryEditor.value.tenantId = form.value.tenantId;
-  if (!categoryEditor.value.categoryCode?.trim()
-      || !categoryEditor.value.categoryLabel?.trim()) {
+  if (
+    !categoryEditor.value.categoryCode?.trim() ||
+    !categoryEditor.value.categoryLabel?.trim()
+  ) {
     toast.warning("請輸入分類代碼與名稱");
     return;
   }
@@ -373,9 +419,14 @@ const tenantChanged = async () => {
 };
 const loadResolverOptions = async () => {
   if (!form.value.tenantId) return;
-  const [accountResponse, groupResponse, levelResponse, titleResponse, dutyResponse,
-    unitResponse] =
-    await Promise.all([
+  const [
+    accountResponse,
+    groupResponse,
+    levelResponse,
+    titleResponse,
+    dutyResponse,
+    unitResponse,
+  ] = await Promise.all([
     post("/resolver-account-options", { tenantId: form.value.tenantId }),
     post("/approval-group-options", { tenantId: form.value.tenantId }),
     post("/approval-level-options", { tenantId: form.value.tenantId }),
@@ -395,10 +446,11 @@ const bindModelerEvents = () => {
     element = element?.labelTarget || element;
     selectedElement.value = element || null;
     selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
-    selectedSystemTask.value = is(element, "bpmn:ServiceTask")
-      && element?.businessObject?.taskType === "DATA_ACTION"
-      ? element
-      : null;
+    selectedSystemTask.value =
+      is(element, "bpmn:ServiceTask") &&
+      element?.businessObject?.taskType === "DATA_ACTION"
+        ? element
+        : null;
     selectedFlow.value = is(element, "bpmn:SequenceFlow") ? element : null;
     ensureSelectedTaskPolicy();
     ensureSelectedAssignmentRule();
@@ -462,10 +514,15 @@ const currentTaskPolicies = () => {
 };
 const currentAssignmentRules = () => {
   if (!modeler || !selectedVersion.value) return [];
-  const taskKeys = new Set(modeler.get("elementRegistry")
-    .filter((item: any) => is(item, "bpmn:UserTask")).map((item: any) => item.id));
+  const taskKeys = new Set(
+    modeler
+      .get("elementRegistry")
+      .filter((item: any) => is(item, "bpmn:UserTask"))
+      .map((item: any) => item.id),
+  );
   return (selectedVersion.value.assignmentRules || []).filter((item: any) =>
-    taskKeys.has(item.taskDefKey));
+    taskKeys.has(item.taskDefKey),
+  );
 };
 const conditionFieldKeys = () => {
   const keys = new Set<string>();
@@ -502,7 +559,9 @@ const validateSequenceFlows = () => {
     const outgoing = gateway.outgoing || [];
     if (outgoing.length <= 1) continue;
     if (outgoing.length > 1 && !gateway.businessObject?.default) {
-      toast.warning(`${gateway.businessObject?.name || gateway.id} 必須設定 Default Flow`);
+      toast.warning(
+        `${gateway.businessObject?.name || gateway.id} 必須設定 Default Flow`,
+      );
       return false;
     }
     for (const flow of outgoing) {
@@ -510,16 +569,22 @@ const validateSequenceFlows = () => {
       const isDefault = gateway.businessObject?.default?.id === flow.id;
       const body = businessObject?.conditionExpression?.body?.trim() || "";
       if (isDefault && body) {
-        toast.warning(`${businessObject?.name || flow.id} 是 Default Flow，不可同時設定條件`);
+        toast.warning(
+          `${businessObject?.name || flow.id} 是 Default Flow，不可同時設定條件`,
+        );
         return false;
       }
       if (!isDefault && !body) {
         toast.warning(`${businessObject?.name || flow.id} 尚未設定分流條件`);
         return false;
       }
-      for (const fieldName of body.matchAll(/flowmintFormData\.([A-Za-z][A-Za-z0-9_]*)/g)) {
+      for (const fieldName of body.matchAll(
+        /flowmintFormData\.([A-Za-z][A-Za-z0-9_]*)/g,
+      )) {
         if (!fieldKeys.has(fieldName[1])) {
-          toast.warning(`${businessObject?.name || flow.id} 引用了不存在的表單欄位 ${fieldName[1]}`);
+          toast.warning(
+            `${businessObject?.name || flow.id} 引用了不存在的表單欄位 ${fieldName[1]}`,
+          );
           return false;
         }
       }
@@ -637,7 +702,9 @@ const save = async () => {
     const draftTaskForms = draftOid ? currentTaskForms() : [];
     const draftTaskPolicies = draftOid ? currentTaskPolicies() : [];
     const draftAssignmentRules = draftOid ? currentAssignmentRules() : [];
-    const draftStartPolicies = draftOid ? selectedVersion.value.startPolicies || [] : [];
+    const draftStartPolicies = draftOid
+      ? selectedVersion.value.startPolicies || []
+      : [];
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
     if (!showResponse(response)) return;
@@ -749,6 +816,7 @@ onBeforeUnmount(() => modeler?.destroy());
 </script>
 
 <template>
+  <BpmnDesignerHelp ref="designerHelp" />
   <Toolbar
     :progId="props.edit ? PageConstants.EditId : PageConstants.CreateId"
     :description="
@@ -767,8 +835,9 @@ onBeforeUnmount(() => modeler?.destroy());
     <div class="card-body">
       <div class="alert alert-info">
         草稿可反覆儲存；「發布草稿」會先保存畫布、由 Flowable 驗證
-        XML，再建立正式部署。請點選 UserTask 設定顯示表單及 Task
-        Policy；點選 Gateway 出線可設定表單欄位分流條件與 Default Flow。一個 UserTask 只能選一張同 Tenant
+        XML，再建立正式部署。請點選 UserTask 設定顯示表單及 Task Policy；點選
+        Gateway 出線可設定表單欄位分流條件與 Default Flow。一個 UserTask
+        只能選一張同 Tenant
         已發布的表單。已發布版本只能檢視，請按「建立新版本」複製最新版後再修改。
       </div>
       <div class="row g-3">
@@ -870,7 +939,8 @@ onBeforeUnmount(() => modeler?.destroy());
           <details class="border rounded p-3 bg-light">
             <summary class="fw-semibold">流程分類管理</summary>
             <p class="small text-secondary mt-2 mb-3">
-              分類名稱、圖示與排序儲存於 Tenant 分類主檔，新增分類不需修改 Java 或 Vue。
+              分類名稱、圖示與排序儲存於 Tenant 分類主檔，新增分類不需修改 Java
+              或 Vue。
             </p>
             <div class="row g-2 align-items-end mb-3">
               <div class="col-md-2">
@@ -884,44 +954,101 @@ onBeforeUnmount(() => modeler?.destroy());
               </div>
               <div class="col-md-3">
                 <label class="form-label">顯示名稱</label>
-                <input v-model.trim="categoryEditor.categoryLabel" class="form-control" />
+                <input
+                  v-model.trim="categoryEditor.categoryLabel"
+                  class="form-control"
+                />
               </div>
               <div class="col-md-2">
                 <label class="form-label">Bootstrap Icon</label>
-                <input v-model.trim="categoryEditor.iconCode" class="form-control" placeholder="grid" />
+                <input
+                  v-model.trim="categoryEditor.iconCode"
+                  class="form-control"
+                  placeholder="grid"
+                />
               </div>
               <div class="col-md-2">
                 <label class="form-label">排序</label>
-                <input v-model.number="categoryEditor.sortOrder" type="number" min="0" class="form-control" />
+                <input
+                  v-model.number="categoryEditor.sortOrder"
+                  type="number"
+                  min="0"
+                  class="form-control"
+                />
               </div>
               <div class="col-md-3 d-flex gap-2">
-                <button type="button" class="btn btn-outline-primary" @click="saveCategory">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  @click="saveCategory"
+                >
                   {{ categoryEditor.oid ? "更新分類" : "新增分類" }}
                 </button>
-                <button type="button" class="btn btn-outline-secondary" @click="resetCategoryEditor">清除</button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary"
+                  @click="resetCategoryEditor"
+                >
+                  清除
+                </button>
               </div>
             </div>
             <div class="table-responsive">
               <table class="table table-sm align-middle mb-0">
-                <thead><tr><th>代碼</th><th>名稱</th><th>圖示</th><th>排序</th><th>狀態</th><th></th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>代碼</th>
+                    <th>名稱</th>
+                    <th>圖示</th>
+                    <th>排序</th>
+                    <th>狀態</th>
+                    <th></th>
+                  </tr>
+                </thead>
                 <tbody>
                   <tr v-for="item in categoryRows" :key="item.oid">
-                    <td><code>{{ item.categoryCode }}</code></td>
+                    <td>
+                      <code>{{ item.categoryCode }}</code>
+                    </td>
                     <td>{{ item.categoryLabel }}</td>
-                    <td><i v-if="item.iconCode" :class="`bi bi-${item.iconCode}`"></i> {{ item.iconCode || "—" }}</td>
+                    <td>
+                      <i
+                        v-if="item.iconCode"
+                        :class="`bi bi-${item.iconCode}`"
+                      ></i>
+                      {{ item.iconCode || "—" }}
+                    </td>
                     <td>{{ item.sortOrder }}</td>
                     <td>{{ item.status }}</td>
                     <td class="text-end">
-                      <button type="button" class="btn btn-sm btn-outline-secondary me-2" @click="editCategory(item)">編輯</button>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-secondary me-2"
+                        @click="editCategory(item)"
+                      >
+                        編輯
+                      </button>
                       <button
                         v-if="item.status === 'ACTIVE'"
                         type="button"
                         class="btn btn-sm btn-outline-danger"
-                        @click="confirmFire(`確定停用分類「${item.categoryLabel}」？`, deactivateCategory, item)"
-                      >停用</button>
+                        @click="
+                          confirmFire(
+                            `確定停用分類「${item.categoryLabel}」？`,
+                            deactivateCategory,
+                            item,
+                          )
+                        "
+                      >
+                        停用
+                      </button>
                     </td>
                   </tr>
-                  <tr v-if="!categoryRows.length"><td colspan="6" class="text-center text-secondary py-3">此 Tenant 尚未建立流程分類</td></tr>
+                  <tr v-if="!categoryRows.length">
+                    <td colspan="6" class="text-center text-secondary py-3">
+                      此 Tenant 尚未建立流程分類
+                    </td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -1001,12 +1128,23 @@ onBeforeUnmount(() => modeler?.destroy());
         </div>
         <div class="col-lg-3">
           <div class="card h-100 task-property-panel">
-            <div class="card-header">
-              {{ selectedFlow
-                ? "流程條件"
-                : selectedSystemTask
-                  ? "Data Action Task 屬性"
-                  : "UserTask 節點屬性" }}
+            <div
+              class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2"
+            >
+              {{
+                selectedFlow
+                  ? "流程條件"
+                  : selectedSystemTask
+                    ? "Data Action Task 屬性"
+                    : "UserTask 節點屬性"
+              }}
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-info"
+                @click="openSelectedHelp"
+              >
+                配置說明
+              </button>
             </div>
             <div class="card-body">
               <SequenceFlowConditionPanel
@@ -1031,10 +1169,12 @@ onBeforeUnmount(() => modeler?.destroy());
                     selectedElement.businessObject?.$type ||
                     selectedElement.type ||
                     "未知節點"
-                  }}」。請選取 UserTask 設定簽核人與表單、選取 Data Action Task 設定自動執行，或選取 Sequence Flow 設定分流條件。
+                  }}」。請選取 UserTask 設定簽核人與表單、選取 Data Action Task
+                  設定自動執行，或選取 Sequence Flow 設定分流條件。
                 </template>
                 <template v-else>
-                  請在左側流程圖點選 UserTask、Data Action Task 或 Sequence Flow。
+                  請在左側流程圖點選 UserTask、Data Action Task 或 Sequence
+                  Flow。
                 </template>
               </div>
               <template v-else>
@@ -1085,7 +1225,8 @@ onBeforeUnmount(() => modeler?.destroy());
                     placeholder='{"default":"READ","fields":{"comment":"EDIT"}}'
                   ></textarea>
                   <div class="form-text">
-                    權限僅接受 HIDDEN、READ、EDIT、NONE；未列出的欄位沿用 default。
+                    權限僅接受 HIDDEN、READ、EDIT、NONE；未列出的欄位沿用
+                    default。
                   </div>
                 </div>
                 <template v-if="selectedTaskPolicy">
@@ -1160,15 +1301,26 @@ onBeforeUnmount(() => modeler?.destroy());
                       <label class="form-label">提前提醒（小時）</label>
                       <input
                         v-model.number="selectedTaskPolicy.reminderBeforeHours"
-                        :disabled="selectedVersion?.versionStatus !== 'DRAFT' || !selectedTaskPolicy.dueHours"
+                        :disabled="
+                          selectedVersion?.versionStatus !== 'DRAFT' ||
+                          !selectedTaskPolicy.dueHours
+                        "
                         type="number"
                         min="0"
-                        :max="Math.max(0, Number(selectedTaskPolicy.dueHours || 1) - 1)"
+                        :max="
+                          Math.max(
+                            0,
+                            Number(selectedTaskPolicy.dueHours || 1) - 1,
+                          )
+                        "
                         class="form-control"
                         placeholder="只在逾時時提醒"
                       />
                     </div>
-                    <div class="form-text">期限依 Task 建立時間以曆時小時計算；未設定期限時不執行提醒。</div>
+                    <div class="form-text">
+                      期限依 Task
+                      建立時間以曆時小時計算；未設定期限時不執行提醒。
+                    </div>
                   </div>
                   <div class="row g-2">
                     <div
@@ -1204,7 +1356,9 @@ onBeforeUnmount(() => modeler?.destroy());
                     >
                       <label class="form-label">單批平行加簽人數上限</label>
                       <input
-                        v-model.number="selectedTaskPolicy.parallelAddSignMaxMembers"
+                        v-model.number="
+                          selectedTaskPolicy.parallelAddSignMaxMembers
+                        "
                         :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
                         type="number"
                         min="1"
@@ -1217,17 +1371,30 @@ onBeforeUnmount(() => modeler?.destroy());
                     </div>
                   </div>
                 </template>
-                <template v-if="selectedAssignmentRule && selectedTaskPolicy?.assignmentMode !== 'APPLICANT_CORRECTION'">
+                <template
+                  v-if="
+                    selectedAssignmentRule &&
+                    selectedTaskPolicy?.assignmentMode !==
+                      'APPLICANT_CORRECTION'
+                  "
+                >
                   <hr />
                   <h6>簽核人規則</h6>
                   <div class="mb-3">
                     <label class="form-label">解析方式</label>
-                    <select v-model="selectedAssignmentRule.resolverType"
-                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'" class="form-select">
+                    <select
+                      v-model="selectedAssignmentRule.resolverType"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                      class="form-select"
+                    >
                       <option value="DIRECT_MANAGER">申請人的直屬主管</option>
-                      <option value="INITIATOR_ORG_HEAD">申請人所屬單位主管</option>
+                      <option value="INITIATOR_ORG_HEAD">
+                        申請人所屬單位主管
+                      </option>
                       <option value="PARENT_ORG_HEAD">上一層單位主管</option>
-                      <option value="NEXT_HIGHER_LEVEL_HEAD">下一個較高層級主管</option>
+                      <option value="NEXT_HIGHER_LEVEL_HEAD">
+                        下一個較高層級主管
+                      </option>
                       <option value="ROOT_ORG_HEAD">最高層單位主管</option>
                       <option value="MANAGER_CHAIN">逐級直屬主管</option>
                       <option value="LEVEL_HEAD_CHAIN">逐級單位主管</option>
@@ -1238,115 +1405,221 @@ onBeforeUnmount(() => modeler?.destroy());
                       <option value="ORG_DUTY">組織職務</option>
                       <option value="APPROVAL_AUTHORITY">簽核權限</option>
                       <option value="FORM_ACCOUNT_FIELD">表單選擇簽核人</option>
-                      <option value="FORM_ACCOUNT_FIELD_MANAGER">表單指定人員的直屬主管</option>
+                      <option value="FORM_ACCOUNT_FIELD_MANAGER">
+                        表單指定人員的直屬主管
+                      </option>
                     </select>
                   </div>
-                  <div v-if="selectedAssignmentRule.resolverType === 'FIXED_ACCOUNT'"
-                    class="mb-3">
+                  <div
+                    v-if="
+                      selectedAssignmentRule.resolverType === 'FIXED_ACCOUNT'
+                    "
+                    class="mb-3"
+                  >
                     <label class="form-label">指定帳號</label>
-                    <select v-model="selectedFixedAccounts" multiple
+                    <select
+                      v-model="selectedFixedAccounts"
+                      multiple
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-select" size="6">
-                      <option v-for="item in resolverAccounts" :key="item.value"
-                        :value="item.value">{{ item.label }}</option>
+                      class="form-select"
+                      size="6"
+                    >
+                      <option
+                        v-for="item in resolverAccounts"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.label }}
+                      </option>
                     </select>
                     <div class="form-text">按住 Ctrl 可選擇多個帳號。</div>
                   </div>
-                  <div v-else-if="selectedAssignmentRule.resolverType === 'APPROVAL_GROUP'"
-                    class="mb-3">
+                  <div
+                    v-else-if="
+                      selectedAssignmentRule.resolverType === 'APPROVAL_GROUP'
+                    "
+                    class="mb-3"
+                  >
                     <label class="form-label">簽核群組</label>
-                    <select v-model="selectedApprovalGroup"
+                    <select
+                      v-model="selectedApprovalGroup"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-select">
+                      class="form-select"
+                    >
                       <option value="">請選擇簽核群組</option>
-                      <option v-for="item in approvalGroups" :key="item.value"
-                        :value="item.value">{{ item.label }}</option>
+                      <option
+                        v-for="item in approvalGroups"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.label }}
+                      </option>
                     </select>
                   </div>
-                  <div v-else-if="selectedAssignmentRule.resolverType === 'TARGET_LEVEL_HEAD'"
-                    class="mb-3">
+                  <div
+                    v-else-if="
+                      selectedAssignmentRule.resolverType ===
+                      'TARGET_LEVEL_HEAD'
+                    "
+                    class="mb-3"
+                  >
                     <label class="form-label">目標簽核層級</label>
-                    <select v-model="selectedApprovalLevel"
+                    <select
+                      v-model="selectedApprovalLevel"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-select">
+                      class="form-select"
+                    >
                       <option value="">請選擇簽核層級</option>
-                      <option v-for="item in approvalLevels" :key="item.value"
-                        :value="item.value">{{ item.label }}</option>
+                      <option
+                        v-for="item in approvalLevels"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.label }}
+                      </option>
                     </select>
                     <label class="form-label mt-3">層級匹配模式</label>
-                    <select v-model="selectedLevelMatchMode"
+                    <select
+                      v-model="selectedLevelMatchMode"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-select">
+                      class="form-select"
+                    >
                       <option value="EXACT">精確層級</option>
-                      <option value="EXACT_OR_HIGHER">精確層級或第一位更高主管</option>
-                      <option value="UP_TO_LEVEL">逐級簽到指定或更高層級</option>
+                      <option value="EXACT_OR_HIGHER">
+                        精確層級或第一位更高主管
+                      </option>
+                      <option value="UP_TO_LEVEL">
+                        逐級簽到指定或更高層級
+                      </option>
                     </select>
                     <div class="form-text">
                       「逐級簽到」會依直屬主管鏈回傳有序簽核人，建議搭配循序簽核。
                     </div>
                   </div>
-                  <div v-else-if="selectedAssignmentRule.resolverType === 'ORG_TITLE'"
-                    class="mb-3">
+                  <div
+                    v-else-if="
+                      selectedAssignmentRule.resolverType === 'ORG_TITLE'
+                    "
+                    class="mb-3"
+                  >
                     <label class="form-label">組織職稱</label>
-                    <select v-model="selectedOrgTitle"
+                    <select
+                      v-model="selectedOrgTitle"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-select">
+                      class="form-select"
+                    >
                       <option value="">請選擇職稱</option>
-                      <option v-for="item in orgTitles" :key="item.value"
-                        :value="item.value">{{ item.label }}</option>
+                      <option
+                        v-for="item in orgTitles"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.label }}
+                      </option>
                     </select>
-                    <div class="form-text">解析申請人主要部門中具有此職稱的有效任職者。</div>
+                    <div class="form-text">
+                      解析申請人主要部門中具有此職稱的有效任職者。
+                    </div>
                   </div>
-                  <div v-else-if="selectedAssignmentRule.resolverType === 'ORG_DUTY'"
-                    class="mb-3">
+                  <div
+                    v-else-if="
+                      selectedAssignmentRule.resolverType === 'ORG_DUTY'
+                    "
+                    class="mb-3"
+                  >
                     <label class="form-label">組織職務</label>
-                    <select v-model="selectedOrgDuty"
+                    <select
+                      v-model="selectedOrgDuty"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-select">
+                      class="form-select"
+                    >
                       <option value="">請選擇職務</option>
-                      <option v-for="item in orgDuties" :key="item.value"
-                        :value="item.value">{{ item.label }}</option>
+                      <option
+                        v-for="item in orgDuties"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.label }}
+                      </option>
                     </select>
-                    <div v-if="!orgDuties.length" class="form-text text-warning">
+                    <div
+                      v-if="!orgDuties.length"
+                      class="form-text text-warning"
+                    >
                       此 Tenant 尚未建立組織職務資料。
                     </div>
                   </div>
-                  <div v-else-if="selectedAssignmentRule.resolverType === 'APPROVAL_AUTHORITY'"
-                    class="mb-3">
-                    <ApprovalAuthorityPanel v-model="selectedApprovalAuthority"
-                      :tenant-id="form.tenantId" :process-def-id="form.processDefId"
+                  <div
+                    v-else-if="
+                      selectedAssignmentRule.resolverType ===
+                      'APPROVAL_AUTHORITY'
+                    "
+                    class="mb-3"
+                  >
+                    <ApprovalAuthorityPanel
+                      v-model="selectedApprovalAuthority"
+                      :tenant-id="form.tenantId"
+                      :process-def-id="form.processDefId"
                       :form-id="selectedTaskRule?.formId"
                       :schema-content="selectedPublishedForm?.schemaContent"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      :accounts="resolverAccounts" :groups="approvalGroups"
-                      :levels="approvalLevels" :titles="orgTitles" :duties="orgDuties" />
+                      :accounts="resolverAccounts"
+                      :groups="approvalGroups"
+                      :levels="approvalLevels"
+                      :titles="orgTitles"
+                      :duties="orgDuties"
+                    />
                   </div>
-                  <div v-else-if="['FORM_ACCOUNT_FIELD', 'FORM_ACCOUNT_FIELD_MANAGER'].includes(selectedAssignmentRule.resolverType)"
-                    class="mb-3">
+                  <div
+                    v-else-if="
+                      [
+                        'FORM_ACCOUNT_FIELD',
+                        'FORM_ACCOUNT_FIELD_MANAGER',
+                      ].includes(selectedAssignmentRule.resolverType)
+                    "
+                    class="mb-3"
+                  >
                     <label class="form-label">人員帳號欄位</label>
-                    <select v-model="selectedFormAccountField"
+                    <select
+                      v-model="selectedFormAccountField"
                       :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                      class="form-select">
+                      class="form-select"
+                    >
                       <option value="">請選擇表單欄位</option>
-                      <option v-for="item in selectedFormFields" :key="item.value"
-                        :value="item.value">{{ item.label }}</option>
+                      <option
+                        v-for="item in selectedFormFields"
+                        :key="item.value"
+                        :value="item.value"
+                      >
+                        {{ item.label }}
+                      </option>
                     </select>
                     <div class="form-text">
-                      欄位值可為單一帳號或帳號陣列；Runtime 會重新驗證 Tenant、有效員工與人數上限。
+                      欄位值可為單一帳號或帳號陣列；Runtime 會重新驗證
+                      Tenant、有效員工與人數上限。
                     </div>
                   </div>
                   <div class="row g-2">
                     <div class="col-6">
                       <label class="form-label">最多結果數</label>
-                      <input v-model.number="selectedAssignmentRule.maxResults" type="number"
-                        min="1" max="1000" :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
-                        class="form-control" />
+                      <input
+                        v-model.number="selectedAssignmentRule.maxResults"
+                        type="number"
+                        min="1"
+                        max="1000"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        class="form-control"
+                      />
                     </div>
                     <div class="col-6">
                       <label class="form-label">狀態</label>
-                      <select v-model="selectedAssignmentRule.status"
-                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'" class="form-select">
-                        <option value="ACTIVE">啟用</option><option value="INACTIVE">停用</option>
+                      <select
+                        v-model="selectedAssignmentRule.status"
+                        :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                        class="form-select"
+                      >
+                        <option value="ACTIVE">啟用</option>
+                        <option value="INACTIVE">停用</option>
                       </select>
                     </div>
                   </div>
@@ -1364,10 +1637,16 @@ onBeforeUnmount(() => modeler?.destroy());
         </div>
       </div>
       <div v-if="selectedVersion" class="card mt-3">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
           <span>流程啟動規則</span>
-          <button v-if="selectedVersion.versionStatus === 'DRAFT'" type="button"
-            class="btn btn-sm btn-outline-primary" @click="addStartPolicy">
+          <button
+            v-if="selectedVersion.versionStatus === 'DRAFT'"
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            @click="addStartPolicy"
+          >
             <i class="bi bi-plus-circle"></i> 新增規則
           </button>
         </div>
@@ -1375,20 +1654,36 @@ onBeforeUnmount(() => modeler?.destroy());
           <div class="form-text mb-2">
             至少需要一筆「允許」規則；拒絕規則優先於允許規則。
           </div>
-          <div v-if="!selectedVersion.startPolicies?.length" class="alert alert-warning mb-0">
+          <div
+            v-if="!selectedVersion.startPolicies?.length"
+            class="alert alert-warning mb-0"
+          >
             尚未設定啟動規則，此版本無法發佈。
           </div>
           <div v-else class="table-responsive">
             <table class="table table-sm align-middle mb-0">
-              <thead><tr><th>#</th><th>對象類型</th><th>對象</th><th>權限</th><th></th></tr></thead>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>對象類型</th>
+                  <th>對象</th>
+                  <th>權限</th>
+                  <th></th>
+                </tr>
+              </thead>
               <tbody>
-                <tr v-for="(policy, index) in selectedVersion.startPolicies"
-                  :key="`${policy.policySeq}-${index}`">
+                <tr
+                  v-for="(policy, index) in selectedVersion.startPolicies"
+                  :key="`${policy.policySeq}-${index}`"
+                >
                   <td>{{ index + 1 }}</td>
                   <td>
-                    <select v-model="policy.subjectType" class="form-select form-select-sm"
+                    <select
+                      v-model="policy.subjectType"
+                      class="form-select form-select-sm"
                       :disabled="selectedVersion.versionStatus !== 'DRAFT'"
-                      @change="changeStartPolicyType(policy)">
+                      @change="changeStartPolicyType(policy)"
+                    >
                       <option value="ALL">全部使用者</option>
                       <option value="ACCOUNT">指定帳號</option>
                       <option value="APPROVAL_GROUP">簽核群組</option>
@@ -1396,28 +1691,49 @@ onBeforeUnmount(() => modeler?.destroy());
                     </select>
                   </td>
                   <td>
-                    <span v-if="policy.subjectType === 'ALL'" class="text-muted">不需指定</span>
-                    <select v-else-if="startPolicyOptions(policy.subjectType).length"
-                      v-model="policy.subjectRefId" class="form-select form-select-sm"
-                      :disabled="selectedVersion.versionStatus !== 'DRAFT'">
+                    <span v-if="policy.subjectType === 'ALL'" class="text-muted"
+                      >不需指定</span
+                    >
+                    <select
+                      v-else-if="startPolicyOptions(policy.subjectType).length"
+                      v-model="policy.subjectRefId"
+                      class="form-select form-select-sm"
+                      :disabled="selectedVersion.versionStatus !== 'DRAFT'"
+                    >
                       <option value="">請選擇</option>
-                      <option v-for="option in startPolicyOptions(policy.subjectType)"
-                        :key="option.value" :value="option.value">{{ option.label }}</option>
+                      <option
+                        v-for="option in startPolicyOptions(policy.subjectType)"
+                        :key="option.value"
+                        :value="option.value"
+                      >
+                        {{ option.label }}
+                      </option>
                     </select>
-                    <input v-else v-model.trim="policy.subjectRefId"
-                      class="form-control form-control-sm" placeholder="請輸入組織單位 ID"
-                      :disabled="selectedVersion.versionStatus !== 'DRAFT'" />
+                    <input
+                      v-else
+                      v-model.trim="policy.subjectRefId"
+                      class="form-control form-control-sm"
+                      placeholder="請輸入組織單位 ID"
+                      :disabled="selectedVersion.versionStatus !== 'DRAFT'"
+                    />
                   </td>
                   <td>
-                    <select v-model="policy.allowStart" class="form-select form-select-sm"
-                      :disabled="selectedVersion.versionStatus !== 'DRAFT'">
+                    <select
+                      v-model="policy.allowStart"
+                      class="form-select form-select-sm"
+                      :disabled="selectedVersion.versionStatus !== 'DRAFT'"
+                    >
                       <option value="Y">允許</option>
                       <option value="N">拒絕</option>
                     </select>
                   </td>
                   <td class="text-end">
-                    <button v-if="selectedVersion.versionStatus === 'DRAFT'" type="button"
-                      class="btn btn-sm btn-outline-danger" @click="removeStartPolicy(index)">
+                    <button
+                      v-if="selectedVersion.versionStatus === 'DRAFT'"
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      @click="removeStartPolicy(index)"
+                    >
                       刪除
                     </button>
                   </td>
@@ -1457,30 +1773,72 @@ onBeforeUnmount(() => modeler?.destroy());
         <div class="card-body">
           <div class="input-group mb-3">
             <span class="input-group-text">測試申請人帳號</span>
-            <input v-model="previewAccount" class="form-control"
-              placeholder="例如 tester" @keyup.enter="previewResolvers" />
-            <button type="button" class="btn btn-outline-primary"
-              @click="previewResolvers">開始預覽</button>
+            <input
+              v-model="previewAccount"
+              class="form-control"
+              placeholder="例如 tester"
+              @keyup.enter="previewResolvers"
+            />
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              @click="previewResolvers"
+            >
+              開始預覽
+            </button>
           </div>
           <div class="mb-3">
             <label class="form-label">測試表單資料</label>
-            <textarea v-model="previewFormData" rows="3" class="form-control"
-              placeholder='例如 {"totalAmount": 100000, "category": "資訊設備"}'></textarea>
+            <textarea
+              v-model="previewFormData"
+              rows="3"
+              class="form-control"
+              placeholder='例如 {"totalAmount": 100000, "category": "資訊設備"}'
+            ></textarea>
           </div>
-          <div class="form-text mb-3">預覽使用已儲存的簽核人規則；修改規則後請先儲存草稿。</div>
+          <div class="form-text mb-3">
+            預覽使用已儲存的簽核人規則；修改規則後請先儲存草稿。
+          </div>
           <div v-if="resolverPreview.length" class="table-responsive">
             <table class="table table-sm align-middle mb-0">
-              <thead><tr><th>節點</th><th>Resolver</th><th>結果</th><th>簽核人</th><th>說明</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>節點</th>
+                  <th>Resolver</th>
+                  <th>結果</th>
+                  <th>簽核人</th>
+                  <th>說明</th>
+                </tr>
+              </thead>
               <tbody>
-                <tr v-for="item in resolverPreview"
-                  :key="`${item.taskDefKey}-${item.ruleSeq}`">
+                <tr
+                  v-for="item in resolverPreview"
+                  :key="`${item.taskDefKey}-${item.ruleSeq}`"
+                >
                   <td>{{ item.taskDefKey }}</td>
                   <td>{{ item.resolverType }}</td>
-                  <td><span class="badge"
-                    :class="item.resultStatus === 'RESOLVED' ? 'text-bg-success' : 'text-bg-warning'">
-                    {{ item.resultStatus }}</span></td>
-                  <td>{{ (item.candidates || []).map((candidate: any) =>
-                    `${candidate.displayName} (${candidate.account})`).join('、') || '—' }}</td>
+                  <td>
+                    <span
+                      class="badge"
+                      :class="
+                        item.resultStatus === 'RESOLVED'
+                          ? 'text-bg-success'
+                          : 'text-bg-warning'
+                      "
+                    >
+                      {{ item.resultStatus }}</span
+                    >
+                  </td>
+                  <td>
+                    {{
+                      (item.candidates || [])
+                        .map(
+                          (candidate: any) =>
+                            `${candidate.displayName} (${candidate.account})`,
+                        )
+                        .join("、") || "—"
+                    }}
+                  </td>
                   <td>{{ item.message }}</td>
                 </tr>
               </tbody>
