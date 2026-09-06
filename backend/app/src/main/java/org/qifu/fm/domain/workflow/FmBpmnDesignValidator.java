@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Map;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -20,14 +21,39 @@ import org.flowable.bpmn.model.ParallelGateway;
 import org.flowable.bpmn.model.SequenceFlow;
 import org.qifu.base.exception.ServiceException;
 
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
+
 public class FmBpmnDesignValidator {
 
     private static final String BPMN_NAMESPACE =
             "http://www.omg.org/spec/BPMN/20100524/MODEL";
 
+    private static final String FLOWMINT_NAMESPACE =
+            "https://flowmint.qifu.org/schema/bpmn";
+
+    private static final Set<String> FORBIDDEN_SERVICE_TASK_ATTRIBUTES = Set.of(
+            "class", "delegateExpression", "expression", "type", "resultVariable",
+            "script", "scriptFormat");
+
+    private static final Set<String> ALLOWED_DATA_ACTION_ATTRIBUTES = Set.of(
+            "taskType", "actionCode", "actionVersion", "requestMapping",
+            "responseMapping");
+
+    private static final Set<String> PROCESS_CONTEXT_NAMES = Set.of(
+            "tenantId", "processDefId", "processVersionNo", "initiatorAccount",
+            "businessKey", "processInstanceId");
+
+    private static final Pattern MAPPING_PATH = Pattern.compile(
+            "[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*");
+
+    private static final Pattern ACTION_CODE = Pattern.compile("[A-Za-z][A-Za-z0-9_-]{0,99}");
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private static final Set<String> ALLOWED_BPMN_ELEMENTS = Set.of(
             "definitions", "process", "documentation",
-            "startEvent", "endEvent", "userTask",
+            "startEvent", "endEvent", "userTask", "serviceTask",
             "exclusiveGateway", "inclusiveGateway", "parallelGateway",
             "sequenceFlow", "conditionExpression", "incoming", "outgoing");
 
@@ -92,6 +118,10 @@ public class FmBpmnDesignValidator {
                 throw new ServiceException(
                         "流程設計不允許 BPMN 元件：" + reader.getLocalName());
             }
+            if (BPMN_NAMESPACE.equals(reader.getNamespaceURI())
+                    && "serviceTask".equals(reader.getLocalName())) {
+                validateDataActionTask(reader);
+            }
             String namespace = StringUtils.defaultString(reader.getNamespaceURI());
             if (!namespace.isEmpty()
                     && !BPMN_NAMESPACE.equals(namespace)
@@ -100,6 +130,103 @@ public class FmBpmnDesignValidator {
                 throw new ServiceException("流程設計不允許擴充元件命名空間：" + namespace);
             }
         }
+    }
+
+    private void validateDataActionTask(XMLStreamReader reader) throws ServiceException {
+        String nodeId = StringUtils.defaultIfBlank(
+                reader.getAttributeValue(null, "id"), "未命名 Service Task");
+        for (int index = 0; index < reader.getAttributeCount(); index++) {
+            String namespace = StringUtils.defaultString(
+                    reader.getAttributeNamespace(index));
+            String name = reader.getAttributeLocalName(index);
+            if (FORBIDDEN_SERVICE_TASK_ATTRIBUTES.contains(name)) {
+                throw new ServiceException(
+                        "Data Action Task「" + nodeId + "」不允許執行屬性："
+                                + name);
+            }
+            if (!namespace.isEmpty() && !FLOWMINT_NAMESPACE.equals(namespace)) {
+                throw new ServiceException("Data Action Task「" + nodeId
+                        + "」不允許擴充屬性命名空間：" + namespace);
+            }
+            if (FLOWMINT_NAMESPACE.equals(namespace)
+                    && !ALLOWED_DATA_ACTION_ATTRIBUTES.contains(name)) {
+                throw new ServiceException("Data Action Task「" + nodeId
+                        + "」不允許 FlowMint 屬性：" + name);
+            }
+        }
+        String taskType = flowmintAttribute(reader, "taskType");
+        if (!"DATA_ACTION".equals(taskType)) {
+            throw new ServiceException(
+                    "Service Task「" + nodeId + "」只允許 FlowMint DATA_ACTION 類型");
+        }
+        String actionCode = flowmintAttribute(reader, "actionCode");
+        if (!ACTION_CODE.matcher(StringUtils.defaultString(actionCode)).matches()) {
+            throw new ServiceException(
+                    "Data Action Task「" + nodeId + "」必須設定合法 Action Code");
+        }
+        positiveInteger(nodeId, "actionVersion",
+                flowmintAttribute(reader, "actionVersion"), 1, Integer.MAX_VALUE);
+        validateMapping(nodeId, "requestMapping",
+                flowmintAttribute(reader, "requestMapping"), false);
+        validateMapping(nodeId, "responseMapping",
+                flowmintAttribute(reader, "responseMapping"), true);
+    }
+
+    private String flowmintAttribute(XMLStreamReader reader, String name) {
+        return reader.getAttributeValue(FLOWMINT_NAMESPACE, name);
+    }
+
+    private void positiveInteger(String nodeId, String name, String value,
+            int minimum, int maximum) throws ServiceException {
+        try {
+            int parsed = Integer.parseInt(value);
+            if (parsed < minimum || parsed > maximum) {
+                throw new NumberFormatException();
+            }
+        } catch (NumberFormatException exception) {
+            throw new ServiceException("Data Action Task「" + nodeId + "」的 " + name
+                    + " 必須介於 " + minimum + " 與 " + maximum + " 之間");
+        }
+    }
+
+    private void validateMapping(String nodeId, String name, String value,
+            boolean response) throws ServiceException {
+        try {
+            Map<String, Object> mapping = OBJECT_MAPPER.readValue(
+                    StringUtils.defaultIfBlank(value, "{}"),
+                    new TypeReference<Map<String, Object>>() { });
+            for (Map.Entry<String, Object> entry : mapping.entrySet()) {
+                if (StringUtils.isBlank(entry.getKey()) || !(entry.getValue() instanceof String target)
+                        || StringUtils.isBlank(target)) {
+                    throw new IllegalArgumentException();
+                }
+                if (response && (!target.startsWith("FORM_DATA.")
+                        || !validPath(target.substring("FORM_DATA.".length())))) {
+                    throw new IllegalArgumentException();
+                }
+                if (!response && !validRequestSource(target)) {
+                    throw new IllegalArgumentException();
+                }
+            }
+        } catch (Exception exception) {
+            throw new ServiceException("Data Action Task「" + nodeId + "」的 " + name
+                    + " 不是受支援的 JSON mapping");
+        }
+    }
+
+    private boolean validRequestSource(String source) {
+        if (source.startsWith("FORM_DATA.")) {
+            return validPath(source.substring("FORM_DATA.".length()));
+        }
+        if (source.startsWith("PROCESS_CONTEXT.")) {
+            return PROCESS_CONTEXT_NAMES.contains(
+                    source.substring("PROCESS_CONTEXT.".length()));
+        }
+        return source.startsWith("CONSTANT:");
+    }
+
+    private boolean validPath(String path) {
+        return MAPPING_PATH.matcher(path).matches();
     }
 
     private XMLInputFactory inputFactory() {

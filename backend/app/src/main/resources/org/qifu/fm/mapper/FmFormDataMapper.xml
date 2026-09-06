@@ -257,6 +257,16 @@
     WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 
+  <update id="updateDataContent" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
+       SET DATA_CONTENT = #{dataContent,jdbcType=LONGVARCHAR},
+           REVISION_NO = REVISION_NO + 1,
+           LOCK_VERSION = LOCK_VERSION + 1
+     WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+       AND FORM_DATA_ID = #{formDataId,jdbcType=VARCHAR}
+       AND LOCK_VERSION = #{expectedLockVersion,jdbcType=INTEGER}
+  </update>
+
   <delete id="delete" parameterType="org.qifu.fm.entity.FmFormData">
     DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
     WHERE OID = #{oid,jdbcType=CHAR}

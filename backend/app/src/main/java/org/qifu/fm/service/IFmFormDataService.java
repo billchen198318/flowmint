@@ -7,4 +7,7 @@ public interface IFmFormDataService extends IBaseService<FmFormData, String> {
 
 	String lockByFormDataId(String tenantId, String formDataId);
 
+	int updateDataContent(String tenantId, String formDataId,
+			String dataContent, int expectedLockVersion);
+
 }

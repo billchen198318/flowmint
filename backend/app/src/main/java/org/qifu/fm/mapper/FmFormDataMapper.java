@@ -11,4 +11,6 @@ public interface FmFormDataMapper extends IBaseMapper<FmFormData, String> {
 
 	public String lockByFormDataId(Map<String, Object> paramMap);
 
+	public int updateDataContent(Map<String, Object> paramMap);
+
 }
