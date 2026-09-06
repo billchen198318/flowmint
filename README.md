@@ -6,7 +6,7 @@
 
 FlowMint 是一套開源的企業電子表單簽核系統平台(BPM)，整合視覺化表單設計、BPMN 流程編排、組織簽核人解析、待辦處理、通知、稽核、異常處理與營運報表。平台支援多租戶（Tenant）資料隔離，讓企業能以設定方式建立請購、驗收、費用、名片及其他內部申請流程，不必為每一種單據重新開發一套系統。
 
-FlowMint 的定位是「可配置的簽核平台」，不是 HR、ERP、法人主檔或專案管理系統。請購單、費用申請等業務單據應透過內建的表單與流程設計器配置，而不是寫死在平台程式中。
+IT 人員或流程管理員可透過內建設計器配置表單、簽核規則與資料整合；員工則透過申請中心與待辦頁面完成填單、簽核及進度查詢。
 
 ## 使用 FlowMint
 
@@ -18,7 +18,8 @@ FlowMint 將一個可執行的簽核應用拆成「組織與人員」、「表�
   → 建立簽核群組及核決規則
   → 設計、驗證並發布 Form
   → 設計 BPMN
-  → 為每個 User Task 綁定 Published Form、Task Policy 與 Assignment Rule
+  → 為每個 User Task 綁定 Published Form 與 Task Policy
+  → 為一般簽核節點設定 Assignment Rule；補件節點直接指派申請人
   → Resolver Preview 與發布檢查
   → 發布 BPMN Process
   → 到申請中心測試起單、簽核、退回及流程進度
@@ -33,9 +34,9 @@ FlowMint 以 Tenant 隔離資料。一個新 Tenant 至少需要完成以下設�
 3. 建立員工與任職資料；每位申請人應有一筆有效的主要任職。
 4. 設定部門主管、直屬主管、職稱或部門職務。流程若使用主管 Resolver，對應關係不可缺少或形成循環。
 5. 建立流程會使用的簽核群組，設定模式、成員、順序及有效期間。
-6. 配置流程的起單政策，以及使用者需要的 QIFU4 Program／Role 權限。
+6. 配置流程的起單政策，以及使用者需要的 程式與角色權限。
 
-FlowMint 不在 README 提供預設帳密。登入帳號必須同時具備有效的 QIFU4 身分、Tenant membership，以及操作對應功能的 Program／Role 權限。
+登入帳號需啟用、加入對應 Tenant，並取得操作所需的程式與角色權限。
 
 ### 2. 設計與發布 Form
 
@@ -58,15 +59,17 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 1. 建立一個 Start Event、所需的 User Task／Gateway，以及可到達的 End Event。
 2. 每個 User Task 使用穩定且唯一的 Task Definition Key；版本升級時若節點業務意義相同，應保留相同 key。
 3. 點選 User Task，在同一個節點屬性面板選擇一張同 Tenant、已發布的 Form Version。每個 User Task 只能綁定一張表單。
-4. 設定 Task Policy，包括允許核准、駁回、退回、轉派、代理、加簽與否，意見是否必填，以及 SLA、提醒、自簽與重複簽核政策。
+4. 設定 Task Policy，包括派送方式、駁回、退回、轉派、循序／平行加簽開關、意見必填政策，以及 SLA、提醒、自簽與重複簽核政策。代理操作另依有效工作代理授權判斷。
 5. 設定 Assignment Rule，例如申請人部門主管、直屬主管、上層主管、簽核群組、組織職稱、核決權限或固定帳號。
 6. 設定該節點的表單欄位權限：`HIDDEN`、`READ` 或 `EDIT`。申請內容通常唯讀，只有補件節點開放必要欄位修改。
 7. Gateway 條件只引用已綁定表單中的受控欄位，並為可能無法命中的分支設定 default flow。
 8. 使用 Resolver Preview 帶入實際申請人與測試表單資料，確認解析出的簽核帳號、順序與略過原因。
-9. 執行發布檢查。所有 User Task 都必須具有有效 Form Binding、Task Policy 及 Assignment Rule，BPMN 結構與條件也必須通過驗證。
+9. 執行發布檢查。所有 User Task 都必須具有有效 Form Binding 與 Task Policy；一般簽核節點另需 Assignment Rule，`APPLICANT_CORRECTION` 補件節點直接指派申請人，BPMN 結構與條件也必須通過驗證。
 10. 發布流程。FlowMint 會在部署版本中為 User Task 注入 Assignment Listener，部署至 Flowable；設計器保存的原始 BPMN 不需要手工加入 listener。
 
 發布順序一定是 **Form 先、BPMN 後**。流程綁定的是明確的 Published Form Version，不會自動跟隨表單的最新草稿。表單建立新版本後，必須建立流程新 Draft、重新選擇該 Form Version、完成 Preview 與發布檢查，再發布新的 Process Version。既有流程實例仍使用啟動當時的版本，不會中途漂移。
+
+設計時可點選右側屬性面板的「配置說明」，查閱節點、Gateway、簽核人規則、補件與 Data Action Task 配置。說明視窗支援搜尋，並依目前選取的節點開啟相關主題。
 
 ### 4. 起單與簽核
 
@@ -91,7 +94,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 ### 程式入口總表
 
-實際選單名稱由 QIFU4 Program 設定決定；若帳號看不到某支程式，先檢查 Role 是否已配置該 Program，而不是直接輸入其他 Tenant 或繞過權限。
+選單依程式設定與角色權限顯示；若看不到所需功能，請管理員確認程式註冊、角色授權及租戶成員資格。
 
 | 程式／頁面 | 用途 | 建議使用時機 |
 |---|---|---|
@@ -133,9 +136,9 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 1. 在清單以 Tenant 代碼或名稱查詢；按「新增」建立 Tenant。
 2. 填寫 Tenant ID、Tenant 代碼、名稱、預設語系、預設時區、狀態與說明後儲存。Tenant ID／代碼建立後視為穩定識別。
-3. 進入編輯頁，在 membership 區輸入既有 QIFU4 帳號；若勾選建立新帳號，另填初始密碼與確認密碼。
+3. 進入編輯頁，在 membership 區輸入既有登入帳號；若勾選建立新帳號，另填初始密碼與確認密碼。
 4. 設定生效時間及是否為該帳號的預設 Tenant，再按加入。
-5. membership 清單可重設密碼、停用或重新啟用。停用 membership 不等於刪除 QIFU4 帳號。
+5. membership 清單可重設密碼、停用或重新啟用。停用 membership 不等於刪除登入帳號。
 6. 使用該帳號重新登入，確認能取得正確 Tenant，且不能存取其他 Tenant 的資料。
 
 ### 員工、部門與組織
@@ -204,7 +207,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 8. 對 Exclusive／Inclusive Gateway 設定條件及 default flow；不得在 Parallel Gateway outgoing flow 上設定不會生效的條件。
 9. 按「儲存草稿」。Resolver Preview 使用已儲存規則，因此修改節點後要先儲存，再輸入測試表單 JSON 執行 Preview。
 10. 分別以一般申請人、兼任人員、簽核人本人及邊界金額測試解析結果。
-11. 按「發布草稿」。後端會驗證 BPMN、Process Key、每個 User Task 的 Form Binding／Policy／Rule、Gateway 條件及 Resolver，成功後才部署至 Flowable。
+11. 按「發布草稿」。後端會驗證 BPMN、Process Key、每個 User Task 的 Form Binding／Policy，以及一般簽核節點的 Assignment Rule、Gateway 條件及 Resolver，成功後才部署至 Flowable。
 12. 已發布版本只能檢視；修改流程時使用「建立新版本」，重新確認所有節點設定後再發布。
 
 ### DataSource Pool 與 Data Action
@@ -263,7 +266,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 | 狀況 | 優先檢查 |
 |---|---|
-| 選單看不到程式 | QIFU4 Program 是否註冊、Role 是否授權、帳號是否有有效 Tenant membership |
+| 選單看不到程式 | 程式是否註冊、Role 是否授權、帳號是否有有效 Tenant membership |
 | 申請中心看不到流程 | Process 是否 Active 且 Published、分類是否有效、起單政策是否允許目前帳號 |
 | BPMN 選不到表單 | Form 是否屬於同一 Tenant 且已發布；Draft 不會出現在清單 |
 | 流程發布顯示 User Task 設定不完整 | 該節點是否同時具備 Form Binding、Task Policy 與至少一條 Assignment Rule |
@@ -289,7 +292,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 外部系統 API 管理、Client／Key／Scope／IP／配額、Request Audit、外部發單 Ledger、流程狀態查詢及獨立 API 說明頁均已實作並套用 MariaDB；仍待正式外部 Client 與多帳號端到端驗收。
 - 正式業務表單屬應用配置，不計入平台本體程式。
 - 尚待完成正式環境部署、Program／角色配置、完整瀏覽器 E2E 與真實資料量效能驗證。
-- Email 成功與永久失敗狀態均可同步；FlowMint 以既有 notification 欄位保存重試與最終失敗，不修改 QIFU4 Mail Helper schema。
+- Email 支援成功狀態同步、失敗重試與永久失敗紀錄。
+- System Task／Data Action Task 已完成設計器、發布驗證與 Runtime MVP 接線；專屬執行紀錄、Incident、Form Snapshot、BPMN 專用 capability 與真實 E2E 仍待完成。
 
 詳細紀錄請參考 [開發進度](backend/doc/18-開發進度.md) 與 [開發路線](backend/doc/12-開發路線.md)。
 
@@ -330,6 +334,9 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 自我簽核及重複簽核人政策。
 - 節點駁回、退回、轉派、加簽與意見必填政策。
 - Task SLA 處理期限與提前提醒設定。
+- Exclusive、Inclusive、Parallel Gateway 與受控分流條件。
+- Data Action Task 自動執行已發布資料動作，現階段為 Runtime MVP。
+- 右側「配置說明」提供可搜尋的操作指南與目前節點的配置說明。
 
 ### 流程 Runtime
 
@@ -341,6 +348,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - Task Transfer。
 - Delegation／Resolve 與期間代理授權。
 - 循序前加簽與完成加簽。
+- 平行加簽、批次回覆與取消；所有成員回覆後由原簽核人核決。
+- 正常待辦及平行加簽成員的管理員改派。
 - Approval Group 多人模式。
 - 不可變表單快照、指派快照及 Task Action 稽核軌跡。
 - 共用正式單據編號，與內部 `businessKey`、冪等鍵分離。
@@ -361,8 +370,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 待辦指派、流程完成、駁回、取消通知。
 - 即將到期與逾時通知。
 - 穩定事件 ID 與資料庫去重。
-- QIFU4 `SysMailHelperServiceImpl`／Mail Helper Outbox 整合。
-- QIFU4 Template Manager／FreeMarker 通知範本。
+- 郵件 Outbox 與排程寄送。
+- 通知範本管理／FreeMarker 通知範本。
 - Email 寄送成功、延遲重試與第三次失敗後永久 `FAILED` 狀態同步。
 
 ### 營運與稽核
@@ -404,18 +413,18 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 ## 完整功能說明
 
-本節依實際程式、API、資料模型及 Phase 1～5 完成紀錄整理。請購單、費用申請、出差申請等特定業務內容，是運用下列平台能力建立的「應用配置」，不是寫死於 FlowMint 核心的獨立模組。
+本節整理平台功能。IT 人員可運用這些能力配置請購單、費用申請、出差申請等企業流程。
 
 ### 1. 登入、身分與 Tenant 邊界
 
-- 沿用 QIFU4 帳號、登入、登出、Session、Cookie、CSRF 與系統管理機制，不另建一套帳號密碼。
+- 提供帳號管理、登入、登出、Session、Cookie、CSRF 與系統管理功能。
 - 前端頁面具有登入 middleware；未登入導向登入頁，缺少 Program 權限導向無權限頁。
 - 操作者一律由 Spring Security Context 取得，API 不接受前端冒用其他登入帳號。
 - Runtime 以 `X-FlowMint-Tenant` 指定操作 Tenant，後端再確認登入者具有啟用且在有效期間內的 membership。
 - 同一帳號可加入多個 Tenant；起單入口只列出該帳號目前可用的 Tenant。
 - Tenant、登入帳號、系統時間等 server context 優先於 request body，同名參數不能由前端覆寫。
 - 所有 FlowMint 業務查詢、異動、快照與營運資料都包含 `TENANT_ID` 條件；跨 Tenant 資料以禁止存取或找不到處理。
-- QIFU4 系統 Role、FlowMint Tenant membership、流程業務角色三者分離；組織職稱或簽核身分不會自動取得後台 Program 權限。
+- 系統角色、FlowMint Tenant membership、流程業務角色三者分離；組織職稱或簽核身分不會自動取得後台 Program 權限。
 
 ### 2. Tenant 管理（`FM_PROG001D0001`）
 
@@ -428,7 +437,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 ### 3. 員工與任職管理（`FM_PROG002D0001`）
 
-- 維護員工編號、姓名、QIFU4 登入帳號、Email、狀態及有效期間。
+- 維護員工編號、姓名、登入帳號、Email、狀態及有效期間。
 - 支援新增、查詢、編輯與停用；停用不刪除已被歷史流程引用的資料。
 - 一位員工可有多筆部門任職，區分主要任職 `PRIMARY` 與兼任 `CONCURRENT`。
 - 任職資料包含部門、職稱、有效期間等資訊；同一有效時間點只能有一筆主要任職。
@@ -464,7 +473,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 職稱可配置到員工任職資料。
 - `ORG_TITLE` Resolver 可在指定組織範圍內尋找特定職稱的有效人員。
 - 核決權限規則命中後也可導向指定組織職稱。
-- 職稱只代表組織資料，例如「經理」，不等於 QIFU4 系統管理 Role。
+- 職稱只代表組織資料，例如「經理」，不等於 系統管理角色。
 
 ### 7. 部門主管（`FM_PROG002D0005`）
 
@@ -508,7 +517,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 - 建立流程主檔，維護流程代碼、名稱、狀態與目前版本。
 - 建立及修改草稿版本；已發布版本不可直接改寫，變更必須建立新版本。
-- 內嵌 BPMN Designer，支援 Start／End Event、User Task、Sequence Flow、Exclusive Gateway 與 Multi-instance。
+- 內嵌 BPMN Designer，支援一般 Start／End Event、User Task、受控 Data Action Service Task、Sequence Flow，以及 Exclusive／Inclusive／Parallel Gateway。
+- 全員與循序簽核透過 Task Policy 設定，發布時產生 Multi-instance 配置；不是直接編輯任意 BPMN Multi-instance XML。
 - 保存 BPMN XML、版本號、內容 digest、發布者、發布時間及 Flowable deployment 關聯。
 - 發布前驗證 BPMN 結構、表單綁定、Task Policy、Assignment Rule 與簽核群組設定。
 - 發布時部署至 Flowable；Runtime 固定啟動明確的已發布版本。
@@ -517,9 +527,11 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 #### 11.1 User Task Policy
 
-- 逐節點設定派送方式：`ASSIGNEE`、`CANDIDATE`、`ALL`、`SEQUENTIAL`。
+- 逐節點設定派送方式：`ASSIGNEE`、`CANDIDATE`、`ALL`、`SEQUENTIAL`、`APPLICANT_CORRECTION`。
+- 補件節點直接指派表單申請人，需綁定表單、設定可編輯欄位並安排重送後的出線。
 - 設定是否允許退回、駁回、轉派及加簽。
-- 可分別規定各動作的簽核意見是否必填。
+- 意見必填使用節點級政策：`NEVER`、`ALWAYS`、`ON_REJECT_RETURN`；畫面未提供任意逐動作的獨立開關。各操作的必要理由仍依專用規則驗證。
+- 循序與平行加簽可分別啟用；平行加簽單批上限為 1～20 人。
 - 自我簽核政策：`ALLOW`、`SKIP_TO_NEXT`、`REQUIRE_ALTERNATE`、`INCIDENT`。
 - 重複簽核人政策：`KEEP_EACH_LEVEL`、`MERGE_CONSECUTIVE`、`SKIP_ALREADY_APPROVED`。
 - 設定節點表單欄位為 Hidden、Read 或 Edit。
@@ -529,7 +541,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 #### 11.2 Assignment Rule 與 Resolver
 
-- 每個 User Task 可設定多條有順序的 Assignment Rule。
+- 後端資料模型與 Runtime 支援多條有順序的 Assignment Rule；目前設計器屬性面板只編輯 `ruleSeq = 1`，尚未提供完整多規則編輯介面。
+- 一般簽核節點需要有效 Assignment Rule；`APPLICANT_CORRECTION` 補件節點不需設定一般 Resolver。
 - `FIXED_ACCOUNT`：固定帳號。
 - `APPROVAL_GROUP`：簽核群組。
 - `INITIATOR_ORG_HEAD`：申請人主要部門主管。
@@ -543,6 +556,9 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - `ORG_TITLE`：指定組織範圍與職稱的人員。
 - `ORG_DUTY`：指定部門職務擔任人。
 - `APPROVAL_AUTHORITY`：依表單內容匹配核決權限。
+- `FORM_ACCOUNT_FIELD`：依表單人員欄位取得簽核帳號。
+- `FORM_ACCOUNT_FIELD_MANAGER`：取得表單指定人員的直屬主管。
+- `TARGET_LEVEL_HEAD` 支援 `EXACT`、`EXACT_OR_HIGHER`、`UP_TO_LEVEL`；逐級簽到指定層級通常搭配 `SEQUENTIAL`。
 - Resolver 只回傳同 Tenant、員工與 membership 有效的登入帳號。
 - Preview 使用與 Runtime 相同的 Resolver 核心，可輸入申請人、節點與測試表單 JSON。
 - Preview 顯示實際候選帳號與解析路徑，供發布前檢查。
@@ -673,7 +689,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 ### 18. 完整簽核動作
 
 - `APPROVE`：檢查目前處理權與意見政策，保存快照和 Action 後完成 Task；末關完成時流程與表單轉 `COMPLETED`。
-- `RETURN`：只在政策允許時使用；目標必須是同流程已完成的前置 User Task，表單轉 `RETURNED` 並重新建立合法節點指派。
+- `RETURN`：只在政策允許時使用；目標必須是同一發布版本中、不同於目前節點的 `APPLICANT_CORRECTION` 補件 User Task，不要求該節點曾經執行。表單轉 `RETURNED`，由申請人補件。
 - `RESUBMIT`：只允許申請人補件 Task；更新可編輯欄位、重跑 Schema 驗證、建立新 revision／快照後繼續原流程。
 - `REJECT`：依政策檢查原因，保存證據後終止 Flowable；流程與表單轉 `REJECTED`。
 - `TRANSFER`：政策必須允許；目標限同 Tenant 有效員工，清除原候選、指定新 assignee 並保存新指派快照。
@@ -681,6 +697,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - `RESOLVE`：只允許目前代理人完成代理並把 Task 還給 owner。
 - `ADD_SIGN`：政策必須允許；原處理人選擇同 Tenant 有效員工執行循序前加簽。
 - `complete-add-sign`：加簽人只能留意見並歸還原處理人，不能直接核決流程。
+- 平行加簽：原簽核人發起多人徵詢，所有成員回覆前母任務等待；全部回覆後仍由原簽核人核決，一人不同意不會自動駁回流程。
 - 所有動作都檢查目前狀態、Tenant、操作者與節點政策，並建立不可變表單快照及 Task Action。
 
 ### 19. 我的申請、撤回與取消
@@ -732,13 +749,13 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 ### 23. Email 與通知範本
 
-- 不另寫 SMTP Client；透過 QIFU4 `SysMailHelperServiceImpl` 建立 `TbSysMailHelper` Outbox，由 `SendMailHelperJob` 寄送及重試。
+- 郵件先寫入 Outbox，再由排程寄送及重試。
 - 收件地址取同 Tenant、啟用且有效的員工 Email；沒有 Email 時保留站內通知且不阻斷流程。
 - 每封信建立 `EMAIL/PENDING` notification delivery record。
-- `PROVIDER_MESSAGE_ID` 精確保存 QIFU4 `MAIL_ID`。
-- `FmNotificationDeliverySyncJob` 每三分鐘把 QIFU4 `SUCCESS_FLAG=Y` 的信件同步為 `SENT` 並保存成功時間。
+- `PROVIDER_MESSAGE_ID` 精確保存 郵件 `MAIL_ID`。
+- `FmNotificationDeliverySyncJob` 每三分鐘把 `SUCCESS_FLAG=Y` 的信件同步為 `SENT` 並保存成功時間。
 - FlowMint 提供 app 層 `SendMailHelperJob` 相容替代版本；寄送失敗會更新 notification 的重試次數、下次重試時間與受控錯誤，第三次失敗後轉為 `FAILED` 並停止重送。
-- 使用 QIFU4 Template Manager／FreeMarker 範本：`FMTASKASG`、`FMPROCMP`、`FMPROREJ`、`FMPROCAN`、`FMTASKDUE`、`FMTASKOVD`。
+- 使用 通知範本管理／FreeMarker 範本：`FMTASKASG`、`FMPROCMP`、`FMPROREJ`、`FMPROCAN`、`FMTASKDUE`、`FMTASKOVD`。
 - 站內與 Email 共用相同範本語意；範本缺失或 render 失敗時使用內建安全 fallback，不讓文案錯誤阻斷流程。
 
 ### 24. Task SLA 排程
@@ -760,6 +777,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 清單顯示流程版本、Owner、Starter、目前 User Task、起訖時間、總耗時、最近期限與逾時數。
 - 明細顯示時間排序的 Task Action、表單 revision、內容 digest 與當時 JSON。
 - 流程、Action、Snapshot 都以 Tenant 加 Process Instance ID 雙重限制。
+- 正常 active Task 可由具管理員改派權限的人員預覽並改派，保存理由、指派／表單快照、Action 與通知；不必先製造 Incident。
+- 可查看平行加簽批次，並對符合條件的未回覆成員執行管理員改派。
 - 終止仍走有理由、有狀態檢查及稽核的受控 API。
 
 ### 26. 營運報表（`/operations/reports`）
@@ -818,6 +837,17 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - FJ03 使用獨立 Program 權限顯示 Springdoc OpenAPI 說明，不從 Client 管理頁洩漏未授權契約。
 - 程式、MariaDB Schema、Program 與管理 UI 已完成；正式外部 Client、流量與跨 Tenant E2E 尚待驗收。
 
+### 31. System Task／Data Action Task（Runtime MVP）
+
+- 在 BPMN Designer 以專用工具建立 Data Action Task，選取同 Tenant、有效且已發布的 Data Action 固定版本。
+- 支援 `QUERY`、`COMMAND`、`TRANSACTION`；流程發布後不會自動改用 Action 的新版本。
+- Request Mapping 支援 `FORM_DATA.path`、受控 `PROCESS_CONTEXT.name` 與 `CONSTANT:value`；目前常數以字串傳入，必須符合 Action 的 Request Schema。
+- Response Mapping 只允許寫回合法的 `FORM_DATA.path`，發布時檢查必要參數、結果欄位與表單路徑。
+- 發布時轉換為固定後端 Delegate，以非同步工作執行，並同步表單資料與流程變數。
+- QUERY 使用平台重試；COMMAND／TRANSACTION 不自動重試，失敗後需先確認外部結果再人工處理。
+- 不開放任意 Script Task、Java class、expression、直接 SQL 或 HTTP 節點。
+- 目前尚未提供節點 timeout 設定、System Task 專屬執行紀錄／Incident、Form Snapshot 與完整維運能力；BPMN 專用 capability 及真實瀏覽器／Flowable／MariaDB E2E 仍待完成。
+
 ## 技術架構
 
 | 層級 | 技術 |
@@ -828,7 +858,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 | Database | MariaDB |
 | Security | Spring Security、JWT、HttpOnly Cookie、CSRF |
 | Cache／Token infrastructure | Redis |
-| Mail | Spring Mail、QIFU4 Mail Helper Outbox |
+| Mail | Spring Mail、Mail Helper Outbox |
 | API Documentation | SpringDoc OpenAPI |
 | Frontend | Nuxt 3、Vue 3、TypeScript、Pinia |
 | UI | Bootstrap 5、Bootstrap Icons |
@@ -840,8 +870,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 ```text
 flowmint/
 ├─ backend/
-│  ├─ base/                    # QIFU4 基礎模型、Mapper、Service 與共用元件
-│  ├─ core/                    # QIFU4 帳號、角色、Program、Mail 等標準核心
+│  ├─ base/                    # 基礎模型、Mapper、Service 與共用元件
+│  ├─ core/                    # 帳號、角色、Program、Mail 等標準核心
 │  ├─ app/                     # FlowMint API、Logic、Runtime、Flowable 與排程
 │  └─ doc/                     # 規格、進度、Schema 與部署 SQL
 ├─ frontend-v-nx/
@@ -853,8 +883,8 @@ flowmint/
 │  └─ public/                  # 靜態資源
 ├─ k3s-init/                   # K3s 初始化資源
 ├─ k3s-project/                # K3s 專案部署資源
-├─ README-backend.md           # QIFU4 後端補充說明
-├─ README-frontend.md          # QIFU4 前端補充說明
+├─ README-backend.md           # 後端補充說明
+├─ README-frontend.md          # 前端補充說明
 └─ README.md                   # 本文件
 ```
 
@@ -900,7 +930,7 @@ CREATE DATABASE flowmint
 cmd /c '""C:\Program Files\MariaDB 12.3\bin\mariadb.exe" --host=127.0.0.1 --port=3306 --user=root --password --skip-ssl flowmint < "C:\home\flowmint\backend\doc\flowmint.sql""'
 ```
 
-`flowmint.sql` 包含 QIFU4、Flowable 與 FlowMint 所需資料結構。請先備份既有資料庫；不要對已有正式資料的環境直接重建。
+`flowmint.sql` 包含帳號權限、Flowable 與 FlowMint 所需資料結構。請先備份既有資料庫；不要對已有正式資料的環境直接重建。
 
 ### 2. Program 與角色配置
 
@@ -908,7 +938,7 @@ Program 基準資料已統一包含在 `backend/doc/flowmint.sql`，repository �
 `FM_PROG*-register.sql`。完整匯入後會建立 FlowMint 主檔、設計器、營運、AI Provider、
 外部 API Client 管理及 API 說明頁所需 Program。
 
-Program 註冊不等於角色授權。匯入後仍須透過 QIFU4 權限管理配置 Query／Create／Edit／
+Program 註冊不等於角色授權。匯入後仍須透過系統權限管理配置 Query／Create／Edit／
 Deactivate／高風險操作權限，不要在資料庫種子中寫死正式環境角色。
 
 ### 3. 設定後端
@@ -967,7 +997,7 @@ VITE_DEFAULT_ROW=10
 VITE_SUCCESS_FLAG="Y"
 ```
 
-Cookie prefix 必須與後端 QIFU4 設定一致。
+Cookie prefix 必須與後端設定一致。
 
 ### 6. 安裝與啟動前端
 
@@ -1006,7 +1036,7 @@ node .output/server/index.mjs
 
 ## 權限與 Tenant 邊界
 
-FlowMint 同時使用 QIFU4 Program 權限與 FlowMint Runtime 權限：
+FlowMint 以程式權限控制功能入口，以流程權限控制實際單據操作：
 
 - UI Program 由 `tb_sys_prog`、Role／Permission 控制選單與頁面入口。
 - Runtime API 仍會在後端重新驗證登入者、Tenant、Task assignee／candidate 與操作政策。
@@ -1019,26 +1049,26 @@ Program 註冊不等於授權。匯入註冊 SQL 後仍必須在正式權限管�
 
 ## 通知、Email 與 SLA
 
-FlowMint 不自行建立另一套 SMTP client。Email 流程如下：
+Email 寄送流程如下：
 
 ```text
 FlowMint event
   → fm_notification (IN_APP / SENT)
   → fm_notification (EMAIL / PENDING)
-  → QIFU4 TbSysMailHelper
+  → TbSysMailHelper Outbox
   → SendMailHelperJob 寄送與重試
   → FmNotificationDeliverySyncJob 回寫 EMAIL / SENT
 ```
 
 注意事項：
 
-- 寄件者由 QIFU4 System Setting 取得，不在 FlowMint 寫死。
+- 寄件者由系統設定管理。
 - 收件地址來自同 Tenant、啟用且在有效期間內的 `fm_employee.EMAIL`。
 - 員工沒有 Email 時只保留站內通知，不阻斷流程。
-- Notification Template 位於 QIFU4 `tb_sys_template`／`tb_sys_template_param`。
+- Notification Template 位於 `tb_sys_template`／`tb_sys_template_param`。
 - `FmTaskDeadlineNotificationJob` 每五分鐘檢查期限。
-- SLA 目前以曆時小時計算；工作日曆不在目前核心範圍。
-- FlowMint app 層寄信 Job 以 `fm_notification` 保存跨排程重試狀態，第三次失敗後轉為 `FAILED`；非 FlowMint 的 QIFU4 郵件維持既有行為。
+- SLA 以曆時小時計算。
+- 郵件排程以 `fm_notification` 保存重試狀態，第三次失敗後轉為 `FAILED`。
 
 ## 重要頁面
 
@@ -1057,7 +1087,7 @@ FlowMint event
 | `#/fm_prog010d0002` | 外部系統 API Client、Key、Scope 與配額管理 |
 | `#/fm_prog010d0003` | 外部系統 API 說明 |
 
-其他主檔與設計器頁面由 QIFU4 Program 選單提供，不建議依賴手動輸入 URL。
+其他主檔與設計器頁面可由系統選單進入。
 
 ## 測試與品質檢查
 
@@ -1114,23 +1144,13 @@ git diff --check
 13. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
 14. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
 
-## 已知限制與非核心範圍
-
-目前不列入 FlowMint 核心：
-
-- 集團、法人與據點主檔。
-- Job、Grade、Position。
-- Project Organization。
-- HR／ERP 同步平台。
-- SLA 工作日曆。
-- 外部低代碼 Script 平台。
-
-已知技術限制：
+## 驗收與使用限制
 
 - 完整交付仍需正式資料 E2E 與實際量級效能驗證。
 - 最近完成的附件、申請追蹤、目前簽核人及 BPMN 進度仍需重新啟動完整環境後，以申請人和實際簽核人執行瀏覽器回歸。
 - AI 解說尚未以真實 Provider Key、正式網路與多帳號完成 E2E；第一版不解析附件。
 - Data Action 仍需跨資料庫整合與實際資料量驗收。
+- System Task 為 Runtime MVP；專屬執行紀錄／Incident、Form Snapshot、BPMN 專用 capability、Context Pad 轉換與複製／匯入回歸仍待補齊，真實流程 E2E 尚未完成。
 - 業務表單及流程須由導入人員依企業規則配置。
 
 ## 文件索引
@@ -1147,8 +1167,8 @@ git diff --check
 - [程式編排](backend/doc/09-程式編排.md)
 - [開發路線](backend/doc/12-開發路線.md)
 - [資料庫規範](backend/doc/13-資料庫規範.md)
-- [QIFU4 前端實作規範](backend/doc/15-QIFU4前端實作規範.md)
-- [QIFU4 後端持久層規範](backend/doc/16-QIFU4後端持久層規範.md)
+- [前端實作規範](backend/doc/15-QIFU4前端實作規範.md)
+- [後端持久層規範](backend/doc/16-QIFU4後端持久層規範.md)
 - [開發進度](backend/doc/18-開發進度.md)
 - [原始碼排版與交付規範](backend/doc/19-原始碼排版與交付規範.md)
 - [動態資料服務規格](backend/doc/20-動態資料服務規格.md)
@@ -1164,6 +1184,8 @@ git diff --check
 - [採購單與驗收單表單流程配置規劃](backend/doc/30-採購單與驗收單表單流程配置規劃.md)
 - [公司名片申請單表單流程配置規劃](backend/doc/31-公司名片申請單表單流程配置規劃.md)
 - [外部系統 API 管理與流程拋單規劃](backend/doc/32-外部系統API管理與流程拋單規劃.md)
+- [System Task 與 Data Action Task 規劃](backend/doc/33-SystemTask與DataActionTask規劃.md)
+- [BPMN 流程設計操作說明](backend/doc/34-BPMN流程設計操作說明.md)
 - [表單 Custom JavaScript 規劃說明](backend/doc/FM_PROG005D0001_cust_js規劃說明.md)
 - [Data Action 使用說明](backend/doc/使用FM_PROG006D0002說明.md)
 
