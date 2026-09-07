@@ -16,7 +16,7 @@
 
 FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 HR 職務職等與其他未證明必要性的核心主檔；這是產品範圍決策，不是未完成 Backlog，也不應作為企業簽核完成度的扣分項目。Tenant 是唯一資料隔離範圍，「總公司」是部門樹根節點。
 
-本機 `flowmint` 目前共有 56 張 `fm_*` 表，包含核心簽核、後續營運／整合擴充，以及採購單與驗收單並行占額使用的 `fm_purchase_order_reservation`、`fm_goods_acceptance_reservation`。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
+本機 `flowmint` 目前共有 54 張 `fm_*` 表（2026-09-07 回查）。採購／驗收的預占表、觸發器與相關占額配置已移除；FlowMint 負責人工簽核，不控管採購額度或累計收貨數量。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
 
 ## 目前版本基準（2026-09-03）
 
@@ -30,6 +30,8 @@ User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一�
 已發布的 Form Version 1。
 
 ## 開發狀態
+
+- 2026-09-07 已直接修改 MariaDB，移除採購／驗收預占與履約狀態回寫；表單、Data Action 與 Hook 已同步調整。`flowmint.sql` 由使用者另行 mysqldump 更新，本次未修改該檔。
 
 - Phase 1～5 核心簽核與營運程式已完成，請購流程現行 Version 1 已發布；完整瀏覽器、多帳號及實際資料量 E2E 仍待完成。
 - `FM_PROG010D0001` AI Provider 管理、四種 Provider Adapter、Task AI 分析、快取與稽核已完成程式實作，但尚未使用真實 API Key 完成正式整合驗收。
