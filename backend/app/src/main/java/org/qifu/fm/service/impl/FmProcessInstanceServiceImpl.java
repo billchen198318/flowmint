@@ -16,6 +16,7 @@ import java.util.List;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 @Transactional(readOnly = true)
@@ -31,6 +32,15 @@ public class FmProcessInstanceServiceImpl extends BaseService<FmProcessInstance,
     @Override
     protected IBaseMapper<FmProcessInstance, String> getBaseMapper() {
         return mapper;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, readOnly = false)
+    public FmProcessInstance lockInstance(String tenantId, String processInstanceId) {
+        if (tenantId == null || tenantId.isBlank() || processInstanceId == null || processInstanceId.isBlank()) {
+            throw new IllegalArgumentException("PROCESS_IDENTITY_REQUIRED");
+        }
+        return mapper.lockInstance(Map.of("tenantId", tenantId, "processInstanceId", processInstanceId));
     }
 
     @Override

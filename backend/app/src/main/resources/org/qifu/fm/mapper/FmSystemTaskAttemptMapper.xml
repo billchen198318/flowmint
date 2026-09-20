@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmSystemTaskAttemptMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmSystemTaskAttempt">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="EXECUTION_OID" jdbcType="CHAR" property="executionOid" />
+    <result column="ATTEMPT_NO" jdbcType="INTEGER" property="attemptNo" />
+    <result column="GENERATION" jdbcType="INTEGER" property="generation" />
+    <result column="REQUEST_ID" jdbcType="VARCHAR" property="requestId" />
+    <result column="ENGINE_PROFILE" jdbcType="LONGVARCHAR" property="engineProfile" />
+    <result column="STARTED_AT" jdbcType="TIMESTAMP" property="startedAt" />
+    <result column="LEASE_UNTIL" jdbcType="TIMESTAMP" property="leaseUntil" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="COMPLETED_AT" jdbcType="TIMESTAMP" property="completedAt" />
+    <result column="DURATION_MS" jdbcType="BIGINT" property="durationMs" />
+    <result column="ERROR_CODE" jdbcType="VARCHAR" property="errorCode" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    EXECUTION_OID,
+    ATTEMPT_NO,
+    GENERATION,
+    REQUEST_ID,
+    ENGINE_PROFILE,
+    STARTED_AT,
+    LEASE_UNTIL,
+    STATUS,
+    COMPLETED_AT,
+    DURATION_MS,
+    ERROR_CODE,
+    CUSERID,
+    CDATE
+  </sql>
+
+  <sql id="baseConditions">
+    AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    <if test="executionOid != null">
+      AND EXECUTION_OID = #{executionOid,jdbcType=CHAR}
+    </if>
+    <if test="status != null">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and sortType != null">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmSystemTaskAttempt">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="executionOid != null">
+        EXECUTION_OID,
+      </if>
+      <if test="attemptNo != null">
+        ATTEMPT_NO,
+      </if>
+      <if test="generation != null">
+        GENERATION,
+      </if>
+      <if test="requestId != null">
+        REQUEST_ID,
+      </if>
+      <if test="engineProfile != null">
+        ENGINE_PROFILE,
+      </if>
+      <if test="startedAt != null">
+        STARTED_AT,
+      </if>
+      <if test="leaseUntil != null">
+        LEASE_UNTIL,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="completedAt != null">
+        COMPLETED_AT,
+      </if>
+      <if test="durationMs != null">
+        DURATION_MS,
+      </if>
+      <if test="errorCode != null">
+        ERROR_CODE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="executionOid != null">
+        #{executionOid,jdbcType=CHAR},
+      </if>
+      <if test="attemptNo != null">
+        #{attemptNo,jdbcType=INTEGER},
+      </if>
+      <if test="generation != null">
+        #{generation,jdbcType=INTEGER},
+      </if>
+      <if test="requestId != null">
+        #{requestId,jdbcType=VARCHAR},
+      </if>
+      <if test="engineProfile != null">
+        #{engineProfile,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="startedAt != null">
+        #{startedAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="leaseUntil != null">
+        #{leaseUntil,jdbcType=TIMESTAMP},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="completedAt != null">
+        #{completedAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="durationMs != null">
+        #{durationMs,jdbcType=BIGINT},
+      </if>
+      <if test="errorCode != null">
+        #{errorCode,jdbcType=VARCHAR},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmSystemTaskAttempt">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    <set>
+      <if test="executionOid != null">
+        EXECUTION_OID = #{executionOid,jdbcType=CHAR},
+      </if>
+      <if test="attemptNo != null">
+        ATTEMPT_NO = #{attemptNo,jdbcType=INTEGER},
+      </if>
+      <if test="generation != null">
+        GENERATION = #{generation,jdbcType=INTEGER},
+      </if>
+      <if test="requestId != null">
+        REQUEST_ID = #{requestId,jdbcType=VARCHAR},
+      </if>
+      <if test="engineProfile != null">
+        ENGINE_PROFILE = #{engineProfile,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="startedAt != null">
+        STARTED_AT = #{startedAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="leaseUntil != null">
+        LEASE_UNTIL = #{leaseUntil,jdbcType=TIMESTAMP},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="completedAt != null">
+        COMPLETED_AT = #{completedAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="durationMs != null">
+        DURATION_MS = #{durationMs,jdbcType=BIGINT},
+      </if>
+      <if test="errorCode != null">
+        ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND 1 = 0
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmSystemTaskAttempt">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND 1 = 0
+  </delete>
+
+  <update id="finish" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    SET STATUS = #{status,jdbcType=VARCHAR},
+        COMPLETED_AT = #{now,jdbcType=TIMESTAMP},
+        DURATION_MS = TIMESTAMPDIFF(MICROSECOND, STARTED_AT, #{now,jdbcType=TIMESTAMP}) DIV 1000,
+        ERROR_CODE = #{errorCode,jdbcType=VARCHAR}
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND EXECUTION_OID = #{executionOid,jdbcType=CHAR}
+      AND REQUEST_ID = #{requestId,jdbcType=VARCHAR}
+      AND GENERATION = #{generation,jdbcType=INTEGER}
+      AND STATUS = 'RUNNING'
+      AND STARTED_AT &lt;= #{now,jdbcType=TIMESTAMP}
+    <if test="status == 'SUCCEEDED'">
+      AND LEASE_UNTIL &gt; #{now,jdbcType=TIMESTAMP}
+    </if>
+    <if test="status == 'ABANDONED'">
+      AND LEASE_UNTIL &lt;= #{now,jdbcType=TIMESTAMP}
+    </if>
+  </update>
+
+  <update id="cancelRunning" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt
+    SET STATUS = 'CANCELLED',
+        COMPLETED_AT = #{now,jdbcType=TIMESTAMP},
+        DURATION_MS = TIMESTAMPDIFF(MICROSECOND, STARTED_AT, #{now,jdbcType=TIMESTAMP}) DIV 1000,
+        ERROR_CODE = 'GROOVY_PROCESS_CANCELLED'
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND EXECUTION_OID = #{executionOid,jdbcType=CHAR}
+      AND GENERATION = #{generation,jdbcType=INTEGER}
+      AND STATUS = 'RUNNING'
+      AND STARTED_AT &lt;= #{now,jdbcType=TIMESTAMP}
+  </update>
+</mapper>

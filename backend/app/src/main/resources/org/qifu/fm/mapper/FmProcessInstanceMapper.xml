@@ -392,4 +392,11 @@
      ORDER BY averageHandlingMinutes DESC, completedTasks DESC
      LIMIT 20
   </select>
+  <select id="lockInstance" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT *
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+    FOR UPDATE
+  </select>
 </mapper>

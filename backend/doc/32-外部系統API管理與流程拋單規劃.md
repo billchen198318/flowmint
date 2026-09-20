@@ -1,7 +1,8 @@
 # 32 外部系統 API 管理與流程拋單規劃
 
 日期：2026-08-28  
-狀態：設計規劃  
+狀態：第一版程式與本機 Schema／Program 註冊完成；正式整合驗收未完成（2026-09-08 文件同步）
+
 程式代碼：`FM_PROG010D0002`  
 程式名稱：外部系統 API 管理
 
@@ -108,7 +109,7 @@ fmk_live_{keyId}.{base64urlRandomSecret}
 - 資料庫只保存 `KEY_ID`、Prefix、末四碼及 Secret Hash，不保存明文或可逆密文。
 - 高熵隨機 Secret 可使用 SHA-256/HMAC-SHA-256 與 server-side pepper 驗證；比較固定時間化。
 - Key 可設定生效日、到期日、IP/CIDR Allowlist、Scopes、每分鐘與每日配額。
-- 輪替時可設定最長 24 小時重疊期，舊 Key 到期後自動撤銷；立即撤銷不提供復原。
+- 現行第一版輪替會立即撤銷所有有效舊 Key，不提供復原。最長 24 小時重疊期為原規劃的後續能力，尚未實作。
 - Key 不得出現在 URL、query string、response body（首次顯示除外）、application log 或稽核明細。
 
 ### 2.3 API 說明畫面
@@ -155,7 +156,7 @@ fmk_live_{keyId}.{base64urlRandomSecret}
 ### 3.2 `fm_api_client_key`
 
 保存 Client、Key ID、Prefix、末四碼、Secret Hash、生效／到期／撤銷時間、撤銷原因、最後使用
-時間、最後來源 IP、失敗次數及 Lock Version。一個 Client 可在輪替重疊期間有兩把有效 Key。
+時間、最後來源 IP、失敗次數及 Lock Version。原規劃允許輪替重疊期間有兩把有效 Key；現行第一版輪替立即撤銷舊 Key，尚不支援重疊期。
 
 ### 3.3 `fm_api_access_log`
 
@@ -631,5 +632,15 @@ Actor 個資。Timeline 最多 200 筆，超過時回 `timelineTruncated=true`�
 - API 說明頁的 Request／Response 與實際 Controller DTO 經契約測試保持一致。
 - ERP／MES／HR 測試 Client 與多帳號、跨 Tenant、Incident、撤銷及重放 E2E 全部通過。
 
-本文件目前只代表規劃完成，尚未建立資料表、Java、Vue、Key 或正式外部連線，不得標示為已實作
-或上線。
+## 13. 目前實作與待驗收範圍
+
+依 [18 開發進度](18-開發進度.md) 2026-08-28～29 紀錄，第一版已完成：
+
+- API Client／Key 管理資料表、持久層、管理 API 與 Query／Create／Edit 頁面；本機 migration 已套用，`FM_PROG010D0002` 已註冊。
+- Key 認證、Tenant／Scope／IP／有效期檢查、配額與存取稽核。
+- 組織／人員、流程／Form 唯讀 API，以及重用正式 Runtime 的外部發單與單筆狀態查詢；`fm_api_request` Ledger 已套用本機 MariaDB。
+- 獨立 `FM_PROG010D0003` API 說明頁與 Program 註冊，提供實際 POST endpoint／DTO 契約及 OpenAPI 3.1 JSON 下載。
+
+仍待角色／Program 權限配置（包含管理操作 D／X 權限）、測試 Client／Key 建立、真實 HTTP、瀏覽器、多帳號、跨 Tenant 與外部來源對帳 E2E。前後端編譯與針對性測試已有通過紀錄，但不能標示為正式整合驗收完成或上線。
+
+本文前述分期與完成定義保留為目標契約；例如 Key 輪替重疊仍是驗收目標，現行第一版輪替會立即撤銷所有有效舊 Key，不能視為已支援重疊期。批次 status、Webhook 與額外附件 API 仍依整合需求另行排程。

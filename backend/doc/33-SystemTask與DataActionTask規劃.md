@@ -4,9 +4,13 @@
 狀態：Phase 1～2 第一版已實作，Runtime MVP 已接線；完整營運能力仍在開發中  
 適用程式：`FM_PROG004D0001` BPMN 流程設計與版本
 
+閱讀方式：本章保留歷史設計；目前交付範圍以第 14～15 節及第 35 章第 39 節為準。2026-09-08 已校正工作分類、屬性面板與 Mapping 現況；其餘尚未交付的 timeout、冪等、Snapshot、專屬 Incident 與營運要求，應作為後續開發目標，不代表目前可用。
+
+> 2026-09-08 擴充規劃：System Task 新增 Groovy 腳本的詳細方案見 [35 System Task 的 Groovy 腳本規劃](35-SystemTask的Groovy腳本規劃.md)。第 2 節對任意腳本的禁止維持，僅依第 35 章開放固定流程版本的受控 Groovy subtype。
+
 ## 1. 目的
 
-FlowMint 目前的 BPMN Designer 使用 `bpmn-js`，後端發布驗證只允許 Start Event、End Event、User Task、Gateway 與 Sequence Flow，並明確禁止 BPMN Script Task、任意 Java／Groovy、未登錄 Delegate Expression、直接 SQL 與任意 HTTP。
+FlowMint 目前的 BPMN Designer 使用 `bpmn-js`，System Task 正式 subtype 為 `DATA_ACTION` 與 `GROOVY`。HTTP 由受信任 IT 人員在 Groovy 腳本中使用標準 Java HTTP Client 實作並於測試環境驗證。
 
 本規劃要在不開放任意後端程式碼的前提下，讓流程設計者可在 BPMN 中加入受控的自動化節點，例如：
 
@@ -28,9 +32,38 @@ FlowMint 目前的 BPMN Designer 使用 `bpmn-js`，後端發布驗證只允許 
 
 ### 2.2 新增受控 System Task
 
-Designer 對使用者顯示「System Task」，第一種 subtype 為「Data Action Task」。底層使用標準 BPMN `bpmn:serviceTask`，但只允許 FlowMint 自己定義且可驗證的屬性。
+FlowMint 工作節點分為 User Task 與 System Task 兩大類。System Task 底層使用標準 BPMN `bpmn:serviceTask`，但只允許 FlowMint 自己定義且可驗證的 subtype 與屬性。
 
-`System Task` 是產品名稱，`Data Action Task` 是具體的執行類型，不是兩種不同 BPMN element。後續若增加通知或其他受控執行器，仍沿用 System Task 模型，不新增任意 Script 入口。
+`System Task` 是產品名稱，`DATA_ACTION` 與 `GROOVY` 是執行類型。`GROOVY` 腳本隨 Process Version 保存，透過固定 Delegate 由 FlowMint backend 主 JVM 直接執行。
+
+### 2.3 已撤回：HTTP API System Task
+
+本節是已撤回方案的歷史內容，不再建立 `HTTP_API` subtype、Definition、Designer或 Delegate；外部 REST API 改由 Groovy 腳本直接處理。
+
+此處是 FlowMint 流程主動呼叫外部服務的 outbound connector；第 32 章
+`FM_PROG010D0002` 則是外部系統以 API Client／Key 呼叫 FlowMint 起單或查詢的 inbound API。
+兩者方向、認證主體與 Runtime 契約不同，不共用同一個 API 定義模型。
+
+第一版必要契約：
+
+- 支援 GET、HEAD、POST、PUT、PATCH、DELETE；每個定義明確限制 method、base URL、path template 與允許的 header。
+- Request Mapping 支援受控的 path、query、header 與 JSON body；來源限 `FORM_DATA`、`PROCESS_CONTEXT` 與 typed constant。
+- Response Mapping 支援 status、允許的 header 與 JSON body path；寫回仍遵守 Form Schema、Revision、Snapshot 與交易規則。
+- API Key、Basic、OAuth2 client credentials 或 mTLS 等認證由後端 credential reference 取得，secret 不進流程版本、前端、log、Incident 或稽核內容。
+- 強制 TLS、DNS／IP／網域 allowlist、SSRF 防護、connect／read／overall timeout、request／response 大小上限及 Content-Type／Schema 驗證。
+- Process Version 固定 API Definition Version 與內容 hash；API 定義發布新版不得改變已發布或執行中的流程。
+- 每次呼叫保存 invocation、attempt、correlation ID、安全摘要、HTTP status 與結果分類，但不保存未遮罩的 credential 或敏感 payload。
+- 納入既有 System Task 異常管理 UI、Tenant／operate 權限、處理歷程與操作稽核。
+
+重試必須依結果可信度分類：
+
+- 明確在 request 送出前失敗，可依受控退避政策重試。
+- GET／HEAD 等唯讀操作可依定義的安全政策重試。
+- POST／PATCH 等異動操作必須配置對方承認的 idempotency key 或結果查詢契約，否則不得自動重試。
+- request 可能已送達但未收到 response 時標記 `HTTP_OUTCOME_UNKNOWN`；管理 UI 不提供一般補執行，須先確認外部系統結果。
+- 明確 4xx 預設不重試；429 與允許的 5xx 依固定政策及 `Retry-After` 處理。
+
+上述 HTTP_API 規格已取消，不是完成條件。
 
 ## 3. BPMN XML 契約
 
@@ -95,7 +128,7 @@ Data Action Task 不得出現下列 Flowable 執行屬性：
 
 ### 4.3 屬性面板
 
-選取 Data Action Task 時顯示：
+目前選取 Data Action Task 時提供：
 
 - Node ID 與顯示名稱。
 - Task Type：第一版固定 `DATA_ACTION`。
@@ -103,10 +136,8 @@ Data Action Task 不得出現下列 Flowable 執行屬性：
 - Action Version：必須固定版號，不得使用「最新版」。
 - Request Mapping：從受控來源組裝 Action 參數。
 - Response Mapping：將 Action result 寫入允許的目標。
-- Timeout：平台設定上、下限，不允許無限等待。
-- Retry Policy：重試次數、backoff 與可重試錯誤類型。
-- Failure Policy：第一版建議固定建立 Incident 並停留流程，不提供靜默忽略。
-- Idempotency Key：異動類 Action 必填。
+
+後續規劃項目（目前不是可設定的節點屬性）：Timeout、Retry Policy、Failure Policy 與 Idempotency Key。現行 timeout 屬性已移除；QUERY 沿用 Flowable 重試，異動型 Action 不自動重試，專屬 Incident 尚待實作。不得將規劃中的 Idempotency Key 必填當成現行發布條件。
 
 Data Action catalog 與 metadata 可沿用現有 Form Data Action Binding Editor 的 API，但 BPMN 節點必須有自己的編輯組件，不可將 Form.io event binding 資料結構直接當成 BPMN Runtime 契約。
 
@@ -116,16 +147,17 @@ Data Action catalog 與 metadata 可沿用現有 Form Data Action Binding Editor
 
 - `FORM_DATA`：從 `flowmintFormData` 使用明確 dot path 取值。
 - `PROCESS_CONTEXT`：受控系統值，例如 Tenant ID、Process ID、Process Version、Applicant Account 與 Business Key。
-- `CONSTANT`：JSON scalar，不允許 expression。
-- `PREVIOUS_RESULT`：僅能參照同一 System Task 內的既有 step result，實際能力以 Data Action metadata 為準。
+- `CONSTANT:`：冒號後內容目前一律為字串，不自動轉成 number、boolean 或 null，不允許 expression。
+
+`PREVIOUS_RESULT` 不是目前 BPMN request mapping 支援的來源；Data Action 內部的前一步結果引用由 Data Action 自己的 Step／Mapping 契約處理，不是新增一種 Task 或節點輸入來源。
 
 不允許使用 JavaScript、SpEL、任意 JUEL、SQL fragment 或任意 HTTP 取值。
 
 ### 5.2 Response 允許目標
 
 - `FORM_DATA`：寫入已發布 Form Schema 存在、型別相容且允許持久化的欄位。
-- `PROCESS_VARIABLE`：只能寫入受控 prefix 或 catalog 內的變數，不得覆寫 FlowMint 保留 Runtime 變數。
-- `DISCARD`：明確不保存該 result key。
+
+目前 response mapping 只接受 `FORM_DATA.<path>`。不需寫回的 result key 不列入 mapping 即可；`PROCESS_VARIABLE` 與顯式 `DISCARD` 為後續規劃，目前不能填入節點設定。Groovy 規劃的型別化 Mapping 是獨立契約，不能套用至現行 DATA_ACTION。
 
 寫回 `FORM_DATA` 時必須同步 Flowable variable 與 FlowMint 的表單資料，並定義 Revision、Snapshot 與並發規則；不可只修改 Flowable 記憶體變數，造成待辦畫面、歷程快照與 Gateway 看到不同資料。
 
@@ -178,11 +210,15 @@ Data Action catalog 與 metadata 可沿用現有 Form Data Action Binding Editor
 
 ## 8. 錯誤、Incident 與維運
 
-第一版建議行為：
+System Task 是背景自動工作，失敗時沒有人工 Task 可直接接手，因此異常管理 UI 是第一版必要功能。它整合至既有營運異常入口，不另建獨立 System Task 選單。
+
+第一版必要行為：
 
 - Data Action 執行失敗時保留 Flowable job failure，並建立／關聯 FlowMint Incident。
 - Incident 記錄 Tenant、Process Instance、Process Version、Node ID、Action Code／Version、attempt、錯誤分類與 correlation ID。
-- 維運畫面可重試或終止，但重試前必須重新檢查流程狀態與冪等記錄。
+- 維運畫面必須提供失敗查詢、安全錯誤摘要、處理歷程與操作稽核。
+- 狀態可確認時可執行受控補執行；重試前必須重新檢查流程狀態、固定版本、原輸入與冪等記錄。
+- 不提供跳過節點、手改成功狀態、修改歷史輸入／腳本或直接修改 Flowable 資料。
 - 不在錯誤訊息、Audit 或 Incident 儲存 API Key、credential、完整 SQL 或未遮罩敏感資料。
 - 後續若支援 BPMN Boundary Error Event，必須使用受控 error code catalog，不接受任意 exception expression。
 
@@ -266,50 +302,21 @@ Audit 必須和已發布版本綁定，不可只記錄當前 Action 主檔的最
 - 透過 mapping 試圖覆寫保留流程變數。
 - 敏感 request／response／exception 不會完整進入 log、Audit 或 Incident。
 
-## 14. 分階段交付
+## 14. 目前交付範圍
 
-### Phase 0：契約與資料模型
-
-- 確定 XML namespace、binding schema、資料表／DTO、保留變數與 Action capability。
-- 完成發布驗證與 Runtime 轉換的測試先行規格。
-
-### Phase 1：Designer Draft
-
-- Moddle descriptor、Palette、Context Pad、Renderer 與屬性面板。
-- Draft save／load／clone 與 orphan binding 檢查。
-- 本階段仍不允許發布含 System Task 的流程。
-
-### Phase 2：Publish
-
-- BPMN 白名單、Action／Form metadata 交叉驗證。
-- 固定 Delegate Runtime XML 轉換與 Flowable parse。
-- 通過所有反向安全測試後才允許發布。
-
-### Phase 3：Runtime Query
-
-- 先開放無副作用 QUERY Data Action。
-- 完成 mapping、Form Data 同步、Audit、timeout 與 Incident。
-
-### Phase 4：Runtime Mutation
-
-- 僅對支援 idempotency 契約的異動 Action 開放。
-- 完成 retry、外部系統不確定結果處理與補償策略。
-
-### Phase 5：維運與 E2E
-
-- Incident 詳情、受控重試、終止與 correlation 查詢。
-- MariaDB、Flowable、瀏覽器及真實外部系統 E2E。
+2026-09-14：舊 Phase 0～5 全包交付規劃已撤下。System Task 自動執行指定工作，
+輸出 Mapping 為選用能力，不以寫回表單作為必要功能。
+目前 DATA_ACTION／GROOVY 合計 5 個剩餘交付項目，以
+[第 35 章第 39 節](35-SystemTask的Groovy腳本規劃.md#39-2026-09-14-範圍收斂唯一剩餘工作清單) 為準。
 
 ## 15. 驗收完成條件
 
-下列條件全部滿足前，不得將 System Task 標記為正式完成：
+完成上述 5 項即可交付。第 1～13 節的廣泛規劃與第 16 節的歷史缺口不再累加為發布條件。
+不另建 Data Action 專屬 attempt／Incident 平台、通用補償框架或 Context Pad 類型轉換。
+失敗仍需可查，外部異動不盲目重試；必要權限、固定版本與交易檢查保留。
 
-1. Designer 可完整建立、編輯、複製、刪除、匯入與匯出 Data Action Task。
-2. 後端對任意 Script／class／expression／跨 Tenant 輸入有獲立防線。
-3. Process Version 固定 Action Version，舊 instance 行為不漂移。
-4. Runtime 的 mapping、交易、Snapshot、Audit、timeout、retry、idempotency 與 Incident 通過整合測試。
-5. Query 與 Mutation 各至少一個真實業務流程通過瀏覽器／Flowable／MariaDB E2E。
-6. 維運人員可從 Process Instance 追到 System Task attempt、Data Action Audit 與 Incident。
+2026-09-14 程式修正：responseMapping 未設定或為空時，Data Action Task 不再更新表單
+或要求 FORM_DATA_ID；設定 Mapping 時才寫回。使用既有 Data Action 執行能力，未新增執行類型。
 
 ## 16. 現況結論
 

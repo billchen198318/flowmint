@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmProcessSystemTaskMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmProcessSystemTask">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="PROCESS_DEF_ID" jdbcType="VARCHAR" property="processDefId" />
+    <result column="VERSION_NO" jdbcType="INTEGER" property="versionNo" />
+    <result column="NODE_ID" jdbcType="VARCHAR" property="nodeId" />
+    <result column="BINDING_ID" jdbcType="VARCHAR" property="bindingId" />
+    <result column="TASK_TYPE" jdbcType="VARCHAR" property="taskType" />
+    <result column="SCRIPT_CONTENT" jdbcType="LONGVARCHAR" property="scriptContent" />
+    <result column="INPUT_SCHEMA" jdbcType="LONGVARCHAR" property="inputSchema" />
+    <result column="OUTPUT_SCHEMA" jdbcType="LONGVARCHAR" property="outputSchema" />
+    <result column="MAPPING_CONTENT" jdbcType="LONGVARCHAR" property="mappingContent" />
+    <result column="TIMEOUT_MS" jdbcType="INTEGER" property="timeoutMs" />
+    <result column="ENGINE_PROFILE" jdbcType="VARCHAR" property="engineProfile" />
+    <result column="POLICY_VERSION" jdbcType="VARCHAR" property="policyVersion" />
+    <result column="CONTENT_SHA256" jdbcType="CHAR" property="contentSha256" />
+    <result column="LOCK_VERSION" jdbcType="INTEGER" property="lockVersion" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+    <result column="UUSERID" jdbcType="VARCHAR" property="uuserid" />
+    <result column="UDATE" jdbcType="TIMESTAMP" property="udate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    PROCESS_DEF_ID,
+    VERSION_NO,
+    NODE_ID,
+    BINDING_ID,
+    TASK_TYPE,
+    SCRIPT_CONTENT,
+    INPUT_SCHEMA,
+    OUTPUT_SCHEMA,
+    MAPPING_CONTENT,
+    TIMEOUT_MS,
+    ENGINE_PROFILE,
+    POLICY_VERSION,
+    CONTENT_SHA256,
+    LOCK_VERSION,
+    CUSERID,
+    CDATE,
+    UUSERID,
+    UDATE
+  </sql>
+
+  <sql id="baseConditions">
+    <if test="tenantId != null and tenantId != ''">
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    </if>
+    <if test="processDefId != null and processDefId != ''">
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+    </if>
+    <if test="versionNo != null">
+      AND VERSION_NO = #{versionNo,jdbcType=INTEGER}
+    </if>
+    <if test="nodeId != null and nodeId != ''">
+      AND NODE_ID = #{nodeId,jdbcType=VARCHAR}
+    </if>
+    <if test="bindingId != null and bindingId != ''">
+      AND BINDING_ID = #{bindingId,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and orderBy != '' and sortType != null and sortType != ''">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmProcessSystemTask">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID,
+      </if>
+      <if test="versionNo != null">
+        VERSION_NO,
+      </if>
+      <if test="nodeId != null">
+        NODE_ID,
+      </if>
+      <if test="bindingId != null">
+        BINDING_ID,
+      </if>
+      <if test="taskType != null">
+        TASK_TYPE,
+      </if>
+      <if test="scriptContent != null">
+        SCRIPT_CONTENT,
+      </if>
+      <if test="inputSchema != null">
+        INPUT_SCHEMA,
+      </if>
+      <if test="outputSchema != null">
+        OUTPUT_SCHEMA,
+      </if>
+      <if test="mappingContent != null">
+        MAPPING_CONTENT,
+      </if>
+      <if test="timeoutMs != null">
+        TIMEOUT_MS,
+      </if>
+      <if test="engineProfile != null">
+        ENGINE_PROFILE,
+      </if>
+      <if test="policyVersion != null">
+        POLICY_VERSION,
+      </if>
+      <if test="contentSha256 != null">
+        CONTENT_SHA256,
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+      <if test="uuserid != null">
+        UUSERID,
+      </if>
+      <if test="udate != null">
+        UDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="versionNo != null">
+        #{versionNo,jdbcType=INTEGER},
+      </if>
+      <if test="nodeId != null">
+        #{nodeId,jdbcType=VARCHAR},
+      </if>
+      <if test="bindingId != null">
+        #{bindingId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskType != null">
+        #{taskType,jdbcType=VARCHAR},
+      </if>
+      <if test="scriptContent != null">
+        #{scriptContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="inputSchema != null">
+        #{inputSchema,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="outputSchema != null">
+        #{outputSchema,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="mappingContent != null">
+        #{mappingContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="timeoutMs != null">
+        #{timeoutMs,jdbcType=INTEGER},
+      </if>
+      <if test="engineProfile != null">
+        #{engineProfile,jdbcType=VARCHAR},
+      </if>
+      <if test="policyVersion != null">
+        #{policyVersion,jdbcType=VARCHAR},
+      </if>
+      <if test="contentSha256 != null">
+        #{contentSha256,jdbcType=CHAR},
+      </if>
+      <if test="lockVersion != null">
+        #{lockVersion,jdbcType=INTEGER},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmProcessSystemTask">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    <set>
+      <if test="tenantId != null">
+        TENANT_ID = #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="versionNo != null">
+        VERSION_NO = #{versionNo,jdbcType=INTEGER},
+      </if>
+      <if test="nodeId != null">
+        NODE_ID = #{nodeId,jdbcType=VARCHAR},
+      </if>
+      <if test="bindingId != null">
+        BINDING_ID = #{bindingId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskType != null">
+        TASK_TYPE = #{taskType,jdbcType=VARCHAR},
+      </if>
+      <if test="scriptContent != null">
+        SCRIPT_CONTENT = #{scriptContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="inputSchema != null">
+        INPUT_SCHEMA = #{inputSchema,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="outputSchema != null">
+        OUTPUT_SCHEMA = #{outputSchema,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="mappingContent != null">
+        MAPPING_CONTENT = #{mappingContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="timeoutMs != null">
+        TIMEOUT_MS = #{timeoutMs,jdbcType=INTEGER},
+      </if>
+      <if test="engineProfile != null">
+        ENGINE_PROFILE = #{engineProfile,jdbcType=VARCHAR},
+      </if>
+      <if test="policyVersion != null">
+        POLICY_VERSION = #{policyVersion,jdbcType=VARCHAR},
+      </if>
+      <if test="contentSha256 != null">
+        CONTENT_SHA256 = #{contentSha256,jdbcType=CHAR},
+      </if>
+      <if test="lockVersion != null">
+        LOCK_VERSION = #{lockVersion,jdbcType=INTEGER},
+      </if>
+      <if test="cuserid != null">
+        CUSERID = #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        CDATE = #{cdate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="uuserid != null">
+        UUSERID = #{uuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="udate != null">
+        UDATE = #{udate,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </update>
+
+  <delete id="delete" parameterType="java.lang.String">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </delete>
+
+  <delete id="deleteDraftVersion" parameterType="java.util.HashMap">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_system_task
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+      AND VERSION_NO = #{versionNo,jdbcType=INTEGER}
+      AND EXISTS (
+        SELECT 1 FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version pv
+        WHERE pv.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+          AND pv.PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+          AND pv.VERSION_NO = #{versionNo,jdbcType=INTEGER}
+          AND pv.VERSION_STATUS = 'DRAFT'
+      )
+  </delete>
+</mapper>
+

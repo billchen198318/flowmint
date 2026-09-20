@@ -8,6 +8,7 @@ import org.qifu.fm.entity.FmFormData;
 
 @Mapper
 public interface FmFormDataMapper extends IBaseMapper<FmFormData, String> {
+    FmFormData lockStateByFormDataId(Map<String, Object> paramMap);
 
 	public String lockByFormDataId(Map<String, Object> paramMap);
 

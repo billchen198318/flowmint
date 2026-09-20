@@ -131,4 +131,36 @@
     DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
     WHERE OID = #{oid,jdbcType=CHAR}
   </delete>
+  <select id="findLockVersion" parameterType="java.util.HashMap" resultType="java.lang.Integer">
+    SELECT LOCK_VERSION
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+  </select>
+
+  <select id="lockDraft" parameterType="java.util.HashMap" resultType="java.lang.Integer">
+    SELECT LOCK_VERSION
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND VERSION_STATUS = 'DRAFT'
+    FOR UPDATE
+  </select>
+
+  <select id="findDraftLockVersion" parameterType="java.util.HashMap" resultType="java.lang.Integer">
+    SELECT LOCK_VERSION
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND VERSION_STATUS = 'DRAFT'
+  </select>
+
+  <update id="advanceDraftLock" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_version
+    SET LOCK_VERSION = LOCK_VERSION + 1
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND VERSION_STATUS = 'DRAFT'
+      AND LOCK_VERSION = #{expectedLockVersion,jdbcType=INTEGER}
+  </update>
 </mapper>

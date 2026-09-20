@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmSystemTaskIncidentActionMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmSystemTaskIncidentAction">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="EXECUTION_OID" jdbcType="CHAR" property="executionOid" />
+    <result column="ACTION_NO" jdbcType="INTEGER" property="actionNo" />
+    <result column="REQUEST_ID" jdbcType="VARCHAR" property="requestId" />
+    <result column="ACTION_TYPE" jdbcType="VARCHAR" property="actionType" />
+    <result column="EXPECTED_GENERATION" jdbcType="INTEGER" property="expectedGeneration" />
+    <result column="TARGET_INVOCATION_ID" jdbcType="VARCHAR" property="targetInvocationId" />
+    <result column="REQUEST_SHA256" jdbcType="CHAR" property="requestSha256" />
+    <result column="FROM_STATUS" jdbcType="VARCHAR" property="fromStatus" />
+    <result column="TO_STATUS" jdbcType="VARCHAR" property="toStatus" />
+    <result column="REASON" jdbcType="VARCHAR" property="reason" />
+    <result column="ACTOR" jdbcType="VARCHAR" property="actor" />
+    <result column="ACTION_DATE" jdbcType="TIMESTAMP" property="actionDate" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+  </resultMap>
+
+  <sql id="baseConditions">
+    AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    AND EXECUTION_OID = #{executionOid,jdbcType=CHAR}
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT *
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT *
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT *
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmSystemTaskIncidentAction">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      ACTION_TYPE, EXPECTED_GENERATION,
+      TARGET_INVOCATION_ID, REQUEST_SHA256,
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="executionOid != null">
+        EXECUTION_OID,
+      </if>
+      <if test="actionNo != null">
+        ACTION_NO,
+      </if>
+      <if test="requestId != null">
+        REQUEST_ID,
+      </if>
+      <if test="fromStatus != null">
+        FROM_STATUS,
+      </if>
+      <if test="toStatus != null">
+        TO_STATUS,
+      </if>
+      <if test="reason != null">
+        REASON,
+      </if>
+      <if test="actor != null">
+        ACTOR,
+      </if>
+      <if test="actionDate != null">
+        ACTION_DATE,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      #{actionType,jdbcType=VARCHAR}, #{expectedGeneration,jdbcType=INTEGER},
+      #{targetInvocationId,jdbcType=VARCHAR}, #{requestSha256,jdbcType=CHAR},
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="executionOid != null">
+        #{executionOid,jdbcType=CHAR},
+      </if>
+      <if test="actionNo != null">
+        #{actionNo,jdbcType=INTEGER},
+      </if>
+      <if test="requestId != null">
+        #{requestId,jdbcType=VARCHAR},
+      </if>
+      <if test="fromStatus != null">
+        #{fromStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="toStatus != null">
+        #{toStatus,jdbcType=VARCHAR},
+      </if>
+      <if test="reason != null">
+        #{reason,jdbcType=VARCHAR},
+      </if>
+      <if test="actor != null">
+        #{actor,jdbcType=VARCHAR},
+      </if>
+      <if test="actionDate != null">
+        #{actionDate,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmSystemTaskIncidentAction">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    SET OID = OID
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND 1 = 0
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmSystemTaskIncidentAction">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND 1 = 0
+  </delete>
+
+  <select id="history" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT *
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_incident_action
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="requestId != null">
+      AND REQUEST_ID = #{requestId,jdbcType=VARCHAR}
+    </if>
+    ORDER BY ACTION_NO DESC
+    LIMIT #{limit,jdbcType=INTEGER} OFFSET #{offset,jdbcType=INTEGER}
+    <if test="locking == true">
+      FOR UPDATE
+    </if>
+  </select>
+
+</mapper>

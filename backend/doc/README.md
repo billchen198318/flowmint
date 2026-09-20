@@ -8,7 +8,8 @@
 > 自行改用 JDBC。任何 `INSERT／UPDATE／DELETE` 都必須先以相同條件 `SELECT`，列明 SQL、目標表、
 > WHERE 條件與預計筆數，並就該次異動取得使用者明確同意。不得等待使用者提醒才套用本規範。
 
-日期：2026-07-30  
+日期：2026-07-30；文件同步：2026-09-08（實作紀錄截至 2026-09-07）
+
 適用：台灣、中國大陸  
 狀態：新系統設計與開發唯一規格集
 
@@ -29,6 +30,17 @@ FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 H
 User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一致，Form Rule 全部綁定
 已發布的 Form Version 1。
 
+## BPMN 工作節點分類
+
+FlowMint 的 Task 分為 **User Task** 與 **System Task** 兩大類：
+
+| 類別 | BPMN element | 用途與現況 |
+| --- | --- | --- |
+| User Task | `bpmn:userTask` | 人工簽核、填寫、補件與會簽 |
+| System Task | `bpmn:serviceTask` | 自動化工作；正式 subtype 為 `DATA_ACTION`、`GROOVY` |
+
+Data Action 與 Groovy 是 System Task 的執行子類型。外部 HTTP API 由受信任 IT 人員在 Groovy 腳本中使用標準 Java HTTP Client 呼叫，並於測試環境驗證後發布。Start／End Event、Gateway、Sequence Flow 不屬於 Task。
+
 ## 開發狀態
 
 - 2026-09-07 已直接修改 MariaDB，移除採購／驗收預占與履約狀態回寫；表單、Data Action 與 Hook 已同步調整。`flowmint.sql` 由使用者另行 mysqldump 更新，本次未修改該檔。
@@ -41,9 +53,20 @@ User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一�
 - 共用待辦頁已修正 `REJECT／RETURN` 誤執行完整 Form.io 與 Custom JavaScript `beforeSubmit`
   驗證的問題；目前只有 `APPROVE／RESUBMIT` 會提交並驗證表單資料。相關修正已整理至現行
   Form Version 1，不再保留 Version 2 草稿作為目前狀態。
-- 本機 `flowmint.tb_sys_prog` 的 `FM_PROG010D` Folder 名稱已更新為 `FJ. API-整合服務`；既有 `FM_PROG010D0001` 維持不變，規劃中的外部 API 管理使用 `FM_PROG010D0002`。
+- 外部 API 管理 `FM_PROG010D0002` 與獨立 API 說明頁 `FM_PROG010D0003` 已完成第一版程式與 Program 註冊；Client／Key、認證、唯讀 API、發單及狀態查詢已接線，仍待角色權限配置與真實 HTTP／多帳號 E2E。詳見 [32 外部系統 API 管理與流程拋單規劃](32-外部系統API管理與流程拋單規劃.md)。
+- System／Data Action Task 已完成 Designer、發布與 Runtime MVP，支援固定已發布 Action Version 的 QUERY／COMMAND／TRANSACTION；專屬 attempt／Incident、Form Snapshot、BPMN capability 與實機 E2E 仍待補齊。詳見 [33 System Task 與 Data Action Task 規劃](33-SystemTask與DataActionTask規劃.md)。
+- 本機 `flowmint.tb_sys_prog` 的 `FM_PROG010D` Folder 名稱為 `FJ. API-整合服務`，包含 AI Provider 管理、外部 API 管理及 API 說明入口。
 
 ## 閱讀順序
+
+**System Task 目前第一優先是把 Groovy 改為 FlowMint 主 JVM 直接執行並移除獨立 worker。**
+原 5 項為部署、Groovy 發布接線、真實流程執行、失敗與一致性、Designer／權限驗收；
+System Task 自動執行指定工作，表單寫回為選用能力。周邊治理不再列為交付條件，
+唯一清單與移除項目見 [第 35 章第 39 節](35-SystemTask的Groovy腳本規劃.md#39-2026-09-14-範圍收斂唯一剩餘工作清單)。
+歷史批次待辦不得重新累加；本次刪減 Data Action 無輸出 Mapping 時的不必要表單寫入。
+本機資料庫 schema 已部署，RuntimeReadiness 程式已補上；仍待應用設定、權限與正式流程驗收。
+下次先讀 [18 開發進度最上方接續摘要](18-開發進度.md)，不要重跑已刪除的 migration。
+使用者已自行匯出 flowmint.sql，Agent 不再處理該檔。
 
 1. [新系統總綱](00-新系統總綱.md)
 2. [核心資料模型](01-核心資料模型.md)
@@ -80,6 +103,7 @@ User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一�
 33. [外部系統 API 管理與流程拋單規劃](32-外部系統API管理與流程拋單規劃.md)
 34. [System Task 與 Data Action Task 規劃](33-SystemTask與DataActionTask規劃.md)
 35. [BPMN 流程設計操作說明](34-BPMN流程設計操作說明.md)
+36. [System Task 的 Groovy 腳本規劃](35-SystemTask的Groovy腳本規劃.md)
 
 ## SQL
 

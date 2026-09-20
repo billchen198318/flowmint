@@ -38,7 +38,7 @@ class FmProcessMultiInstanceBpmnTest {
         FmProcessDefLogicServiceImpl service = new FmProcessDefLogicServiceImpl(
                 null, null, null, null, null, policies, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null,
-                mock(FmDataActionTaskPublishValidator.class));
+                mock(FmDataActionTaskPublishValidator.class), null, null, false, null);
         FmProcessVersion version = new FmProcessVersion();
         version.setTenantId("T1");
         version.setProcessDefId("P1");
@@ -94,7 +94,7 @@ class FmProcessMultiInstanceBpmnTest {
         FmProcessDefLogicServiceImpl service = new FmProcessDefLogicServiceImpl(
                 null, null, null, null, null, policies, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null,
-                validator);
+                validator, null, null, false, null);
         FmProcessVersion version = new FmProcessVersion();
         version.setTenantId("T1");
         version.setProcessDefId("P1");

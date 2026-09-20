@@ -57,6 +57,14 @@ import org.qifu.fm.domain.workflow.FmAssignmentRuleConfigValidator;
 import org.qifu.fm.domain.workflow.FmBpmnDesignValidator;
 import org.qifu.fm.domain.workflow.FmProcessPublishValidator;
 import org.qifu.fm.domain.workflow.FmDataActionTaskPublishValidator;
+import org.qifu.fm.domain.workflow.FmGroovyDraftValidator;
+import org.qifu.fm.logic.IFmGroovyPublishCoordinatorLogicService;
+import org.qifu.fm.domain.workflow.FmGroovyPublicationCompiler.VerifiedPublication;
+import org.qifu.fm.domain.workflow.FmGroovyRuntimeBpmn;
+import org.qifu.fm.dto.command.FmGroovyBindingCommand;
+import org.qifu.fm.entity.FmProcessSystemTask;
+import org.qifu.fm.service.IFmProcessSystemTaskService;
+import org.springframework.beans.factory.annotation.Value;
 import org.qifu.fm.logic.IFmProcessDefLogicService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessCategoryService;
@@ -77,6 +85,7 @@ import org.qifu.fm.service.IFmApprovalAuthorityService;
 import org.qifu.fm.service.IFmApprovalAuthorityRuleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 @Service
 @Transactional(readOnly = true)
@@ -116,6 +125,11 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final RepositoryService repositoryService;
     private final FmTenantAccessGuard tenantAccessGuard;
     private final FmDataActionTaskPublishValidator dataActionTaskPublishValidator;
+    private final IFmProcessSystemTaskService processSystemTaskService;
+    private final boolean groovyDraftEnabled;
+    private final org.qifu.fm.domain.workflow.FmGroovyDesignAccess groovyDesignAccess;
+    private final FmGroovyDraftValidator groovyDraftValidator = new FmGroovyDraftValidator();
+    private final IFmGroovyPublishCoordinatorLogicService groovyPublisher;
 
     public FmProcessDefLogicServiceImpl(
             IFmProcessDefService processDefService,
@@ -138,7 +152,11 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmApprovalAuthorityRuleService approvalAuthorityRuleService,
             RepositoryService repositoryService,
             FmTenantAccessGuard tenantAccessGuard,
-            FmDataActionTaskPublishValidator dataActionTaskPublishValidator) {
+            FmDataActionTaskPublishValidator dataActionTaskPublishValidator,
+            IFmProcessSystemTaskService processSystemTaskService,
+            org.qifu.fm.domain.workflow.FmGroovyDesignAccess groovyDesignAccess,
+            @Value("${flowmint.groovy.draft-enabled:false}") boolean groovyDraftEnabled,
+            IFmGroovyPublishCoordinatorLogicService groovyPublisher) {
         this.processDefService = processDefService;
         this.processCategoryService = processCategoryService;
         this.processVersionService = processVersionService;
@@ -160,6 +178,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.repositoryService = repositoryService;
         this.tenantAccessGuard = tenantAccessGuard;
         this.dataActionTaskPublishValidator = dataActionTaskPublishValidator;
+        this.processSystemTaskService = processSystemTaskService;
+        this.groovyDesignAccess = groovyDesignAccess;
+        this.groovyDraftEnabled = groovyDraftEnabled;
+        this.groovyPublisher = groovyPublisher;
     }
 
     @Override
@@ -246,8 +268,24 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         if (StringUtils.isBlank(command.bpmnXml())) {
             throw new ServiceException("BPMN XML 不可空白");
         }
-        validateBpmn(command.bpmnXml(), findDef(version.getTenantId(),
-                version.getProcessDefId()).getProcessKey());
+        bpmnDesignValidator.validateDraft(command.bpmnXml(), findDef(version.getTenantId(),
+                version.getProcessDefId()).getProcessKey(), groovyDraftEnabled);
+        if (!groovyDraftEnabled && command.groovyBindings() != null && !command.groovyBindings().isEmpty()) {
+            throw new ServiceException("Groovy 草稿功能尚未啟用");
+        }
+        if (groovyDraftEnabled) {
+            List<FmProcessSystemTask> bindings = groovyDraftValidator.validate(
+                    version, command.bpmnXml(), command.groovyBindings());
+            if (command.expectedLockVersion() == null || processVersionService.advanceDraftLock(
+                    version.getTenantId(), version.getOid(), command.expectedLockVersion()) != 1) {
+                throw new ServiceException("流程草稿已被修改，請重新載入後再儲存");
+            }
+            if (!bindings.isEmpty() || !groovyBindings(version).isEmpty()) {
+                groovyDesignAccess.require(version.getTenantId());
+            }
+            processSystemTaskService.replaceDraftVersion(version.getTenantId(), version.getProcessDefId(),
+                    version.getVersionNo(), bindings);
+        }
         Set<String> taskKeys = userTaskKeys(command.bpmnXml());
         saveTaskForms(version, command.taskForms(), taskKeys);
         saveTaskPolicies(version, command.taskPolicies(), taskKeys);
@@ -274,6 +312,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             throw new ServiceException("已有草稿版本，請先編輯或發布該版本");
         }
         FmProcessVersion source = versions.get(0);
+        List<FmGroovyBindingCommand> sourceGroovyBindings = groovyBindings(source);
+        if (!sourceGroovyBindings.isEmpty()) {
+            groovyDesignAccess.require(source.getTenantId());
+        }
         int nextVersion = source.getVersionNo() + 1;
         FmProcessVersion version = new FmProcessVersion();
         version.setTenantId(processDef.getTenantId());
@@ -309,6 +351,12 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 .toList();
         startPolicyService.replaceVersion(version.getTenantId(), version.getProcessDefId(),
                 version.getVersionNo(), copiedStartPolicies);
+        if (groovyDraftEnabled) {
+            List<FmProcessSystemTask> bindings = groovyDraftValidator.validate(
+                    version, version.getBpmnXml(), sourceGroovyBindings);
+            processSystemTaskService.replaceDraftVersion(version.getTenantId(), version.getProcessDefId(),
+                    version.getVersionNo(), bindings);
+        }
         processDef.setCurrentVersionNo(nextVersion);
         processDef.setStatus("DRAFT");
         processDefService.update(processDef);
@@ -316,11 +364,55 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     }
 
     @Override
-    @Transactional(readOnly = false, rollbackFor = Exception.class)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public DefaultResult<FmProcessDefView> publish(String versionOid) throws ServiceException {
+        FmProcessVersion snapshot = processVersionService.selectByPrimaryKey(versionOid)
+                .getValueEmptyThrowMessage();
+        tenantAccessGuard.requireAccess(snapshot.getTenantId());
+        List<FmGroovyBindingCommand> bindings = groovyBindings(snapshot);
+        if (bindings.isEmpty()) {
+            return groovyPublisher.transaction(() -> publishInTransaction(versionOid, null));
+        }
+        groovyPublisher.requireAccess(snapshot.getTenantId());
+        Integer lockVersion = processVersionService.findDraftLockVersion(snapshot.getTenantId(), versionOid);
+        if (lockVersion == null || !"DRAFT".equals(snapshot.getVersionStatus())) {
+            throw new ServiceException("GROOVY_PUBLICATION_DRAFT_REQUIRED");
+        }
+        FmProcessDef definition = findDef(snapshot.getTenantId(), snapshot.getProcessDefId());
+        List<FmTaskFormRule> rules = taskFormRules(snapshot);
+        if (rules.isEmpty()) {
+            throw new ServiceException("GROOVY_PUBLICATION_FORM_REQUIRED");
+        }
+        FmTaskFormRule first = rules.getFirst();
+        if (first.getFormId() == null || first.getFormVersionNo() == null || rules.stream().anyMatch(rule ->
+                !snapshot.getTenantId().equals(rule.getTenantId())
+                || !snapshot.getProcessDefId().equals(rule.getProcessDefId())
+                || !snapshot.getVersionNo().equals(rule.getProcessVersionNo())
+                || !first.getFormId().equals(rule.getFormId())
+                || !first.getFormVersionNo().equals(rule.getFormVersionNo()))) {
+            throw new ServiceException("GROOVY_PUBLICATION_FORM_INVALID");
+        }
+        var forms = taskFormRuleService.publishedFormOptions(snapshot.getTenantId()).stream()
+                .filter(form -> first.getFormId().equals(form.formId())
+                        && first.getFormVersionNo().equals(form.formVersionNo())).toList();
+        if (forms.size() != 1) {
+            throw new ServiceException("GROOVY_PUBLICATION_FORM_INVALID");
+        }
+        VerifiedPublication evidence = groovyPublisher.compile(snapshot, definition.getProcessKey(),
+                bindings, forms.getFirst().schemaContent());
+        return groovyPublisher.commit(snapshot.getTenantId(), versionOid, lockVersion, evidence,
+                () -> publishInTransaction(versionOid, evidence));
+    }
+
+    private DefaultResult<FmProcessDefView> publishInTransaction(String versionOid,
+            VerifiedPublication evidence) throws ServiceException {
         FmProcessVersion version = draft(versionOid);
         FmProcessDef processDef = findDef(version.getTenantId(), version.getProcessDefId());
-        validateBpmn(version.getBpmnXml(), processDef.getProcessKey());
+        if (evidence == null) {
+            validateBpmn(version.getBpmnXml(), processDef.getProcessKey());
+        } else {
+            bpmnDesignValidator.validateDraft(version.getBpmnXml(), processDef.getProcessKey(), true);
+        }
         Set<String> taskKeys = userTaskKeys(version.getBpmnXml());
         processPublishValidator.validate(taskKeys, taskFormRules(version),
                 taskPolicies(version), assignmentRules(version));
@@ -331,7 +423,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         validateLevelMatchModesForPublish(version);
         validateApprovalGroupModesForPublish(version);
         validateStartPoliciesForPublish(version);
-        String runtimeBpmnXml = runtimeBpmnXml(version);
+        String runtimeBpmnXml = runtimeBpmnXml(version, evidence);
         String resourceName = processDef.getProcessKey() + "-v" + version.getVersionNo()
                 + ".bpmn20.xml";
         try {
@@ -383,6 +475,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     }
 
     private String runtimeBpmnXml(FmProcessVersion version) throws ServiceException {
+        return runtimeBpmnXml(version, null);
+    }
+
+    private String runtimeBpmnXml(FmProcessVersion version, VerifiedPublication evidence) throws ServiceException {
         try {
             String sourceXml = version.getBpmnXml();
             Map<String, FmTaskPolicy> policies = taskPolicies(version).stream()
@@ -392,8 +488,18 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     .newFactory().createXMLStreamReader(new java.io.StringReader(sourceXml));
             org.flowable.bpmn.converter.BpmnXMLConverter converter =
                     new org.flowable.bpmn.converter.BpmnXMLConverter();
-            org.flowable.bpmn.model.BpmnModel model = converter.convertToBpmnModel(reader);
-            dataActionTaskPublishValidator.validate(version.getTenantId(), model);
+            org.flowable.bpmn.model.BpmnModel model;
+            try {
+                model = evidence == null ? converter.convertToBpmnModel(reader)
+                        : FmGroovyRuntimeBpmn.prepare(sourceXml, evidence);
+            } finally {
+                reader.close();
+            }
+            if (evidence == null) {
+                dataActionTaskPublishValidator.validate(version.getTenantId(), model);
+            } else {
+                dataActionTaskPublishValidator.validateDataActions(version.getTenantId(), model);
+            }
             for (org.flowable.bpmn.model.UserTask userTask
                     : model.getMainProcess().findFlowElementsOfType(
                             org.flowable.bpmn.model.UserTask.class)) {
@@ -427,6 +533,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             for (org.flowable.bpmn.model.ServiceTask serviceTask
                     : model.getMainProcess().findFlowElementsOfType(
                             org.flowable.bpmn.model.ServiceTask.class)) {
+                if (evidence != null && "GROOVY".equals(serviceTask.getAttributeValue(
+                        FmDataActionTaskPublishValidator.FLOWMINT_NAMESPACE, "taskType"))) {
+                    continue;
+                }
                 for (String property : List.of("actionCode", "actionVersion",
                         "requestMapping", "responseMapping")) {
                     org.flowable.bpmn.model.FieldExtension field =
@@ -696,7 +806,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                                 rule.getMaxResults(), rule.getStatus())).toList(),
                         startPolicies(value).stream().map(policy -> new FmProcessStartPolicyView(
                                 policy.getPolicySeq(), policy.getSubjectType(),
-                                policy.getSubjectRefId(), policy.getAllowStart())).toList()))
+                                policy.getSubjectRefId(), policy.getAllowStart())).toList(),
+                        groovyBindings(value),
+                        groovyDraftEnabled ? processVersionService.findLockVersion(value.getTenantId(), value.getOid()) : null,
+                        groovyDraftEnabled))
                 .toList();
         return new FmProcessDefView(processDef.getOid(), processDef.getTenantId(),
                 processDef.getProcessDefId(), processDef.getProcessKey(),
@@ -743,10 +856,29 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         FmProcessVersion version = processVersionService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
         tenantAccessGuard.requireAccess(version.getTenantId());
+        if (groovyDraftEnabled) {
+            if (processVersionService.lockDraft(version.getTenantId(), oid) == null) {
+                throw new ServiceException("流程版本已發布或不存在，請重新載入");
+            }
+            version = processVersionService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+        }
         if (!"DRAFT".equals(version.getVersionStatus())) {
             throw new ServiceException("已發布或已退役版本不可修改");
         }
         return version;
+    }
+
+    private List<FmGroovyBindingCommand> groovyBindings(FmProcessVersion version) {
+        if (!groovyDraftEnabled) {
+            return List.of();
+        }
+        try {
+            List<FmProcessSystemTask> bindings = processSystemTaskService.findVersion(
+                    version.getTenantId(), version.getProcessDefId(), version.getVersionNo());
+            return bindings == null ? List.of() : bindings.stream().map(FmGroovyDraftValidator::command).toList();
+        } catch (ServiceException exception) {
+            throw new IllegalStateException("無法讀取 Groovy 版本設定", exception);
+        }
     }
 
     private List<FmProcessVersion> versions(FmProcessDef processDef) throws ServiceException {

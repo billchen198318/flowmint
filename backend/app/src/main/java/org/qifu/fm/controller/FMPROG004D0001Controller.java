@@ -132,7 +132,22 @@ public class FMPROG004D0001Controller extends CoreApiSupport {
     @PostMapping("/version/save-draft")
     public ResponseEntity<DefaultControllerJsonResultObj<FmProcessDefView>> saveDraft(
             @RequestBody FmProcessVersionCommand command) {
-        return result(() -> processDefLogicService.saveDraft(command));
+        DefaultControllerJsonResultObj<FmProcessDefView> result = initDefaultJsonResult();
+        try {
+            getCheckControllerFieldHandler(result)
+                    .testField("oid", command, "@org.apache.commons.lang3.StringUtils@isBlank(oid)",
+                            "請選擇流程版本")
+                    .testField("bpmnXml", command, "@org.apache.commons.lang3.StringUtils@isBlank(bpmnXml)",
+                            "BPMN XML 不可空白")
+                    .testField("expectedLockVersion", command,
+                            "groovyBindings != null && !groovyBindings.isEmpty() && expectedLockVersion == null",
+                            "Groovy 草稿缺少版本鎖，請重新載入")
+                    .throwHtmlMessage();
+            setDefaultResponseJsonResult(processDefLogicService.saveDraft(command), result);
+        } catch (Exception exception) {
+            exceptionResult(result, exception);
+        }
+        return ResponseEntity.ok(result);
     }
 
     @ControllerMethodAuthority(programId = "FM_PROG004D0001U", check = true)

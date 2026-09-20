@@ -1,3 +1,9 @@
+import {
+  groovyExample,
+  groovyExampleContract,
+  groovyGuide,
+} from "../bpmn/groovyContract";
+
 export interface BpmnGuideSection {
   id: string;
   title: string;
@@ -9,6 +15,27 @@ export interface BpmnGuideSection {
 }
 
 export const bpmnDesignerGuide: BpmnGuideSection[] = [
+  {
+    id: "groovy-editor",
+    title: "System Task：Groovy Editor",
+    intro:
+      "Groovy 功能預設關閉；完成資料表、worker、服務開關及專用權限配置後，才能編輯、檢查、試跑與正式發布。",
+    steps: [
+      "啟用草稿功能後，在 DRAFT 流程從 Palette 新增 Groovy System Task；選取節點，在右側按「編輯腳本」開啟大型 Dialog。",
+      "Editor 使用 CodeMirror Groovy 上色、行號、縮排、括號配對、搜尋／取代、折疊與 input.／context. 提示。可切換全螢幕或收合變數區。",
+      "從唯一表單 Schema 選取欄位、指定輸入別名並加入 Mapping；Grid／物件須補齊子欄位 Schema。系統變數由 context 唯讀提供。",
+      "撰寫 return object，設定輸出 Schema 與 FORM_DATA Mapping。範例僅供複製，不會直接覆蓋腳本或執行。",
+      "按「教學說明」Tab 查看詳細操作與範例；返回 Editor 保留內容、游標及捲動位置。",
+      "按「套用至節點」更新畫面草稿，再按流程頁「儲存」保存 XML 與版本腳本。取消或關閉會確認是否放棄未套用修改。",
+      "使用「匯出完整版本」保存 BPMN、Groovy 腳本及簽核配置；「匯入版本檔」只接受同 Tenant、同流程，確認後取代目前草稿，仍須按儲存。單獨 XML 無法還原脚本。",
+      "檢查使用目前編輯副本，試跑另使用人工 JSON；不儲存、不讀正式單據、不套用輸出 Mapping。服務預設關閉，須完成服務啟用與權限配置。點選診斷可定位行／欄，修改內容或關閉視窗後舊結果失效；已發布版本唯讀，發布時後端會重新編譯並固定版本內容。",
+    ],
+    notes: groovyGuide.map((section) => `${section.title}：${section.text}`),
+    examples: [
+      { title: "明細金額計算", code: groovyExample },
+      { title: "輸入／輸出與測試 JSON", code: groovyExampleContract },
+    ],
+  },
   {
     id: "quick-start",
     title: "從零建立流程",
@@ -24,6 +51,8 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       "確認每條分支、補件回路及結束點後，按「發布草稿」。發布成功後，到 Workspace 使用真實帳號驗證起單與各關簽核。",
     ],
     notes: [
+      "FlowMint 的工作節點分為 User Task（人工處理）與 System Task（自動執行）兩大類。Data Action Task 是 System Task 子類型；Start／End Event、Gateway 與 Sequence Flow 不屬於 Task。",
+      "Groovy 是 System Task 子類型，功能預設關閉；編輯、試跑及發布須先完成部署、服務啟用與專用權限配置。詳細操作見 System Task：Groovy Editor 主題。",
       "本指南說明 FlowMint 現行支援範圍。工具列可畫出的標準 BPMN 元件，不一定能在 FlowMint 發布。",
       "說明視窗可在草稿與已發布版本開啟；閱讀說明不會儲存或修改流程。",
     ],
@@ -373,9 +402,9 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
   },
   {
     id: "service-task",
-    title: "Service Task／Data Action Task",
+    title: "System Task：Data Action 自動工作",
     intro:
-      "FlowMint 的 System Task 目前只有 DATA_ACTION 類型，用來執行已發布的受控資料服務。它自動執行，不會產生供使用者簽核的待辦。",
+      "System Task 是 FlowMint 的自動化工作類別，底層使用 BPMN Service Task。本主題說明 DATA_ACTION：執行已發布的受控資料服務，不會產生供使用者簽核的待辦；另一種 GROOVY 請見專屬主題。",
     steps: [
       "先在 Data Action 管理完成並發布所需 QUERY、COMMAND 或 TRANSACTION，確認 Request Schema 與回傳欄位。",
       "從 BPMN 專用 Palette 建立 Data Action Task，連接前後節點，再點選節點開啟屬性面板。不要使用未配置的普通 Service Task。",
@@ -390,7 +419,7 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       ],
       [
         "FORM_DATA.path",
-        "讀取目前已保存的表單值。可使用物件 dot path；不支援陣列索引、萬用字元或計算式。",
+        "讀取流程目前持有的表單資料 flowmintFormData，不會在每次取值時重新查詢資料庫。可使用物件 dot path；不支援陣列索引、萬用字元或計算式。",
       ],
       [
         "PROCESS_CONTEXT.name",
@@ -432,6 +461,8 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       },
     ],
     notes: [
+      "Groovy 同屬 System Task；功能預設關閉，部署、服務啟用與專用權限配置後的操作見 Groovy Editor 主題。原生 BPMN Script Task 仍禁止。",
+      "不需寫回的結果不要列入 Response Mapping。PREVIOUS_RESULT、PROCESS_VARIABLE 與顯式 DISCARD 不是目前節點 Mapping 支援的來源或目標；Data Action 內部 Step 的結果引用請在 Data Action 設計器配置。",
       "目前為 Runtime MVP：尚未提供節點 timeout 設定、System Task 專屬執行紀錄／Incident、表單快照及完整維運能力，真實流程 E2E 仍待完成。正式異動流程需先完成環境驗證。",
       "不可在節點貼入 SQL、URL、密碼、Java class、delegate expression 或 Script。這裡也不使用表單的 ctx.executeDataAction() method。",
     ],
