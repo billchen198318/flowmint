@@ -51,10 +51,13 @@ public class FmDataActionTaskDelegate implements JavaDelegate {
             FmDataActionExecutionView result = actionLogicService.execute(
                     tenantId, actionCode, actionVersion, request, actor)
                     .getValueEmptyThrowMessage();
-            applyResponse(task, formData, result.data());
-            execution.setVariable(FmTaskAssignmentListener.VARIABLE_FORM_DATA, formData);
-            persistFormData(tenantId, requiredVariable(execution,
-                    FmTaskAssignmentListener.VARIABLE_FORM_DATA_ID), formData);
+            Map<String, String> responseMapping = mapping(task, "responseMapping");
+            if (!responseMapping.isEmpty()) {
+                applyResponse(responseMapping, formData, result.data());
+                execution.setVariable(FmTaskAssignmentListener.VARIABLE_FORM_DATA, formData);
+                persistFormData(tenantId, requiredVariable(execution,
+                        FmTaskAssignmentListener.VARIABLE_FORM_DATA_ID), formData);
+            }
         } catch (Exception exception) {
             throw new IllegalStateException("FlowMint Data Action Task 執行失敗："
                     + exception.getMessage(), exception);
@@ -83,10 +86,10 @@ public class FmDataActionTaskDelegate implements JavaDelegate {
         return request;
     }
 
-    private void applyResponse(ServiceTask task, Map<String, Object> formData,
+    private void applyResponse(Map<String, String> responseMapping, Map<String, Object> formData,
             Map<String, Object> result) throws Exception {
         for (Map.Entry<String, String> entry
-                : mapping(task, "responseMapping").entrySet()) {
+                : responseMapping.entrySet()) {
             String target = entry.getValue();
             if (!target.startsWith("FORM_DATA.")) {
                 throw new ServiceException("不支援的 Response Mapping：" + target);

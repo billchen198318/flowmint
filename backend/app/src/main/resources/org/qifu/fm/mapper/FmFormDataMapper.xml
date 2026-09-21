@@ -280,4 +280,11 @@
       AND FORM_DATA_ID = #{formDataId,jdbcType=VARCHAR}
     FOR UPDATE
   </select>
+  <select id="lockStateByFormDataId" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT TENANT_ID, FORM_DATA_ID, REVISION_NO, LOCK_VERSION, DATA_CONTENT, DATA_STATUS
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND FORM_DATA_ID = #{formDataId,jdbcType=VARCHAR}
+    FOR UPDATE
+  </select>
 </mapper>

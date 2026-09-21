@@ -14,6 +14,8 @@ import java.util.List;
 @Mapper
 public interface FmProcessInstanceMapper extends IBaseMapper<FmProcessInstance, String> {
 
+	public FmProcessInstance lockInstance(Map<String, Object> paramMap);
+
     int updateStatus(Map<String, Object> parameters);
 
     FmOperationsProcessSummary selectOperationsSummary(Map<String, Object> parameters);

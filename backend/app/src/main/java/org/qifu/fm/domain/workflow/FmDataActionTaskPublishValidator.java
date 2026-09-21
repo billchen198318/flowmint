@@ -47,7 +47,9 @@ public class FmDataActionTaskPublishValidator {
     public void validate(String tenantId, BpmnModel model) throws ServiceException {
         for (ServiceTask task : model.getMainProcess()
                 .findFlowElementsOfType(ServiceTask.class)) {
-            validate(tenantId, task);
+            if ("DATA_ACTION".equals(task.getAttributeValue(FLOWMINT_NAMESPACE, "taskType"))) {
+                validate(tenantId, task);
+            }
         }
     }
 
@@ -87,6 +89,19 @@ public class FmDataActionTaskPublishValidator {
                     + actionCode + " v" + actionVersion);
         }
         validateMappings(task, action, actionVersion);
+    }
+
+    /** Used only after the publisher has verified and prepared the Groovy bindings. */
+    public void validateDataActions(String tenantId, BpmnModel model) throws ServiceException {
+        for (ServiceTask task : model.getMainProcess().findFlowElementsOfType(ServiceTask.class)) {
+            String type = task.getAttributeValue(FLOWMINT_NAMESPACE, "taskType");
+            if ("DATA_ACTION".equals(type)) {
+                validate(tenantId, task);
+            } else if (!"GROOVY".equals(type)
+                    || !"${fmGroovyTaskDelegate}".equals(task.getImplementation())) {
+                throw new ServiceException("GROOVY_RUNTIME_BPMN_INVALID");
+            }
+        }
     }
 
     private void validateMappings(ServiceTask task, FmDataAction action,

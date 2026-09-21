@@ -43,6 +43,7 @@ import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
+import org.qifu.fm.logic.IFmGroovyCancellationLogicService;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmFormDataService;
@@ -62,6 +63,7 @@ public class FmIncidentOperationsLogicServiceImpl
         implements IFmIncidentOperationsLogicService {
 
     private final TaskService taskService;
+    private final IFmGroovyCancellationLogicService groovyCancellation;
     private final RuntimeService runtimeService;
     private final FmAssignmentIncidentRecorder incidentRecorder;
     private final IFmEmployeeService employeeService;
@@ -94,7 +96,8 @@ public class FmIncidentOperationsLogicServiceImpl
             FmParallelAddSignLifecycleService parallelAddSignLifecycleService,
             IFmTaskParallelAddSignService parallelBatchService,
             IFmTaskParallelAddSignMemberService parallelMemberService,
-            FmNotificationPublisher notificationPublisher) {
+            FmNotificationPublisher notificationPublisher, IFmGroovyCancellationLogicService groovyCancellation) {
+        this.groovyCancellation = groovyCancellation;
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.incidentRecorder = incidentRecorder;
@@ -348,6 +351,7 @@ public class FmIncidentOperationsLogicServiceImpl
                 now, actor)) {
             throw new ServiceException("流程已被其他操作處理");
         }
+        groovyCancellation.cancelForProcess(tenantId, process.getProcessInstanceId());
         formData.setDataStatus("CANCELLED");
         formData.setUuserid(actor);
         formData.setUdate(now);

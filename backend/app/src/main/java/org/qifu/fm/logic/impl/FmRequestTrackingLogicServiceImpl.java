@@ -38,6 +38,7 @@ import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.logic.IFmRequestTrackingLogicService;
+import org.qifu.fm.logic.IFmGroovyCancellationLogicService;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
 import org.qifu.fm.service.IFmFormDataService;
@@ -63,6 +64,7 @@ public class FmRequestTrackingLogicServiceImpl
         implements IFmRequestTrackingLogicService {
 
     private final TaskService taskService;
+    private final IFmGroovyCancellationLogicService groovyCancellation;
     private final RuntimeService runtimeService;
     private final HistoryService historyService;
     private final IFmTenantAccountService tenantAccountService;
@@ -99,7 +101,8 @@ public class FmRequestTrackingLogicServiceImpl
             FmNotificationPublisher notificationPublisher,
             FmParallelAddSignLifecycleService parallelAddSignLifecycleService,
             IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper, IFmGroovyCancellationLogicService groovyCancellation) {
+        this.groovyCancellation = groovyCancellation;
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.historyService = historyService;
@@ -245,7 +248,7 @@ public class FmRequestTrackingLogicServiceImpl
     }
 
     @Override
-    @Transactional(readOnly = false)
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
     public DefaultResult<FmTaskActionResultView> withdraw(
             String tenantId, String processInstanceId, String reason)
             throws ServiceException {
@@ -254,7 +257,7 @@ public class FmRequestTrackingLogicServiceImpl
     }
 
     @Override
-    @Transactional(readOnly = false)
+    @Transactional(readOnly = false, rollbackFor = Exception.class)
     public DefaultResult<FmTaskActionResultView> cancel(
             String tenantId, String processInstanceId, String reason)
             throws ServiceException {
@@ -308,6 +311,7 @@ public class FmRequestTrackingLogicServiceImpl
                 now, account)) {
             throw new ServiceException("流程狀態已變更，請重新整理後再試");
         }
+        groovyCancellation.cancelForProcess(tenantId, processInstanceId);
         formData.setDataStatus("CANCELLED");
         formData.setUuserid(account);
         formData.setUdate(now);

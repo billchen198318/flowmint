@@ -1,0 +1,160 @@
+[
+{
+    "name": "decimal preserves precision",
+    "schema": {
+      "type": "number",
+      "minimum": 9007199254740993.01,
+      "maximum": 9007199254740993.01
+    },
+    "schemaValid": true,
+    "value": 9007199254740993.01,
+    "valueValid": true
+  },
+  {
+    "name": "numeric strings are rejected",
+    "schema": { "type": "number" },
+    "schemaValid": true,
+    "value": "12.50",
+    "valueValid": false
+  },
+  {
+    "name": "nullable array",
+    "schema": { "type": ["array", "null"], "items": { "type": "integer" } },
+    "schemaValid": true,
+    "value": null,
+    "valueValid": true
+  },
+  {
+    "name": "fractional integer rejected",
+    "schema": { "type": "array", "items": { "type": "integer" } },
+    "schemaValid": true,
+    "value": [1, 2.5],
+    "valueValid": false
+  },
+  {
+    "name": "required property",
+    "schema": {
+      "type": "object",
+      "properties": { "amount": { "type": "number" } },
+      "required": ["amount"]
+    },
+    "schemaValid": true,
+    "value": {},
+    "valueValid": false
+  },
+  {
+    "name": "unknown property rejected",
+    "schema": { "type": "object" },
+    "schemaValid": true,
+    "value": { "tenantId": "other" },
+    "valueValid": false
+  },
+  {
+    "name": "nested enum numeric equality",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "values": { "type": "array", "items": { "type": "number" } }
+      },
+      "enum": [{ "values": [1.0, 2.0] }]
+    },
+    "schemaValid": true,
+    "value": { "values": [1, 2] },
+    "valueValid": true
+  },
+  {
+    "name": "nested enum mismatch",
+    "schema": {
+      "type": "array",
+      "items": { "type": "number" },
+      "enum": [[1, 2]]
+    },
+    "schemaValid": true,
+    "value": [2, 1],
+    "valueValid": false
+  },
+  {
+    "name": "unicode code point length",
+    "schema": { "type": "string", "minLength": 1, "maxLength": 1 },
+    "schemaValid": true,
+    "value": "😀",
+    "valueValid": true
+  },
+  {
+    "name": "array limit",
+    "schema": {
+      "type": "array",
+      "items": { "type": "boolean" },
+      "maxItems": 1
+    },
+    "schemaValid": true,
+    "value": [true, false],
+    "valueValid": false
+  },
+  {
+    "name": "empty required",
+    "schema": { "type": "object", "required": [] },
+    "schemaValid": true,
+    "value": {},
+    "valueValid": true
+  },
+  {
+    "name": "duplicate required",
+    "schema": {
+      "type": "object",
+      "properties": { "amount": { "type": "number" } },
+      "required": ["amount", "amount"]
+    },
+    "schemaValid": false
+  },
+  {
+    "name": "duplicate types",
+    "schema": { "type": ["string", "string"] },
+    "schemaValid": false
+  },
+  {
+    "name": "missing type",
+    "schema": {},
+    "schemaValid": false
+  },
+  {
+    "name": "unknown type",
+    "schema": { "type": "date" },
+    "schemaValid": false
+  },
+  {
+    "name": "no remote references",
+    "schema": { "type": "object", "$ref": "https://example.invalid/schema" },
+    "schemaValid": false
+  },
+  {
+    "name": "additional properties must be false",
+    "schema": { "type": "object", "additionalProperties": "false" },
+    "schemaValid": false
+  },
+  {
+    "name": "array requires items",
+    "schema": { "type": ["array", "null"] },
+    "schemaValid": false
+  },
+  {
+    "name": "required must reference declaration",
+    "schema": { "type": "object", "required": ["missing"] },
+    "schemaValid": false
+  },
+  {
+    "name": "fractional count rejected",
+    "schema": { "type": "string", "maxLength": 1.5 },
+    "schemaValid": false
+  },
+  {
+    "name": "inverted bounds rejected",
+    "schema": { "type": "number", "minimum": 2, "maximum": 1 },
+    "schemaValid": false
+  },
+  {
+    "name": "invalid nested schema",
+    "schema": { "type": "object", "properties": { "amount": true } },
+    "schemaValid": false
+  }
+]

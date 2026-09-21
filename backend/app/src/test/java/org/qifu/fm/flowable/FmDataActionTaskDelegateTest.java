@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -25,6 +27,36 @@ import tools.jackson.databind.ObjectMapper;
 import tools.jackson.core.type.TypeReference;
 
 class FmDataActionTaskDelegateTest {
+
+    @Test
+    void executesWithoutFormWriteWhenNoResponseMappingIsConfigured() throws Exception {
+        for (String responseMapping : new String[] {null, "", "{}"}) {
+            IFmDataActionLogicService actions = mock(IFmDataActionLogicService.class);
+            IFmFormDataService formDataService = mock(IFmFormDataService.class);
+            DelegateExecution execution = mock(DelegateExecution.class);
+            ServiceTask task = mock(ServiceTask.class);
+            when(execution.getCurrentFlowElement()).thenReturn(task);
+            when(execution.getVariable(FmTaskAssignmentListener.VARIABLE_TENANT_ID)).thenReturn("T1");
+            when(execution.getVariable(FmTaskAssignmentListener.VARIABLE_INITIATOR_ACCOUNT))
+                    .thenReturn("applicant");
+            when(task.getAttributeValue(FmDataActionTaskPublishValidator.FLOWMINT_NAMESPACE,
+                    "actionCode")).thenReturn("DO_WORK");
+            when(task.getAttributeValue(FmDataActionTaskPublishValidator.FLOWMINT_NAMESPACE,
+                    "actionVersion")).thenReturn("1");
+            when(task.getAttributeValue(FmDataActionTaskPublishValidator.FLOWMINT_NAMESPACE,
+                    "responseMapping")).thenReturn(responseMapping);
+            DefaultResult<FmDataActionExecutionView> result = new DefaultResult<>();
+            result.setValue(new FmDataActionExecutionView("EX1", "DO_WORK", 1, false, Map.of()));
+            when(actions.execute("T1", "DO_WORK", 1, Map.of(), "applicant")).thenReturn(result);
+
+            new FmDataActionTaskDelegate(actions, formDataService, new ObjectMapper()).execute(execution);
+
+            verify(actions).execute("T1", "DO_WORK", 1, Map.of(), "applicant");
+            verifyNoInteractions(formDataService);
+            verify(execution, never()).getVariable(FmTaskAssignmentListener.VARIABLE_FORM_DATA_ID);
+            verify(execution, never()).setVariable(eq(FmTaskAssignmentListener.VARIABLE_FORM_DATA), any());
+        }
+    }
 
     @Test
     void mapsRequestExecutesFixedVersionAndPersistsResponse() throws Exception {

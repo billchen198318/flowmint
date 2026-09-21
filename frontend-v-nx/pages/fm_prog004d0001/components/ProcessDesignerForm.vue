@@ -11,6 +11,21 @@ import Toolbar from "@/components/Toolbar.vue";
 import ApprovalAuthorityPanel from "./ApprovalAuthorityPanel.vue";
 import SequenceFlowConditionPanel from "./SequenceFlowConditionPanel.vue";
 import DataActionTaskPanel from "./DataActionTaskPanel.vue";
+import GroovyTaskPanel from "./GroovyTaskPanel.vue";
+import type { GroovyBinding } from "../bpmn/groovyContract";
+import {
+  previewBindings,
+  type PrepareGroovyPreview,
+} from "../bpmn/groovyPreview";
+import {
+  MAX_PROCESS_BUNDLE_BYTES,
+  createProcessVersionBundle,
+  parseProcessVersionBundle,
+  serializeProcessVersionBundle,
+  stageProcessBundleModeler,
+  validateProcessBundleDiagram,
+  type ProcessVersionBundle,
+} from "../bpmn/processVersionBundle";
 import BpmnDesignerHelp from "./BpmnDesignerHelp.vue";
 import flowmintBpmnModule from "../bpmn/FlowmintPaletteProvider";
 import flowmintModdle from "../bpmn/flowmint-moddle.json";
@@ -43,6 +58,9 @@ const categoryEditor = ref<any>({});
 const checkFields = ref<Record<string, string>>({});
 const canvas = ref<HTMLElement | null>(null);
 const selectedVersion = ref<any>(null);
+const bundleFileInput = ref<HTMLInputElement | null>(null);
+const bundleBusy = ref(false);
+const importedBundlePending = ref(false);
 const publishedForms = ref<any[]>([]);
 const selectedElement = ref<any>(null);
 const selectedTask = ref<any>(null);
@@ -55,7 +73,9 @@ const openSelectedHelp = () => {
     type === "bpmn:UserTask"
       ? "user-task"
       : type === "bpmn:ServiceTask"
-        ? "service-task"
+        ? selectedElement.value?.businessObject?.taskType === "GROOVY"
+          ? "groovy-editor"
+          : "service-task"
         : type === "bpmn:SequenceFlow"
           ? "conditions"
           : type?.endsWith("Gateway")
@@ -350,6 +370,21 @@ const conditionSchemaContent = computed(() => {
     .map(([, component]) => component);
   return JSON.stringify({ display: "form", components: common });
 });
+const groovySchemaContent = computed(() => {
+  const forms = selectedVersion.value?.taskForms || [];
+  const keys = new Set(
+    forms.map((binding: any) => `${binding.formId}:${binding.formVersionNo}`),
+  );
+  if (keys.size !== 1) return "";
+  const binding = forms[0];
+  return (
+    publishedForms.value.find(
+      (item: any) =>
+        item.formId === binding.formId &&
+        item.formVersionNo === binding.formVersionNo,
+    )?.schemaContent || ""
+  );
+});
 const loadPublishedForms = async () => {
   if (!form.value.tenantId) return;
   const response = await post("/published-form-options", {
@@ -448,7 +483,7 @@ const bindModelerEvents = () => {
     selectedTask.value = is(element, "bpmn:UserTask") ? element : null;
     selectedSystemTask.value =
       is(element, "bpmn:ServiceTask") &&
-      element?.businessObject?.taskType === "DATA_ACTION"
+      ["DATA_ACTION", "GROOVY"].includes(element?.businessObject?.taskType)
         ? element
         : null;
     selectedFlow.value = is(element, "bpmn:SequenceFlow") ? element : null;
@@ -618,6 +653,7 @@ const ensureSequenceFlowLabels = () => {
   }
 };
 const openVersion = async (version: any) => {
+  importedBundlePending.value = false;
   selectedVersion.value = version;
   selectedElement.value = null;
   selectedTask.value = null;
@@ -629,11 +665,28 @@ const openVersion = async (version: any) => {
       container: canvas.value,
       additionalModules: [flowmintBpmnModule],
       moddleExtensions: { flowmint: flowmintModdle },
+      flowmint: {
+        groovyAvailable: () =>
+          !!selectedVersion.value?.groovyDraftEnabled &&
+          selectedVersion.value?.versionStatus === "DRAFT",
+      },
     });
     bindModelerEvents();
   }
   if (modeler && version?.bpmnXml) {
     await modeler.importXML(version.bpmnXml);
+    for (const binding of version.groovyBindings || []) {
+      const element = modeler.get("elementRegistry").get(binding.nodeId);
+      if (
+        element?.businessObject?.taskType === "GROOVY" &&
+        element.businessObject.bindingId === binding.bindingId
+      ) {
+        element.businessObject.$groovyBinding = JSON.parse(
+          JSON.stringify(binding),
+        );
+      }
+    }
+    modeler.get("palette")._update();
     ensureSequenceFlowLabels();
     modeler.get("canvas").zoom("fit-viewport");
   }
@@ -689,6 +742,196 @@ const validate = () => {
   }
   return true;
 };
+const currentGroovyBindings = (): GroovyBinding[] => {
+  if (!modeler) return [];
+  return modeler
+    .get("elementRegistry")
+    .filter(
+      (element: any) =>
+        element.businessObject?.$type === "bpmn:ServiceTask" &&
+        element.businessObject?.taskType === "GROOVY" &&
+        !element.labelTarget,
+    )
+    .map((element: any) => {
+      const binding = element.businessObject.$groovyBinding;
+      if (!binding)
+        throw new Error(
+          `Groovy 節點 ${element.id} 缺少腳本，請載入完整流程版本；不可只匯入 XML。`,
+        );
+      return JSON.parse(JSON.stringify({ ...binding, nodeId: element.id }));
+    });
+};
+const prepareGroovyPreview: PrepareGroovyPreview = async (
+  binding,
+  sampleInput,
+) => {
+  const version = selectedVersion.value;
+  const designer = modeler;
+  if (
+    !designer ||
+    version?.versionStatus !== "DRAFT" ||
+    !version.groovyDraftEnabled ||
+    !Number.isInteger(version.lockVersion)
+  )
+    throw new Error("請先載入已儲存的 Groovy 流程草稿。");
+  const lockVersion = version.lockVersion;
+  const groovyBindings = previewBindings(currentGroovyBindings(), binding);
+  const { xml } = await designer.saveXML({ format: true });
+  if (
+    designer !== modeler ||
+    version !== selectedVersion.value ||
+    lockVersion !== version.lockVersion
+  )
+    throw new Error("流程版本已變更，請重新開啟編輯器。");
+  return {
+    oid: version.oid,
+    expectedLockVersion: lockVersion,
+    bpmnXml: xml,
+    groovyBindings,
+    nodeId: binding.nodeId,
+    sampleInput,
+  };
+};
+const versionSnapshot = async () => ({
+  ...selectedVersion.value,
+  bpmnXml: (await modeler.saveXML({ format: true })).xml,
+  taskForms: currentTaskForms(),
+  taskPolicies: currentTaskPolicies(),
+  assignmentRules: currentAssignmentRules(),
+  startPolicies: selectedVersion.value.startPolicies || [],
+  groovyBindings: currentGroovyBindings(),
+});
+const exportVersionBundle = async () => {
+  if (!selectedVersion.value || !modeler || bundleBusy.value) return;
+  bundleBusy.value = true;
+  try {
+    const snapshot =
+      selectedVersion.value.versionStatus === "DRAFT"
+        ? await versionSnapshot()
+        : selectedVersion.value;
+    const bundle = createProcessVersionBundle(
+      form.value.tenantId,
+      form.value.processKey,
+      snapshot,
+    );
+    await validateProcessBundleDiagram(bundle, modeler.get("moddle"), true);
+    const url = URL.createObjectURL(
+      new Blob([serializeProcessVersionBundle(bundle)], {
+        type: "application/json",
+      }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${form.value.processKey}-v${snapshot.versionNo}.flowmint.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast.success("已匯出完整流程版本檔");
+  } catch (error: any) {
+    toast.warning(escapeQifuHtmlMsg(error?.message || "匯出流程版本失敗"));
+  } finally {
+    bundleBusy.value = false;
+  }
+};
+const importVersionBundle = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  const target = selectedVersion.value;
+  if (
+    !file ||
+    !modeler ||
+    bundleBusy.value ||
+    target?.versionStatus !== "DRAFT"
+  )
+    return;
+  bundleBusy.value = true;
+  try {
+    if (file.size > MAX_PROCESS_BUNDLE_BYTES)
+      throw new Error("流程版本檔最多 16 MiB");
+    const bundle = parseProcessVersionBundle(
+      await file.text(),
+      form.value.tenantId,
+      form.value.processKey,
+    );
+    await validateProcessBundleDiagram(
+      bundle,
+      modeler.get("moddle"),
+      !!target.groovyDraftEnabled,
+    );
+    if (selectedVersion.value !== target)
+      throw new Error("目前版本已切換，請重新選擇匯入檔案");
+    await confirmFire(
+      "匯入將取代目前草稿的圖形、腳本與簽核配置，並清除圖形復原紀錄；仍須儲存才會寫入。確定匯入？",
+      () => applyVersionBundle(bundle, target),
+      null,
+    );
+  } catch (error: any) {
+    toast.warning(escapeQifuHtmlMsg(error?.message || "匯入流程版本失敗"));
+  } finally {
+    bundleBusy.value = false;
+  }
+};
+const applyVersionBundle = async (
+  bundle: ProcessVersionBundle,
+  target: any,
+) => {
+  if (
+    selectedVersion.value !== target ||
+    target.versionStatus !== "DRAFT" ||
+    !canvas.value
+  )
+    throw new Error("目前草稿已切換，請重新匯入");
+  // Render to a separate modeler so a rendering failure preserves the current editor and undo stack.
+  let staged: any = null;
+  const createStagedModeler = () =>
+    new BpmnModeler({
+      container: document.createElement("div"),
+      additionalModules: [flowmintBpmnModule],
+      moddleExtensions: { flowmint: flowmintModdle },
+      flowmint: {
+        groovyAvailable: () =>
+          !!selectedVersion.value?.groovyDraftEnabled &&
+          selectedVersion.value?.versionStatus === "DRAFT",
+      },
+    } as any);
+  let installed = false;
+  showLoading();
+  try {
+    staged = await stageProcessBundleModeler(bundle, createStagedModeler);
+    if (
+      selectedVersion.value !== target ||
+      target.versionStatus !== "DRAFT" ||
+      !canvas.value
+    )
+      throw new Error("目前草稿已切換，請重新匯入");
+    staged.attachTo(canvas.value);
+    const previous = modeler;
+    modeler = staged;
+    installed = true;
+    Object.assign(target, {
+      bpmnXml: bundle.bpmnXml,
+      taskForms: bundle.taskForms,
+      taskPolicies: bundle.taskPolicies,
+      assignmentRules: bundle.assignmentRules,
+      startPolicies: bundle.startPolicies,
+      groovyBindings: bundle.groovyBindings,
+    });
+    selectedElement.value = null;
+    selectedTask.value = null;
+    selectedSystemTask.value = null;
+    selectedFlow.value = null;
+    bindModelerEvents();
+    previous.destroy();
+    modeler.get("canvas").zoom("fit-viewport");
+    importedBundlePending.value = true;
+    toast.success("已匯入至畫面草稿，請按儲存草稿完成保存");
+  } finally {
+    if (!installed) staged?.destroy();
+    hideLoading();
+  }
+};
 const save = async () => {
   if (!validate() || !validateSequenceFlows()) return;
   showLoading();
@@ -699,6 +942,8 @@ const save = async () => {
         : "";
     const draftXml =
       draftOid && modeler ? (await modeler.saveXML({ format: true })).xml : "";
+    const draftGroovyBindings = draftOid ? currentGroovyBindings() : [];
+    const expectedLockVersion = selectedVersion.value?.lockVersion;
     const draftTaskForms = draftOid ? currentTaskForms() : [];
     const draftTaskPolicies = draftOid ? currentTaskPolicies() : [];
     const draftAssignmentRules = draftOid ? currentAssignmentRules() : [];
@@ -714,7 +959,6 @@ const save = async () => {
       );
       return;
     }
-    await apply(response.data.value);
     if (draftOid && draftXml) {
       response = await post("/version/save-draft", {
         oid: draftOid,
@@ -723,8 +967,13 @@ const save = async () => {
         taskPolicies: draftTaskPolicies,
         assignmentRules: draftAssignmentRules,
         startPolicies: draftStartPolicies,
+        groovyBindings: draftGroovyBindings,
+        expectedLockVersion,
       });
+      checkFields.value = response.data?.checkFields || {};
       if (showResponse(response)) await apply(response.data.value);
+    } else {
+      await apply(response.data.value);
     }
   } catch (error: any) {
     toast.error(error?.message || "儲存流程失敗");
@@ -755,11 +1004,18 @@ const publish = async () => {
       taskPolicies: currentTaskPolicies(),
       assignmentRules: currentAssignmentRules(),
       startPolicies: selectedVersion.value.startPolicies || [],
+      groovyBindings: currentGroovyBindings(),
+      expectedLockVersion: selectedVersion.value.lockVersion,
     });
     if (!responseOk(response)) {
       showResponse(response);
       return;
     }
+    const savedVersion = response.data?.value?.versions?.find(
+      (version: any) => version.oid === selectedVersion.value.oid,
+    );
+    if (savedVersion)
+      selectedVersion.value.lockVersion = savedVersion.lockVersion;
     response = await post("/version/publish", {
       oid: selectedVersion.value.oid,
     });
@@ -1114,6 +1370,42 @@ onBeforeUnmount(() => modeler?.destroy());
           v{{ version.versionNo }}・{{ version.versionStatus }}
         </button>
       </div>
+      <div
+        v-if="selectedVersion"
+        class="d-flex flex-wrap align-items-center gap-2 mb-3"
+      >
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          :disabled="bundleBusy"
+          @click="exportVersionBundle"
+        >
+          匯出完整版本
+        </button>
+        <button
+          v-if="selectedVersion.versionStatus === 'DRAFT'"
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          :disabled="bundleBusy"
+          @click="bundleFileInput?.click()"
+        >
+          匯入版本檔
+        </button>
+        <input
+          ref="bundleFileInput"
+          type="file"
+          accept=".json,application/json"
+          class="d-none"
+          @change="importVersionBundle"
+        />
+        <span v-if="importedBundlePending" class="badge text-bg-warning"
+          >已匯入，尚未儲存</span
+        >
+        <small class="text-secondary"
+          >包含 BPMN、Groovy 腳本與簽核配置；表單及 Data Action
+          仍引用既有版本。</small
+        >
+      </div>
       <div class="row g-3">
         <div class="col-lg-9">
           <div class="position-relative border rounded">
@@ -1135,7 +1427,7 @@ onBeforeUnmount(() => modeler?.destroy());
                 selectedFlow
                   ? "流程條件"
                   : selectedSystemTask
-                    ? "Data Action Task 屬性"
+                    ? "System Task 屬性"
                     : "UserTask 節點屬性"
               }}
               <button
@@ -1155,8 +1447,19 @@ onBeforeUnmount(() => modeler?.destroy());
                 :schema-content="conditionSchemaContent"
                 :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
               />
+              <GroovyTaskPanel
+                v-else-if="
+                  selectedSystemTask?.businessObject?.taskType === 'GROOVY'
+                "
+                :key="`${selectedVersion?.oid}:${selectedSystemTask.id}`"
+                :element="selectedSystemTask"
+                :modeler="modeler"
+                :schema-content="groovySchemaContent"
+                :prepare-preview="prepareGroovyPreview"
+                :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+              />
               <DataActionTaskPanel
-                v-else-if="selectedSystemTask"
+                v-else-if="selectedSystemTask?.businessObject?.taskType === 'DATA_ACTION'"
                 :key="selectedSystemTask.id"
                 :element="selectedSystemTask"
                 :modeler="modeler"

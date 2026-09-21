@@ -12,6 +12,8 @@ import java.util.List;
 
 public interface IFmProcessInstanceService extends IBaseService<FmProcessInstance, String> {
 
+    FmProcessInstance lockInstance(String tenantId, String processInstanceId);
+
     boolean updateStatus(
             String tenantId,
             String processInstanceId,

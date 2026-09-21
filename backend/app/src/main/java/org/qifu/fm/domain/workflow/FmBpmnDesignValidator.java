@@ -74,11 +74,20 @@ public class FmBpmnDesignValidator {
             "flowmintFormData\\.([A-Za-z][A-Za-z0-9_]*)");
 
     public void validate(String xml, String expectedProcessKey) throws ServiceException {
+        validate(xml, expectedProcessKey, false);
+    }
+
+    public void validateDraft(String xml, String expectedProcessKey, boolean allowGroovy)
+            throws ServiceException {
+        validate(xml, expectedProcessKey, allowGroovy);
+    }
+
+    private void validate(String xml, String expectedProcessKey, boolean allowGroovy) throws ServiceException {
         if (StringUtils.isAnyBlank(xml, expectedProcessKey)) {
             throw new ServiceException("BPMN XML 與流程代碼不可空白");
         }
         try {
-            assertElementWhitelist(xml);
+            assertElementWhitelist(xml, allowGroovy);
             XMLStreamReader reader = inputFactory().createXMLStreamReader(new StringReader(xml));
             BpmnModel model = new BpmnXMLConverter().convertToBpmnModel(reader);
             if (model.getProcesses().size() != 1
@@ -107,7 +116,7 @@ public class FmBpmnDesignValidator {
         return Set.copyOf(fields);
     }
 
-    private void assertElementWhitelist(String xml) throws Exception {
+    private void assertElementWhitelist(String xml, boolean allowGroovy) throws Exception {
         XMLStreamReader reader = inputFactory().createXMLStreamReader(new StringReader(xml));
         while (reader.hasNext()) {
             if (reader.next() != XMLStreamConstants.START_ELEMENT) {
@@ -120,7 +129,12 @@ public class FmBpmnDesignValidator {
             }
             if (BPMN_NAMESPACE.equals(reader.getNamespaceURI())
                     && "serviceTask".equals(reader.getLocalName())) {
-                validateDataActionTask(reader);
+                String taskType = flowmintAttribute(reader, "taskType");
+                if (allowGroovy && "GROOVY".equals(taskType)) {
+                    validateGroovyDraftTask(reader);
+                } else {
+                    validateDataActionTask(reader);
+                }
             }
             String namespace = StringUtils.defaultString(reader.getNamespaceURI());
             if (!namespace.isEmpty()
@@ -170,6 +184,23 @@ public class FmBpmnDesignValidator {
                 flowmintAttribute(reader, "requestMapping"), false);
         validateMapping(nodeId, "responseMapping",
                 flowmintAttribute(reader, "responseMapping"), true);
+    }
+
+    private void validateGroovyDraftTask(XMLStreamReader reader) throws ServiceException {
+        String bindingId = flowmintAttribute(reader, "bindingId");
+        if (bindingId == null || !bindingId.matches("[A-Za-z][A-Za-z0-9_-]{0,99}")) {
+            throw new ServiceException("Groovy 草稿必須設定合法 bindingId");
+        }
+        for (int index = 0; index < reader.getAttributeCount(); index++) {
+            String namespace = StringUtils.defaultString(reader.getAttributeNamespace(index));
+            String name = reader.getAttributeLocalName(index);
+            if (FORBIDDEN_SERVICE_TASK_ATTRIBUTES.contains(name)
+                    || !namespace.isEmpty() && !FLOWMINT_NAMESPACE.equals(namespace)
+                    || FLOWMINT_NAMESPACE.equals(namespace) && !Set.of("taskType", "bindingId").contains(name)
+                    || namespace.isEmpty() && !Set.of("id", "name").contains(name)) {
+                throw new ServiceException("Groovy 草稿不允許執行或未知屬性：" + name);
+            }
+        }
     }
 
     private String flowmintAttribute(XMLStreamReader reader, String name) {

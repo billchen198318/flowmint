@@ -1,0 +1,596 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="org.qifu.fm.mapper.FmSystemTaskExecutionMapper">
+
+  <resultMap id="BaseResultMap" type="org.qifu.fm.entity.FmSystemTaskExecution">
+    <id column="OID" jdbcType="CHAR" property="oid" />
+    <result column="TENANT_ID" jdbcType="VARCHAR" property="tenantId" />
+    <result column="INVOCATION_ID" jdbcType="VARCHAR" property="invocationId" />
+    <result column="PARENT_INVOCATION_ID" jdbcType="VARCHAR" property="parentInvocationId" />
+    <result column="PROCESS_INSTANCE_ID" jdbcType="VARCHAR" property="processInstanceId" />
+    <result column="PROCESS_DEF_ID" jdbcType="VARCHAR" property="processDefId" />
+    <result column="VERSION_NO" jdbcType="INTEGER" property="versionNo" />
+    <result column="NODE_ID" jdbcType="VARCHAR" property="nodeId" />
+    <result column="FLOWABLE_EXECUTION_ID" jdbcType="VARCHAR" property="flowableExecutionId" />
+    <result column="FIRST_JOB_ID" jdbcType="VARCHAR" property="firstJobId" />
+    <result column="TASK_TYPE" jdbcType="VARCHAR" property="taskType" />
+    <result column="BINDING_SHA256" jdbcType="CHAR" property="bindingSha256" />
+    <result column="MANIFEST_SHA256" jdbcType="CHAR" property="manifestSha256" />
+    <result column="INPUT_REVISION_NO" jdbcType="INTEGER" property="inputRevisionNo" />
+    <result column="FORM_DATA_ID" jdbcType="VARCHAR" property="formDataId" />
+    <result column="EXPECTED_FORM_LOCK" jdbcType="INTEGER" property="expectedFormLock" />
+    <result column="INPUT_CONTENT" jdbcType="LONGVARCHAR" property="inputContent" />
+    <result column="CONTEXT_CONTENT" jdbcType="LONGVARCHAR" property="contextContent" />
+    <result column="INPUT_SHA256" jdbcType="CHAR" property="inputSha256" />
+    <result column="STARTED_AT" jdbcType="TIMESTAMP" property="startedAt" />
+    <result column="STATUS" jdbcType="VARCHAR" property="status" />
+    <result column="GENERATION" jdbcType="INTEGER" property="generation" />
+    <result column="ATTEMPT_NO" jdbcType="INTEGER" property="attemptNo" />
+    <result column="LEASE_UNTIL" jdbcType="TIMESTAMP" property="leaseUntil" />
+    <result column="NEXT_ATTEMPT_AT" jdbcType="TIMESTAMP" property="nextAttemptAt" />
+    <result column="RESULT_SHA256" jdbcType="CHAR" property="resultSha256" />
+    <result column="FORM_SNAPSHOT_OID" jdbcType="CHAR" property="formSnapshotOid" />
+    <result column="INCIDENT_OID" jdbcType="CHAR" property="incidentOid" />
+    <result column="ERROR_CODE" jdbcType="VARCHAR" property="errorCode" />
+    <result column="COMPLETED_AT" jdbcType="TIMESTAMP" property="completedAt" />
+    <result column="CUSERID" jdbcType="VARCHAR" property="cuserid" />
+    <result column="CDATE" jdbcType="TIMESTAMP" property="cdate" />
+  </resultMap>
+
+  <sql id="BaseColumnList">
+    OID,
+    TENANT_ID,
+    INVOCATION_ID,
+    PARENT_INVOCATION_ID,
+    PROCESS_INSTANCE_ID,
+    PROCESS_DEF_ID,
+    VERSION_NO,
+    NODE_ID,
+    FLOWABLE_EXECUTION_ID,
+    FIRST_JOB_ID,
+    TASK_TYPE,
+    BINDING_SHA256,
+    MANIFEST_SHA256,
+    INPUT_REVISION_NO,
+    FORM_DATA_ID,
+    EXPECTED_FORM_LOCK,
+    INPUT_CONTENT,
+    CONTEXT_CONTENT,
+    INPUT_SHA256,
+    STARTED_AT,
+    STATUS,
+    GENERATION,
+    ATTEMPT_NO,
+    LEASE_UNTIL,
+    NEXT_ATTEMPT_AT,
+    RESULT_SHA256,
+    FORM_SNAPSHOT_OID,
+    INCIDENT_OID,
+    ERROR_CODE,
+    COMPLETED_AT,
+    CUSERID,
+    CDATE
+  </sql>
+
+  <sql id="baseConditions">
+    AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    <if test="invocationId != null">
+      AND INVOCATION_ID = #{invocationId,jdbcType=VARCHAR}
+    </if>
+    <if test="processInstanceId != null">
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+    </if>
+    <if test="processDefId != null">
+      AND PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR}
+    </if>
+    <if test="versionNo != null">
+      AND VERSION_NO = #{versionNo,jdbcType=INTEGER}
+    </if>
+    <if test="status != null">
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+  </sql>
+
+  <select id="selectByPrimaryKey" parameterType="java.lang.String" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE OID = #{oid,jdbcType=CHAR}
+  </select>
+
+  <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <if test="orderBy != null and sortType != null">
+      ORDER BY ${orderBy} ${sortType}
+    </if>
+  </select>
+
+  <select id="findPage" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    <include refid="org.qifu.core.mapper.DB1Config.sql1" />
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+    <include refid="org.qifu.core.mapper.DB1Config.sql2" />
+  </select>
+
+  <select id="count" parameterType="java.util.HashMap" resultType="java.lang.Long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE 1 = 1
+    <include refid="baseConditions" />
+  </select>
+
+  <insert id="insert" parameterType="org.qifu.fm.entity.FmSystemTaskExecution">
+    INSERT INTO <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    <trim prefix="(" suffix=")" suffixOverrides=",">
+      PARENT_INVOCATION_ID,
+      <if test="oid != null">
+        OID,
+      </if>
+      <if test="tenantId != null">
+        TENANT_ID,
+      </if>
+      <if test="invocationId != null">
+        INVOCATION_ID,
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID,
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID,
+      </if>
+      <if test="versionNo != null">
+        VERSION_NO,
+      </if>
+      <if test="nodeId != null">
+        NODE_ID,
+      </if>
+      <if test="flowableExecutionId != null">
+        FLOWABLE_EXECUTION_ID,
+      </if>
+      <if test="firstJobId != null">
+        FIRST_JOB_ID,
+      </if>
+      <if test="taskType != null">
+        TASK_TYPE,
+      </if>
+      <if test="bindingSha256 != null">
+        BINDING_SHA256,
+      </if>
+      <if test="manifestSha256 != null">
+        MANIFEST_SHA256,
+      </if>
+      <if test="inputRevisionNo != null">
+        INPUT_REVISION_NO,
+      </if>
+      <if test="formDataId != null">
+        FORM_DATA_ID,
+      </if>
+      <if test="expectedFormLock != null">
+        EXPECTED_FORM_LOCK,
+      </if>
+      <if test="inputContent != null">
+        INPUT_CONTENT,
+      </if>
+      <if test="contextContent != null">
+        CONTEXT_CONTENT,
+      </if>
+      <if test="inputSha256 != null">
+        INPUT_SHA256,
+      </if>
+      <if test="startedAt != null">
+        STARTED_AT,
+      </if>
+      <if test="status != null">
+        STATUS,
+      </if>
+      <if test="generation != null">
+        GENERATION,
+      </if>
+      <if test="attemptNo != null">
+        ATTEMPT_NO,
+      </if>
+      <if test="leaseUntil != null">
+        LEASE_UNTIL,
+      </if>
+      <if test="nextAttemptAt != null">
+        NEXT_ATTEMPT_AT,
+      </if>
+      <if test="resultSha256 != null">
+        RESULT_SHA256,
+      </if>
+      <if test="formSnapshotOid != null">
+        FORM_SNAPSHOT_OID,
+      </if>
+      <if test="incidentOid != null">
+        INCIDENT_OID,
+      </if>
+      <if test="errorCode != null">
+        ERROR_CODE,
+      </if>
+      <if test="completedAt != null">
+        COMPLETED_AT,
+      </if>
+      <if test="cuserid != null">
+        CUSERID,
+      </if>
+      <if test="cdate != null">
+        CDATE,
+      </if>
+    </trim>
+    <trim prefix="VALUES (" suffix=")" suffixOverrides=",">
+      #{parentInvocationId,jdbcType=VARCHAR},
+      <if test="oid != null">
+        #{oid,jdbcType=CHAR},
+      </if>
+      <if test="tenantId != null">
+        #{tenantId,jdbcType=VARCHAR},
+      </if>
+      <if test="invocationId != null">
+        #{invocationId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="versionNo != null">
+        #{versionNo,jdbcType=INTEGER},
+      </if>
+      <if test="nodeId != null">
+        #{nodeId,jdbcType=VARCHAR},
+      </if>
+      <if test="flowableExecutionId != null">
+        #{flowableExecutionId,jdbcType=VARCHAR},
+      </if>
+      <if test="firstJobId != null">
+        #{firstJobId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskType != null">
+        #{taskType,jdbcType=VARCHAR},
+      </if>
+      <if test="bindingSha256 != null">
+        #{bindingSha256,jdbcType=CHAR},
+      </if>
+      <if test="manifestSha256 != null">
+        #{manifestSha256,jdbcType=CHAR},
+      </if>
+      <if test="inputRevisionNo != null">
+        #{inputRevisionNo,jdbcType=INTEGER},
+      </if>
+      <if test="formDataId != null">
+        #{formDataId,jdbcType=VARCHAR},
+      </if>
+      <if test="expectedFormLock != null">
+        #{expectedFormLock,jdbcType=INTEGER},
+      </if>
+      <if test="inputContent != null">
+        #{inputContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="contextContent != null">
+        #{contextContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="inputSha256 != null">
+        #{inputSha256,jdbcType=CHAR},
+      </if>
+      <if test="startedAt != null">
+        #{startedAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="status != null">
+        #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="generation != null">
+        #{generation,jdbcType=INTEGER},
+      </if>
+      <if test="attemptNo != null">
+        #{attemptNo,jdbcType=INTEGER},
+      </if>
+      <if test="leaseUntil != null">
+        #{leaseUntil,jdbcType=TIMESTAMP},
+      </if>
+      <if test="nextAttemptAt != null">
+        #{nextAttemptAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="resultSha256 != null">
+        #{resultSha256,jdbcType=CHAR},
+      </if>
+      <if test="formSnapshotOid != null">
+        #{formSnapshotOid,jdbcType=CHAR},
+      </if>
+      <if test="incidentOid != null">
+        #{incidentOid,jdbcType=CHAR},
+      </if>
+      <if test="errorCode != null">
+        #{errorCode,jdbcType=VARCHAR},
+      </if>
+      <if test="completedAt != null">
+        #{completedAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="cuserid != null">
+        #{cuserid,jdbcType=VARCHAR},
+      </if>
+      <if test="cdate != null">
+        #{cdate,jdbcType=TIMESTAMP},
+      </if>
+    </trim>
+  </insert>
+
+  <update id="update" parameterType="org.qifu.fm.entity.FmSystemTaskExecution">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    <set>
+      <if test="invocationId != null">
+        INVOCATION_ID = #{invocationId,jdbcType=VARCHAR},
+      </if>
+      <if test="processInstanceId != null">
+        PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR},
+      </if>
+      <if test="processDefId != null">
+        PROCESS_DEF_ID = #{processDefId,jdbcType=VARCHAR},
+      </if>
+      <if test="versionNo != null">
+        VERSION_NO = #{versionNo,jdbcType=INTEGER},
+      </if>
+      <if test="nodeId != null">
+        NODE_ID = #{nodeId,jdbcType=VARCHAR},
+      </if>
+      <if test="flowableExecutionId != null">
+        FLOWABLE_EXECUTION_ID = #{flowableExecutionId,jdbcType=VARCHAR},
+      </if>
+      <if test="firstJobId != null">
+        FIRST_JOB_ID = #{firstJobId,jdbcType=VARCHAR},
+      </if>
+      <if test="taskType != null">
+        TASK_TYPE = #{taskType,jdbcType=VARCHAR},
+      </if>
+      <if test="bindingSha256 != null">
+        BINDING_SHA256 = #{bindingSha256,jdbcType=CHAR},
+      </if>
+      <if test="manifestSha256 != null">
+        MANIFEST_SHA256 = #{manifestSha256,jdbcType=CHAR},
+      </if>
+      <if test="inputRevisionNo != null">
+        INPUT_REVISION_NO = #{inputRevisionNo,jdbcType=INTEGER},
+      </if>
+      <if test="formDataId != null">
+        FORM_DATA_ID = #{formDataId,jdbcType=VARCHAR},
+      </if>
+      <if test="expectedFormLock != null">
+        EXPECTED_FORM_LOCK = #{expectedFormLock,jdbcType=INTEGER},
+      </if>
+      <if test="inputContent != null">
+        INPUT_CONTENT = #{inputContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="contextContent != null">
+        CONTEXT_CONTENT = #{contextContent,jdbcType=LONGVARCHAR},
+      </if>
+      <if test="inputSha256 != null">
+        INPUT_SHA256 = #{inputSha256,jdbcType=CHAR},
+      </if>
+      <if test="startedAt != null">
+        STARTED_AT = #{startedAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="status != null">
+        STATUS = #{status,jdbcType=VARCHAR},
+      </if>
+      <if test="generation != null">
+        GENERATION = #{generation,jdbcType=INTEGER},
+      </if>
+      <if test="attemptNo != null">
+        ATTEMPT_NO = #{attemptNo,jdbcType=INTEGER},
+      </if>
+      <if test="leaseUntil != null">
+        LEASE_UNTIL = #{leaseUntil,jdbcType=TIMESTAMP},
+      </if>
+      <if test="nextAttemptAt != null">
+        NEXT_ATTEMPT_AT = #{nextAttemptAt,jdbcType=TIMESTAMP},
+      </if>
+      <if test="resultSha256 != null">
+        RESULT_SHA256 = #{resultSha256,jdbcType=CHAR},
+      </if>
+      <if test="formSnapshotOid != null">
+        FORM_SNAPSHOT_OID = #{formSnapshotOid,jdbcType=CHAR},
+      </if>
+      <if test="incidentOid != null">
+        INCIDENT_OID = #{incidentOid,jdbcType=CHAR},
+      </if>
+      <if test="errorCode != null">
+        ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
+      </if>
+      <if test="completedAt != null">
+        COMPLETED_AT = #{completedAt,jdbcType=TIMESTAMP},
+      </if>
+    </set>
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND 1 = 0
+  </update>
+
+  <delete id="delete" parameterType="org.qifu.fm.entity.FmSystemTaskExecution">
+    DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE OID = #{oid,jdbcType=CHAR}
+      AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND 1 = 0
+  </delete>
+
+  <update id="claim" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    SET STATUS = 'RUNNING',
+        GENERATION = GENERATION + 1,
+        ATTEMPT_NO = ATTEMPT_NO + 1,
+        LEASE_UNTIL = #{leaseUntil,jdbcType=TIMESTAMP}
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND STATUS = 'READY'
+      AND GENERATION = #{generation,jdbcType=INTEGER}
+      AND ATTEMPT_NO BETWEEN 0 AND 2
+      AND (NEXT_ATTEMPT_AT IS NULL OR NEXT_ATTEMPT_AT &lt;= #{now,jdbcType=TIMESTAMP})
+  </update>
+
+  <update id="complete" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    SET STATUS = 'SUCCEEDED',
+        RESULT_SHA256 = #{resultSha256,jdbcType=CHAR},
+        FORM_SNAPSHOT_OID = #{formSnapshotOid,jdbcType=CHAR},
+        COMPLETED_AT = #{now,jdbcType=TIMESTAMP},
+        LEASE_UNTIL = NULL
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND STATUS = 'RUNNING'
+      AND GENERATION = #{generation,jdbcType=INTEGER}
+      AND LEASE_UNTIL &gt; #{now,jdbcType=TIMESTAMP}
+  </update>
+
+  <update id="cancel" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    SET STATUS = 'CANCELLED',
+        GENERATION = GENERATION + 1,
+        COMPLETED_AT = #{now,jdbcType=TIMESTAMP},
+        LEASE_UNTIL = NULL
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND STATUS IN ('READY', 'RUNNING')
+  </update>
+
+  <select id="lockInvocation" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND INVOCATION_ID = #{invocationId,jdbcType=VARCHAR}
+    FOR UPDATE
+  </select>
+
+  <update id="fail" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    SET STATUS = 'FAILED',
+        ERROR_CODE = #{errorCode,jdbcType=VARCHAR},
+        INCIDENT_OID = COALESCE(INCIDENT_OID, OID),
+        COMPLETED_AT = #{now,jdbcType=TIMESTAMP},
+        LEASE_UNTIL = NULL
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND STATUS = 'RUNNING'
+      AND GENERATION = #{generation,jdbcType=INTEGER}
+  </update>
+
+  <select id="findExpired" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND TASK_TYPE = 'GROOVY'
+      AND STATUS = 'RUNNING'
+      AND LEASE_UNTIL &lt;= #{now,jdbcType=TIMESTAMP}
+    ORDER BY LEASE_UNTIL, OID
+    LIMIT #{limit,jdbcType=INTEGER}
+  </select>
+
+  <update id="expire" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    SET STATUS = 'FAILED',
+        ERROR_CODE = 'GROOVY_LEASE_EXPIRED',
+        INCIDENT_OID = COALESCE(INCIDENT_OID, OID),
+        COMPLETED_AT = #{now,jdbcType=TIMESTAMP},
+        LEASE_UNTIL = NULL
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND TASK_TYPE = 'GROOVY'
+      AND STATUS = 'RUNNING'
+      AND GENERATION = #{generation,jdbcType=INTEGER}
+      AND LEASE_UNTIL &lt;= #{now,jdbcType=TIMESTAMP}
+  </update>
+
+  <select id="lockActiveForProcess" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PROCESS_INSTANCE_ID = #{processInstanceId,jdbcType=VARCHAR}
+      AND TASK_TYPE = 'GROOVY'
+      AND STATUS IN ('READY', 'RUNNING')
+    ORDER BY OID
+    FOR UPDATE
+  </select>
+  <update id="rearm" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    SET STATUS = 'READY', GENERATION = GENERATION + 1, COMPLETED_AT = NULL,
+        NEXT_ATTEMPT_AT = #{now,jdbcType=TIMESTAMP}, INCIDENT_OID = COALESCE(INCIDENT_OID, OID)
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND OID = #{oid,jdbcType=CHAR}
+      AND TASK_TYPE = 'GROOVY' AND STATUS = 'FAILED'
+      AND GENERATION = #{generation,jdbcType=INTEGER}
+      AND ATTEMPT_NO BETWEEN 0 AND 2
+      AND LEASE_UNTIL IS NULL AND COMPLETED_AT IS NOT NULL
+      AND RESULT_SHA256 IS NULL AND FORM_SNAPSHOT_OID IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt a
+        WHERE a.TENANT_ID = #{tenantId,jdbcType=VARCHAR} AND a.EXECUTION_OID = #{oid,jdbcType=CHAR}
+          AND a.STATUS = 'RUNNING'
+      )
+  </update>
+
+  <select id="findAutomaticRetries" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT OID, TENANT_ID, INVOCATION_ID, GENERATION
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND TASK_TYPE = 'GROOVY'
+      AND STATUS = 'FAILED'
+      AND ERROR_CODE IN ('GROOVY_RUNTIME_BUSY', 'GROOVY_RUNTIME_START_UNAVAILABLE')
+      AND LEASE_UNTIL IS NULL
+      AND RESULT_SHA256 IS NULL
+      AND FORM_SNAPSHOT_OID IS NULL
+      AND (
+        (ATTEMPT_NO = 1 AND COMPLETED_AT &lt;= #{firstCutoff,jdbcType=TIMESTAMP})
+        OR (ATTEMPT_NO = 2 AND COMPLETED_AT &lt;= #{secondCutoff,jdbcType=TIMESTAMP})
+      )
+    <if test="afterOid != null">
+      AND OID &gt; #{afterOid,jdbcType=CHAR}
+    </if>
+    ORDER BY OID
+    LIMIT #{limit,jdbcType=INTEGER}
+  </select>
+
+  <select id="findStalledReady" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT OID, TENANT_ID, INVOCATION_ID, GENERATION
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR} AND TASK_TYPE = 'GROOVY' AND STATUS = 'READY'
+      AND COALESCE(NEXT_ATTEMPT_AT, STARTED_AT) &lt;= #{cutoff,jdbcType=TIMESTAMP}
+    <if test="afterOid != null">
+      AND OID &gt; #{afterOid,jdbcType=CHAR}
+    </if>
+    ORDER BY OID
+    LIMIT #{limit,jdbcType=INTEGER}
+  </select>
+
+  <update id="finishReady" parameterType="java.util.HashMap">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    SET STATUS = #{status,jdbcType=VARCHAR}, GENERATION = GENERATION + 1,
+        ERROR_CODE = #{errorCode,jdbcType=VARCHAR}, INCIDENT_OID = COALESCE(INCIDENT_OID, OID),
+        COMPLETED_AT = #{now,jdbcType=TIMESTAMP}, NEXT_ATTEMPT_AT = NULL
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR} AND OID = #{oid,jdbcType=CHAR}
+      AND TASK_TYPE = 'GROOVY' AND STATUS = 'READY' AND GENERATION = #{generation,jdbcType=INTEGER}
+      AND COALESCE(NEXT_ATTEMPT_AT, STARTED_AT) &lt;= #{cutoff,jdbcType=TIMESTAMP}
+      AND LEASE_UNTIL IS NULL AND COMPLETED_AT IS NULL AND RESULT_SHA256 IS NULL AND FORM_SNAPSHOT_OID IS NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_attempt a
+        WHERE a.TENANT_ID = #{tenantId,jdbcType=VARCHAR} AND a.EXECUTION_OID = #{oid,jdbcType=CHAR}
+          AND a.STATUS = 'RUNNING'
+      )
+  </update>
+
+  <select id="findIncidents" parameterType="java.util.HashMap" resultMap="BaseResultMap">
+    SELECT OID, TENANT_ID, INCIDENT_OID, INVOCATION_ID, PARENT_INVOCATION_ID, PROCESS_INSTANCE_ID,
+           PROCESS_DEF_ID, VERSION_NO, NODE_ID, STATUS, ATTEMPT_NO,
+           GENERATION, ERROR_CODE, STARTED_AT, COMPLETED_AT
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_system_task_execution
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND TASK_TYPE = 'GROOVY'
+      AND (STATUS = 'FAILED' OR INCIDENT_OID IS NOT NULL OR PARENT_INVOCATION_ID IS NOT NULL)
+    <if test="invocationId != null">
+      AND INVOCATION_ID = #{invocationId,jdbcType=VARCHAR}
+    </if>
+    ORDER BY COMPLETED_AT DESC, OID
+    LIMIT #{limit,jdbcType=INTEGER} OFFSET #{offset,jdbcType=INTEGER}
+  </select>
+</mapper>

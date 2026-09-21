@@ -1,5 +1,7 @@
 package org.qifu.fm.service.impl;
 
+import java.util.Map;
+
 import org.qifu.base.mapper.IBaseMapper;
 import org.qifu.base.service.BaseService;
 import org.qifu.fm.entity.FmProcessVersion;
@@ -23,5 +25,28 @@ public class FmProcessVersionServiceImpl extends BaseService<FmProcessVersion, S
     @Override
     protected IBaseMapper<FmProcessVersion, String> getBaseMapper() {
         return mapper;
+    }
+
+    @Override
+    public Integer findLockVersion(String tenantId, String oid) {
+        return mapper.findLockVersion(Map.of("tenantId", tenantId, "oid", oid));
+    }
+
+    @Override
+    public Integer findDraftLockVersion(String tenantId, String oid) {
+        return mapper.findDraftLockVersion(Map.of("tenantId", tenantId, "oid", oid));
+    }
+
+    @Override
+    @Transactional(readOnly = false)
+    public Integer lockDraft(String tenantId, String oid) {
+        return mapper.lockDraft(Map.of("tenantId", tenantId, "oid", oid));
+    }
+
+    @Override
+    @Transactional(readOnly = false)
+    public int advanceDraftLock(String tenantId, String oid, Integer expectedLockVersion) {
+        return mapper.advanceDraftLock(Map.of("tenantId", tenantId, "oid", oid,
+                "expectedLockVersion", expectedLockVersion));
     }
 }

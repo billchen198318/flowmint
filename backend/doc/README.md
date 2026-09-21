@@ -8,7 +8,8 @@
 > 自行改用 JDBC。任何 `INSERT／UPDATE／DELETE` 都必須先以相同條件 `SELECT`，列明 SQL、目標表、
 > WHERE 條件與預計筆數，並就該次異動取得使用者明確同意。不得等待使用者提醒才套用本規範。
 
-日期：2026-07-30  
+日期：2026-07-30；文件同步：2026-09-21（System Task 現況截至 2026-09-20）
+
 適用：台灣、中國大陸  
 狀態：新系統設計與開發唯一規格集
 
@@ -16,7 +17,7 @@
 
 FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 HR 職務職等與其他未證明必要性的核心主檔；這是產品範圍決策，不是未完成 Backlog，也不應作為企業簽核完成度的扣分項目。Tenant 是唯一資料隔離範圍，「總公司」是部門樹根節點。
 
-本機 `flowmint` 目前共有 54 張 `fm_*` 表（2026-09-07 回查）。採購／驗收的預占表、觸發器與相關占額配置已移除；FlowMint 負責人工簽核，不控管採購額度或累計收貨數量。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
+2026-09-07 回查時，本機 `flowmint` 共有 54 張 `fm_*` 表；這是當日歷史基準，不是加入 Groovy Runtime／Incident schema 後的現行固定表數。採購／驗收的預占表、觸發器與相關占額配置已移除；FlowMint 負責人工簽核，不控管採購額度或累計收貨數量。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
 
 ## 目前版本基準（2026-09-03）
 
@@ -28,6 +29,17 @@ FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 H
 目前 A01 的四份 Form 與四個 BPMN Process 均為唯一的 `PUBLISHED` Version 1；所有 42 個
 User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一致，Form Rule 全部綁定
 已發布的 Form Version 1。
+
+## BPMN 工作節點分類
+
+FlowMint 的 Task 分為 **User Task** 與 **System Task** 兩大類：
+
+| 類別 | BPMN element | 用途與現況 |
+| --- | --- | --- |
+| User Task | `bpmn:userTask` | 人工簽核、填寫、補件與會簽 |
+| System Task | `bpmn:serviceTask` | 自動化工作；正式 subtype 為 `DATA_ACTION`、`GROOVY` |
+
+Data Action 與 Groovy 是 System Task 的執行子類型。外部 HTTP API 由受信任 IT 人員在 Groovy 腳本中使用標準 Java HTTP Client 呼叫，並於測試環境驗證後發布。Start／End Event、Gateway、Sequence Flow 不屬於 Task。
 
 ## 開發狀態
 
@@ -41,9 +53,20 @@ User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一�
 - 共用待辦頁已修正 `REJECT／RETURN` 誤執行完整 Form.io 與 Custom JavaScript `beforeSubmit`
   驗證的問題；目前只有 `APPROVE／RESUBMIT` 會提交並驗證表單資料。相關修正已整理至現行
   Form Version 1，不再保留 Version 2 草稿作為目前狀態。
-- 本機 `flowmint.tb_sys_prog` 的 `FM_PROG010D` Folder 名稱已更新為 `FJ. API-整合服務`；既有 `FM_PROG010D0001` 維持不變，規劃中的外部 API 管理使用 `FM_PROG010D0002`。
+- 外部 API 管理 `FM_PROG010D0002` 與獨立 API 說明頁 `FM_PROG010D0003` 已完成第一版程式與 Program 註冊；Client／Key、認證、唯讀 API、發單及狀態查詢已接線，仍待角色權限配置與真實 HTTP／多帳號 E2E。詳見 [32 外部系統 API 管理與流程拋單規劃](32-外部系統API管理與流程拋單規劃.md)。
+- System Task 正式支援 `DATA_ACTION` 與 `GROOVY`。Groovy 已完成 Designer、CHECK、Preview、發布、主 JVM Runtime、執行紀錄、Incident Retry／Recalculate，以及 Flowable／MariaDB 實機 E2E；仍待多帳號瀏覽器與正式部署權限回歸。Data Action 已完成固定版本 Delegate Runtime，但 `QUERY`／`COMMAND` 真實全流程、跨資料庫、實際資料量與專屬 Incident 維運仍待完整驗收。詳見 [33 System Task 與 Data Action Task 規劃](33-SystemTask與DataActionTask規劃.md)及[35 System Task 的 Groovy 腳本規劃](35-SystemTask的Groovy腳本規劃.md)。
+- 本機 `flowmint.tb_sys_prog` 的 `FM_PROG010D` Folder 名稱為 `FJ. API-整合服務`，包含 AI Provider 管理、外部 API 管理及 API 說明入口。
 
 ## 閱讀順序
+
+**System Task 現況以 2026-09-20 的主 JVM 實機驗收為準。** Groovy 的獨立 worker 已移除，
+CHECK、Preview、發布編譯與 Runtime 均由 FlowMint backend 主 JVM 執行；`HTTP_API` subtype 已取消。
+Groovy 成功路徑、async 完成同步、Incident 原輸入 Retry、最新表單 Recalculate、request ID 冪等、
+跨 Tenant 拒絕及發布內容 hash 防竄改已完成 Flowable／MariaDB 驗收。第 18、35 章較早日期的
+「尚未發布／尚未 E2E／等待移除 worker」只保留為歷史證據，不代表現況。尚待項目是多帳號瀏覽器、
+正式部署權限與環境回歸，以及 Data Action 的完整真實流程、跨資料庫和專屬 Incident 維運驗收。
+下次先讀 [18 開發進度最上方接續摘要](18-開發進度.md)，不要重跑已刪除的 migration。
+使用者已自行匯出 flowmint.sql，Agent 不再處理該檔。
 
 1. [新系統總綱](00-新系統總綱.md)
 2. [核心資料模型](01-核心資料模型.md)
@@ -80,6 +103,7 @@ User Task 已確認 Listener、Task Policy、Form Rule 與 Assignment 覆蓋一�
 33. [外部系統 API 管理與流程拋單規劃](32-外部系統API管理與流程拋單規劃.md)
 34. [System Task 與 Data Action Task 規劃](33-SystemTask與DataActionTask規劃.md)
 35. [BPMN 流程設計操作說明](34-BPMN流程設計操作說明.md)
+36. [System Task 的 Groovy 腳本規劃](35-SystemTask的Groovy腳本規劃.md)
 
 ## SQL
 

@@ -7,5 +7,7 @@ public record FmProcessVersionCommand(
         List<FmTaskFormRuleCommand> taskForms,
         List<FmTaskPolicyCommand> taskPolicies,
         List<FmTaskAssignmentRuleCommand> assignmentRules,
-        List<FmProcessStartPolicyCommand> startPolicies) {
+        List<FmProcessStartPolicyCommand> startPolicies,
+        List<FmGroovyBindingCommand> groovyBindings,
+        Integer expectedLockVersion) {
 }

@@ -11,6 +11,7 @@
       "extends": ["bpmn:ServiceTask"],
       "properties": [
         { "name": "taskType", "type": "String", "isAttr": true },
+        { "name": "bindingId", "type": "String", "isAttr": true },
         { "name": "actionCode", "type": "String", "isAttr": true },
         { "name": "actionVersion", "type": "Integer", "isAttr": true },
         { "name": "requestMapping", "type": "String", "isAttr": true },

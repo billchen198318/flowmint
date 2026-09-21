@@ -72,6 +72,7 @@ import org.qifu.fm.service.IFmTenantAccountService;
 import org.qifu.fm.service.IFmWorkflowDelegationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
+import org.qifu.fm.logic.IFmGroovyCancellationLogicService;
 import org.springframework.transaction.annotation.Transactional;
 
 import tools.jackson.core.type.TypeReference;
@@ -111,6 +112,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final ObjectMapper objectMapper;
     private final FmDelegationScopeEvaluator delegationScopeEvaluator;
     private final FmNotificationPublisher notificationPublisher;
+    private final IFmGroovyCancellationLogicService groovyCancellation;
 
     public FmTaskRuntimeLogicServiceImpl(
             TaskService taskService,
@@ -137,7 +139,8 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             FmTaskFieldPolicyValidator taskFieldPolicyValidator,
             FmTaskActionHookExecutor taskActionHookExecutor,
             FmNotificationPublisher notificationPublisher,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper, IFmGroovyCancellationLogicService groovyCancellation) {
+        this.groovyCancellation = groovyCancellation;
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.tenantAccountService = tenantAccountService;
@@ -628,6 +631,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             runtimeService.deleteProcessInstance(
                     process.getProcessInstanceId(), request.reason());
             transitionProcess(process, "REJECTED", now, account);
+            groovyCancellation.cancelForProcess(process.getTenantId(), process.getProcessInstanceId());
             updateFormStatus(formData, "REJECTED", account, now);
             return "REJECTED";
         }

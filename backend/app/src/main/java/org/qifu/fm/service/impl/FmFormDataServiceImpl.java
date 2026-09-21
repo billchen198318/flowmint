@@ -37,6 +37,15 @@ public class FmFormDataServiceImpl extends BaseService<FmFormData, String>
 		return mapper.lockByFormDataId(paramMap);
 	}
 
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY, readOnly = false)
+    public FmFormData lockStateByFormDataId(String tenantId, String formDataId) {
+        if (tenantId == null || tenantId.isBlank() || formDataId == null || formDataId.isBlank()) {
+            throw new IllegalArgumentException("FORM_DATA_IDENTITY_REQUIRED");
+        }
+        return mapper.lockStateByFormDataId(Map.of("tenantId", tenantId, "formDataId", formDataId));
+    }
+
 	@Override
 	@Transactional(readOnly = false)
 	public int updateDataContent(String tenantId, String formDataId,

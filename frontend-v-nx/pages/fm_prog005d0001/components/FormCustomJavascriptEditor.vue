@@ -241,12 +241,12 @@ onBeforeUnmount(() => {
                 <thead><tr><th>Method</th><th>執行時機</th><th>重要行為</th></tr></thead>
                 <tbody>
                   <tr><td><code>onFormLoad(ctx)</code></td><td>表單建立與 submission 設定後</td><td>適合初始化與資料查詢</td></tr>
-                  <tr><td><code>onFieldChange(ctx)</code></td><td>Form.io change 事件</td><td>異動資訊在 <code>ctx.changed</code></td></tr>
-                  <tr><td><code>beforeSubmit(ctx)</code></td><td>正式送出前</td><td>可回傳 <code>false</code>、<code>{ valid: false, message }</code> 或 throw 阻止送出</td></tr>
-                  <tr><td><code>afterSubmit(ctx)</code></td><td>後端送出成功後</td><td><code>ctx.response</code> 含 API 回應；失敗不會回滾已完成交易</td></tr>
-                  <tr><td><code>onDataActionSuccess(ctx)</code></td><td>Data Action 成功後</td><td>提供 action、request 與 response 資訊</td></tr>
-                  <tr><td><code>onDataActionError(ctx)</code></td><td>Data Action 失敗後</td><td>錯誤在 <code>ctx.error</code></td></tr>
-                  <tr><td><code>onDestroy(ctx)</code></td><td>表單切換或銷毀前</td><td>適合釋放 Script 自行建立的資源</td></tr>
+                  <tr><td><code>onFieldChange(ctx)</code></td><td>可編輯表單的 Form.io change 事件</td><td>異動資訊在 <code>ctx.changed</code>；READ_ONLY 不綁定此事件</td></tr>
+                  <tr><td><code>beforeSubmit(ctx)</code></td><td>Designer「驗證送出」、正式起單，以及待辦 APPROVE／RESUBMIT 前</td><td>可回傳 <code>false</code>、<code>{ valid: false, message }</code> 或 throw 阻止送出；REJECT／RETURN 不執行</td></tr>
+                  <tr><td><code>afterSubmit(ctx)</code></td><td>正式起單或 APPROVE／RESUBMIT 的後端 API 成功後</td><td><code>ctx.response</code> 含 API 回應；Designer 試跑不執行，失敗也不會回滾已完成交易</td></tr>
+                  <tr><td><code>onDataActionSuccess(ctx)</code></td><td>Binding 或 <code>ctx.executeDataAction()</code> 成功後</td><td>提供 actionCode、actionVersion、request、response；Binding 另提供 bindingId</td></tr>
+                  <tr><td><code>onDataActionError(ctx)</code></td><td>Binding 或 <code>ctx.executeDataAction()</code> 失敗後</td><td>錯誤在 <code>ctx.error</code>；hook 內再呼叫 Data Action 不會遞迴觸發同類 hook</td></tr>
+                  <tr><td><code>onDestroy(ctx)</code></td><td>表單切換或銷毀前</td><td>適合釋放 Script 自行建立的資源；不要在此更新已卸載表單</td></tr>
                 </tbody>
               </table>
             </div>
@@ -265,8 +265,8 @@ onBeforeUnmount(() => {
                   <tr><td><code>ctx.data</code></td><td>目前 submission data，可讀寫</td></tr>
                   <tr><td><code>ctx.submission</code></td><td>完整 Form.io submission 物件</td></tr>
                   <tr><td><code>ctx.changed</code></td><td>當次異動的 component、instance、value 與 flags</td></tr>
-                  <tr><td><code>ctx.actionType</code> / <code>ctx.taskId</code> / <code>ctx.formData</code></td><td>Task Action 的額外情境，只在相關 lifecycle 提供</td></tr>
-                  <tr><td><code>ctx.actionCode</code> / <code>ctx.actionVersion</code> / <code>ctx.bindingId</code></td><td>Data Action 情境，僅在相關 hook 可用</td></tr>
+                  <tr><td><code>ctx.actionType</code> / <code>ctx.taskId</code> / <code>ctx.formData</code></td><td>待辦 APPROVE／RESUBMIT 的 beforeSubmit／afterSubmit 額外情境；其他模式可能為 undefined</td></tr>
+                  <tr><td><code>ctx.actionCode</code> / <code>ctx.actionVersion</code> / <code>ctx.bindingId</code></td><td>Data Action hook 情境；直接呼叫 <code>ctx.executeDataAction()</code> 不提供 bindingId</td></tr>
                   <tr><td><code>ctx.request</code> / <code>ctx.response</code> / <code>ctx.error</code></td><td>請求、成功回應或錯誤，依 lifecycle 提供</td></tr>
                   <tr><td><code>ctx.axios</code></td><td>FlowMint 共用 Axios instance，含登入狀態與 interceptors</td></tr>
                 </tbody>
@@ -284,10 +284,10 @@ onBeforeUnmount(() => {
                 <thead><tr><th>Method</th><th>說明</th></tr></thead>
                 <tbody>
                   <tr><td><code>ctx.getValue(path)</code></td><td>以 key 或 dot path 取值</td></tr>
-                  <tr><td><code>await ctx.setValue(path, value)</code></td><td>設值並同步頂層 Form.io component</td></tr>
-                  <tr><td><code>await ctx.setSelectOptions(key, items)</code></td><td>更新 Select 選項；item 格式為 <code>{ label, value, disabled? }</code></td></tr>
-                  <tr><td><code>await ctx.setComponentDisabled(key, disabled)</code></td><td>啟用或停用元件；READ_ONLY 不允許重新啟用</td></tr>
-                  <tr><td><code>ctx.getComponent(key)</code></td><td>取得 Form.io component instance</td></tr>
+                  <tr><td><code>await ctx.setValue(path, value)</code></td><td>以 key 或 dot path 設值，並同步對應的頂層 Form.io component</td></tr>
+                  <tr><td><code>await ctx.setSelectOptions(key, items)</code></td><td>更新 Select 選項；item 格式為 <code>{ label, value, disabled? }</code>；找不到元件時不處理</td></tr>
+                  <tr><td><code>await ctx.setComponentDisabled(key, disabled)</code></td><td>啟用或停用元件；找不到元件時不處理，READ_ONLY 永遠維持停用</td></tr>
+                  <tr><td><code>ctx.getComponent(key)</code></td><td>取得 Form.io component instance；不存在時回傳 undefined</td></tr>
                   <tr><td><code>await ctx.redraw()</code></td><td>重新同步 submission 與畫面</td></tr>
                   <tr><td><code>await ctx.executeDataAction(code, body?, versionNo?)</code></td><td>執行 FlowMint Data Action；READ_ONLY 僅允許 QUERY</td></tr>
                   <tr><td><code>ctx.notify.success/warning/error(message)</code></td><td>顯示畫面通知</td></tr>
@@ -324,7 +324,7 @@ onBeforeUnmount(() => {
           </section>
 
           <div class="alert alert-info mb-0">
-            每個 lifecycle 預設最長執行 15 秒；表單銷毀或執行逾時後，過期的設值、Data Action 結果與通知不會再回寫。
+            每個 lifecycle 預設最長執行 15 秒（最低設定值 1 秒）；timeout 不會取消已送出的網路請求，但逾時或表單銷毀後，透過系統 helper 的過期設值、Data Action 結果與通知不會再回寫。
           </div>
         </div>
 

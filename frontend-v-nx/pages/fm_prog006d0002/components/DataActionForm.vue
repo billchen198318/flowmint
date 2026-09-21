@@ -11,6 +11,7 @@ import {
 } from "@/components/BaseHelper";
 import { useSwalLoading } from "@/composables/useSwalLoading";
 import { PageConstants } from "../config";
+import DataActionGuide from "./DataActionGuide.vue";
 
 interface OptionItem {
   value: string;
@@ -371,7 +372,10 @@ onMounted(async () => {
   />
 
   <div class="card mb-3">
-    <div class="card-header">Data Action</div>
+    <div class="card-header d-flex justify-content-between align-items-center gap-2">
+      <span>Data Action</span>
+      <DataActionGuide />
+    </div>
     <div class="card-body">
       <div class="row g-3">
         <div class="col-md-4">
