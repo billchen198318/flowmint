@@ -26,6 +26,7 @@ import type { FormScriptRunner } from "@/types/formCustomJavascript";
 import { PageConstants } from "../config";
 import FormCustomJavascriptEditor from "./FormCustomJavascriptEditor.vue";
 import FormDataActionBindingEditor from "./FormDataActionBindingEditor.vue";
+import FormDesignerGuide from "./FormDesignerGuide.vue";
 
 const props = defineProps<{ edit?: boolean }>();
 const route = useRoute();
@@ -647,16 +648,19 @@ onBeforeUnmount(destroyDesigner);
   <div v-if="props.edit" class="card mt-4">
     <div class="card-header d-flex justify-content-between align-items-center">
       <span>表單版本</span>
-      <button
-        v-if="
-          !form.versions?.some((item: any) => item.versionStatus === 'DRAFT')
-        "
-        type="button"
-        class="btn btn-sm btn-outline-primary"
-        @click="createVersion"
-      >
-        <i class="bi bi-plus-circle"></i> 建立新版本
-      </button>
+      <div class="d-flex align-items-center gap-2">
+        <FormDesignerGuide />
+        <button
+          v-if="
+            !form.versions?.some((item: any) => item.versionStatus === 'DRAFT')
+          "
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          @click="createVersion"
+        >
+          <i class="bi bi-plus-circle"></i> 建立新版本
+        </button>
+      </div>
     </div>
     <div class="card-body">
       <div class="d-flex flex-wrap gap-2 mb-3">

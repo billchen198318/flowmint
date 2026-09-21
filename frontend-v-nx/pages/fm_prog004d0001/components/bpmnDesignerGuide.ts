@@ -16,36 +16,15 @@ export interface BpmnGuideSection {
 
 export const bpmnDesignerGuide: BpmnGuideSection[] = [
   {
-    id: "groovy-editor",
-    title: "System Task：Groovy Editor",
-    intro:
-      "Groovy 功能預設關閉；完成資料表、worker、服務開關及專用權限配置後，才能編輯、檢查、試跑與正式發布。",
-    steps: [
-      "啟用草稿功能後，在 DRAFT 流程從 Palette 新增 Groovy System Task；選取節點，在右側按「編輯腳本」開啟大型 Dialog。",
-      "Editor 使用 CodeMirror Groovy 上色、行號、縮排、括號配對、搜尋／取代、折疊與 input.／context. 提示。可切換全螢幕或收合變數區。",
-      "從唯一表單 Schema 選取欄位、指定輸入別名並加入 Mapping；Grid／物件須補齊子欄位 Schema。系統變數由 context 唯讀提供。",
-      "撰寫 return object，設定輸出 Schema 與 FORM_DATA Mapping。範例僅供複製，不會直接覆蓋腳本或執行。",
-      "按「教學說明」Tab 查看詳細操作與範例；返回 Editor 保留內容、游標及捲動位置。",
-      "按「套用至節點」更新畫面草稿，再按流程頁「儲存」保存 XML 與版本腳本。取消或關閉會確認是否放棄未套用修改。",
-      "使用「匯出完整版本」保存 BPMN、Groovy 腳本及簽核配置；「匯入版本檔」只接受同 Tenant、同流程，確認後取代目前草稿，仍須按儲存。單獨 XML 無法還原脚本。",
-      "檢查使用目前編輯副本，試跑另使用人工 JSON；不儲存、不讀正式單據、不套用輸出 Mapping。服務預設關閉，須完成服務啟用與權限配置。點選診斷可定位行／欄，修改內容或關閉視窗後舊結果失效；已發布版本唯讀，發布時後端會重新編譯並固定版本內容。",
-    ],
-    notes: groovyGuide.map((section) => `${section.title}：${section.text}`),
-    examples: [
-      { title: "明細金額計算", code: groovyExample },
-      { title: "輸入／輸出與測試 JSON", code: groovyExampleContract },
-    ],
-  },
-  {
     id: "quick-start",
     title: "從零建立流程",
     intro:
       "先準備表單與簽核人，再畫流程、配置每個關卡並發布。圖上的方塊與連線決定路徑，右側面板決定表單、操作權限與實際簽核人。",
     steps: [
-      "先在同一 Tenant 建立並發布 Form；確認員工帳號、任職、部門主管、簽核群組與層級資料有效。需要自動執行節點時，先發布 Data Action。",
+      "先在同一 Tenant 建立並發布 Form；確認員工帳號、任職、部門主管、簽核群組與層級資料有效。需要 DATA_ACTION 自動節點時，先建立並發布 Data Action；需要 GROOVY 自動節點時，確認 Groovy 服務開關與專用權限已配置。",
       "新增流程：選擇 Tenant，填寫流程代碼、名稱、分類、分類內排序與說明，按「儲存」後進入編輯頁。流程代碼建立後不可修改。",
       "在「BPMN 流程版本」建立或開啟 DRAFT。使用左側工具拖入節點，選取節點後用連線工具接到下一個節點；可雙擊圖上標籤修改名稱。",
-      "一般 Task 請使用節點旁的替換工具改成 User Task；自動執行請直接使用專用 Data Action Task 工具。逐一選取 User Task，設定已發布表單、欄位權限、派送方式、簽核政策與解析方式。",
+      "一般 Task 請使用節點旁的替換工具改成 User Task；自動執行請直接使用專用 Data Action Task 或 Groovy System Task 工具，不要使用未配置的普通 Service Task。逐一選取 User Task，設定已發布表單、欄位權限、派送方式、簽核政策與解析方式。",
       "需要分流時加入 Gateway，點選其出線，在右側設定條件或 Default Flow，再按「套用流程條件」。",
       "在「流程啟動規則」加入允許起單對象，儲存草稿，再用「簽核人解析預覽」輸入測試申請人及測試表單資料。",
       "確認每條分支、補件回路及結束點後，按「發布草稿」。發布成功後，到 Workspace 使用真實帳號驗證起單與各關簽核。",
@@ -317,6 +296,28 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
     ],
   },
   {
+    id: "correction",
+    title: "退回補件與重新送出",
+    intro:
+      "退回不是在圖上任意跳回前一位簽核者。FlowMint 使用同一發布版本中專用的申請人補件 User Task。",
+    steps: [
+      "建立名為「申請人補件」的 User Task，把派送方式設為 APPLICANT_CORRECTION。",
+      "綁定已發布表單，將允許補正的欄位設為 EDIT，其餘設為 READ 或其他適當權限。",
+      "把補件節點的出線接到重新審核的關卡。正常起單主線通常不需先經補件節點，退回時才由 Runtime 進入。",
+      "在可退回的審核關卡勾選「允許退回」。執行時選擇合法補件目標並填寫必要理由。",
+      "申請人在補件待辦修改資料並重送；系統重新驗證表單、保存修訂與快照，完成補件節點後沿出線繼續。",
+    ],
+    examples: [
+      {
+        title: "補件回路",
+        code: "正常：開始 → 主管審核 → 結束\n退回操作：主管審核 ⇢ 申請人補件\n重送出線：申請人補件 → 主管審核\n（⇢ 表示執行時退回操作，不是條件連線。）",
+      },
+    ],
+    notes: [
+      "第一次退回時補件節點可能尚未執行，這是合法情境。請另測駁回、連續退回、修改金額後重新分流及多人會簽中的退回行為。",
+    ],
+  },
+  {
     id: "gateways",
     title: "Gateway：排他、包含與平行",
     intro:
@@ -376,28 +377,6 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       "目前使用單一 AND 或 OR 組合；不要混合兩者或填入函式、任意 JavaScript、JUEL method、括號運算及未支援的欄位路徑。文字值使用雙引號。",
       "Grid 明細不可直接逐列寫 Gateway 條件。先在表單準備彙總金額或布林欄位，再用該欄位分流。",
       "若欄位清單為空，先確認已發布表單綁定、欄位 key 與共同可用欄位；看到「既有條件不是受支援的結構化格式」時，重新配置受支援條件再套用。",
-    ],
-  },
-  {
-    id: "correction",
-    title: "退回補件與重新送出",
-    intro:
-      "退回不是在圖上任意跳回前一位簽核者。FlowMint 使用同一發布版本中專用的申請人補件 User Task。",
-    steps: [
-      "建立名為「申請人補件」的 User Task，把派送方式設為 APPLICANT_CORRECTION。",
-      "綁定已發布表單，將允許補正的欄位設為 EDIT，其餘設為 READ 或其他適當權限。",
-      "把補件節點的出線接到重新審核的關卡。正常起單主線通常不需先經補件節點，退回時才由 Runtime 進入。",
-      "在可退回的審核關卡勾選「允許退回」。執行時選擇合法補件目標並填寫必要理由。",
-      "申請人在補件待辦修改資料並重送；系統重新驗證表單、保存修訂與快照，完成補件節點後沿出線繼續。",
-    ],
-    examples: [
-      {
-        title: "補件回路",
-        code: "正常：開始 → 主管審核 → 結束\n退回操作：主管審核 ⇢ 申請人補件\n重送出線：申請人補件 → 主管審核\n（⇢ 表示執行時退回操作，不是條件連線。）",
-      },
-    ],
-    notes: [
-      "第一次退回時補件節點可能尚未執行，這是合法情境。請另測駁回、連續退回、修改金額後重新分流及多人會簽中的退回行為。",
     ],
   },
   {
@@ -461,10 +440,32 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       },
     ],
     notes: [
-      "Groovy 同屬 System Task；功能預設關閉，部署、服務啟用與專用權限配置後的操作見 Groovy Editor 主題。原生 BPMN Script Task 仍禁止。",
+      "Groovy 同屬 System Task；由 FlowMint 主 JVM 執行，部署、服務啟用與專用權限配置後的操作見 Groovy Editor 主題。原生 BPMN Script Task 仍禁止。",
       "不需寫回的結果不要列入 Response Mapping。PREVIOUS_RESULT、PROCESS_VARIABLE 與顯式 DISCARD 不是目前節點 Mapping 支援的來源或目標；Data Action 內部 Step 的結果引用請在 Data Action 設計器配置。",
-      "目前為 Runtime MVP：尚未提供節點 timeout 設定、System Task 專屬執行紀錄／Incident、表單快照及完整維運能力，真實流程 E2E 仍待完成。正式異動流程需先完成環境驗證。",
+      "Data Action 目前尚未提供與 Groovy 相同的專屬 Incident 重試／重算 UI；QUERY 使用平台重試，COMMAND／TRANSACTION 不自動重試。正式異動流程仍須完成環境與真實資料驗證。",
       "不可在節點貼入 SQL、URL、密碼、Java class、delegate expression 或 Script。這裡也不使用表單的 ctx.executeDataAction() method。",
+    ],
+  },
+  {
+    id: "groovy-editor",
+    title: "System Task：Groovy Editor",
+    intro:
+      "Groovy 是由 FlowMint 主 JVM 執行的受信任 IT 管理腳本；完成資料表、服務開關及專用權限配置後，才能編輯、檢查、試跑與正式發布。",
+    steps: [
+      "啟用草稿功能後，在 DRAFT 流程從 Palette 新增 Groovy System Task；選取節點，在右側按「編輯腳本」開啟大型 Dialog。",
+      "Editor 使用 CodeMirror Groovy 上色、行號、縮排、括號配對、搜尋／取代、折疊與 input.／context. 提示。可切換全螢幕或收合變數區。",
+      "從唯一表單 Schema 選取欄位、指定輸入別名並加入 Mapping；Grid／物件須補齊子欄位 Schema。系統變數由 context 唯讀提供。",
+      "撰寫 return object，設定輸出 Schema 與 FORM_DATA Mapping。範例僅供複製，不會直接覆蓋腳本或執行。",
+      "按「教學說明」Tab 查看詳細操作與範例；返回 Editor 保留內容、游標及捲動位置。",
+      "按「套用至節點」更新畫面草稿，再按流程頁「儲存」保存 XML 與版本腳本。取消或關閉會確認是否放棄未套用修改。",
+      "使用「匯出完整版本」保存 BPMN、Groovy 腳本及簽核配置；「匯入版本檔」只接受同 Tenant、同流程，確認後取代目前草稿，仍須按儲存。單獨 XML 無法還原脚本。",
+      "檢查使用目前編輯副本，試跑另使用人工 JSON；不儲存、不讀正式單據、不套用輸出 Mapping。服務預設關閉，須完成服務啟用與權限配置。點選診斷可定位行／欄，修改內容或關閉視窗後舊結果失效；已發布版本唯讀，發布時後端會重新編譯並固定版本內容。",
+      "Runtime 失敗後，到「Incident 營運管理」的「Groovy 執行異常」查詢原因。確認安全後可沿用原輸入重試，或以最新表單修訂重算；兩者都會保留原失敗紀錄、操作人與理由。",
+    ],
+    notes: groovyGuide.map((section) => `${section.title}：${section.text}`),
+    examples: [
+      { title: "明細金額計算", code: groovyExample },
+      { title: "輸入／輸出與測試 JSON", code: groovyExampleContract },
     ],
   },
   {
@@ -495,7 +496,7 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       ],
       [
         "發布草稿",
-        "會驗證 BPMN 允許元件、流程代碼、表單固定版本、Task Policy、Assignment、啟動規則、Gateway 及 Data Action 引用，成功才成為可執行版本。",
+        "會驗證 BPMN 允許元件、流程代碼、表單固定版本、Task Policy、Assignment、啟動規則與 Gateway。DATA_ACTION 會核對同 Tenant 的固定已發布版本與 Mapping；GROOVY 會重新編譯、檢查專用發布權限及 Runtime Readiness，並固定腳本、契約、內容 hash 與 manifest。全部成功才成為可執行版本。",
       ],
       [
         "SHA-256",
@@ -517,7 +518,7 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       },
     ],
     notes: [
-      "Preview 只協助檢查簽核人解析，不會模擬整條 Gateway 路徑或執行 Data Action。發布後仍需以真實帳號測試各路徑、補件、附件、通知及多人併發。",
+      "本區的簽核人解析 Preview 只檢查 User Task 簽核人，不會模擬整條 Gateway 路徑，也不會執行 Data Action 或 Groovy。Groovy 的編譯檢查與人工 JSON 試跑請在 Groovy Editor 使用 CHECK／Preview；發布後仍須以真實帳號測試完整路徑、自動節點、補件、附件、通知及多人併發。",
     ],
   },
   {
@@ -527,7 +528,7 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
     rows: [
       [
         "不允許 BPMN 元件",
-        "目前只支援一般 Start／End、User Task、受控 Data Action Service Task、Exclusive／Inclusive／Parallel Gateway 與 Sequence Flow。不支援普通 Task、Script／Manual／Send／Receive／Business Rule Task、Subprocess、Call Activity、Boundary／Timer／Message Event、Event-based Gateway、Pool／Lane 等配置。工具列顯示不等於可發布。",
+        "目前只支援一般 Start／End、User Task、受控 DATA_ACTION／GROOVY Service Task、Exclusive／Inclusive／Parallel Gateway 與 Sequence Flow。不支援普通 Task、原生 Script／Manual／Send／Receive／Business Rule Task、Subprocess、Call Activity、Boundary／Timer／Message Event、Event-based Gateway、Pool／Lane 等配置。工具列顯示不等於可發布。",
       ],
       [
         "Process ID 與流程代碼不符",
@@ -559,11 +560,11 @@ export const bpmnDesignerGuide: BpmnGuideSection[] = [
       ],
       [
         "流程停在匯合或自動節點",
-        "先檢查是否還有未完成的分支／會簽；自動節點需查工作執行失敗。異動型 Action 不可因畫面未前進就重複發單。",
+        "先檢查是否還有未完成的分支／會簽。Groovy 失敗請到「Incident 營運管理」的「Groovy 執行異常」查看原因；確認安全後才能沿用原輸入重試或依最新表單重算。Data Action 尚無相同的專屬補處理 UI。異動型工作不可因畫面未前進就重複發單。",
       ],
     ],
     notes: [
-      "驗收至少涵蓋正常通過、金額邊界、預設路徑、多條包含分支、退回重送、駁回、無簽核人與 Data Action 失敗。",
+      "驗收至少涵蓋正常通過、金額邊界、預設路徑、多條包含分支、退回重送、駁回、無簽核人與 Data Action 失敗。使用 Groovy 時，另驗證 CHECK／Preview、成功流程、腳本錯誤、逾時、Incident 查詢、原輸入重試、最新表單重算及 HTTP 結果不明時不盲目重送。",
     ],
   },
 ];

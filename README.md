@@ -20,6 +20,7 @@ FlowMint 將一個可執行的簽核應用拆成「組織與人員」、「表�
   → 設計 BPMN
   → 為每個 User Task 綁定 Published Form 與 Task Policy
   → 為一般簽核節點設定 Assignment Rule；補件節點直接指派申請人
+  → 視需要設定 Data Action 或 Groovy System Task
   → Resolver Preview 與發布檢查
   → 發布 BPMN Process
   → 到申請中心測試起單、簽核、退回及流程進度
@@ -42,7 +43,7 @@ FlowMint 以 Tenant 隔離資料。一個新 Tenant 至少需要完成以下設�
 
 表單設計入口為 `FM_PROG005D0001`。建立表單主檔時先決定穩定且不可任意變更的 Form Code，例如 `LEAVE_REQUEST`；系統會建立可編輯的 Draft 版本。
 
-1. 使用 Form.io Designer 放入文字、數字、日期、選項、Email、Container、Columns、Table、Data Grid／Edit Grid、附件等元件。
+1. 可先點選 Designer 上方的「操作指南」，依元件配置、欄位 Key、Preview、Custom JavaScript、Data Action Binding 與發布順序逐步操作，再使用 Form.io Designer 放入文字、數字、日期、選項、Email、Container、Columns、Table、Data Grid／Edit Grid、附件等元件。
 2. 為每個輸入元件設定唯一的 `key`。BPMN Gateway、核決規則、Data Action 與 Custom JavaScript 都以 key 讀取欄位，不要以顯示名稱作為程式契約。
 3. 設定 required、型別、長度、數值範圍、格式與明細欄位驗證。送單時後端會依同一份 Published Schema 再驗證。
 4. 如需查詢選項或回填外部資料，先發布 DataSource Pool／Data Action，再於表單建立 Binding；資料庫密碼及任意 SQL 不會下放瀏覽器。
@@ -50,7 +51,7 @@ FlowMint 以 Tenant 隔離資料。一個新 Tenant 至少需要完成以下設�
 6. 使用 Preview 測試初始載入、欄位變更、明細增刪、Data Action、附件與送單驗證。
 7. 驗證通過後發布 Form。Published 版本不可直接修改；後續調整應建立下一個 Draft 版本。
 
-Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afterSubmit` 等 lifecycle。它適合處理介面連動及補充驗證，但關鍵權限、金額與資料完整性仍由後端驗證，不能只依賴瀏覽器 Script。
+Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afterSubmit` 等 lifecycle。`beforeSubmit` 會在 Designer「驗證送出」、正式起單、`APPROVE` 與 `RESUBMIT` 前執行，不會在 `REJECT`／`RETURN` 執行；`afterSubmit` 只會在正式後端 API 成功後執行，Designer Preview 不會執行。唯讀畫面不觸發 `onFieldChange`。Script 適合處理介面連動及補充驗證，但關鍵權限、金額與資料完整性仍由後端驗證，不能只依賴瀏覽器 Script。
 
 ### 3. 設計與發布 BPMN 流程
 
@@ -63,13 +64,15 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 5. 設定 Assignment Rule，例如申請人部門主管、直屬主管、上層主管、簽核群組、組織職稱、核決權限或固定帳號。
 6. 設定該節點的表單欄位權限：`HIDDEN`、`READ` 或 `EDIT`。申請內容通常唯讀，只有補件節點開放必要欄位修改。
 7. Gateway 條件只引用已綁定表單中的受控欄位，並為可能無法命中的分支設定 default flow。
-8. 使用 Resolver Preview 帶入實際申請人與測試表單資料，確認解析出的簽核帳號、順序與略過原因。
-9. 執行發布檢查。所有 User Task 都必須具有有效 Form Binding 與 Task Policy；一般簽核節點另需 Assignment Rule，`APPLICANT_CORRECTION` 補件節點直接指派申請人，BPMN 結構與條件也必須通過驗證。
-10. 發布流程。FlowMint 會在部署版本中為 User Task 注入 Assignment Listener，部署至 Flowable；設計器保存的原始 BPMN 不需要手工加入 listener。
+8. 如需資料整合，加入 System Task 並選擇 `DATA_ACTION`，固定綁定已發布的 Data Action 版本及 request／response mapping。
+9. 如需受控程式邏輯，選擇 `GROOVY`，設定 input／output schema、mapping、timeout 與腳本；先執行 CHECK，再用 Preview 驗證。外部 HTTP 呼叫必須自行處理 timeout、非 2xx、回應格式及冪等性。
+10. 使用 Resolver Preview 帶入實際申請人與測試表單資料，確認解析出的簽核帳號、順序與略過原因。
+11. 執行發布檢查。所有 User Task 都必須具有有效 Form Binding 與 Task Policy；一般簽核節點另需 Assignment Rule，`APPLICANT_CORRECTION` 補件節點直接指派申請人；System Task 的版本、契約、mapping 與腳本也必須通過驗證。
+12. 發布流程。FlowMint 會在部署版本中為 User Task 注入 Assignment Listener，並把 System Task 轉為固定後端 Delegate 後部署至 Flowable；設計器保存的原始 BPMN 不需要手工加入 listener。
 
 發布順序一定是 **Form 先、BPMN 後**。流程綁定的是明確的 Published Form Version，不會自動跟隨表單的最新草稿。表單建立新版本後，必須建立流程新 Draft、重新選擇該 Form Version、完成 Preview 與發布檢查，再發布新的 Process Version。既有流程實例仍使用啟動當時的版本，不會中途漂移。
 
-設計時可點選右側屬性面板的「配置說明」，查閱節點、Gateway、簽核人規則、補件與 Data Action Task 配置。說明視窗支援搜尋，並依目前選取的節點開啟相關主題。
+設計時可點選右側屬性面板的「配置說明」，查閱依操作順序編排的 14 個主題，內容涵蓋流程骨架、節點、連線、Gateway、表單綁定、Task Policy、簽核人規則、補件、Data Action 與 Groovy System Task。說明視窗支援搜尋，並依目前選取的節點開啟相關主題。
 
 ### 4. 起單與簽核
 
@@ -79,7 +82,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 4. 簽核人在 `/tasks/[taskId]` 查看流程指定的表單版本與欄位權限，依 Task Policy 執行核准、駁回、退回、轉派、代理或加簽。
 5. 申請人可在 `/requests/[processInstanceId]` 查看單據狀態、目前關卡、目前簽核人、表單快照、附件及 BPMN 流程進度。
 
-遇到找不到簽核人、組織資料失效或解析設定錯誤時，FlowMint 會建立 Assignment Incident，不會默默略過必要簽核。營運人員可由 `/operations/incidents` 處理，並在 `/operations/processes` 與 `/operations/reports` 追蹤流程及統計。
+遇到找不到簽核人、組織資料失效或解析設定錯誤時，FlowMint 會建立 Assignment Incident，不會默默略過必要簽核。Groovy System Task 執行失敗也會建立可追蹤的執行 Incident。營運人員可由 `/operations/incidents` 查看安全摘要與歷程，依異常類型執行 Retry、Reassign、Terminate，或以原始輸入 Retry／最新表單資料 Recalculate，並在 `/operations/processes` 與 `/operations/reports` 追蹤流程及統計。
 
 ### 5. 版本與發布原則
 
@@ -118,7 +121,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 | `/requests/start` | 申請中心 | 搜尋流程並開始填單 |
 | `/tasks/[taskId]` | 待辦處理 | 核准、駁回、退回、轉派、代理或加簽 |
 | `/requests/[processInstanceId]` | 申請詳情 | 查看表單、附件、簽核軌跡與 BPMN 進度 |
-| `/operations/incidents` | 指派異常 | 處理找不到簽核人等異常 |
+| `/operations/incidents` | 指派與 Groovy 執行異常 | 處理找不到簽核人、Groovy 執行失敗及其重試／重算 |
 | `/operations/processes` | 流程監控 | 查詢執行中及已完成流程 |
 | `/operations/reports` | 營運報表 | 查看流程數量、處理時間與逾期待辦 |
 
@@ -185,11 +188,11 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 ### Form 完整操作：`FM_PROG005D0001`
 
-1. 在清單按「新增」，選擇 Tenant，輸入不可重複的表單代碼、表單名稱、狀態與說明；儲存後系統自動建立 Version 1 Draft。
+1. 進入 Designer 後可先按「操作指南」，依內建教學確認元件、欄位 Key、Preview、Custom JavaScript、Data Action Binding 與發布方式；再於清單按「新增」，選擇 Tenant，輸入不可重複的表單代碼、表單名稱、狀態與說明，儲存後系統自動建立 Version 1 Draft。
 2. 進入編輯頁並選擇 Draft 版本。從左側工具箱拖曳元件到畫布，點選元件設定 Label、Key、預設值、驗證與顯示規則。
 3. 可使用「加入單據編號」建立平台管理的唯讀 `documentNumber`，或使用「加入申請人欄位」加入 Runtime Context 欄位；不要另寫 Script 偽造這些系統資料。
 4. 附件元件設定允許類型、單檔大小、檔案數量與總容量。Preview 不會真的上傳附件，正式附件需到申請頁驗證。
-5. Custom JavaScript 應保持可讀格式，使用 lifecycle 與 `ctx` API，不直接存取密碼、資料庫或任意外部網址。
+5. Custom JavaScript 應保持可讀格式，使用 lifecycle 與「系統 API 說明」列出的 `ctx` API，不直接存取密碼或資料庫。需要內部 API 時使用平台共用 Axios 與既有授權，不在 Script 內嵌 token、密鑰或任意外部網址。
 6. 若使用 Data Action Binding，選擇已發布 Action、事件、request mapping 及 response mapping；先在 Action Preview 驗證，再測試表單 Preview。
 7. 按「儲存草稿」保存 Designer、Schema、Script 與 Binding；再以 Preview 輸入資料並按「驗證送出」。
 8. 修正所有 required、型別、元件 key、Script 及 Binding 錯誤後按「發布草稿」。發布後該版本只可檢視。
@@ -205,10 +208,11 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 6. 設定解析方式及其必要參數：固定帳號、簽核群組、目標層級、職稱、職務或表單人員帳號欄位等。
 7. 設定欄位權限。原始申請資料通常採 `READ`，簽核專用欄位採 `EDIT`，內部或不適用欄位採 `HIDDEN`。
 8. 對 Exclusive／Inclusive Gateway 設定條件及 default flow；不得在 Parallel Gateway outgoing flow 上設定不會生效的條件。
-9. 按「儲存草稿」。Resolver Preview 使用已儲存規則，因此修改節點後要先儲存，再輸入測試表單 JSON 執行 Preview。
-10. 分別以一般申請人、兼任人員、簽核人本人及邊界金額測試解析結果。
-11. 按「發布草稿」。後端會驗證 BPMN、Process Key、每個 User Task 的 Form Binding／Policy，以及一般簽核節點的 Assignment Rule、Gateway 條件及 Resolver，成功後才部署至 Flowable。
-12. 已發布版本只能檢視；修改流程時使用「建立新版本」，重新確認所有節點設定後再發布。
+9. 需要 System Task 時選擇 `DATA_ACTION` 或 `GROOVY`。Data Action 固定綁定 Published Action；Groovy 設定契約、mapping、timeout 與腳本，先執行 CHECK，再以 Preview 驗證輸入、輸出與錯誤處理。
+10. 按「儲存草稿」。Resolver Preview 使用已儲存規則，因此修改節點後要先儲存，再輸入測試表單 JSON 執行 Preview。
+11. 分別以一般申請人、兼任人員、簽核人本人及邊界金額測試解析結果；System Task 另測試成功、timeout、格式錯誤及外部服務失敗情境。
+12. 按「發布草稿」。後端會驗證 BPMN、Process Key、每個 User Task 的 Form Binding／Policy、一般簽核節點的 Assignment Rule、Gateway 條件、Resolver，以及 System Task 的固定版本、契約、mapping 與腳本，成功後才部署至 Flowable。
+13. 已發布版本只能檢視；修改流程時使用「建立新版本」，重新確認所有節點設定後再發布。
 
 ### DataSource Pool 與 Data Action
 
@@ -222,7 +226,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 #### Data Action：`FM_PROG006D0002`
 
-1. 選擇 Tenant 與 DataSource Pool，設定 Action Code、名稱、類型、Request Schema、每分鐘呼叫上限與說明。
+1. 建立或編輯時可先按 Data Action 卡片標題右側的「操作指南」，查閱 Action Type、Mapping、SQL Step、批次、條件、Preview、發布與安全限制；再選擇 Tenant 與 DataSource Pool，設定 Action Code、名稱、類型、Request Schema、每分鐘呼叫上限與說明。
 2. 依執行順序新增 Step，設定 Step Code、Statement、Execution Mode、SQL、Result Key、Result Mode、逾時及最大回傳筆數。
 3. SQL 使用 Named Parameter；值由 Request、Server Context、目前 item 或前一步結果綁定，不以字串拼接使用者輸入。
 4. 批次處理選擇 `FOR_EACH` 並設定 Array Path；有條件執行時設定 Continue Condition。
@@ -293,7 +297,8 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 正式業務表單屬應用配置，不計入平台本體程式。
 - 尚待完成正式環境部署、Program／角色配置、完整瀏覽器 E2E 與真實資料量效能驗證。
 - Email 支援成功狀態同步、失敗重試與永久失敗紀錄。
-- System Task／Data Action Task 已完成設計器、發布驗證與 Runtime MVP 接線；專屬執行紀錄、Incident、Form Snapshot、BPMN 專用 capability 與真實 E2E 仍待完成。
+- Groovy System Task 已完成 Designer、CHECK、Preview、發布編譯與固定版本／hash／manifest、主 JVM Runtime、執行紀錄，以及 Incident 原始輸入 Retry／最新表單 Recalculate；成功、非同步完成、失敗重試、重算、request ID 冪等、跨 Tenant 拒絕及腳本 hash 防竄改已通過 Flowable／MariaDB E2E。
+- Data Action System Task 已完成 Designer、發布驗證與固定 Delegate Runtime；`QUERY`／`COMMAND`／多帳號真實瀏覽器全流程、跨資料庫與實際資料量仍待完整驗收，目前也沒有與 Groovy 相同的專屬 Incident Retry／Recalculate UI。
 
 詳細紀錄請參考 [開發進度](backend/doc/18-開發進度.md) 與 [開發路線](backend/doc/12-開發路線.md)。
 
@@ -335,8 +340,9 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 節點駁回、退回、轉派、加簽與意見必填政策。
 - Task SLA 處理期限與提前提醒設定。
 - Exclusive、Inclusive、Parallel Gateway 與受控分流條件。
-- Data Action Task 自動執行已發布資料動作，現階段為 Runtime MVP。
-- 右側「配置說明」提供可搜尋的操作指南與目前節點的配置說明。
+- Data Action System Task 固定執行已發布資料動作，支援受控 request／response mapping。
+- Groovy System Task 支援契約、mapping、CHECK、Preview、發布編譯、非同步 Runtime 與失敗 Incident 維運。
+- 右側「配置說明」提供依操作順序編排的 14 個可搜尋主題，並可依目前節點開啟相關說明。
 
 ### 流程 Runtime
 
@@ -517,7 +523,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 - 建立流程主檔，維護流程代碼、名稱、狀態與目前版本。
 - 建立及修改草稿版本；已發布版本不可直接改寫，變更必須建立新版本。
-- 內嵌 BPMN Designer，支援一般 Start／End Event、User Task、受控 Data Action Service Task、Sequence Flow，以及 Exclusive／Inclusive／Parallel Gateway。
+- 內嵌 BPMN Designer，支援一般 Start／End Event、User Task、受控 `DATA_ACTION`／`GROOVY` System Task、Sequence Flow，以及 Exclusive／Inclusive／Parallel Gateway。
 - 全員與循序簽核透過 Task Policy 設定，發布時產生 Multi-instance 配置；不是直接編輯任意 BPMN Multi-instance XML。
 - 保存 BPMN XML、版本號、內容 digest、發布者、發布時間及 Flowable deployment 關聯。
 - 發布前驗證 BPMN 結構、表單綁定、Task Policy、Assignment Rule 與簽核群組設定。
@@ -722,7 +728,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 快照及 Action 不提供一般 update／delete API，防止事後竄改。
 - Task、申請明細與營運監控共用同一稽核來源。
 
-### 21. 指派異常處理（`/operations/incidents`）
+### 21. 異常處理（`/operations/incidents`）
 
 - Resolver 找不到簽核人時保留未指派 Task 並建立 `OPEN` Incident，不讓異常證據隨回滾消失。
 - Incident 保存 Tenant、流程、Task、Task Definition Key、錯誤碼、訊息與解析 context；Task category 保存 Incident ID。
@@ -732,6 +738,10 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - Reassign：選項只列同 Tenant 有效員工；要求理由、精確 Incident／Task 關聯及執行中流程，成功後建立 `ADMIN_REASSIGN` 稽核。
 - Terminate：只處理 `RUNNING` 流程且理由必填；先建立 `TERMINATE` 快照／Action，再終止 Flowable，流程轉 `TERMINATED`、表單轉 `CANCELLED`，其餘 `OPEN` Incident 轉 `IGNORED`。
 - 使用條件式狀態更新，防止兩位管理者重複處理同一異常。
+- Groovy System Task 失敗時保存執行紀錄、受控錯誤、安全輸入／輸出摘要及處理歷程，並以 Tenant 與操作權限隔離。
+- Groovy Retry 以原始輸入重新執行；Recalculate 則以最新表單資料重新計算 mapping 後執行。失敗嘗試不會被覆蓋，處理結果保留稽核軌跡。
+- 外部 HTTP 結果若因斷線或 timeout 無法確認，不應盲目 Retry；腳本應使用冪等 request ID，或先向外部系統查詢原請求狀態。
+- Data Action System Task 目前沒有同等的專屬 Retry／Recalculate Incident 操作畫面。
 
 ### 22. 站內通知中心
 
@@ -837,16 +847,16 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - FJ03 使用獨立 Program 權限顯示 Springdoc OpenAPI 說明，不從 Client 管理頁洩漏未授權契約。
 - 程式、MariaDB Schema、Program 與管理 UI 已完成；正式外部 Client、流量與跨 Tenant E2E 尚待驗收。
 
-### 31. System Task／Data Action Task（Runtime MVP）
+### 31. System Task：Data Action 與 Groovy
 
-- 在 BPMN Designer 以專用工具建立 Data Action Task，選取同 Tenant、有效且已發布的 Data Action 固定版本。
-- 支援 `QUERY`、`COMMAND`、`TRANSACTION`；流程發布後不會自動改用 Action 的新版本。
-- Request Mapping 支援 `FORM_DATA.path`、受控 `PROCESS_CONTEXT.name` 與 `CONSTANT:value`；目前常數以字串傳入，必須符合 Action 的 Request Schema。
-- Response Mapping 只允許寫回合法的 `FORM_DATA.path`，發布時檢查必要參數、結果欄位與表單路徑。
-- 發布時轉換為固定後端 Delegate，以非同步工作執行，並同步表單資料與流程變數。
-- QUERY 使用平台重試；COMMAND／TRANSACTION 不自動重試，失敗後需先確認外部結果再人工處理。
-- 不開放任意 Script Task、Java class、expression、直接 SQL 或 HTTP 節點。
-- 目前尚未提供節點 timeout 設定、System Task 專屬執行紀錄／Incident、Form Snapshot 與完整維運能力；BPMN 專用 capability 及真實瀏覽器／Flowable／MariaDB E2E 仍待完成。
+- BPMN Designer 提供兩種受控 System Task：`DATA_ACTION` 與 `GROOVY`；發布後都轉為平台固定 Delegate，不允許任意指定 Java class 或 expression。
+- Data Action 固定選取同 Tenant、有效且已發布的 Action 版本，支援 `QUERY`、`COMMAND`、`TRANSACTION`。Request Mapping 可使用 `FORM_DATA.path`、受控 `PROCESS_CONTEXT.name` 與 `CONSTANT:value`；Response Mapping 只可寫回合法的 `FORM_DATA.path`。
+- Groovy 設定 input／output schema、request／response mapping、timeout 與腳本。Designer 可先 CHECK 語法與契約，再以 Preview 試跑；發布時重新編譯並固定版本、script hash 與 manifest，Runtime 不採用之後被修改的草稿內容。
+- Groovy 在 FlowMint 主 JVM 的受控執行器內非同步執行，不需要獨立 worker。可使用 Java 21 `HttpClient` 與 `groovy-json` 呼叫 API 及處理 JSON；必須自行檢查 timeout、非 2xx、回應格式、敏感資訊與冪等性。
+- Groovy 未設定 Response Mapping 時不會為了空輸出無意義地改寫表單；有 mapping 時才依契約驗證並寫回表單／流程 context。
+- Groovy 執行失敗會建立 Incident，可在營運 UI 查看歷程，使用原始輸入 Retry 或最新表單資料 Recalculate。外部系統結果不確定時，應先查詢外部狀態，不可直接重送非冪等操作。
+- 不開放原生任意 BPMN Script Task、任意 Java class、expression、直接 SQL 或獨立任意 HTTP 節點。資料庫整合使用 Data Action；HTTP 邏輯由受控 Groovy 腳本處理。
+- Groovy 核心路徑已完成 Flowable／MariaDB E2E；尚需完整多帳號瀏覽器、正式權限與部署環境回歸。Data Action 尚需 `QUERY`／`COMMAND` 真實全流程、跨資料庫、實際資料量及專屬 Incident 維運驗收。
 
 ## 技術架構
 
@@ -1080,7 +1090,7 @@ FlowMint event
 | `/requests/start/[processDefId]` | 獨立正式填單、附件上傳與送出 |
 | `/requests/[processInstanceId]` | 申請詳情、目前簽核人、附件、歷程與 BPMN 進度 |
 | `/tasks/[taskId]` | 待辦表單、附件、流程進度與簽核動作 |
-| `/operations/incidents` | 指派異常處理 |
+| `/operations/incidents` | 指派與 Groovy System Task 執行異常處理 |
 | `/operations/processes` | 流程實例監控與稽核明細 |
 | `/operations/reports` | 流程營運報表 |
 | `#/fm_prog010d0001` | AI Provider 管理 |
@@ -1139,7 +1149,7 @@ git diff --check
 8. 驗證轉派、代理、加簽及 Approval Group 多人模式。
 9. 驗證表單、指派與操作快照不可變。
 10. 驗證站內通知、Email Outbox、期限提醒及逾時通知。
-11. 製造 Resolver 失敗，驗證 Incident Retry／Reassign／Terminate。
+11. 製造 Resolver 失敗，驗證 Incident Retry／Reassign／Terminate；另製造 Groovy 成功、timeout、契約錯誤及外部服務失敗，驗證執行歷程、原始輸入 Retry、最新表單 Recalculate、request ID 冪等與跨 Tenant 拒絕。
 12. 驗證流程監控、稽核明細、分頁與營運報表。
 13. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
 14. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
@@ -1149,8 +1159,8 @@ git diff --check
 - 完整交付仍需正式資料 E2E 與實際量級效能驗證。
 - 最近完成的附件、申請追蹤、目前簽核人及 BPMN 進度仍需重新啟動完整環境後，以申請人和實際簽核人執行瀏覽器回歸。
 - AI 解說尚未以真實 Provider Key、正式網路與多帳號完成 E2E；第一版不解析附件。
-- Data Action 仍需跨資料庫整合與實際資料量驗收。
-- System Task 為 Runtime MVP；專屬執行紀錄／Incident、Form Snapshot、BPMN 專用 capability、Context Pad 轉換與複製／匯入回歸仍待補齊，真實流程 E2E 尚未完成。
+- Data Action 仍需 `QUERY`／`COMMAND` 真實全流程、多帳號瀏覽器、跨資料庫、實際資料量與專屬 Incident 維運驗收。
+- Groovy System Task 核心功能及 Flowable／MariaDB E2E 已完成，但仍需多帳號瀏覽器、正式權限與部署環境回歸。Groovy 是供可信任 IT 人員使用的主 JVM 腳本能力，不是執行不受信任程式碼的安全沙箱；timeout 也不保證能強制終止惡意或不合作的執行緒。
 - 業務表單及流程須由導入人員依企業規則配置。
 
 ## 文件索引
@@ -1186,6 +1196,7 @@ git diff --check
 - [外部系統 API 管理與流程拋單規劃](backend/doc/32-外部系統API管理與流程拋單規劃.md)
 - [System Task 與 Data Action Task 規劃](backend/doc/33-SystemTask與DataActionTask規劃.md)
 - [BPMN 流程設計操作說明](backend/doc/34-BPMN流程設計操作說明.md)
+- [System Task Groovy 腳本規劃](backend/doc/35-SystemTask的Groovy腳本規劃.md)
 - [表單 Custom JavaScript 規劃說明](backend/doc/FM_PROG005D0001_cust_js規劃說明.md)
 - [Data Action 使用說明](backend/doc/使用FM_PROG006D0002說明.md)
 

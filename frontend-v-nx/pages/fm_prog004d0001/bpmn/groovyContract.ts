@@ -66,7 +66,11 @@ export const groovyGuide = [
   },
   {
     title: "檢查、試跑與限制",
-    text: "上色與 JSON 格式檢查不等於 Groovy 編譯。檢查不要求人工 sample；試跑只使用人工 JSON，不讀正式單據、不套用輸出 Mapping、不儲存。點選診斷可定位行／欄；修改內容或關閉視窗後舊結果失效。SQL／HTTP 由相鄰 Data Action 執行。第一版 worker 暫不支援 Closure，請使用 for 迴圈；GString 回傳前須轉為 String。",
+    text: "上色與 JSON 格式檢查不等於 Groovy 編譯。檢查不要求人工 sample；試跑只使用人工 JSON，不讀正式單據、不套用輸出 Mapping、不儲存。點選診斷可定位行／欄；修改內容或關閉視窗後舊結果失效。資料庫操作應使用相鄰 Data Action；HTTP 可使用教學提供的 Java HttpClient。GString 回傳前須轉為 String。",
+  },
+  {
+    title: "Runtime 失敗與補處理",
+    text: "Runtime 失敗後，到「Incident 營運管理」頁面的「Groovy 執行異常」查詢原因及處理歷程。確認安全後，可沿用原輸入與固定腳本版本重試，或使用最新表單修訂建立重算工作；兩者都須填寫理由，並保留原失敗紀錄。標記已處理或已忽略只更新處理狀態，不會執行腳本。若 HTTP 斷線或逾時造成外部結果不明，必須先查明外部狀態或確認對方支援冪等鍵，不可盲目重試。",
   },
   {
     title: "操作與排錯",

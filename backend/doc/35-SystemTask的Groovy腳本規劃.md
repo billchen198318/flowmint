@@ -2,9 +2,9 @@
 
 日期：2026-09-08
 
-接續更新：2026-09-14（第 41 節 schema 已部署；下次先讀第 18 章最上方接續摘要）
+接續更新：2026-09-21（主 JVM、Incident 與核心 E2E 現況見第 44～49 節）
 
-狀態：2026-09-19 決定撤回獨立 worker 架構，Groovy 改由 FlowMint backend 主 JVM 直接執行；`HTTP_API` subtype 同時取消，外部 API 由 Groovy 腳本處理。第 15～40 節中的舊架構內容僅為歷史紀錄。
+狀態：Groovy 已改由 FlowMint backend 主 JVM 直接執行，獨立 worker 已移除；`HTTP_API` subtype 已取消，外部 API 由 Groovy 腳本處理。CHECK、Preview、發布、Runtime、Incident Retry／Recalculate 及 Flowable／MariaDB 核心 E2E 已完成；完整多帳號瀏覽器與正式部署權限回歸仍待執行。第 15～40 節中的舊架構內容僅為歷史紀錄。
 
 System Task 是自動執行工作的流程節點，表單回寫為選用能力。
 
@@ -24,12 +24,12 @@ FlowMint 工作節點仍分為 User Task 與 System Task 兩大類；執行 subt
 
 | 類型 | 使用方式 | 主要用途 |
 | --- | --- | --- |
-| `DATA_ACTION`（現行 Runtime MVP） | 選擇同 Tenant 已發布 Action Code 與固定版本 | 查詢／異動資料庫與既有整合 |
-| `GROOVY`（程式已接線、待 E2E） | 在節點編輯 Groovy 與輸入／輸出契約 | 資料計算、轉換、驗證及路由結果 |
+| `DATA_ACTION` | 選擇同 Tenant 已發布 Action Code 與固定版本 | 查詢／異動資料庫與既有整合；完整真實流程與專屬 Incident 維運仍待驗收 |
+| `GROOVY` | 在節點編輯 Groovy 與輸入／輸出契約 | 資料計算、轉換、驗證、路由結果與受控 HTTP；核心 E2E 已完成 |
 
 第一版採「節點內腳本、隨 Process Version 版本化」，不另建全域 Script 主檔、Script Code 或管理選單。需要重用時先複製節點或流程版本；集中腳本庫屬後續需求，不是第一版前置。
 
-Groovy 允許 Map／List、字串、布林、BigDecimal、條件與迴圈、集合轉換及受控純函式，不直接存取 SQL、HTTP、檔案、系統環境、Spring Bean、Flowable Service 或其他 Tenant。需要外部資料時使用對應的受控 System Task：
+Groovy 允許 Map／List、字串、布林、BigDecimal、條件與迴圈、集合轉換、`groovy-json` 及 Java 21 `HttpClient`。不得直接存取 SQL、檔案、系統環境、Spring Bean、Flowable Service 或其他 Tenant；資料庫整合使用 Data Action，HTTP 呼叫須自行處理 timeout、非 2xx、JSON、秘密、冪等與結果不確定性：
 
 ```text
 Data Action Task：取得來源資料
@@ -61,7 +61,7 @@ Dialog 預設約視窗寬、高的 90%，提供全螢幕切換；窄螢幕使用
 
 CodeMirror 須提供 Groovy 關鍵字、字串、註解與數字上色、行號、自動縮排、括號配對、程式碼折疊、搜尋／取代及復原／重做。輸入 `input.` 或 `context.` 時提示已宣告的輸入名稱與系統欄位，這是契約型提示，不宣稱具備完整 Groovy／Java IDE 型別推導。
 
-編輯器占主要空間；輸入／輸出 Mapping 與可用變數區可收合，檢查結果置於下方。後端回傳的行／欄診斷可點擊跳至程式位置；語法上色不代表編譯或安全政策驗證成功。腳本或契約變更後，先前驗證結果標示失效。worker 未完成或不可用時，不開放真正編譯檢查與試跑，不以瀏覽器上色冒充驗證通過。
+編輯器占主要空間；輸入／輸出 Mapping 與可用變數區可收合，檢查結果置於下方。後端回傳的行／欄診斷可點擊跳至程式位置；語法上色不代表編譯或政策驗證成功。腳本或契約變更後，先前驗證結果標示失效。主 JVM Groovy engine 或 Runtime Readiness 不可用時，CHECK／Preview／發布須明確拒絕，不以瀏覽器上色冒充驗證通過。
 
 可用變數區依綁定的 Form Schema 顯示欄位中文名稱、路徑與型別，支援巢狀物件及整個 Grid 明細陣列。選取表單欄位時指定輸入別名、加入 Mapping，再於游標處插入對應 `input` 引用；別名重複時提示修正，不靜默覆蓋。系統變數列出用途與 nullable 說明，可插入 `context` 引用。此目錄只顯示結構與說明，不自動載入正式表單 value；試跑值由人工 sample JSON 提供。
 
@@ -75,7 +75,7 @@ CodeMirror 須提供 Groovy 關鍵字、字串、註解與數字上色、行號�
 
 **同批交付要求：實作 Groovy Editor 時，必須同步更新既有 BPMN「配置說明」按鈕開啟的教學 Dialog，不可只新增 Groovy Edit Dialog 內的教學 Tab。** 更新入口為 `frontend-v-nx/pages/fm_prog004d0001/components/bpmnDesignerGuide.ts`，相關主題定位由既有 `BpmnDesignerHelp.vue` 與呼叫端配合；操作文件同步第 34 章。
 
-既有 BPMN 教學須涵蓋新增 Groovy System Task、開啟大型 Editor Dialog、Editor／教學 Tab、選取表單欄位與系統變數、輸入／輸出 Mapping、檢查／試跑、套用至節點與儲存流程的差異，以及已發布版本唯讀與執行限制。選取 Groovy 節點後按「配置說明」應直接定位 System Task／Groovy 操作主題；Groovy Dialog 內的教學提供詳細語法與程式範例。兩處說明依同一契約維護，隨各階段實際可用能力更新，未完成的試跑／發布仍明確標示未開放。
+既有 BPMN 教學已涵蓋新增 Groovy System Task、開啟大型 Editor Dialog、Editor／教學 Tab、選取表單欄位與系統變數、輸入／輸出 Mapping、CHECK／Preview、套用至節點與儲存流程的差異，以及已發布版本唯讀與執行限制。選取 Groovy 節點後按「配置說明」會直接定位 System Task／Groovy 操作主題；Groovy Dialog 內的教學提供詳細語法與程式範例。
 
 編輯 Tab 提供「查看教學」，切到同一 Dialog 的教學 Tab 及相關段落；返回編輯時保留第 3.2 節狀態。教學支援關鍵字搜尋與主題導覽，內容包含：
 
@@ -84,13 +84,13 @@ CodeMirror 須提供 Groovy 關鍵字、字串、註解與數字上色、行號�
 3. 系統變數：第 4 節白名單、來源、型別、nullable 與 PREVIEW／RUNTIME 差異。
 4. 輸出寫回：明確 `return`、輸出 Schema、FORM_DATA Mapping，以及後續 Gateway 如何使用結果。
 5. 常用範例：金額加總、空值處理、條件判斷、明細轉換；範例附必要輸入／輸出契約和人工測試 JSON。
-6. 限制與排錯：只讀已保存資料、SQL／HTTP 由相鄰 Data Action 處理、編譯／型別／權限／逾時錯誤的處理方式。
+6. 限制與排錯：只讀已保存資料、SQL 使用 Data Action、HTTP 使用 Java 21 `HttpClient`，以及編譯／型別／權限／逾時／非 2xx／結果不確定的處理方式。
 
 範例提供「複製程式碼」，不直接覆蓋目前腳本，也不因開啟教學執行範例或呼叫異動 API。範例須符合實際 engine profile、語法政策與 JSON 輸出限制；含 Groovy 字串插值時，回傳前轉為普通 String。教學與變數提示共用受控契約來源，未實作能力須標示規劃中，不能呈現為已可使用。
 
 Draft 可編輯；Published／Retired 只能檢視。型別轉換需先提示將清除不相容的設定，並支援 undo／redo。User Task 轉換必須處理 Task Policy、Assignment、Form Rule 的孤兒資料；第一版若不能保證原子清理，禁止該轉換。
 
-Preview 的 Script 與 Schema 可包含未儲存草稿，但必須攜帶 expected lock version；後端重驗 Tenant、編輯權與內容限制。試跑不讀正式業務資料、不建立流程、不寫表單、不觸發通知。編譯與試跑都使用相同 worker 契約。
+Preview 的 Script 與 Schema 可包含未儲存草稿，但必須攜帶 expected lock version；後端重驗 Tenant、編輯權與內容限制。試跑不讀正式業務資料、不建立流程、不寫表單、不觸發通知。CHECK、Preview、發布編譯與 Runtime 使用相同的主 JVM engine profile 與契約。
 
 ## 4. 腳本輸入與回傳契約
 
@@ -151,7 +151,7 @@ Runtime 的 `FORM_DATA` 來源為 System Task 本次 invocation 建立輸入快�
 
 上述為示例，來源欄位須存在於第 5 節指定的 Form Schema。缺少 required 輸入時於執行前拒絕；選配缺值正規化為 null 並要求 Schema 允許 null，腳本可自行給預設值。第一版不新增隱式 Mapping 預設值語法，也不把 null、false 或 0 自動轉為空字串。
 
-規劃的 `context` 白名單如下；實作時須核對正式持久化來源與 DTO，未完成來源接線的欄位不可在編輯器標示可用：
+現行 `context` 白名單如下；正式持久化來源與 DTO 必須維持一致，未完成來源接線的欄位不可在編輯器標示可用：
 
 | 欄位 | 型別 | Runtime 來源與語意 |
 | --- | --- | --- |
@@ -237,31 +237,32 @@ Data Action 既有 `flowmint:actionCode`／版本／Mapping 屬性保持原契�
 
 Published 子表不可修改；建立新流程版本時複製 binding，保留節點內 bindingId、重新產生 OID。刪除節點同步刪除 Draft binding。匯入／匯出使用包含 XML 與 bindings 的版本化 JSON bundle；單獨 XML 缺少 Groovy binding 時拒絕匯入成可發布流程。禁止從 URL 或外部檔案自動下載腳本。
 
-發布固定 engine profile（Groovy、JDK、worker image digest、語法政策版本）。先核對專案 Maven 實際解析版本，不在本次文件中任意升級 Groovy。舊 profile 不可默默替換；安全撤銷時暫停相關執行並建立 Incident，再依明確升級程序處理。
+發布固定 engine profile（Groovy、JDK、依賴與政策版本）。先核對專案 Maven 實際解析版本，不任意升級 Groovy。舊 profile 不可默默替換；安全撤銷時暫停相關執行並建立 Incident，再依明確升級程序處理。
 
-## 7. 資料模型草案
+## 7. 資料模型
 
-以下為待開發模型，未新增至 MariaDB 或 `flowmint.sql`。欄位型別、命名、FK、索引及長度需依第 13、16、19 章落地；既有 Scenario／Incident 表的相容性须在 migration 前核對。
+下列模型已納入 MariaDB 與 `flowmint.sql`；其他部署環境仍須依正式 migration／完整 schema 升級。欄位型別、命名、FK、索引及長度以現行 schema 為準。
 
 | 表 | 必要資料與約束 |
 | --- | --- |
-| `fm_process_system_task`（新增） | OID、Tenant、Process Def ID／Version、Node ID、bindingId、taskType、SCRIPT_CONTENT、INPUT_SCHEMA、OUTPUT_SCHEMA、MAPPING_CONTENT、TIMEOUT_MS、ENGINE_PROFILE、POLICY_VERSION、CONTENT_SHA256、LOCK_VERSION、Audit 欄位；Tenant＋Process Version＋Node ID 唯一，bindingId 在同版本唯一；關聯流程版本 |
-| `fm_system_task_execution`（新增） | invocationId、Tenant、Process Instance、Process Version、Node ID、executionId、首次 job 識別、binding SHA、input revision／hash、固定 startedAt、狀態、lease generation／expiry、result hash、Snapshot ID、Incident ID；invocationId 唯一，保存已套用結果的 receipt |
-| `fm_system_task_attempt`（新增） | execution OID、attemptNo、worker requestId、profile、起迄時間、duration、錯誤代碼與受控摘要、log 摘要、狀態；execution＋attemptNo 唯一；Preview 紀錄以 mode 區分，可無流程實例 |
+| `fm_process_system_task` | OID、Tenant、Process Def ID／Version、Node ID、bindingId、taskType、SCRIPT_CONTENT、INPUT_SCHEMA、OUTPUT_SCHEMA、MAPPING_CONTENT、TIMEOUT_MS、ENGINE_PROFILE、POLICY_VERSION、CONTENT_SHA256、LOCK_VERSION、Audit 欄位；Tenant＋Process Version＋Node ID 唯一，bindingId 在同版本唯一；關聯流程版本 |
+| `fm_system_task_execution` | invocationId、Tenant、Process Instance、Process Version、Node ID、executionId、首次 job 識別、binding SHA、input revision／hash、固定 startedAt、狀態、lease generation／expiry、result hash、Snapshot ID、Incident ID；invocationId 唯一，保存已套用結果的 receipt |
+| `fm_system_task_attempt` | execution OID、attemptNo、requestId、profile、起迄時間、duration、錯誤代碼與受控摘要、log 摘要、狀態；execution＋attemptNo 唯一；Preview 紀錄以 mode 區分，可無流程實例 |
 
 Execution 的輸入需可供同 invocation 重試：保存最小必要的輸入快照於受存取控制的內容欄位，設定保留期，不在一般查詢 API 或 log 回傳。Preview 輸入／輸出預設不持久化，僅回給本次有權操作者。
 
 共用執行表應可容納 `DATA_ACTION`，但既有 Data Action attempt／Incident 補齊另有工作量；不可因建表就宣稱第 33 章全部結案。Groovy 需要的 Snapshot／Incident／receipt 是首版必要交付，不留成「可執行但無法追蹤」的 MVP。
 
-## 8. 本機 Java 執行器
+## 8. 主 JVM Groovy 執行器
 
-後端直接啟動獨立 Java worker，stdin／stdout 交換有界 JSON，不在主應用 JVM evaluate。
-worker classpath 只含獨立 jar 與依賴，不引用 app／core／base；每次呼叫後銷毀 JVM。
-語法 allowlist 拒絕反射、ClassLoader、metaClass、動態 evaluate、程序／執行緒、System、
-檔案、網路、JDBC、自訂 class／annotation 及下載套件；Grape 明確關閉。
+CHECK、Preview、發布編譯與 Runtime 均使用 app 內的 `FmGroovyInProcessEngine`，正式部署只需
+FlowMint 主程式 JAR，不啟動獨立 worker、子程序或額外 classpath。Groovy 定位為可信任 IT
+管理腳本，不是執行不受信任程式碼的 OS sandbox；反射、程序、執行緒、檔案、JDBC、Spring Bean、
+Flowable Service 與其他 Tenant 資料仍不屬於公開契約。HTTP 僅透過 Java 21 `HttpClient`，
+JSON 使用 `groovy-json`，認證秘密不得寫入腳本或輸出。
 
-目前採一次性 Java 子程序執行 worker。
-具體設定、deadline、記憶體與部署邊界以第 38 節為準。
+timeout 會停止等待並拒絕過期結果，但主 JVM 無法保證強制終止惡意或不合作的執行緒，因此只有
+具專用權限、經測試與審閱的 IT 腳本可發布。具體主 JVM 決策與驗收見第 42～49 節。
 腳本上限 64 KiB；input／context／result 各 256 KiB，JSON 深度 20、值節點 10,000；
 日誌最多 100 筆／16 KiB。Preview／Runtime 各自限制每 Tenant 2、全域 8 個併發，滿額拒絕。
 回應核對 invocationId、attemptId、generation、bindingSha256 及 Schema；Runtime 提交另驗證
@@ -276,7 +277,7 @@ lease／generation，過期或逾時結果不得寫回。
 1. 後端從可信任的 Flowable execution 解析 Tenant、流程版本、node 與 binding，檢查流程仍可執行及 profile 啟用。
 2. 以首次 async job ID 建立穩定 invocation，execution 表保存 job／execution 關聯。job 搬至 dead-letter 或人工重試時必須顯式沿用原 invocation；不能假定搬移後 job ID 永遠不變。迴圈及 multi-instance 的 occurrence 隔離須有 Flowable 實測證據。
 3. 短交易保存 invocation、输入 revision／最小快照、lease generation 與 attempt。失敗紀錄使用獨立交易，避免流程交易 rollback 後整筆紀錄消失。
-4. 將腳本與已固定輸入送入 worker。等待受總 deadline 約束；工作排隊前不得持有表單 row lock。Flowable job 執行交易的最長占用時間與 lock timeout 需按壓測設定，worker 操作不參與資料庫交易。
+4. 將腳本與已固定輸入送入主 JVM engine。等待受總 deadline 約束；工作排隊前不得持有表單 row lock。Flowable job 執行交易的最長占用時間與 lock timeout 需按壓測設定。
 5. 回應後先驗證完整 result，再於 Flowable 所用的同一 MariaDB 交易中重新核對 active execution、lease generation、取消狀態與表單版本鎖，更新 Form／變數／Snapshot／成功 receipt，並推進流程。
 6. 上述交易失敗時不得留下已成功 receipt 或部分表單寫回；記錄 attempt 失敗。成功 receipt 與流程推進在同一交易提交，避免重送時重複增加 revision／snapshot。
 
@@ -284,17 +285,17 @@ lease／generation，過期或逾時結果不得寫回。
 
 ### 9.2 重試與流程終止
 
-純計算腳本的 worker 暫時不可用、通道中斷或 crash 可重试最多 2 次，退避 1 秒、5 秒；平台 scheduler 唯一管理重試預算，禁止 Flowable 與 runner 各自乘倍重試。每次 attempt 更新 generation，過期回應失效。
+主 JVM Runtime 暫時忙碌或啟動不可用時，平台 scheduler 依固定退避政策處理；禁止 Flowable 與 Runtime 各自乘倍重試。每次 attempt 更新 generation，過期回應失效。
 
 語法／安全政策、輸入／輸出 Schema、腳本例外、timeout、memory limit、表單衝突及 profile 撤銷不自動重試。未知故障用盡預算後進 Incident，不跳過節點或視為核准。
 
-申請撤回、取消、管理員終止或 execution 被刪除時，取消等待中工作、撤銷 lease；無法立即終止 worker 時仍禁止其回應提交。Reaper 將 lease 過期但無終態的 attempt 轉為 `ABANDONED`，依重試政策接續，不永久卡在 RUNNING。
+申請撤回、取消、管理員終止或 execution 被刪除時，取消等待中工作、撤銷 lease；即使執行緒未立即停止，也禁止過期回應提交。Reaper 將 lease 過期但無終態的 attempt 轉為 `ABANDONED`，依重試政策接續，不永久卡在 RUNNING。
 
 人工「重試」保留原輸入與固定腳本版本；「依最新表單重算」是新的 invocation，須另行預覽當前 revision 並記錄原因。Published 腳本有 bug 時建立新 Process Version；第一版不支援替換執行中流程的腳本。
 
 ## 10. Incident、稽核與權限
 
-錯誤代碼至少包含 `GROOVY_COMPILE_ERROR`、`GROOVY_POLICY_DENIED`、`GROOVY_INPUT_INVALID`、`GROOVY_OUTPUT_INVALID`、`GROOVY_RUNTIME_ERROR`、`GROOVY_TIMEOUT`、`GROOVY_MEMORY_LIMIT`、`WORKER_UNAVAILABLE`、`FORM_CONCURRENT_CHANGE`、`ENGINE_PROFILE_DISABLED`。
+錯誤代碼包含 `GROOVY_COMPILE_ERROR`、`GROOVY_POLICY_DENIED`、`GROOVY_INPUT_INVALID`、`GROOVY_OUTPUT_INVALID`、`GROOVY_RUNTIME_ERROR`、`GROOVY_TIMEOUT`、`GROOVY_MEMORY_LIMIT`、`GROOVY_RUNTIME_BUSY`、`GROOVY_RUNTIME_START_UNAVAILABLE` 與 `ENGINE_PROFILE_DISABLED` 等受控分類；不得再把已移除的外部 worker 當成現行錯誤來源。
 
 System Task 異常管理 UI 是必要功能，不是選配治理擴充。背景自動工作失敗時沒有使用者待辦可處理，維運人員必須能透過既有 `/operations/incidents` 入口查詢失敗、查看安全摘要與處理歷程，並在後端確認狀態可安全操作時執行受控補執行。
 
@@ -308,30 +309,29 @@ System Task 異常管理 UI 是必要功能，不是選配治理擴充。背景�
 
 ## 11. API 與程式異動點
 
-API 路徑為規劃草案，使用 POST 與 QIFU4 結果封裝／checkFields，實作前對齊現有 Controller 路由：
+現行 API 使用 POST 與 QIFU4 結果封裝／checkFields；路徑須與 Controller 保持一致：
 
-| 功能 | 擬議介面／行為 |
+| 功能 | 現行介面／行為 |
 | --- | --- |
 | Draft load／save／clone | 擴充現有流程版本 DTO，含 `groovyBindings` 與 expected version；XML＋子表原子保存 |
 | 語法檢查 | `POST /api/FM_PROG004D0001/groovy/validate`；回行／欄錯誤與 policy diagnostics |
 | 試跑 | `POST /api/FM_PROG004D0001/groovy/preview`；人工 sample input，執行契約與配額一致 |
 | 發布 | 擴充既有 Publish Validator；編譯結果綁定內容 SHA，內容一變就失效；不可只信任 client pass |
 | 匯出／匯入 | 擴充流程 bundle 契約；校驗版本、內容、大小與 binding 引用 |
-| 維運 | `POST /api/fm/operations/system-tasks/detail`、`retry`、`recalculate`；每次重驗能力、狀態、Tenant 与 idempotency key |
+| 維運 | `POST /api/fm/operations/system-tasks/incidents`、`detail`、`retry/preview`、`retry`、`recalculate/preview`、`recalculate`，以及 `/handling/detail`、`/handling/handle`；每次重驗能力、狀態、Tenant 與 idempotency key |
 
 主要異動包括：
 
 - `FmBpmnDesignValidator`：按 subtype 驗證，允許受控 Groovy bindingId，仍拒絕未登錄執行屬性。
 - 流程 Logic／Publisher／Multi-instance Runtime 轉換：固定 Delegate、版本子表、manifest、bundle 與 clone。
-- 新增 `FmGroovyTaskDelegate`、binding validator、runner client、execution／attempt repository 與營運 Logic；共用 Mapping／Form apply 可抽出，但須回歸 Data Action 舊行為。
-- 獨立 Groovy worker／supervisor 與部署設定；既有 QIFU4 LDAP Groovy 工具不受此功能影響。
+- `FmGroovyTaskDelegate`、binding validator、主 JVM engine、execution／attempt repository 與營運 Logic；共用 Mapping／Form apply 須回歸 Data Action 舊行為。
 - bpmn-js moddle／Palette／屬性面板、腳本編輯器、營運明細與配置說明。
 
-worker 關閉或部署未就緒時，Designer 明確顯示不可試跑／發布；不能退回應用 JVM 執行。可保存合法 Draft，以便部署補齊後繼續。
+主 JVM engine、必要 profile 或 Runtime Readiness 未就緒時，Designer 明確顯示不可 CHECK／Preview／發布；仍可保存合法 Draft，以便部署補齊後繼續。
 
 ## 12. 驗收與交付範圍
 
-目前僅以第 39 節列出的 5 個交付項目驗收；舊 A～D 全包驗收與額外治理要求已移除。
+Groovy 核心交付已依第 44～49 節完成主 JVM、HTTP／JSON、成功流程、async 完成同步、Incident Retry 與 Recalculate 實機驗收。尚待完整多帳號瀏覽器、正式權限與部署環境回歸。
 
 ## 13. 文件交付邊界
 
@@ -339,8 +339,8 @@ worker 關閉或部署未就緒時，Designer 明確顯示不可試跑／發布�
 
 ## 14. 接續開發入口
 
-依第 39 節完成部署、發布、執行與驗收，不再從歷史批次自動產生新功能。
-以下保留歷史實作紀錄供追查，所有歷史待辦均由第 39 節取代。
+後續由第 44～49 節的完成證據及本章頂端現況接續，不再從第 15～40 節的歷史待辦自動產生新功能。
+以下保留歷史實作紀錄供追查；其中獨立 worker、正式發布未開放及尚未核心 E2E 等描述均已被後續章節取代。
 
 ## 15. 2026-09-08 Phase A 首批程式
 

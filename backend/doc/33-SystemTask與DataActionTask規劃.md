@@ -1,10 +1,10 @@
 # 33 System Task 與 Data Action Task 規劃
 
 日期：2026-09-04  
-狀態：Phase 1～2 第一版已實作，Runtime MVP 已接線；完整營運能力仍在開發中  
+狀態：`DATA_ACTION` Designer／發布／Runtime 已接線；`GROOVY` 主 JVM Runtime、Incident 與核心 E2E 已完成
 適用程式：`FM_PROG004D0001` BPMN 流程設計與版本
 
-閱讀方式：本章保留歷史設計；目前交付範圍以第 14～15 節及第 35 章第 39 節為準。2026-09-08 已校正工作分類、屬性面板與 Mapping 現況；其餘尚未交付的 timeout、冪等、Snapshot、專屬 Incident 與營運要求，應作為後續開發目標，不代表目前可用。
+閱讀方式：本章以 Data Action 契約為主並保留歷史設計。Groovy 現況以第 35 章第 42～49 節及第 18 章 2026-09-20 驗收紀錄為準；較早「Groovy 尚未完成」或「等待 worker」敘述均是歷史狀態。Data Action 尚未提供與 Groovy 相同的專屬 Incident Retry／Recalculate UI。
 
 > 2026-09-08 擴充規劃：System Task 新增 Groovy 腳本的詳細方案見 [35 System Task 的 Groovy 腳本規劃](35-SystemTask的Groovy腳本規劃.md)。第 2 節對任意腳本的禁止維持，僅依第 35 章開放固定流程版本的受控 Groovy subtype。
 
@@ -329,6 +329,6 @@ Audit 必須和已發布版本綁定，不可只記錄當前 Action 主檔的最
 - 發布前會依 Tenant 驗證 Action 與固定版本存在、啟用且為 `PUBLISHED`。
 - Runtime 一律改寫為固定 `${fmDataActionTaskDelegate}` 並以 async job 執行；Delegate 透過既有 Data Action 執行服務完成 request mapping、執行與 response mapping，並以 lock version compare-and-set 更新目前 Form Data。
 
-本版允許 `QUERY`、`COMMAND` 與 `TRANSACTION`。QUERY 沿用 Flowable job retry；異動型 Action 的 Runtime XML 固定使用 `R0/PT1M`，不進行自動重試，失敗 job 留待管理員確認外部結果後處理，避免不明確失敗造成重複異動。本版仍是 MVP：尚未建立 System Task 專屬 attempt／Incident、Form Snapshot，也尚未完成真實 MariaDB／Flowable／瀏覽器 E2E。Context Pad 轉換、複製／匯入回歸及 Data Action 的 BPMN 專用 capability 亦待後續補齊。原生 BPMN Script Task 維持禁止。
+本版允許 `QUERY`、`COMMAND` 與 `TRANSACTION`。QUERY 沿用 Flowable job retry；異動型 Action 的 Runtime XML 固定使用 `R0/PT1M`，不進行自動重試，失敗 job 留待管理員確認外部結果後處理，避免不明確失敗造成重複異動。這裡的待辦專指 `DATA_ACTION`：目前尚未建立與 Groovy 相同的專屬 attempt／Incident 與 Retry／Recalculate UI，也尚待 `QUERY`／`COMMAND` 真實 MariaDB／Flowable／瀏覽器全流程、跨資料庫及實際資料量驗收。Groovy 已另行完成執行紀錄、Incident 與核心 Flowable／MariaDB E2E。原生 BPMN Script Task 維持禁止。
 
 本次驗證結果：後端針對性測試 12 項通過，Nuxt production build 通過，`git diff --check` 通過；未異動 MariaDB 資料或結構。

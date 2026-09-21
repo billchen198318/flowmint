@@ -1,6 +1,6 @@
 # 34 BPMN 流程設計操作說明
 
-日期：2026-09-06；文件同步：2026-09-10
+日期：2026-09-06；文件同步：2026-09-21
 
 ## 工作節點分類與目前可用功能
 
@@ -11,7 +11,7 @@
 
 Start／End Event、Gateway 與 Sequence Flow 是流程元件，不屬於 Task。Timer Boundary Event、Call Activity 及原生 Script Task 目前不能發布；詳見 [04 流程與表單規格](04-流程與表單規格.md) 第 2 節。
 
-Data Action 節點目前只設定固定 Action Version 與 request／response mapping。`CONSTANT:` 後的內容為字串，輸出只寫入 `FORM_DATA.<path>`；未列入 response mapping 的結果不寫回。節點 Timeout、自訂重試政策、Idempotency Key 與專屬 Incident 為待實作項目，不能依規劃文件直接填入設計 XML。
+Data Action 節點目前只設定固定 Action Version 與 request／response mapping。`CONSTANT:` 後的內容為字串，輸出只寫入 `FORM_DATA.<path>`；未列入 response mapping 的結果不寫回。Data Action 的節點 Timeout、自訂重試政策、Idempotency Key 與專屬 Incident 為待實作項目，不能依規劃文件直接填入設計 XML。Groovy 則有自己的 timeout、執行紀錄與 Incident Retry／Recalculate 契約，不可混用兩種 subtype 的設定。
 
 ## 說明入口
 
@@ -38,9 +38,10 @@ Sequence Flow、Gateway 或 Start／End Event 開啟相應主題。未選取節�
 8. Exclusive、Inclusive、Parallel Gateway 分流／匯合及使用範例。
 9. Gateway 出線條件、AND／OR、Default Flow、套用與儲存。
 10. 申請人補件節點、退回操作及重送出線。
-11. Data Action Task 固定版本、Request／Response Mapping、Context、常數型別及重試限制。
-12. 啟動規則、版本狀態、簽核人預覽與發布檢查。
-13. 不支援元件、常見配置錯誤與驗收案例。
+11. Data Action System Task 固定版本、Request／Response Mapping、Context、常數型別及重試限制。
+12. Groovy System Task 的契約、Mapping、CHECK、Preview、HTTP／JSON、發布與失敗處理。
+13. 啟動規則、版本狀態、簽核人預覽與發布檢查。
+14. 不支援元件、常見配置錯誤與驗收案例。
 
 ## 最小操作範例
 
@@ -79,29 +80,25 @@ JSON／條件範例僅供閱讀，不執行程式碼。視窗使用原生 modal 
 支援 Esc、關閉按鈕、背景捲動鎖定及關閉後焦點返回；窄螢幕改為上下排列。
 
 增加／修改設計器欄位、Resolver、發布驗證或 Runtime 契約時，需同步更新相關主題。
-現況以實際程式為準，不把規劃中的功能寫成可用操作，尤其是 System Task 的
-timeout、專屬 attempt／Incident 與 Snapshot。相關背景見第 04、27、33 章。
+現況以實際程式為準，不把規劃中的功能寫成可用操作。Groovy 已提供 timeout、執行紀錄與
+Incident Retry／Recalculate；Data Action 尚未提供同等的專屬 Incident UI。相關背景見第 04、33、35 章。
 
 ## 驗證狀態
 
-### Groovy Editor 實作時的同批教學交付
+### Groovy Editor 與同批教學交付
 
-2026-09-08 接續開發：`bpmnDesignerGuide.ts` 已加入 `groovy-editor` 主題，選取 Groovy 節點可定位該主題；與新 Editor Dialog 的教學共用範例及說明來源。草稿功能預設關閉，migration 尚未套用；編輯器與教學程式已有接線，但登入瀏覽器驗收、worker 檢查／試跑與正式發布仍未完成。以下交付清單仍作為驗收依據。
-
-開始實作第 35 章 Groovy Editor 時，必須同批更新既有 BPMN 配置說明 Dialog 的 `bpmnDesignerGuide.ts` 內容及主題定位，不可只完成新 Editor Dialog 裡的教學 Tab。既有教學須補上：
+Groovy Editor、教學 Tab 與既有 BPMN「配置說明」均已接線。`bpmnDesignerGuide.ts` 現有 14 個主題；選取 Groovy 節點可直接定位 Groovy 主題，並與 Editor Dialog 的操作契約一致。教學已涵蓋：
 
 - 新增 Groovy System Task 與開啟大型編輯 Dialog。
 - Editor／教學 Tab、表單欄位與系統變數選取、輸入／輸出 Mapping。
 - 檢查、試跑、套用至節點、儲存流程的順序與差異。
 - 已發布版本唯讀、執行限制與錯誤排查入口。
 
-選取 Groovy 節點後按「配置說明」，須直接定位 System Task／Groovy 操作主題。詳細語法與程式範例放在 Groovy Dialog 的教學 Tab，兩處使用一致契約。上述內容與 Editor 一起納入瀏覽器驗收；未完成的能力仍標示未開放。本段只記錄後續交付要求，尚未修改教學程式或完成驗收。
+選取 Groovy 節點後按「配置說明」會直接定位 System Task／Groovy 操作主題。詳細語法、Java 21 `HttpClient`、JSON、timeout、非 2xx、冪等與斷線結果不確定範例位於 Groovy Dialog 教學 Tab。CHECK、Preview、發布及 Runtime 已接線；完整多帳號瀏覽器與正式部署權限回歸仍待執行。
 
 ### 既有驗證紀錄
 
-2026-09-08 已同步 `bpmnDesignerGuide.ts`：入門補上 User Task／System Task 兩大類，System Task 主題釐清 Service Task 對應、Groovy 尚未開放、FORM_DATA 取自流程表單變數，以及不支援的 Mapping 名稱。保留 13 個主題與既有 `service-task` 主題 ID，節點開啟入口保持相容。Prettier check、Nuxt production build 與 `git diff --check` 通過；本輪未執行真實登入瀏覽器驗收。
-
-2026-09-08 新增的 [Groovy System Task 規劃](35-SystemTask的Groovy腳本規劃.md) 尚未實作；現行 dialog 不應把 Groovy 編輯、試跑或發布描述成已可用。功能實作時需新增對應操作主題、輸入／輸出與錯誤排除說明。
+2026-09-21 已依現行程式重新整理為 14 個主題，移除「Groovy 尚未開放」「worker 尚未接線」等過期現況。2026-09-08 的 13 主題紀錄只代表當時版本，不再作為目前操作說明。
 
 此項為前端說明功能，不涉及 MariaDB 異動。真實登入環境的瀏覽器操作驗收仍待執行，
 應檢查配置說明入口、各節點主題定位、搜尋無結果、Esc／按鈕關閉、焦點返回、
