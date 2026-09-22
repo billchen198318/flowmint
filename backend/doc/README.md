@@ -104,6 +104,8 @@ Groovy 成功路徑、async 完成同步、Incident 原輸入 Retry、最新表�
 34. [System Task 與 Data Action Task 規劃](33-SystemTask與DataActionTask規劃.md)
 35. [BPMN 流程設計操作說明](34-BPMN流程設計操作說明.md)
 36. [System Task 的 Groovy 腳本規劃](35-SystemTask的Groovy腳本規劃.md)
+37. [組織人員資料檢查規劃](36-組織人員資料檢查規劃.md)
+38. [部門人員與主管配置操作說明](37-部門人員與主管配置操作說明.md)
 
 ## SQL
 

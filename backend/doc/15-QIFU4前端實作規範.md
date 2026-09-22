@@ -249,7 +249,7 @@ Refresh Token Queue
 
 ## 10. `FM_PROG001D0001` 基準
 
-`FM_PROG001D0001` 是第一個 FlowMint QIFU4 前端基準：
+「Tenant 與帳號範圍（`FM_PROG001D0001`）」是第一個 FlowMint QIFU4 前端基準：
 
 ```text
 index.vue

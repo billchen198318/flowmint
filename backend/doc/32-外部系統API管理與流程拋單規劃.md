@@ -636,10 +636,10 @@ Actor 個資。Timeline 最多 200 筆，超過時回 `timelineTruncated=true`�
 
 依 [18 開發進度](18-開發進度.md) 2026-08-28～29 紀錄，第一版已完成：
 
-- API Client／Key 管理資料表、持久層、管理 API 與 Query／Create／Edit 頁面；本機 migration 已套用，`FM_PROG010D0002` 已註冊。
+- API Client／Key 管理資料表、持久層、管理 API 與 Query／Create／Edit 頁面；本機 migration 已套用，「外部 API Client（`FM_PROG010D0002`）」已註冊。
 - Key 認證、Tenant／Scope／IP／有效期檢查、配額與存取稽核。
 - 組織／人員、流程／Form 唯讀 API，以及重用正式 Runtime 的外部發單與單筆狀態查詢；`fm_api_request` Ledger 已套用本機 MariaDB。
-- 獨立 `FM_PROG010D0003` API 說明頁與 Program 註冊，提供實際 POST endpoint／DTO 契約及 OpenAPI 3.1 JSON 下載。
+- 獨立的「外部 API 說明（`FM_PROG010D0003`）」頁面與 Program 註冊，提供實際 POST endpoint／DTO 契約及 OpenAPI 3.1 JSON 下載。
 
 仍待角色／Program 權限配置（包含管理操作 D／X 權限）、測試 Client／Key 建立、真實 HTTP、瀏覽器、多帳號、跨 Tenant 與外部來源對帳 E2E。前後端編譯與針對性測試已有通過紀錄，但不能標示為正式整合驗收完成或上線。
 

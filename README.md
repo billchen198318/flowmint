@@ -15,13 +15,14 @@ FlowMint 將一個可執行的簽核應用拆成「組織與人員」、「表�
 ```text
 建立 Tenant 與使用者 membership
   → 建立員工、任職、部門與主管關係
+  → 執行組織人員資料檢查並修正問題
   → 建立簽核群組及核決規則
   → 設計、驗證並發布 Form
   → 設計 BPMN
   → 為每個 User Task 綁定 Published Form 與 Task Policy
   → 為一般簽核節點設定 Assignment Rule；補件節點直接指派申請人
   → 視需要設定 Data Action 或 Groovy System Task
-  → Resolver Preview 與發布檢查
+  → 簽核人解析預覽（Resolver Preview）與發布檢查
   → 發布 BPMN Process
   → 到申請中心測試起單、簽核、退回及流程進度
 ```
@@ -33,15 +34,16 @@ FlowMint 以 Tenant 隔離資料。一個新 Tenant 至少需要完成以下設�
 1. 建立 Tenant，並將管理者與測試帳號加入該 Tenant 的 membership。
 2. 建立組織版本、根部門及下層部門，設定組織層級。
 3. 建立員工與任職資料；每位申請人應有一筆有效的主要任職。
-4. 設定部門主管、直屬主管、職稱或部門職務。流程若使用主管 Resolver，對應關係不可缺少或形成循環。
-5. 建立流程會使用的簽核群組，設定模式、成員、順序及有效期間。
-6. 配置流程的起單政策，以及使用者需要的 程式與角色權限。
+4. 設定部門主管、直屬主管、職稱或部門職務。流程若使用主管解析規則（Resolver），對應關係不可缺少或形成循環。
+5. 完成人員與組織設定後，開啟「組織人員資料檢查（`FM_PROG002D0007Q`）」，檢查部門主管、員工直屬主管、組織樹及工作代理四個區塊；依畫面的問題說明與處理建議，回到對應的維護程式修正資料，再重新執行檢查。
+6. 建立流程會使用的簽核群組，設定模式、成員、順序及有效期間。
+7. 配置流程的起單政策，以及使用者需要的程式與角色權限。
 
 登入帳號需啟用、加入對應 Tenant，並取得操作所需的程式與角色權限。
 
 ### 2. 設計與發布 Form
 
-表單設計入口為 `FM_PROG005D0001`。建立表單主檔時先決定穩定且不可任意變更的 Form Code，例如 `LEAVE_REQUEST`；系統會建立可編輯的 Draft 版本。
+表單設計入口為「Form 表單設計（`FM_PROG005D0001`）」。建立表單主檔時先決定穩定且不可任意變更的 Form Code，例如 `LEAVE_REQUEST`；系統會建立可編輯的 Draft 版本。
 
 1. 可先點選 Designer 上方的「操作指南」，依元件配置、欄位 Key、Preview、Custom JavaScript、Data Action Binding 與發布順序逐步操作，再使用 Form.io Designer 放入文字、數字、日期、選項、Email、Container、Columns、Table、Data Grid／Edit Grid、附件等元件。
 2. 為每個輸入元件設定唯一的 `key`。BPMN Gateway、核決規則、Data Action 與 Custom JavaScript 都以 key 讀取欄位，不要以顯示名稱作為程式契約。
@@ -55,7 +57,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 ### 3. 設計與發布 BPMN 流程
 
-流程設計入口為 `FM_PROG004D0001`。建立流程主檔時設定穩定的 Process Key，例如 `LEAVE_APPROVAL`，再於 Draft 版本使用內嵌 bpmn-js Designer 編輯流程。
+流程設計入口為「BPMN 流程設計（`FM_PROG004D0001`）」。建立流程主檔時設定穩定的 Process Key，例如 `LEAVE_APPROVAL`，再於 Draft 版本使用內嵌 bpmn-js Designer 編輯流程。
 
 1. 建立一個 Start Event、所需的 User Task／Gateway，以及可到達的 End Event。
 2. 每個 User Task 使用穩定且唯一的 Task Definition Key；版本升級時若節點業務意義相同，應保留相同 key。
@@ -66,7 +68,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 7. Gateway 條件只引用已綁定表單中的受控欄位，並為可能無法命中的分支設定 default flow。
 8. 如需資料整合，加入 System Task 並選擇 `DATA_ACTION`，固定綁定已發布的 Data Action 版本及 request／response mapping。
 9. 如需受控程式邏輯，選擇 `GROOVY`，設定 input／output schema、mapping、timeout 與腳本；先執行 CHECK，再用 Preview 驗證。外部 HTTP 呼叫必須自行處理 timeout、非 2xx、回應格式及冪等性。
-10. 使用 Resolver Preview 帶入實際申請人與測試表單資料，確認解析出的簽核帳號、順序與略過原因。
+10. 使用簽核人解析預覽（Resolver Preview）帶入實際申請人與測試表單資料，確認解析出的簽核帳號、順序與略過原因。
 11. 執行發布檢查。所有 User Task 都必須具有有效 Form Binding 與 Task Policy；一般簽核節點另需 Assignment Rule，`APPLICANT_CORRECTION` 補件節點直接指派申請人；System Task 的版本、契約、mapping 與腳本也必須通過驗證。
 12. 發布流程。FlowMint 會在部署版本中為 User Task 注入 Assignment Listener，並把 System Task 轉為固定後端 Delegate 後部署至 Flowable；設計器保存的原始 BPMN 不需要手工加入 listener。
 
@@ -106,8 +108,9 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 | `FM_PROG002D0002` | 部門與組織樹 | 建立部門階層、檢視組織樹 |
 | `FM_PROG002D0003` | 組織簽核層級 | 定義課、部、處等由低至高的核決層級 |
 | `FM_PROG002D0004` | 組織職稱 | 建立職稱並連結簽核層級 |
-| `FM_PROG002D0005` | 部門主管 | 指定 HEAD、DEPUTY_HEAD、ACTING_HEAD |
+| `FM_PROG002D0005` | 部門主管 | 指定主要主管、副主管及代理主管 |
 | `FM_PROG002D0006` | 部門職務 | 定義特定部門職務及擔任人 |
+| `FM_PROG002D0007Q` | 組織人員資料檢查 | 檢查部門主管、直屬主管、組織樹及工作代理資料 |
 | `FM_PROG003D0001` | 簽核群組 | 建立財務、法務、資訊等可重用簽核群組 |
 | `FM_PROG003D0002` | 工作代理 | 設定期間代理與代理範圍 |
 | `FM_PROG004D0001` | BPMN 流程設計 | 設計、驗證、Preview 及發布流程 |
@@ -151,7 +154,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 1. 以員工編號、帳號或姓名查詢，按「新增」。
 2. 選擇 Tenant，填寫員工編號、登入帳號、顯示名稱、Email、手機、語系、時區、狀態與有效期間。
 3. 儲存員工後，在任職區選擇部門、職稱及直屬主管來源。
-4. 若主管來源為指定任職，選擇「指定直屬主管」；若由組織規則解析，確認部門主管資料已建立。
+4. 若主管來源為「指定員工任職（`EXPLICIT`）」，選擇「指定直屬主管」；若由組織規則解析，確認部門主管資料已建立。
 5. 設定主要任職、狀態與有效期間後儲存。每位申請人在同一時間應只有一筆主要任職。
 6. 兼任可新增其他任職，但流程的申請人部門及主管鏈預設以主要任職解析。
 
@@ -164,18 +167,20 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 #### 簽核層級、職稱、主管與職務
 
-1. 在 `FM_PROG002D0003` 建立層級方案，設定方案代碼、名稱、是否預設、狀態與有效期間；於層級明細由低至高加入層級及排序。
-2. 在 `FM_PROG002D0004` 建立職稱，選擇其簽核 Level，設定是否為主管職稱、排序及有效期間。
-3. 在 `FM_PROG002D0005` 選擇部門與主管員工，設定主管類型、優先序及有效期間。正常主管使用 `HEAD`；副主管及代理主管依實際職責使用對應類型。
-4. 在 `FM_PROG002D0006` 選擇部門，建立職務代碼、名稱、用途及有效期間，再於擔任人區加入員工並指定主要擔任人。
-5. 完成後用 BPMN 的 Resolver Preview 分別測試 `INITIATOR_ORG_HEAD`、`DIRECT_MANAGER`、`ORG_TITLE` 或 `ORG_DUTY`，不要只確認主檔已儲存。
+1. 在「組織簽核層級（`FM_PROG002D0003`）」建立層級方案，設定方案代碼、名稱、是否預設、狀態與有效期間；於層級明細由低至高加入層級及排序。
+2. 在「組織職稱（`FM_PROG002D0004`）」建立職稱，選擇其簽核層級（Level），設定是否為主管職稱、排序及有效期間。
+3. 在「部門主管與代理主管（`FM_PROG002D0005`）」選擇部門與主管員工，設定主管類型、優先序及有效期間。正式主要主管使用 `HEAD`；副主管及代理主管依實際職責使用對應類型。
+4. 在「部門職務（`FM_PROG002D0006`）」選擇部門，建立職務代碼、名稱、用途及有效期間，再於擔任人區加入員工並指定主要擔任人。
+5. 完成後使用 BPMN 的「簽核人解析預覽（Resolver Preview）」分別測試申請人部門主管（`INITIATOR_ORG_HEAD`）、直屬主管（`DIRECT_MANAGER`）、組織職稱（`ORG_TITLE`）或部門職務（`ORG_DUTY`），不要只確認主檔已儲存。
+
+完整配置順序、最高部門、最高負責人、主要／兼任任職及同一人管理多個部門的範例，請參閱 [部門人員與主管配置操作說明](backend/doc/37-部門人員與主管配置操作說明.md)。完成後進入「組織人員資料檢查（`FM_PROG002D0007Q`）」執行即時檢查；頁面固定顯示部門主管、員工直屬主管、上級部門與組織樹、工作代理四個區塊，並提供問題影響、判定依據、處理建議及維護入口。檢查頁不會自動修改正式資料。
 
 ### 簽核群組：`FM_PROG003D0001`
 
 1. 建立群組代碼、名稱、處理方式、狀態與說明。
 2. `CANDIDATE` 表示任一有效候選人可處理；`ALL` 表示群組內每位有效成員都必須完成；`SEQUENTIAL` 依優先序逐一處理。
 3. 儲存主檔後，在成員區選擇員工、設定優先序、狀態及有效期間。
-4. 編輯或刪除成員後重新執行流程 Resolver Preview，確認實際帳號與順序。
+4. 編輯或刪除成員後重新執行簽核人解析預覽（Resolver Preview），確認實際帳號與順序。
 5. BPMN User Task 的派送方式必須與群組處理方式相容，否則發布檢查會拒絕。
 
 ### 工作代理：`FM_PROG003D0002`
@@ -209,7 +214,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 7. 設定欄位權限。原始申請資料通常採 `READ`，簽核專用欄位採 `EDIT`，內部或不適用欄位採 `HIDDEN`。
 8. 對 Exclusive／Inclusive Gateway 設定條件及 default flow；不得在 Parallel Gateway outgoing flow 上設定不會生效的條件。
 9. 需要 System Task 時選擇 `DATA_ACTION` 或 `GROOVY`。Data Action 固定綁定 Published Action；Groovy 設定契約、mapping、timeout 與腳本，先執行 CHECK，再以 Preview 驗證輸入、輸出與錯誤處理。
-10. 按「儲存草稿」。Resolver Preview 使用已儲存規則，因此修改節點後要先儲存，再輸入測試表單 JSON 執行 Preview。
+10. 按「儲存草稿」。簽核人解析預覽（Resolver Preview）使用已儲存規則，因此修改節點後要先儲存，再輸入測試表單 JSON 執行預覽。
 11. 分別以一般申請人、兼任人員、簽核人本人及邊界金額測試解析結果；System Task 另測試成功、timeout、格式錯誤及外部服務失敗情境。
 12. 按「發布草稿」。後端會驗證 BPMN、Process Key、每個 User Task 的 Form Binding／Policy、一般簽核節點的 Assignment Rule、Gateway 條件、Resolver，以及 System Task 的固定版本、契約、mapping 與腳本，成功後才部署至 Flowable。
 13. 已發布版本只能檢視；修改流程時使用「建立新版本」，重新確認所有節點設定後再發布。
@@ -247,7 +252,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 1. 建立 Client Code、名稱、系統類型、每分鐘上限、每日配額、狀態與說明。
 2. 只勾選必要 Scope，並限制允許的流程、Initiator 帳號與 IP Allowlist。
 3. 產生或輪替 API Key 後立即複製並交由外部系統安全保存；明文 Key 關閉視窗後不再顯示。
-4. 外部系統依 `FM_PROG010D0003` 顯示的契約傳送 Tenant、Client、API Key、Idempotency Key 與 request body。
+4. 外部系統依「外部 API 說明（`FM_PROG010D0003`）」顯示的契約傳送 Tenant、Client、API Key、Idempotency Key 與 request body。
 5. 重送同一業務請求必須沿用 Idempotency Key；不要以重建 Key 或改變 business key 規避重複送單保護。
 6. 上線前測試有效請求、Scope 不足、IP 不符、配額超限、重複請求及流程狀態查詢。
 
@@ -255,14 +260,14 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 
 以下範例只示範操作順序，實際欄位與核決規則仍依公司制度設定：
 
-1. 在 `FM_PROG001D0001` 建立 Tenant，加入申請人、主管及管理者帳號。
-2. 在 `FM_PROG002D0002` 建立公司根部門與申請人部門。
-3. 在 `FM_PROG002D0001` 建立申請人與主管，配置有效主要任職。
-4. 在 `FM_PROG002D0005` 將主管設為申請人部門的 `HEAD`。
-5. 在 `FM_PROG005D0001` 建立 `LEAVE_REQUEST`，加入假別、開始日期、結束日期、天數及原因，完成 Preview 後發布 Form v1。
-6. 在 `FM_PROG004D0001` 建立 `LEAVE_APPROVAL`：Start → `managerApproval` → End。
-7. 選取 `managerApproval`，綁定 `LEAVE_REQUEST v1`，設定原申請欄位唯讀、簽核意見可編輯，Resolver 選擇 `INITIATOR_ORG_HEAD`。
-8. 儲存流程後，以申請人帳號執行 Resolver Preview；確認解析結果是預期主管，再發布 Process v1。
+1. 在「Tenant 與帳號範圍（`FM_PROG001D0001`）」建立 Tenant，加入申請人、主管及管理者帳號。
+2. 在「部門與組織樹（`FM_PROG002D0002`）」建立公司根部門與申請人部門。
+3. 在「員工與任職（`FM_PROG002D0001`）」建立申請人與主管，配置有效主要任職。
+4. 在「部門主管與代理主管（`FM_PROG002D0005`）」將主管設為申請人部門的正式主要主管（`HEAD`）。
+5. 在「Form 表單設計（`FM_PROG005D0001`）」建立 `LEAVE_REQUEST`，加入假別、開始日期、結束日期、天數及原因，完成預覽（Preview）後發布 Form v1。
+6. 在「BPMN 流程設計（`FM_PROG004D0001`）」建立 `LEAVE_APPROVAL`：Start → `managerApproval` → End。
+7. 選取 `managerApproval`，綁定 `LEAVE_REQUEST v1`，設定原申請欄位唯讀、簽核意見可編輯，簽核人解析方式選擇「申請人部門主管（`INITIATOR_ORG_HEAD`）」。
+8. 儲存流程後，以申請人帳號執行簽核人解析預覽（Resolver Preview）；確認解析結果是預期主管，再發布 Process v1。
 9. 以申請人登入 `/requests/start` 起單；以主管登入 `/tasks/[taskId]` 核准。
 10. 回到 `/requests/[processInstanceId]` 確認狀態為完成，並檢查表單快照、簽核動作及 BPMN 進度。
 
@@ -274,7 +279,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 | 申請中心看不到流程 | Process 是否 Active 且 Published、分類是否有效、起單政策是否允許目前帳號 |
 | BPMN 選不到表單 | Form 是否屬於同一 Tenant 且已發布；Draft 不會出現在清單 |
 | 流程發布顯示 User Task 設定不完整 | 該節點是否同時具備 Form Binding、Task Policy 與至少一條 Assignment Rule |
-| Resolver Preview 找不到人 | 員工、membership、主要任職、主管／群組成員及有效期間是否完整 |
+| 簽核人解析預覽找不到人 | 員工、Tenant 成員資格、主要任職、主管／群組成員及有效期間是否完整 |
 | Gateway 沒有走預期分支 | 條件使用的欄位 key、型別與測試 JSON 是否一致，是否有 default flow |
 | Form Preview 可過但正式送單失敗 | 後端會重新驗證 Schema、欄位權限、Script、Data Action 與附件；依畫面錯誤逐項修正 |
 | Published 版本無法編輯 | 這是不可變版本設計；建立新 Draft 版本後修改 |
@@ -309,7 +314,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - Tenant 資料邊界與帳號 membership。
 - 員工、部門、職稱、職級與部門職務。
 - 組織版本、部門樹與主要任職。
-- HEAD、DEPUTY、ACTING 與直屬主管關係。
+- 主要主管（HEAD）、副主管（DEPUTY）、代理主管（ACTING）與直屬主管關係。
 - 防止主管循環與跨 Tenant 資料存取。
 
 ### 簽核人解析
@@ -318,7 +323,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 申請人部門主管、上層主管與指定職級主管。
 - 直屬主管與主管鏈。
 - 部門職稱、部門職務與核決權限。
-- Resolver Preview、解析路徑及指派快照。
+- 簽核人解析預覽（Resolver Preview）、解析路徑及指派快照。
 - 找不到簽核人時建立 Assignment Incident，不遺失異常證據。
 
 ### 表單與資料動作
@@ -400,7 +405,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 ### AI 簽核解說精靈
 
-- `FM_PROG010D0001` 管理 Tenant-scoped OpenAI、Gemini、Groq 與 OpenRouter Provider。
+- 「AI Provider（`FM_PROG010D0001`）」管理 Tenant-scoped OpenAI、Gemini、Groq 與 OpenRouter Provider。
 - API Key 使用 AES-GCM 加密保存，管理畫面只顯示遮罩值，並提供受控 Provider 連線測試。
 - 正式待辦可由目前合法處理人主動選擇 Provider 執行 AI 解說，不點擊就不呼叫外部服務。
 - Context 只包含受控表單欄位、流程資料及已保存簽核歷史，排除密碼、Token、SQL、Script 與連線設定。
@@ -410,12 +415,12 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 
 ### 外部系統 API 與流程拋單
 
-- `FM_PROG010D0002` 管理 Tenant-scoped API Client、Scope、來源 IP、期限、配額與狀態。
+- 「外部 API Client（`FM_PROG010D0002`）」管理 Tenant-scoped API Client、Scope、來源 IP、期限、配額與狀態。
 - API Key 僅在簽發或輪替時顯示一次，資料庫保存安全雜湊；管理畫面只顯示遮罩資訊。
 - 外部請求經 Key、Client、Scope、IP、期限與配額驗證，並保存 Request Audit 與受控錯誤碼。
 - 外部發單使用 Idempotency Key 與 Request Ledger，重試不會重複建立流程。
 - 提供外部流程狀態查詢；Tenant、Client 與可用流程範圍均由後端強制限制。
-- `FM_PROG010D0003` 提供獨立 API 說明頁，依 Springdoc OpenAPI 契約顯示可用端點。
+- 「外部 API 說明（`FM_PROG010D0003`）」提供獨立說明頁，依 Springdoc OpenAPI 契約顯示可用端點。
 
 ## 完整功能說明
 
@@ -1093,6 +1098,7 @@ FlowMint event
 | `/operations/incidents` | 指派與 Groovy System Task 執行異常處理 |
 | `/operations/processes` | 流程實例監控與稽核明細 |
 | `/operations/reports` | 流程營運報表 |
+| `#/fm_prog002d0007` | 組織人員資料檢查 |
 | `#/fm_prog010d0001` | AI Provider 管理 |
 | `#/fm_prog010d0002` | 外部系統 API Client、Key、Scope 與配額管理 |
 | `#/fm_prog010d0003` | 外部系統 API 說明 |
@@ -1141,18 +1147,19 @@ git diff --check
 
 1. 驗證登入、登出、Token refresh 與瀏覽器重新整理還原。
 2. 驗證 Tenant membership 與跨 Tenant 拒絕。
-3. 建立並發布表單及 BPMN 流程版本。
-4. 驗證申請中心分類／搜尋、一般起單、合法代申請、單據編號與重複送出冪等。
-5. 驗證有附件及無附件表單、表單內／側邊附件一致、權限下載，以及待辦核准不誤判附件異動。
-6. 驗證待辦、核准、退回、補件、駁回、撤回與完成。
-7. 驗證申請摘要的目前關卡／簽核人，以及 BPMN 流程圖首次與重複開啟、節點標色和參與者權限。
-8. 驗證轉派、代理、加簽及 Approval Group 多人模式。
-9. 驗證表單、指派與操作快照不可變。
-10. 驗證站內通知、Email Outbox、期限提醒及逾時通知。
-11. 製造 Resolver 失敗，驗證 Incident Retry／Reassign／Terminate；另製造 Groovy 成功、timeout、契約錯誤及外部服務失敗，驗證執行歷程、原始輸入 Retry、最新表單 Recalculate、request ID 冪等與跨 Tenant 拒絕。
-12. 驗證流程監控、稽核明細、分頁與營運報表。
-13. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
-14. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
+3. 開啟「組織人員資料檢查（`FM_PROG002D0007Q`）」，驗證四個檢查區塊並修正影響主管解析的問題。
+4. 建立並發布表單及 BPMN 流程版本。
+5. 驗證申請中心分類／搜尋、一般起單、合法代申請、單據編號與重複送出冪等。
+6. 驗證有附件及無附件表單、表單內／側邊附件一致、權限下載，以及待辦核准不誤判附件異動。
+7. 驗證待辦、核准、退回、補件、駁回、撤回與完成。
+8. 驗證申請摘要的目前關卡／簽核人，以及 BPMN 流程圖首次與重複開啟、節點標色和參與者權限。
+9. 驗證轉派、代理、加簽及 Approval Group 多人模式。
+10. 驗證表單、指派與操作快照不可變。
+11. 驗證站內通知、Email Outbox、期限提醒及逾時通知。
+12. 製造 Resolver 失敗，驗證 Incident Retry／Reassign／Terminate；另製造 Groovy 成功、timeout、契約錯誤及外部服務失敗，驗證執行歷程、原始輸入 Retry、最新表單 Recalculate、request ID 冪等與跨 Tenant 拒絕。
+13. 驗證流程監控、稽核明細、分頁與營運報表。
+14. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
+15. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
 
 ## 驗收與使用限制
 
@@ -1197,6 +1204,8 @@ git diff --check
 - [System Task 與 Data Action Task 規劃](backend/doc/33-SystemTask與DataActionTask規劃.md)
 - [BPMN 流程設計操作說明](backend/doc/34-BPMN流程設計操作說明.md)
 - [System Task Groovy 腳本規劃](backend/doc/35-SystemTask的Groovy腳本規劃.md)
+- [組織人員資料檢查規劃](backend/doc/36-組織人員資料檢查規劃.md)
+- [部門人員與主管配置操作說明](backend/doc/37-部門人員與主管配置操作說明.md)
 - [表單 Custom JavaScript 規劃說明](backend/doc/FM_PROG005D0001_cust_js規劃說明.md)
 - [Data Action 使用說明](backend/doc/使用FM_PROG006D0002說明.md)
 
