@@ -872,7 +872,6 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 | Persistence | MyBatis、HikariCP |
 | Database | MariaDB |
 | Security | Spring Security、JWT、HttpOnly Cookie、CSRF |
-| Cache／Token infrastructure | Redis |
 | Mail | Spring Mail、Mail Helper Outbox |
 | API Documentation | SpringDoc OpenAPI |
 | Frontend | Nuxt 3、Vue 3、TypeScript、Pinia |
@@ -911,7 +910,6 @@ flowmint/
 - Maven 3.9+
 - Node.js 20+ 與 npm
 - MariaDB 10.11+（或與目前 Schema 相容版本）
-- Redis
 - 可選：SMTP Server（若要驗證 Email 實際寄送）
 
 預設服務位址：
@@ -922,7 +920,6 @@ flowmint/
 | Backend | `http://127.0.0.1:8088` |
 | API Base URL | `http://127.0.0.1:8088/api` |
 | MariaDB | `localhost:3306/flowmint` |
-| Redis | `127.0.0.1:6379` |
 
 ## 快速開始
 
@@ -978,8 +975,6 @@ server.port=8088
 db1.datasource.jdbcUrl=jdbc:mariadb://localhost/flowmint
 db1.datasource.username=your_user
 db1.datasource.password=your_password_or_ENC_value
-spring.redis.host=127.0.0.1
-spring.redis.port=6379
 ```
 
 正式環境請使用環境變數提供加密金鑰：
@@ -1141,6 +1136,24 @@ npm run dev
 瀏覽器開啟 `http://127.0.0.1:8077/login`。
 
 系統不在 README 提供預設帳密；請使用資料庫中已建立並已配置 Tenant membership／Role 的帳號。
+
+## 本機測試帳號
+
+下列帳號供本機開發與驗收使用，密碼皆為 `admin99`。請勿將此組測試密碼沿用至正式環境。
+
+| 類型 | 帳號 | 姓名 | 部門 | Role | 適合測試項目 |
+| --- | --- | --- | --- | --- | --- |
+| 系統管理者 | `admin` | 陳信宏 | 資訊部 | `admin` | 全系統管理與權限基準驗證 |
+| BPM 管理者 | `tester` | 林冠宇 | 資訊部 | `BPM_ADMIN`、`FLOWMINT_OPERATIONS` | FlowMint 設定、設計與流程營運 |
+| BPM 管理者 | `fm00830` | 江柏毅 | 資訊部 | `BPM_ADMIN`、`FLOWMINT_OPERATIONS` | FlowMint 設定、設計與流程營運 |
+| BPM 管理者 | `fm00830e01` | 賴怡恩 | 資訊部 | `BPM_ADMIN`、`FLOWMINT_OPERATIONS` | FlowMint 設定、設計與流程營運 |
+| 一般使用者 | `steven` | 張志豪 | 董事長室 | `COMMON01` | 工作區、發起申請與簽核 |
+| 一般使用者 | `tiffany` | 王雅婷 | 人力資源部 | `COMMON01` | 工作區、發起申請與簽核 |
+| 一般使用者 | `fm00210` | 李佳穎 | 國內業務部 | `COMMON01` | 工作區、發起申請與簽核 |
+| 一般使用者 | `fm00710` | 洪嘉宏 | 財務部 | `COMMON01` | 工作區、發起申請與簽核 |
+| 一般使用者 | `fm00410` | 劉俊廷 | 生產部 | `COMMON01` | 製造單位工作區、發起申請與簽核 |
+| 一般使用者 | `fm00420` | 楊欣怡 | 生產管理部 | `COMMON01` | 製造單位工作區、發起申請與簽核 |
+| 一般使用者 | `fm00430` | 蘇柏宇 | 設備維護部 | `COMMON01` | 製造單位工作區、發起申請與簽核 |
 
 ## Production Build
 

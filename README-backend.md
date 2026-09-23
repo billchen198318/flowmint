@@ -21,7 +21,6 @@ qífū-4 後端基於 **Spring Boot 4.0.6** 構建，採用多模組 (Multi-modu
 *   **API Documentation**: SpringDoc OpenAPI (Swagger UI)。
 *   **Web Services**: Apache CXF 4.1.x (支援 JAX-WS 與 JAX-RS)。
 *   **Reporting**: JasperReports (PDF/Excel 報表生成)。
-*   **Cache**: Spring Cache + Redis。
 
 ## 3. 安全性機制 (Security Mechanisms)
 
