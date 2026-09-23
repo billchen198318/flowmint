@@ -108,6 +108,7 @@ fmk_live_{keyId}.{base64urlRandomSecret}
 - 完整 Key 只在建立或輪替成功後顯示一次，並提供一次性複製；關閉視窗後不可查回。
 - 資料庫只保存 `KEY_ID`、Prefix、末四碼及 Secret Hash，不保存明文或可逆密文。
 - 高熵隨機 Secret 可使用 SHA-256/HMAC-SHA-256 與 server-side pepper 驗證；比較固定時間化。
+- 現行實作以 `FM_EXTERNAL_API_KEY_PEPPER`／`fm.external-api.key-pepper` 執行 HMAC-SHA-256，供 `FM_PROG010D0002` 簽發／輪替 Key 及所有外部 API 認證使用；`FM_PROG010D0003` 的說明內容也應提示部署前完成此設定。格式與輪替影響見 [部署環境變數與敏感設定說明](38-部署環境變數與敏感設定說明.md)。
 - Key 可設定生效日、到期日、IP/CIDR Allowlist、Scopes、每分鐘與每日配額。
 - 現行第一版輪替會立即撤銷所有有效舊 Key，不提供復原。最長 24 小時重疊期為原規劃的後續能力，尚未實作。
 - Key 不得出現在 URL、query string、response body（首次顯示除外）、application log 或稽核明細。

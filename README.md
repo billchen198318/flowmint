@@ -938,12 +938,20 @@ CREATE DATABASE flowmint
     COLLATE utf8mb4_unicode_ci;
 ```
 
-將完整 Schema 匯入空資料庫。Windows 本機依專案 MariaDB 操作規範使用 CLI 絕對路徑並加入
-`--skip-ssl`：
+將完整 Schema 匯入空資料庫。先切換至 repository 根目錄；若 MariaDB／MySQL Client 的 `mysql`
+命令已加入 `PATH`，在 Command Prompt（`cmd.exe`）執行：
 
-```powershell
-cmd /c '""C:\Program Files\MariaDB 12.3\bin\mariadb.exe" --host=127.0.0.1 --port=3306 --user=root --password --skip-ssl flowmint < "C:\home\flowmint\backend\doc\flowmint.sql""'
+```batch
+cd C:\home\flowmint
+mysql flowmint -h 127.0.0.1 -P 3306 -u root -p < backend/doc/flowmint.sql
 ```
+
+執行後會顯示 `Enter password:`，此時再輸入資料庫密碼；不要將密碼直接寫在命令列，以免留在 shell
+history 或程序清單。上述 `<` 是 Command Prompt 的輸入重導向語法，不要直接貼到 PowerShell。若安裝版本
+只提供 `mariadb` 命令，將上例的 `mysql` 換成 `mariadb` 即可。若 CLI 未加入 `PATH`，再改用實際安裝位置的完整路徑。
+
+只有本機伺服器未配置 SSL、且 CLI 因 SSL 協商失敗時才加入 `--skip-ssl`；正式或遠端資料庫應依環境配置
+TLS，不應預設停用 SSL。
 
 `flowmint.sql` 包含帳號權限、Flowable 與 FlowMint 所需資料結構。請先備份既有資料庫；不要對已有正式資料的環境直接重建。
 
@@ -979,9 +987,94 @@ spring.redis.port=6379
 ```powershell
 $env:JASYPT_ENCRYPTOR_PASSWORD = "replace-with-strong-secret"
 $env:FM_DATASOURCE_ENCRYPTION_KEY = "replace-with-valid-base64-key"
+$env:FM_AI_ENCRYPTION_KEY = "replace-with-valid-base64-key"
+$env:FM_EXTERNAL_API_KEY_PEPPER = "replace-with-valid-base64-pepper"
+$env:FM_DATA_ACTION_RATE_LIMIT_PER_MINUTE = "60"
 ```
 
-請勿沿用 repository 中的開發預設密碼、Mail Server 或加密金鑰。
+各項設定用途如下：
+
+| 環境變數／property | 用途 | 格式與注意事項 |
+|---|---|---|
+| `JASYPT_ENCRYPTOR_PASSWORD`／`jasypt.encryptor.password` | 解密 properties 中以 `ENC(...)` 保存的值，例如 `db1.datasource.password` | 一般高強度字串，不是 Base64 AES key。更換後，既有 `ENC(...)` 必須用新密碼重新加密，否則後端無法連線資料庫。 |
+| `FM_DATASOURCE_ENCRYPTION_KEY`／`fm.datasource.encryption-key` | 以 AES-GCM 加解密「DataSource Pool」內保存的外部資料庫密碼 | Base64 編碼的 16、24 或 32 bytes AES key；正式環境建議 32 bytes。遺失或直接更換後，既有 DataSource Pool 密碼將無法解密。 |
+| `FM_AI_ENCRYPTION_KEY`／`fm.ai.encryption-key` | 以 AES-GCM 加解密 AI Provider API Key | Base64 編碼的 16、24 或 32 bytes AES key；應與 DataSource key 分開產生。遺失或直接更換後，既有 AI Provider Key 將無法解密。 |
+| `FM_EXTERNAL_API_KEY_PEPPER`／`fm.external-api.key-pepper` | 使用 HMAC-SHA-256 雜湊外部 API Client Key，驗證呼叫者送入的 Key | Base64 編碼且解碼後至少 32 bytes。這不是可逆加密 key；更換後，先前簽發的所有外部 API Key 都會驗證失敗，必須重新簽發。 |
+| `FM_DATA_ACTION_RATE_LIMIT_PER_MINUTE`／`fm.data-action.rate-limit-per-minute` | Data Action 未個別設定限制時，每個 Tenant、Action、登入帳號每分鐘允許的預設呼叫次數 | 正整數，預設 `60`，小於 `1` 時程式會採用 `1`。個別 Data Action 的設定可覆蓋此預設值。 |
+
+三個 Base64 key／pepper 必須分別以密碼學安全的亂數產生，不要共用。PowerShell 可執行下列片段；每執行一次會輸出一組獨立的 32-byte Base64 值：
+
+```powershell
+$bytes = New-Object byte[] 32
+$rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+$rng.Dispose()
+```
+
+將此片段分別執行三次，配置給 `FM_DATASOURCE_ENCRYPTION_KEY`、`FM_AI_ENCRYPTION_KEY` 與
+`FM_EXTERNAL_API_KEY_PEPPER`。請將 Jasypt 密碼及這三個值保存於部署平台 Secret／密碼保管系統並備份；不要提交到
+Git，也不要直接以新值覆蓋已存有加密資料的正式環境。金鑰輪替必須先解密既有資料、以新 key 重新加密，再切換設定。
+
+Repository 內的 fallback 值只供本機開發，包含重複使用的示範 Base64 key。請勿沿用 repository 中的開發預設
+密碼、Mail Server、Jasypt 密碼或任何加密金鑰至正式環境。
+
+#### Mail Server／SMTP 設定
+
+Email 通知不是啟動系統的必要條件；未配置 SMTP 時仍可使用站內通知。若要寄送 Email，請在
+`backend/app/src/main/resources/application.properties` 配置 Spring Mail，並依郵件伺服器選擇下列方式。
+
+內部免驗證 SMTP（僅適用於可信任內網及已限制 relay 來源的伺服器）：
+
+```properties
+spring.mail.host=192.168.1.251
+spring.mail.port=25
+spring.mail.properties.mail.smtp.auth=false
+spring.mail.properties.mail.smtp.starttls.enable=false
+spring.mail.properties.mail.smtp.starttls.required=false
+spring.mail.properties.mail.smtp.connectiontimeout=10000
+spring.mail.properties.mail.smtp.timeout=10000
+spring.mail.properties.mail.smtp.writetimeout=10000
+```
+
+需要帳號密碼及 STARTTLS 的 SMTP：
+
+```properties
+spring.mail.host=${SMTP_HOST}
+spring.mail.port=${SMTP_PORT:587}
+spring.mail.username=${SMTP_USERNAME}
+spring.mail.password=${SMTP_PASSWORD}
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+spring.mail.properties.mail.smtp.connectiontimeout=10000
+spring.mail.properties.mail.smtp.timeout=10000
+spring.mail.properties.mail.smtp.writetimeout=10000
+spring.mail.properties.mail.smtp.debug=false
+```
+
+Windows PowerShell 啟動後端前可設定：
+
+```powershell
+$env:SMTP_HOST = "smtp.example.com"
+$env:SMTP_PORT = "587"
+$env:SMTP_USERNAME = "flowmint@example.com"
+$env:SMTP_PASSWORD = "replace-with-smtp-password-or-app-password"
+```
+
+此外必須確認資料庫的系統代碼設定：
+
+- `CNF/CNF_CONF001` 的 `PARAM1`：預設寄件人 Email，例如 `flowmint@example.com`。外部 SMTP 通常要求寄件人等於驗證帳號，或屬於該帳號獲准代寄的網域。
+- `CNF/CNF_CONF002` 的 `PARAM1`：設為 `Y` 才會啟用寄信排程；設為其他值時只保留 Outbox／站內通知，不會呼叫 SMTP Server。
+
+Repository 內預設的 `192.168.1.251`、`root`、`password123` 與 `root@localhost` 只是假設內部 Mail
+Server 的開發值，不是可直接使用的正式設定。正式環境不要將 SMTP 密碼提交到 Git，應以環境變數或部署平台的
+Secret 提供，並將 SMTP debug 關閉。
+
+目前寄信實作使用帳號密碼式 Spring Mail／SMTP，支援一般 SMTP AUTH 與 STARTTLS，但沒有實作 OAuth2
+SMTP 登入。若 Gmail、Microsoft 365 或其他外部服務停用基本 SMTP AUTH，必須使用服務商允許的 App
+Password／SMTP Relay，或另行擴充 OAuth2；不能只填一般登入密碼。實際使用外部服務前，也要確認寄件人授權、
+TLS、網路出口、防火牆與服務商 relay 政策。
 
 ### 4. 編譯與啟動後端
 
@@ -1014,6 +1107,29 @@ VITE_SUCCESS_FLAG="Y"
 
 Cookie prefix 必須與後端設定一致。
 
+後端 `backend/app/src/main/resources/appConfig.properties` 的 `page.allowedOrigin` 必須包含瀏覽器實際開啟的
+前端 Origin，否則登入、Cookie／CSRF 或一般 API 請求會被瀏覽器的 CORS 政策擋下。預設本機設定為：
+
+```properties
+page.allowedOrigin=http://127.0.0.1:8077,https://127.0.0.1:8077
+```
+
+Origin 只包含 `scheme://host:port`，不可加 `/login`、`/api` 或其他 path。`localhost` 與 `127.0.0.1`、HTTP
+與 HTTPS、不同 port 都是不同 Origin；例如前端由 `http://localhost:8077` 開啟時，必須另外加入：
+
+```properties
+page.allowedOrigin=http://127.0.0.1:8077,http://localhost:8077
+```
+
+多個 Origin 以半形逗號分隔。此系統允許跨域請求攜帶 Cookie（credentials），正式環境應列出確切的前端
+Origin，不要使用廣泛 wildcard。`VITE_API_URL` 設定的是前端要呼叫的後端 API 位址；`page.allowedOrigin`
+設定的是後端允許哪些前端網頁來源呼叫，兩者方向不同但必須依同一套部署網址配合設定。若前後端由反向代理
+提供相同 Origin，瀏覽器不會產生跨域請求，但仍建議保留實際正式前端 Origin 以避免部署切換後失效。
+
+本機開發可修改 `appConfig.properties`。正式環境請由 Windows Service、Docker、Kubernetes 或其他部署平台集中
+注入 `PAGE_ALLOWEDORIGIN`，不要讓操作人員在每次 `java -jar` 時手工附加 `--page.allowedOrigin`。同一份 JAR
+應可部署至 DEV／UAT／Production，各環境差異由受版控與審核的部署設定管理。
+
 ### 6. 安裝與啟動前端
 
 ```powershell
@@ -1030,10 +1146,36 @@ npm run dev
 
 ### Backend
 
+在 repository 的 `backend` 目錄執行 Maven package；`-am` 會一併建置 `app` 依賴的 `base`、`core` 模組：
+
 ```powershell
 cd C:\home\flowmint\backend
 mvn -pl app -am clean package
 ```
+
+建置成功後，Spring Boot Maven Plugin 會產生可執行 JAR：
+
+```text
+C:\home\flowmint\backend\app\target\core-app-0.0.5-SNAPSHOT.jar
+```
+
+JAR 檔名中的版本取自 `backend/app/pom.xml`；版本調整後請使用 `app/target` 內實際產生的檔名。正式啟動前先在
+同一個 process environment 配置資料庫密碼、加密 key、Mail Server 等環境變數，設定用途見
+[部署環境變數與敏感設定說明](backend/doc/38-部署環境變數與敏感設定說明.md)。
+
+PowerShell 啟動範例：
+
+```powershell
+cd C:\home\flowmint\backend
+$env:JASYPT_ENCRYPTOR_PASSWORD = "replace-with-strong-secret"
+$env:FM_DATASOURCE_ENCRYPTION_KEY = "replace-with-independent-base64-key"
+$env:FM_AI_ENCRYPTION_KEY = "replace-with-independent-base64-key"
+$env:FM_EXTERNAL_API_KEY_PEPPER = "replace-with-independent-base64-pepper"
+java -jar app\target\core-app-0.0.5-SNAPSHOT.jar
+```
+
+啟動成功後預設監聽 `http://127.0.0.1:8088`。正式環境可交由 Windows Service、Docker、Kubernetes 或其他
+程序管理器執行同一個 `java -jar` 命令；不要只保持在互動式終端機中執行。
 
 ### Frontend
 
@@ -1043,11 +1185,26 @@ npm ci
 npm run build
 ```
 
-Nuxt 採 SPA 模式。Production build 輸出由 Nuxt／Nitro 建立於 `.output`，可使用以下指令預覽：
+Nuxt 採 SPA 模式。Production build 輸出由 Nuxt／Nitro 建立於 `.output`。
+
+本機驗證 build 結果可使用專案已定義的 `preview` script：
 
 ```powershell
-node .output/server/index.mjs
+npm run preview
 ```
+
+`npx nuxi start` 在 Nuxt 3 是 `preview` 的別名，也能用於本機預覽；它需要保留專案依賴，不作為正式部署的
+Node server 啟動入口。
+
+正式以 Node.js 執行 Nitro server：
+
+```powershell
+$env:NODE_ENV = "production"
+node --env-file=.env .output/server/index.mjs
+```
+
+Node.js 20 的 `--env-file=.env` 會載入 `PORT` 等執行期環境變數。正式部署也可以由 Windows Service、Docker、
+Kubernetes 或程序管理器直接注入環境變數；部署時只需要 build 產生的 `.output` 與對應執行環境。
 
 ## 權限與 Tenant 邊界
 
@@ -1077,7 +1234,8 @@ FlowMint event
 
 注意事項：
 
-- 寄件者由系統設定管理。
+- SMTP 連線、認證與限制請依「快速開始／設定後端／Mail Server／SMTP 設定」配置。
+- 寄件者由系統代碼 `CNF/CNF_CONF001` 管理；寄信排程由 `CNF/CNF_CONF002` 控制。
 - 收件地址來自同 Tenant、啟用且在有效期間內的 `fm_employee.EMAIL`。
 - 員工沒有 Email 時只保留站內通知，不阻斷流程。
 - Notification Template 位於 `tb_sys_template`／`tb_sys_template_param`。

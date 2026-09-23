@@ -50,7 +50,7 @@ qífū-4 後端基於 **Spring Boot 4.0.6** 構建，採用多模組 (Multi-modu
 
 *   **資料庫配置**: 位於 `backend/app/src/main/resources/db1-config.properties`。
 *   **MyBatis 配置**: `MyBatisConfig.java` 自動掃描 `org.qifu.core.mapper`。
-*   **CORS 配置**: 在 `WebConfig.java` 中定義，允許跨域請求並暴露 `X-CSRF-TOKEN`。
+*   **CORS 配置**: 在 `WebConfig.java` 中定義，允許跨域請求並暴露 `X-CSRF-TOKEN`。允許來源由 `backend/app/src/main/resources/appConfig.properties` 的 `page.allowedOrigin` 控制，必須列出瀏覽器實際使用的前端 Origin，例如 `http://127.0.0.1:8077`。Origin 只包含 scheme、host、port；`localhost` 與 `127.0.0.1` 視為不同來源。多個值以半形逗號分隔。因系統允許 Cookie credentials，正式環境不得使用廣泛 wildcard。完整部署說明見 [部署環境變數與敏感設定說明](backend/doc/38-部署環境變數與敏感設定說明.md)。
 
 ## 5. API 開發範例
 
