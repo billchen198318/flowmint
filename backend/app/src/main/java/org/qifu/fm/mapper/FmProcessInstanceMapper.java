@@ -9,6 +9,7 @@ import org.qifu.fm.model.FmOperationsProcessSummary;
 import org.qifu.fm.model.FmOperationsDailySummary;
 import org.qifu.fm.model.FmOperationsProcessRanking;
 import org.qifu.fm.model.FmOperationsTaskRanking;
+import org.qifu.fm.model.FmUserProcessHistoryRow;
 import java.util.List;
 
 @Mapper
@@ -28,4 +29,8 @@ public interface FmProcessInstanceMapper extends IBaseMapper<FmProcessInstance, 
 
     List<FmOperationsTaskRanking> selectOperationsTaskRanking(
             Map<String, Object> parameters);
+
+    List<FmUserProcessHistoryRow> selectUserHistory(Map<String, Object> parameters);
+
+    long countUserHistory(Map<String, Object> parameters);
 }

@@ -124,6 +124,7 @@ Custom JavaScript 支援 `onFormLoad`、`onFieldChange`、`beforeSubmit`、`afte
 | `/requests/start` | 申請中心 | 搜尋流程並開始填單 |
 | `/tasks/[taskId]` | 待辦處理 | 核准、駁回、退回、轉派、代理或加簽 |
 | `/requests/[processInstanceId]` | 申請詳情 | 查看表單、附件、簽核軌跡與 BPMN 進度 |
+| `/fm_prog007d0004` | 我的流程紀錄 | 一般使用者查詢自己申請、發起或實際簽核過的流程 |
 | `/operations/incidents` | 指派與 Groovy 執行異常 | 處理找不到簽核人、Groovy 執行失敗及其重試／重算 |
 | `/operations/processes` | 流程監控 | 查詢執行中及已完成流程 |
 | `/operations/reports` | 營運報表 | 查看流程數量、處理時間與逾期待辦 |
@@ -294,6 +295,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - Phase 1～4 核心功能已完成。
 - Phase 5 營運功能已完成。
 - Workspace 已改為摘要與導覽，正式起單移至獨立申請中心及填單頁。
+- `FM_PROG007D0004`「我的流程紀錄」第一版及本機資料庫 Program／Menu／Role Permission 已完成，提供 `COMMON01` 一般使用者查詢本人申請、發起或簽核過的流程；真實一般帳號瀏覽器 E2E 尚未完成。
 - 共用單據編號、正式附件、申請追蹤、目前簽核人與 BPMN 流程進度已完成 Java／Vue 實作與自動驗證。
 - A01 的請購、採購單、驗收單與公司名片 Form／Process 目前均已發布，Process 已部署至 Flowable；仍需以多帳號完成逐級核決、條件分支、退回重驗、附件、簽核流轉與流程進度的瀏覽器 E2E。
 - AI Provider 管理、OpenAI／Gemini／Groq／OpenRouter Adapter、Task AI 分析、快取與稽核已完成；尚未使用真實 API Key 完成 Provider 與瀏覽器 E2E，不能標示為正式上線。
@@ -354,6 +356,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 草稿、起單與代申請授權。
 - Idempotency Key 防止重複送單。
 - 我的申請、我的待辦與已辦。
+- 我的流程紀錄依登入帳號彙整本人申請、實際發起及具 Task Action 的簽核流程，同一流程只顯示一筆。
 - 核准、駁回、退回與補件重送。
 - 申請人撤回與實際發起人取消。
 - Task Transfer。
@@ -369,6 +372,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 ### Workspace、申請中心與附件
 
 - Workspace 提供待辦、申請及通知摘要，起單導向獨立申請中心。
+- Workspace 提供「我的流程紀錄」快捷入口，完整查詢位於 `/fm_prog007d0004`。
 - 申請中心依 Tenant 級流程分類 metadata 顯示可發起流程，支援搜尋、分類及受控代申請人選擇。
 - 獨立填單頁負責 Form.io、Custom JavaScript、Data Action、附件與冪等送出生命週期。
 - 附件採 Upload Session 暫存，正式送單時同交易綁定流程；支援欄位限制、驗證下載及孤兒檔案隔離清理。
@@ -666,6 +670,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 作為登入後摘要與導覽，整合我的待辦、最近申請、通知及統計，不在頁面內直接 render 正式表單。
 - 顯示真實待辦、申請及未讀通知統計，不使用展示假資料。
 - 提供「前往申請中心」入口；起單目錄及填單職責由 `/requests/start` 路由承擔。
+- 提供「我的流程紀錄」快捷入口，導向一般使用者專用的 `/fm_prog007d0004`。
 - Tenant 來自登入者 membership，不允許手寫其他 Tenant。
 - 支援重新整理各區及由清單進入申請中心、Task、申請明細。
 - 通知支援單筆已讀及全部已讀。
@@ -722,6 +727,16 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - `WITHDRAW`：只有表單 Owner 可撤回 `RUNNING` 流程，原因必填；流程與表單轉 `CANCELLED`。
 - `CANCEL`：只有實際發起人可取消 `RUNNING` 流程，服務代申請情境；與申請人撤回分開稽核。
 - 完成、駁回、撤回與取消會通知表單 Owner 及實際發起人，相同帳號自動去重。
+
+### 19A. 我的流程紀錄（`FM_PROG007D0004`）
+
+- 主要提供給 `COMMON01` 一般使用者，`BPM_ADMIN` 也可進入，但資料範圍不會因管理角色而擴張。
+- 清單只納入登入者是表單申請人、流程實際發起人，或已有本人 Task Action 的流程；Tenant 與帳號固定由 Header 和 Security Context 決定，不能代查他人。
+- 同一流程同時符合申請人、發起人與簽核人關係時只顯示一筆，並標示全部本人關係。
+- 支援全部相關、我申請／發起的、我簽核的三種頁籤，以及流程狀態、本人處理結果、關鍵字、發起日期、處理日期與分頁查詢。
+- 詳情可查看唯讀表單、附件、簽核軌跡、歷次表單快照及 BPMN 進度；曾實際簽核者即使不是申請人或發起人，也必須在後端重新驗證參與關係後才能查看。
+- 本程式與 Admin `/operations/processes` 流程監控分離，不提供全 Tenant 查詢、改派、Retry、終止流程、Incident 或其他管理操作。
+- `FM_PROG007D0004Q` 負責清單查詢，`FM_PROG007D0004E` 負責詳情與流程圖權限；UI Menu 掛在 `FM_PROG007D`「我的工作」。
 
 ### 20. 不可變稽核與快照
 
@@ -1329,8 +1344,9 @@ git diff --check
 11. 驗證站內通知、Email Outbox、期限提醒及逾時通知。
 12. 製造 Resolver 失敗，驗證 Incident Retry／Reassign／Terminate；另製造 Groovy 成功、timeout、契約錯誤及外部服務失敗，驗證執行歷程、原始輸入 Retry、最新表單 Recalculate、request ID 冪等與跨 Tenant 拒絕。
 13. 驗證流程監控、稽核明細、分頁與營運報表。
-14. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
-15. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
+14. 以 `COMMON01` 驗證「我的流程紀錄」可查本人申請、發起及簽核過的流程、多重關係去重及詳情；另以無關帳號、跨 Tenant 帳號與 `BPM_ADMIN` 驗證不會越權。
+15. 使用台灣／中國大陸組織與時區情境執行完整 E2E。
+16. 使用接近正式量級的資料執行 SQL `EXPLAIN` 與效能測試。
 
 ## 驗收與使用限制
 

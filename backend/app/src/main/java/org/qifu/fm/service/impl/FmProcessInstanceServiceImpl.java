@@ -12,6 +12,7 @@ import org.qifu.fm.model.FmOperationsProcessSummary;
 import org.qifu.fm.model.FmOperationsDailySummary;
 import org.qifu.fm.model.FmOperationsProcessRanking;
 import org.qifu.fm.model.FmOperationsTaskRanking;
+import org.qifu.fm.model.FmUserProcessHistoryRow;
 import java.util.List;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.springframework.stereotype.Service;
@@ -101,5 +102,15 @@ public class FmProcessInstanceServiceImpl extends BaseService<FmProcessInstance,
         parameters.put("startDate", startDate);
         parameters.put("endDate", endDate);
         return mapper.selectOperationsTaskRanking(parameters);
+    }
+
+    @Override
+    public List<FmUserProcessHistoryRow> userHistory(Map<String, Object> parameters) {
+        return mapper.selectUserHistory(parameters);
+    }
+
+    @Override
+    public long countUserHistory(Map<String, Object> parameters) {
+        return mapper.countUserHistory(parameters);
     }
 }
