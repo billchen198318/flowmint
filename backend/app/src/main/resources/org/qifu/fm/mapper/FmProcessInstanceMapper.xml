@@ -275,6 +275,132 @@
       AND INSTANCE_STATUS = #{currentStatus,jdbcType=VARCHAR}
   </update>
 
+  <sql id="userHistoryTaskActionCondition">
+    ta.TENANT_ID = pi.TENANT_ID
+    AND ta.PROCESS_INSTANCE_ID = pi.PROCESS_INSTANCE_ID
+    AND ta.ACTOR_ACCOUNT = #{account,jdbcType=VARCHAR}
+    AND ta.TASK_ID IS NOT NULL
+    AND ta.ACTION_TYPE NOT IN ('SUBMIT', 'WITHDRAW', 'CANCEL', 'TERMINATE',
+      'ADMIN_REASSIGN', 'INCIDENT_RETRY')
+  </sql>
+
+  <sql id="userHistoryConditions">
+    pi.TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    AND (
+      fd.OWNER_ACCOUNT = #{account,jdbcType=VARCHAR}
+      OR pi.INITIATOR_ACCOUNT = #{account,jdbcType=VARCHAR}
+      OR EXISTS (
+        SELECT 1
+        FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action ta
+        WHERE <include refid="userHistoryTaskActionCondition"/>
+      )
+    )
+    <if test="relation == 'STARTED'">
+      AND (fd.OWNER_ACCOUNT = #{account,jdbcType=VARCHAR}
+        OR pi.INITIATOR_ACCOUNT = #{account,jdbcType=VARCHAR})
+    </if>
+    <if test="relation == 'SIGNED'">
+      AND EXISTS (
+        SELECT 1
+        FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action ta
+        WHERE <include refid="userHistoryTaskActionCondition"/>
+      )
+    </if>
+    <if test="status != null and status != ''">
+      AND pi.INSTANCE_STATUS = #{status,jdbcType=VARCHAR}
+    </if>
+    <if test="keywordLike != null and keywordLike != ''">
+      AND (pi.BUSINESS_KEY LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR pi.DOCUMENT_NUMBER LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR pd.PROCESS_NAME LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\'
+        OR fd.OWNER_ACCOUNT LIKE #{keywordLike,jdbcType=VARCHAR} ESCAPE '\\')
+    </if>
+    <if test="startDate != null">
+      AND pi.START_DATE &gt;= #{startDate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="endDate != null">
+      AND pi.START_DATE &lt; #{endDate,jdbcType=TIMESTAMP}
+    </if>
+    <if test="outcome != null and outcome != ''">
+      AND EXISTS (
+        SELECT 1
+        FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action ta
+        WHERE <include refid="userHistoryTaskActionCondition"/>
+          AND (ta.OUTCOME = #{outcome,jdbcType=VARCHAR}
+            OR ta.ACTION_TYPE = #{outcome,jdbcType=VARCHAR})
+      )
+    </if>
+    <if test="actionStartDate != null">
+      AND EXISTS (
+        SELECT 1
+        FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action ta
+        WHERE <include refid="userHistoryTaskActionCondition"/>
+          AND ta.ACTION_DATE &gt;= #{actionStartDate,jdbcType=TIMESTAMP}
+      )
+    </if>
+    <if test="actionEndDate != null">
+      AND EXISTS (
+        SELECT 1
+        FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action ta
+        WHERE <include refid="userHistoryTaskActionCondition"/>
+          AND ta.ACTION_DATE &lt; #{actionEndDate,jdbcType=TIMESTAMP}
+      )
+    </if>
+  </sql>
+
+  <select id="selectUserHistory" parameterType="java.util.HashMap"
+      resultType="org.qifu.fm.model.FmUserProcessHistoryRow">
+    SELECT pi.PROCESS_INSTANCE_ID AS processInstanceId,
+      pi.BUSINESS_KEY AS businessKey,
+      pi.DOCUMENT_NUMBER AS documentNumber,
+      pd.PROCESS_NAME AS processName,
+      fdef.FORM_NAME AS formName,
+      fd.OWNER_ACCOUNT AS applicantAccount,
+      pi.INITIATOR_ACCOUNT AS starterAccount,
+      (fd.OWNER_ACCOUNT = #{account,jdbcType=VARCHAR}) AS applicant,
+      (pi.INITIATOR_ACCOUNT = #{account,jdbcType=VARCHAR}) AS starter,
+      EXISTS (
+        SELECT 1
+        FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action ta
+        WHERE <include refid="userHistoryTaskActionCondition"/>
+      ) AS approver,
+      last_action.ACTION_TYPE AS lastActionType,
+      last_action.OUTCOME AS lastOutcome,
+      last_action.ACTION_DATE AS lastActionDate,
+      pi.INSTANCE_STATUS AS instanceStatus,
+      pi.START_DATE AS startDate,
+      pi.END_DATE AS endDate
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance pi
+    JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data fd
+      ON fd.TENANT_ID = pi.TENANT_ID AND fd.FORM_DATA_ID = pi.FORM_DATA_ID
+    JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+      ON pd.TENANT_ID = pi.TENANT_ID AND pd.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+    LEFT JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_def fdef
+      ON fdef.TENANT_ID = fd.TENANT_ID AND fdef.FORM_ID = fd.FORM_ID
+    LEFT JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action last_action
+      ON last_action.OID = (
+        SELECT ta.OID
+        FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_task_action ta
+        WHERE <include refid="userHistoryTaskActionCondition"/>
+        ORDER BY ta.ACTION_DATE DESC, ta.OID DESC
+        LIMIT 1
+      )
+    WHERE <include refid="userHistoryConditions"/>
+    ORDER BY COALESCE(last_action.ACTION_DATE, pi.START_DATE) DESC,
+      pi.PROCESS_INSTANCE_ID DESC
+    LIMIT #{limit,jdbcType=INTEGER} OFFSET #{offset,jdbcType=INTEGER}
+  </select>
+
+  <select id="countUserHistory" parameterType="java.util.HashMap" resultType="long">
+    SELECT COUNT(*)
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_instance pi
+    JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_data fd
+      ON fd.TENANT_ID = pi.TENANT_ID AND fd.FORM_DATA_ID = pi.FORM_DATA_ID
+    JOIN <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_process_def pd
+      ON pd.TENANT_ID = pi.TENANT_ID AND pd.PROCESS_DEF_ID = pi.PROCESS_DEF_ID
+    WHERE <include refid="userHistoryConditions"/>
+  </select>
+
   <select id="selectOperationsSummary" parameterType="java.util.HashMap"
       resultType="org.qifu.fm.model.FmOperationsProcessSummary">
     SELECT COUNT(*) AS totalProcesses,

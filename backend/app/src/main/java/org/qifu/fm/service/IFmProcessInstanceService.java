@@ -8,6 +8,8 @@ import org.qifu.fm.model.FmOperationsProcessSummary;
 import org.qifu.fm.model.FmOperationsDailySummary;
 import org.qifu.fm.model.FmOperationsProcessRanking;
 import org.qifu.fm.model.FmOperationsTaskRanking;
+import org.qifu.fm.model.FmUserProcessHistoryRow;
+import java.util.Map;
 import java.util.List;
 
 public interface IFmProcessInstanceService extends IBaseService<FmProcessInstance, String> {
@@ -33,4 +35,8 @@ public interface IFmProcessInstanceService extends IBaseService<FmProcessInstanc
 
     List<FmOperationsTaskRanking> operationsTaskRanking(
             String tenantId, Date startDate, Date endDate);
+
+    List<FmUserProcessHistoryRow> userHistory(Map<String, Object> parameters);
+
+    long countUserHistory(Map<String, Object> parameters);
 }

@@ -107,6 +107,9 @@ onMounted(loadTenants);
         <h2 class="h5 mb-1">發起新申請</h2>
         <p class="mb-0 text-secondary">依類別瀏覽你目前可以發起的 {{ processCount }} 個流程。</p>
       </div>
+      <NuxtLink :to="{ path: '/fm_prog007d0004', query: { tenant: tenantId } }" class="btn btn-outline-primary">
+        我的流程紀錄 <i class="bi bi-clock-history ms-1"></i>
+      </NuxtLink>
       <NuxtLink :to="{ path: '/requests/start', query: { tenant: tenantId } }" class="btn btn-primary">
         前往申請中心 <i class="bi bi-arrow-right ms-1"></i>
       </NuxtLink>
