@@ -19,6 +19,8 @@ FlowMint 只做簽核。新模型明確排除集團、法人、據點、完整 H
 
 2026-09-07 回查時，本機 `flowmint` 共有 54 張 `fm_*` 表；這是當日歷史基準，不是加入 Groovy Runtime／Incident schema 後的現行固定表數。採購／驗收的預占表、觸發器與相關占額配置已移除；FlowMint 負責人工簽核，不控管採購額度或累計收貨數量。QIFU4 帳號／權限及 Flowable 引擎表是外部依賴，不計入 `fm_*` 表數。
 
+2026-09-29 以 MariaDB 唯讀查核，本機 `flowmint` 有 59 張 `fm_*` 表；此數字是查核當日狀態，不是固定 Schema 契約。
+
 ## 目前版本基準（2026-09-03）
 
 - MariaDB 現行所有 Form 與 BPMN Process 均已重新整理為 Version 1；文件內較早出現的 Form

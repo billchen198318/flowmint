@@ -1,6 +1,6 @@
 # 16 QIFU4 後端持久層實作規範
 
-本文件由既有開發規範中可沿用的 Entity、Mapper、Service 與 Logic 強制規則整理而來；資料模型、表清單、字元集與 DDL 一律以 newdoc 新規格為準。
+本文件由既有開發規範中可沿用的 Entity、Mapper、Service 與 Logic 規則整理而來；資料模型與 DDL 以本目錄的 `flowmint.sql` 及目標 MariaDB 實際 schema 核對。原稱 `newdoc` 的目錄目前不存在。
 
 本節為 `fm_*` Java 持久化層的強制規則與 Review Checklist；若與前述範例、規劃文字或個人推論不同，以本節與 QIFU4 現有程式為準。
 
@@ -56,7 +56,7 @@ Mapper XML 不得放在 `src/main/java`；即使 Maven resource 設定能載入�
 
 ### 16.2 Mapper 分類
 
-依 QIFU4 現有 Mapper 的一致作法，所有有 Entity 的 `fm_*` Mapper 均繼承 `IBaseMapper<Entity, String>`，並完整提供標準 statement；業務限制由 Service 層與專用 method 控制：
+依 QIFU4 現有 Mapper 的一致作法，新增的一般 Entity Mapper 應繼承 `IBaseMapper<Entity, String>`，並完整提供標準 statement；業務限制由 Service 層與專用 method 控制。2026-09-29 原始碼盤點：現有 56 個 FlowMint Mapper Java 介面中，55 個繼承 `IBaseMapper`；`FmTaskFormRuleMapper` 是現存例外，只定義版本綁定所需的專用方法及 XML statement，仍由 `IFmTaskFormRuleService` 包裝。下表是新 Mapper 的規範，不應描述成所有現存檔案均已符合：
 
 | 類型 | Mapper 規則 | Update/Delete |
 | --- | --- | --- |
@@ -78,7 +78,7 @@ Mapper XML 不得放在 `src/main/java`；即使 Maven resource 設定能載入�
 
 4. `TENANT_ID` 表的業務查詢必須由後端帶入 tenant 條件；禁止只依跨租戶可能重複的業務鍵查詢。
 5. 寫入參數必須標示 `jdbcType`；nullable 欄位尤其不得省略。
-6. 每個業務 Mapper XML 都必須先完整實作 `IBaseMapper` 的八個標準區塊；專用方法再追加於標準 `delete` statement 之後。
+6. 新增的一般業務 Mapper XML 應先完整實作 `IBaseMapper` 的八個標準區塊；專用方法再追加於標準 `delete` statement 之後。現存 `FmTaskFormRuleMapper.xml` 只含專用 statement，見 16.2 節。
 7. 為符合 QIFU4 `IBaseMapper`，XML 保留標準 `update`／`delete` statement；Snapshot、Audit 與 Action Ledger 的 Service/API 不得呼叫它們。
 8. 專用狀態更新必須同時限制目前狀態，例如 `PROCESS_STATUS = 'RUNNING'`，避免重複完成或非法跳轉。
 

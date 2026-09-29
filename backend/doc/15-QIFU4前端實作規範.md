@@ -1,10 +1,12 @@
 # FlowMint 前端實作強制規範
 
-Last updated: 2026-07-29 Asia/Taipei
+Last updated: 2026-09-29 Asia/Taipei
 
 ## 1. 規範地位
 
 本文件是 FlowMint 在 `frontend-v-nx` 實作 Vue／Nuxt 頁面的強制規範。
+
+以下 Query／Create／Edit 範本適用於傳統維護 Program。Workspace、申請中心、任務頁及「我的流程紀錄」等 Runtime／專用查詢頁已有不同頁面結構；應沿用該類頁面的既有元件與權限邊界，不得把下列三頁式結構宣稱為所有 FlowMint 頁面的現況。
 
 新頁面、既有頁面重構及 Code Review 必須先比對 QIFU4 現有標準頁面，不得只做到功能可執行或 Production Build 通過。若本文件與早期規劃文件的前端作法不同，以本文件為準。
 
@@ -194,7 +196,7 @@ Program Family Folder 是選單目錄，不是業務 Page，可依選單需要�
 FM_PROG001D
 ```
 
-不得直接修改正式資料庫或未經確認覆寫 `flowmint.sql`。Program 註冊定義統一納入 `flowmint.sql`；既有環境由部署／資料庫變更程序或 QIFU4 管理功能執行，不在 `doc` 另存 register SQL。
+不得直接修改正式資料庫或未經確認覆寫 `flowmint.sql`。`backend/doc/flowmint.sql` 保存完整資料庫快照；既有環境的 Program 註冊亦可由版本化 migration SQL 或 QIFU4 管理功能執行。`FM_PROG007D0004` 的開發紀錄稱曾套用 migration 至本機，但目前工作樹找不到該 SQL 檔；不能只憑紀錄或快照判定正式環境部署狀態。正式環境仍須依部署／資料庫變更程序確認。
 
 ## 8. API、Cookie 與 CSRF
 
@@ -212,7 +214,7 @@ localhost
 127.0.0.1
 ```
 
-所有 API Request 使用 `getAxiosInstance`，保留：
+傳統維護頁的 API Request 使用 `getAxiosInstance`。Workspace、申請中心與部分 Runtime／專用查詢頁實際使用共用 `useApi`（例如 `/fm_prog007d0004`）；兩者均由共用層處理 Cookie、CSRF 與 401 更新，不得另建缺少這些處理的 HTTP Client。使用 `getAxiosInstance` 時保留：
 
 ```text
 withCredentials
@@ -234,7 +236,7 @@ Refresh Token Queue
 - [ ] Query Page 使用 `Grid`。
 - [ ] Query Page 使用 Pinia `QueryPageStore`。
 - [ ] Grid 狀態使用 `GridHelper`。
-- [ ] API 使用 `getAxiosInstance`。
+- [ ] 傳統維護頁 API 使用 `getAxiosInstance`；Runtime／專用查詢頁使用既有 `getAxiosInstance` 或 `useApi`，並保留 Cookie、CSRF 與 401 更新處理。
 - [ ] Create／Edit 使用 `checkFields`。
 - [ ] Create／Edit 使用 `checkInvalid` 與 `invalidFeedback`。
 - [ ] 後端訊息使用 `escapeQifuHtmlMsg`。

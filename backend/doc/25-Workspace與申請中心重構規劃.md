@@ -6,6 +6,12 @@
 
 現況同步（2026-09-08）：依 2026-08-21～22 開發紀錄，Workspace 工作摘要、`/requests/start` 申請中心、`/requests/start/[processDefId]` 獨立填單頁與共用 Runtime 已完成 Java／Vue 實作及編譯驗證；分類 metadata 亦已移除寫死邏輯。本人／代申請、附件、Custom JavaScript、Data Action、Flowable 流轉、單據編號與手機畫面的真實 E2E 仍待完成。第 22 節保留為驗收清單，不代表已驗收通過。
 
+2026-09-29 原始碼核對：Workspace 目前是申請中心導覽橫幅，沒有快速申請卡；最近待辦最多顯示 8 筆。申請中心搜尋僅比對流程名稱與說明，卡片仍顯示 `v{versionNo}`；填單路由 query 帶有 Tenant ID 與申請人帳號。送單成功時在原頁顯示結果及「查看申請內容」連結，未自動導向詳情。下文產品設計與已勾選的 Release Gate 應以此現況校正。
+
+Workspace 的待辦與「我的申請」數字目前從未分頁的 `/tasks/inbox`、`/requests/mine` 完整清單在前端計算，再各自截取前 8、前 5 筆作列表；資料量與首屏效能仍須驗證。「我的流程紀錄」頁的「共 N 筆」取自後端分頁總數，「本頁發起／申請」及「本頁簽核」只統計當前頁，不能當成全量關係數字。
+
+通知 `/notifications/inbox` 後端最多回傳最近 100 筆，`unreadCount` 則是另外計算的全部未讀數；Workspace 只顯示前 5 筆，並提供單筆已讀。`/notifications/read-all` 雖有後端 API，現行 Workspace 尚未提供全部已讀操作。
+
 本規劃遵守：
 
 - [07 前端程式規範](07-前端程式規範.md)
@@ -750,7 +756,7 @@ backend/app/src/main/resources/org/qifu/fm/mapper/FmProcessCategoryMapper.xml
 以下全部成立，才能標記重構完成：
 
 - [x] Workspace 不再包含流程 Select、Form.io、附件或 Submit。
-- [x] Workspace 顯示清楚的快速申請卡與「查看全部」。
+- [ ] Workspace 顯示快速申請卡與「查看全部」；目前只有「前往申請中心」橫幅。
 - [x] `/requests/start` 按類別呈現全部可發起流程。
 - [x] 類別具有受控 label、icon 與排序。
 - [x] 流程卡片顯示名稱、說明及開始申請。
@@ -761,9 +767,9 @@ backend/app/src/main/resources/org/qifu/fm/mapper/FmProcessCategoryMapper.xml
 - [x] Tenant、Starter、Applicant、流程與表單均由後端重新驗證。
 - [x] Dirty 表單與未送附件離頁會警告。
 - [x] Submit 防 double click 且保留 Idempotency Key。
-- [x] 成功後導向申請詳情，不停留在 Workspace。
+- [ ] 成功後自動導向申請詳情；目前停留填單頁顯示成功結果及詳情連結。
 - [ ] Loading、Empty、Forbidden、Configuration Error 與 System Error 可區分。
-- [x] TypeScript 核心 DTO 不使用 `any`。
+- [ ] 核心 API 回應與頁面狀態移除 `any`；目前 `useProcessStartCatalog`、Workspace 與填單頁仍使用 `any`，雖已有部分具名型別。
 - [x] 後端單元／契約測試通過（11 項目標測試）。
 - [x] Nuxt production build 通過。
 - [x] `git diff --check` 與人工完整 diff 檢查通過。

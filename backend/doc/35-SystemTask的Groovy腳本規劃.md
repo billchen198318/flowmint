@@ -344,7 +344,7 @@ Groovy 核心交付已依第 44～49 節完成主 JVM、HTTP／JSON、成功流�
 
 ## 15. 2026-09-08 Phase A 首批程式
 
-使用者授權開始開發後，新增獨立 `backend/groovy-worker` Maven 專案；詳細命令、JSON 協定、限制與待辦見 [worker README](../groovy-worker/README.md)。不修改原 Maven reactor，不依賴 FlowMint app／core／base，也未使用既有主 JVM ScriptExpressionUtils 執行設計者腳本。
+使用者授權開始開發後，曾新增獨立 `backend/groovy-worker` Maven 專案；其 README 與專案已於主 JVM 重構後刪除，歷史協定與後續變更見 [18 開發進度](18-開發進度.md)及本章後續段落。當時不修改原 Maven reactor，不依賴 FlowMint app／core／base，也未使用既有主 JVM ScriptExpressionUtils 執行設計者腳本。
 
 已完成第一批程式及本機測試：
 

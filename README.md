@@ -296,11 +296,11 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - Phase 5 營運功能已完成。
 - Workspace 已改為摘要與導覽，正式起單移至獨立申請中心及填單頁。
 - `FM_PROG007D0004`「我的流程紀錄」第一版及本機資料庫 Program／Menu／Role Permission 已完成，提供 `COMMON01` 一般使用者查詢本人申請、發起或簽核過的流程；真實一般帳號瀏覽器 E2E 尚未完成。
-- 共用單據編號、正式附件、申請追蹤、目前簽核人與 BPMN 流程進度已完成 Java／Vue 實作與自動驗證。
+- 共用單據編號、正式附件、申請追蹤、目前簽核人與 BPMN 流程進度已有 Java／Vue 實作與自動驗證；附件前端仍缺位元組進度、每檔大小／格式驗證狀態顯示及上傳中離頁提醒，詳見第 22 章。
 - A01 的請購、採購單、驗收單與公司名片 Form／Process 目前均已發布，Process 已部署至 Flowable；仍需以多帳號完成逐級核決、條件分支、退回重驗、附件、簽核流轉與流程進度的瀏覽器 E2E。
-- AI Provider 管理、OpenAI／Gemini／Groq／OpenRouter Adapter、Task AI 分析、快取與稽核已完成；尚未使用真實 API Key 完成 Provider 與瀏覽器 E2E，不能標示為正式上線。
+- AI Provider 管理、OpenAI／Gemini／Groq／OpenRouter Adapter、Task AI 分析、快取與稽核已有第一版；冷卻時間／每日額度／呼叫限流及部分 Provider 回應大小保護仍未完整落地，且尚未使用真實 API Key 完成 Provider 與瀏覽器 E2E，不能標示為正式上線。
 - A01 現行的請購、採購單、驗收單與公司名片 Form／Process 均已重新整理為 `PUBLISHED v1`；所有 BPMN User Task 的 Form Binding 皆指向對應的 Published Form v1。發布與部署完成不等同真實業務 E2E 已驗收。
-- 外部系統 API 管理、Client／Key／Scope／IP／配額、Request Audit、外部發單 Ledger、流程狀態查詢及獨立 API 說明頁均已實作並套用 MariaDB；仍待正式外部 Client 與多帳號端到端驗收。
+- 外部系統 API 管理、Client／Key／Scope／IP／Tenant＋Client 配額、Request Audit、外部發單 Ledger、流程狀態查詢及獨立 API 說明頁均已有第一版並套用 MariaDB；Key＋Endpoint 粒度與原子額度保留尚待實作，正式外部 Client 與多帳號端到端驗收亦未完成。
 - 正式業務表單屬應用配置，不計入平台本體程式。
 - 尚待完成正式環境部署、Program／角色配置、完整瀏覽器 E2E 與真實資料量效能驗證。
 - Email 支援成功狀態同步、失敗重試與永久失敗紀錄。
@@ -381,7 +381,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 ### 通知與 Email
 
 - Workspace 站內通知中心。
-- 單筆已讀、全部已讀與未讀統計。
+- 後端提供單筆已讀、全部已讀與未讀統計 API；Workspace 畫面目前只提供單筆已讀操作，尚無「全部已讀」按鈕。
 - 待辦指派、流程完成、駁回、取消通知。
 - 即將到期與逾時通知。
 - 穩定事件 ID 與資料庫去重。
@@ -673,7 +673,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 提供「我的流程紀錄」快捷入口，導向一般使用者專用的 `/fm_prog007d0004`。
 - Tenant 來自登入者 membership，不允許手寫其他 Tenant。
 - 支援重新整理各區及由清單進入申請中心、Task、申請明細。
-- 通知支援單筆已讀及全部已讀。
+- 通知 API 支援單筆已讀及全部已讀；Workspace 目前只接入單筆已讀。
 
 ### 16. 正式起單
 
@@ -734,13 +734,14 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 清單只納入登入者是表單申請人、流程實際發起人，或已有本人 Task Action 的流程；Tenant 與帳號固定由 Header 和 Security Context 決定，不能代查他人。
 - 同一流程同時符合申請人、發起人與簽核人關係時只顯示一筆，並標示全部本人關係。
 - 支援全部相關、我申請／發起的、我簽核的三種頁籤，以及流程狀態、本人處理結果、關鍵字、發起日期、處理日期與分頁查詢。
+- 現行日期篩選由後端以伺服器預設時區換算日期邊界，頁面時間則依瀏覽器時區顯示；尚未統一成 Tenant 時區，跨時區情境須另外驗收。
 - 詳情可查看唯讀表單、附件、簽核軌跡、歷次表單快照及 BPMN 進度；曾實際簽核者即使不是申請人或發起人，也必須在後端重新驗證參與關係後才能查看。
 - 本程式與 Admin `/operations/processes` 流程監控分離，不提供全 Tenant 查詢、改派、Retry、終止流程、Incident 或其他管理操作。
 - `FM_PROG007D0004Q` 負責清單查詢，`FM_PROG007D0004E` 負責詳情與流程圖權限；UI Menu 掛在 `FM_PROG007D`「我的工作」。
 
 ### 20. 不可變稽核與快照
 
-- Task Action 類型包含 `SUBMIT`、`APPROVE`、`REJECT`、`RETURN`、`RESUBMIT`、`WITHDRAW`、`CANCEL`、`TRANSFER`、`DELEGATE`、`RESOLVE`、`ADD_SIGN`、`COMMENT`、`ADMIN_REASSIGN`、`TERMINATE`。
+- Task Action 類型包含 `SUBMIT`、`APPROVE`、`REJECT`、`RETURN`、`RESUBMIT`、`WITHDRAW`、`CANCEL`、`TRANSFER`、`DELEGATE`、`RESOLVE`、`ADD_SIGN`、`ADD_SIGN_COMPLETE`、平行加簽的 `PARALLEL_ADD_SIGN_*`、`ADMIN_REASSIGN` 與 `TERMINATE`。現行沒有獨立的 `COMMENT` Action；意見附在對應動作紀錄。
 - Action 保存 Tenant、流程、Task、節點、操作者、申請人、意見、時間及快照關聯。
 - `fm_form_snapshot` 保存當時表單版本、revision、JSON 與 SHA-256 digest。
 - `fm_task_assignment_snapshot` 保存 Resolver 類型、規則路徑、候選帳號、組織、職稱、層級與解析時間。
@@ -820,7 +821,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 完成率以區間起單 cohort 的目前完成狀態計算，執行中流程自然反映在比率。
 - 節點效能 Top 20 顯示完成樣本、平均與最長處理時間。
 - 節點時間由最早 Assignment Snapshot 到 `APPROVE`、`REJECT`、`RETURN` 或 `RESUBMIT` 完成 Action 計算。
-- `TRANSFER`、`DELEGATE`、`ADD_SIGN`、`COMMENT` 不被誤算為 Task 完成。
+- `TRANSFER`、`DELEGATE`、`ADD_SIGN` 等非完成動作不被誤算為 Task 完成；現行沒有獨立的 `COMMENT` Action。
 - 指標以聚合 SQL／Flowable count 計算，不先把大量明細載入 JVM。
 
 ### 27. 狀態、併發與安全
@@ -973,8 +974,10 @@ Program 基準資料已統一包含在 `backend/doc/flowmint.sql`，repository �
 `FM_PROG*-register.sql`。完整匯入後會建立 FlowMint 主檔、設計器、營運、AI Provider、
 外部 API Client 管理及 API 說明頁所需 Program。
 
-Program 註冊不等於角色授權。匯入後仍須透過系統權限管理配置 Query／Create／Edit／
-Deactivate／高風險操作權限，不要在資料庫種子中寫死正式環境角色。
+Program 註冊不等於完整的角色授權。現行 `flowmint.sql` 已包含部分基準角色權限，
+例如 `COMMON01`、`BPM_ADMIN` 對「我的流程紀錄」的 VIEW／CONTROLLER 權限；
+完整匯入會一併帶入這些資料。部署時須先審核種子權限，並透過系統權限管理確認
+Query／Create／Edit／Deactivate／高風險操作權限符合該環境的角色配置。
 
 ### 3. 設定後端
 
@@ -1150,7 +1153,7 @@ npm run dev
 
 瀏覽器開啟 `http://127.0.0.1:8077/login`。
 
-系統不在 README 提供預設帳密；請使用資料庫中已建立並已配置 Tenant membership／Role 的帳號。
+請使用資料庫中已建立並配置 Tenant membership／Role 的帳號；下方「本機測試帳號」僅適用於本機開發與驗收環境。
 
 ## 本機測試帳號
 
@@ -1352,7 +1355,7 @@ git diff --check
 
 - 完整交付仍需正式資料 E2E 與實際量級效能驗證。
 - 最近完成的附件、申請追蹤、目前簽核人及 BPMN 進度仍需重新啟動完整環境後，以申請人和實際簽核人執行瀏覽器回歸。
-- AI 解說尚未以真實 Provider Key、正式網路與多帳號完成 E2E；第一版不解析附件。
+- AI 解說尚未以真實 Provider Key、正式網路與多帳號完成 E2E；冷卻時間、每日額度、呼叫限流及 Provider 回應大小保護仍須依第 29 章補齊；第一版不解析附件。
 - Data Action 仍需 `QUERY`／`COMMAND` 真實全流程、多帳號瀏覽器、跨資料庫、實際資料量與專屬 Incident 維運驗收。
 - Groovy System Task 核心功能及 Flowable／MariaDB E2E 已完成，但仍需多帳號瀏覽器、正式權限與部署環境回歸。Groovy 是供可信任 IT 人員使用的主 JVM 腳本能力，不是執行不受信任程式碼的安全沙箱；timeout 也不保證能強制終止惡意或不合作的執行緒。
 - 業務表單及流程須由導入人員依企業規則配置。

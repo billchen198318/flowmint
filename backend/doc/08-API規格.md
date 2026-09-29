@@ -1,6 +1,8 @@
 # 08 API 規格
 
-Base path：`/api/fm`。所有 API 使用登入 Account 與 active Tenant。
+第 1～6 節的 REST 風格路徑是早期概念設計，**不是現行可呼叫的端點**。目前主檔、表單及流程設計器使用 `/api/FM_PROG...` Program Controller；流程 Runtime 與營運 API 使用 `/api/fm/...`。呼叫時須遵守各 Controller 的登入與 Tenant 驗證規則。
+
+現行端點範例：員工 `POST /api/FM_PROG002D0001/findPage`、組織 `POST /api/FM_PROG002D0002/tree`、表單設計器 `POST /api/FM_PROG005D0001/load`、流程設計器 `POST /api/FM_PROG004D0001/version/publish`。完整操作請以對應 Controller 與前端呼叫程式為準。
 
 ## 1. Tenant／Employee
 
@@ -64,11 +66,11 @@ DELETE        /form-data/{formDataId}/attachments/{attachmentId}
 
 ## 5. Approval Authority
 
-`	ext
+```text
 GET/POST/PUT /approval-authorities
 PUT          /approval-authorities/{id}/rules
 POST         /approval-authorities/{id}/preview
-` 
+```
 
 ## 6. Process Designer
 
@@ -88,6 +90,7 @@ POST          /assignment-resolver/preview
 
 ```text
 POST   /api/fm/requests/start/tenants
+POST   /api/fm/requests/start/applicants
 POST   /api/fm/requests/start/catalog
 POST   /api/fm/requests/start/load
 POST   /api/fm/requests/submit
@@ -101,8 +104,14 @@ POST   /api/fm/requests/tasks/resolve
 POST   /api/fm/requests/tasks/add-sign-options
 POST   /api/fm/requests/tasks/add-sign
 POST   /api/fm/requests/tasks/complete-add-sign
+POST   /api/fm/requests/tasks/parallel-add-sign-options
+POST   /api/fm/requests/tasks/start-parallel-add-sign
+POST   /api/fm/requests/tasks/complete-parallel-add-sign
+POST   /api/fm/requests/tasks/cancel-parallel-add-sign
+POST   /api/fm/requests/tasks/parallel-add-sign-detail
 POST   /api/fm/requests/mine
 POST   /api/fm/requests/mine/load
+POST   /api/fm/requests/mine/diagram
 POST   /api/fm/requests/mine/withdraw
 POST   /api/fm/requests/mine/cancel
 ```
@@ -115,7 +124,7 @@ POST   /api/fm/requests/mine/cancel
 - 未提供流程實例刪除 API。
 - `tasks/inbox` 只回傳登入者為 assignee 或 candidate 的有效待辦；Tenant 與登入帳號不可由 body 覆寫。
 - `tasks/load` 回傳唯讀 Form.io 表單、送單資料、節點政策、合法退回目標及歷次稽核動作，並重新檢查 Task 權限。
-- `tasks/action` 首版接受 `APPROVE`、`RETURN`、`REJECT`。退回目標必須是同一流程已完成的前置 User Task；駁回會終止 Flowable instance；所有動作都建立不可變表單快照與 `fm_task_action`。
+- `tasks/action` 目前接受 `APPROVE`、`RETURN`、`REJECT`、`RESUBMIT`。退回目標必須是同一流程已完成的前置 User Task；駁回會終止 Flowable instance；所有動作都建立不可變表單快照與 `fm_task_action`。
 - `tasks/transfer-options` 只對目前可處理且節點允許轉派的 Task 回傳同 Tenant 有效員工；`tasks/transfer` 會再次檢查 Task 權限、`ALLOW_TRANSFER`、目標員工與 Tenant membership，移除原候選人並設定新 assignee，同時建立 `TRANSFER` Action 與新的 Assignment Snapshot。
 - `tasks/delegate` 只能使用既有且有效的期間代理授權，支援 `ALL`、指定 `PROCESS`，以及符合目前流程版本與 Task 節點啟用 Assignment Rule 的 `APPROVAL_GROUP` scope；透過 Flowable `delegateTask` 保留原 owner。`tasks/resolve` 只允許目前代理人回覆待處理的代理工作，透過 `resolveTask` 將 Task 還給 owner。代理中的 Task 不可直接核准、退回、駁回或重送。
 - `tasks/add-sign` 首版提供循序前加簽：僅在 Task Policy `ALLOW_ADD_SIGN=Y` 時，由目前處理人選擇同 Tenant 有效員工；Flowable Task 保留原 owner 並交給加簽人。加簽人只能呼叫 `tasks/complete-add-sign` 留下意見並把 Task 還給原處理人，不能直接核決流程。兩步均保存 Assignment Snapshot、表單快照與獨立 Action。
@@ -124,6 +133,8 @@ POST   /api/fm/requests/mine/cancel
 - `mine/load` 僅允許表單 Owner 或實際發起人查看，回傳完整 Action 軌跡及各次不可變表單快照。
 - `mine/withdraw` 僅允許表單 Owner 撤回 `RUNNING` 流程，原因必填；成功時終止 Flowable instance，將流程與表單狀態轉為 `CANCELLED`，並建立不可變 `WITHDRAW` 快照與 Action。
 - `mine/cancel` 僅允許流程的實際發起人取消 `RUNNING` 流程，主要用於代申請；成功時同樣轉為 `CANCELLED`，但稽核 Action 明確記為 `CANCEL`，不與申請人的 `WITHDRAW` 混用。
+
+以下為早期 REST 風格設計草案，**目前不是 Controller 提供的正式 API**：
 
 ```text
 GET    /request-catalog
@@ -147,6 +158,8 @@ POST   /tasks/{taskId}/add-sign
 
 ## 8. Operations
 
+以下為早期 REST 風格設計草案，**目前不是 Controller 提供的正式 API**：
+
 ```text
 GET    /operations/process-instances
 GET    /operations/process-instances/{id}
@@ -159,11 +172,13 @@ GET    /operations/audit
 
 Resolver 建立 Task 時若無法解析簽核人，Runtime 必須保留未指派 Task 並建立 `OPEN` Assignment Incident，不可因直接回滾而遺失異常證據。Incident 與 Task 以 Tenant、Process Instance、Task ID 及 Task Definition Key 關聯；後續 Retry／Reassign／Terminate 只能由流程營運管理權限執行並要求理由。
 
-目前正式提供 `POST /api/fm/operations/incidents`、`POST /api/fm/operations/incidents/reassign-options`、`POST /api/fm/operations/incidents/reassign`、`POST /api/fm/operations/incidents/retry` 與 `POST /api/fm/operations/process-instances/terminate`。全部只接受 server-side `X-FlowMint-Tenant`，並限系統管理員或 `FLOWMINT_OPERATIONS` 角色。Reassign options 只回傳同 Tenant 且員工與 membership 均在有效期間的帳號。Reassign 只處理仍為 `OPEN` 且 Task category 與 Incident ID 相符的紀錄。Retry 重新執行原流程版本與節點的啟用 Assignment Rules，只有成功解析並恢復 Task 指派後才關閉 Incident。Reassign／Retry 均建立 Assignment Snapshot、不可變表單快照及 `ADMIN_REASSIGN` Action，並以 `OPEN` 條件更新避免重複處理。Terminate 只處理 `RUNNING` 流程，建立 `TERMINATE` 快照與 Action、終止 Flowable instance、將業務流程轉為 `TERMINATED`、表單轉為 `CANCELLED`，並把同流程其餘 `OPEN` Incident 標為 `IGNORED`。
+目前正式提供 `POST /api/fm/operations/process-instances`、`POST /api/fm/operations/process-instances/load`、`POST /api/fm/operations/reports/summary`、`POST /api/fm/operations/incidents`、`POST /api/fm/operations/incidents/reassign-options`、`POST /api/fm/operations/incidents/reassign`、`POST /api/fm/operations/incidents/retry` 與 `POST /api/fm/operations/process-instances/terminate`。全部只接受 server-side `X-FlowMint-Tenant`，並限系統管理員或 `FLOWMINT_OPERATIONS` 角色。Reassign options 只回傳同 Tenant 且員工與 membership 均在有效期間的帳號。Reassign 只處理仍為 `OPEN` 且 Task category 與 Incident ID 相符的紀錄。Retry 重新執行原流程版本與節點的啟用 Assignment Rules，只有成功解析並恢復 Task 指派後才關閉 Incident。Reassign／Retry 均建立 Assignment Snapshot、不可變表單快照及 `ADMIN_REASSIGN` Action，並以 `OPEN` 條件更新避免重複處理。Terminate 只處理 `RUNNING` 流程，建立 `TERMINATE` 快照與 Action、終止 Flowable instance、將業務流程轉為 `TERMINATED`、表單轉為 `CANCELLED`，並把同流程其餘 `OPEN` Incident 標為 `IGNORED`。
 
 高風險 POST 必須包含 reason 及 idempotency key。
 
 ## 9. HTTP
+
+下列狀態碼是早期 REST 設計目標，不能當成現行所有 Controller 的回應契約。現行 `/api/fm/requests` 控制器將業務結果包在 `DefaultControllerJsonResultObj`，成功與捕捉到的業務例外路徑均以 `ResponseEntity.ok(...)` 回傳；呼叫端須檢查回應內容，不能只看 HTTP 200。認證過濾器等控制器外的錯誤仍可能回傳其他 HTTP 狀態。
 
 - Query success：200。
 - Create：201。

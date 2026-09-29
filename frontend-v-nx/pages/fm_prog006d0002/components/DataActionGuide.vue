@@ -81,7 +81,7 @@ onBeforeUnmount(restore);
                 <thead><tr><th>類型</th><th>用途與限制</th></tr></thead>
                 <tbody>
                   <tr><td><code>QUERY</code></td><td>只能使用 SELECT；適合查詢選項或資料。只有暫時性資料庫錯誤可依 Step 設定重試。</td></tr>
-                  <tr><td><code>COMMAND</code></td><td>執行單一步驟 INSERT／UPDATE／DELETE。異動結果不確定時不可盲目重送。</td></tr>
+                  <tr><td><code>COMMAND</code></td><td>依序執行一個或多個 INSERT／UPDATE／DELETE Step；多步驟不保證整組回滾。異動結果不確定時不可盲目重送。</td></tr>
                   <tr><td><code>TRANSACTION</code></td><td>同一 Pool 內依序執行多個 Step；任一步失敗時整體回滾。不代表支援跨資料庫原子交易。</td></tr>
                 </tbody>
               </table>
@@ -160,7 +160,7 @@ WHERE DEPARTMENT_ID = :departmentId
             <ul>
               <li>Timeout 是單一 Step 的查詢／異動逾時秒數，不代表能取消資料庫端已接受的外部副作用。</li>
               <li>最大回傳筆數限制查詢結果及 FOR_EACH 規模，避免一次載入過量資料。</li>
-              <li>預期異動筆數不符時視為失敗並回滾，可防止條件錯誤造成過量更新。</li>
+              <li>預期異動筆數不符時視為失敗；整組回滾只適用於 TRANSACTION 或 Preview Rollback，一般 COMMAND 不保證先前異動回滾。</li>
               <li>Transient Retry 只適用 QUERY 的 SELECT 與暫時性資料庫錯誤；COMMAND／TRANSACTION 不應自動重送異動。</li>
             </ul>
           </section>

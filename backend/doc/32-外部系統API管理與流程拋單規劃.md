@@ -179,7 +179,7 @@ Base path：`/api/fm/external/v1`。
 | `Authorization: Bearer {apiKey}` | 是 | API Key 只放 Header |
 | `Content-Type: application/json` | 是 | UTF-8 JSON |
 | `X-Request-Id` | 建議 | 呼叫端追蹤 ID；缺少時由伺服器產生 |
-| `Idempotency-Key` | 發單必填 | 8～128 字；Client 範圍內唯一 |
+| `Idempotency-Key` | 發單必填 | 現行程式要求非空且 trim 後最多 200 字；以 Client 範圍內的雜湊值判斷重送。8～128 字是原規劃限制，尚未實作。 |
 
 Tenant 不接受 body 或 `X-FlowMint-Tenant` 指定，固定從 API Client 解析，避免一把 Key 跨 Tenant。
 
@@ -191,6 +191,8 @@ Tenant 不接受 body 或 `X-FlowMint-Tenant` 指定，固定從 API Client 解�
   "data": {}
 }
 ```
+
+現行 Controller 以 `FmExternalRequest<T>` 接收此結構；只有流程拋單 `/runtime/requests/submit` 會把 `requestTime` 交給服務檢查時差。其他查詢端點主要讀取 `data`，不能將「所有端點都驗證 `requestTime`」當成現行安全保證。
 
 成功 Response：
 
@@ -220,6 +222,8 @@ Tenant 不接受 body 或 `X-FlowMint-Tenant` 指定，固定從 API Client 解�
 IP 禁止為 403、欄位驗證為 400、狀態或冪等衝突為 409、Resolver／流程無法發起為 422、限流為
 429 並回 `Retry-After`。錯誤不得洩漏 SQL、類別名稱、Stack Trace 或 Key 驗證細節。
 
+現行認證 Filter 產生的 401／403／429 回應使用頂層 `success`、`code`、`message`、`requestId`，尚未套用上方巢狀 `error` 範例；限流的 429 也未設定 `Retry-After`。整合方應以實際 Filter 契約處理這些錯誤，巢狀格式與 Header 為待統一項目。
+
 ## 5. Scope
 
 | Scope | 能力 |
@@ -229,6 +233,7 @@ IP 禁止為 403、欄位驗證為 400、狀態或冪等衝突為 409、Resolver
 | `design.process.read` | 已發布流程及 Form Binding |
 | `design.form.read` | 已發布 Form Template JSON |
 | `runtime.request.submit` | 發起白名單內的已發布流程 |
+| `runtime.request.read` | 查詢外部發單狀態 |
 
 Scope 只縮小權限，不能取代 Tenant、流程白名單、發起人白名單、起單政策與資料狀態驗證。
 
@@ -578,6 +583,8 @@ Actor 個資。Timeline 最多 200 筆，超過時回 `timelineTruncated=true`�
 
 ## 10. 非功能與安全要求
 
+2026-09-29 程式核對：現行 `FmExternalApiQuotaGuard` 以 `fm_api_access_log` 統計 Tenant＋Client 的每分鐘與每日請求，尚未依 Key＋Endpoint 分別限流；檢查與寫入 Log 也不是原子額度保留，高併發時可能同時通過。下列更細粒度與原子策略是待完成要求，不代表現行限流已提供嚴格全域配額。
+
 - 全程 HTTPS；反向代理不得把 Authorization Header 寫入 access log。
 - Key 驗證失敗、IP 禁止、Scope 禁止、限流、撤銷與發單都寫安全稽核，但不記 Secret。
 - 每支清單 API 強制 pageSize 上限、SQL timeout、response size limit 及穩定排序。
@@ -624,7 +631,7 @@ Actor 個資。Timeline 最多 200 筆，超過時回 `timelineTruncated=true`�
 只有下列條件全部成立，才能標示外部系統 API 已完成：
 
 - API Key 明文只顯示一次，Hash、輪替、撤銷、期限、IP、Scope 及限流皆通過測試。
-- 13 組 API 均有 POST 契約、欄位驗證、Tenant 隔離、稽核及 API 說明。
+- 14 支主要 POST API（組織／人員 10、設計 2、Runtime 2）均有契約、欄位驗證、Tenant 隔離、稽核及 API 說明。
 - 組織與人員 API 正確區分直屬主管、部門主管、主要任職、多重任職及簽核 Level。
 - 流程／Form API 只提供已發布且 Client 有權存取的版本，不洩漏 Script 或 SQL。
 - 發單重用正式 Runtime，正確保存 API Client、initiator、applicant、部門、版本、快照及外部參考。

@@ -1,5 +1,7 @@
 # 17 QIFU4 帳號與 Role 邊界規範
 
+> 2026-09-29 原始碼與 MariaDB 核對：本文件早期使用的 `FM_PERSON`、`FM_EMPLOYMENT`、`FM_ORG_ROLE_ASSIGNMENT` 是規劃名稱，現行 schema 沒有這三張表。實際使用 `fm_employee`、`fm_employee_org_assignment`、`fm_org_unit_head` 與 `fm_tenant_account`；下文以現行名稱為準。
+
 ## 1. 修正原因
 
 依據主要資料庫檔 `backend/doc/flowmint.sql` 與目前 QIFU4 Entity：
@@ -54,7 +56,7 @@ BPMN User Task Assignee
 
 FlowMint 沿用 `TB_ACCOUNT` 作為唯一登入帳號主檔，不另建重複的 Workflow User Account。
 
-建議：
+現行模型：
 
 ```text
 TB_ACCOUNT
@@ -63,20 +65,26 @@ TB_ACCOUNT
 - PASSWORD
 - ON_JOB
 
-FM_PERSON
-- person_id
-- account            FK -> TB_ACCOUNT.ACCOUNT, UNIQUE, NULLABLE
-- display_name
-- email
-- mobile
-- status
+fm_employee
+- TENANT_ID
+- EMPLOYEE_ID
+- ACCOUNT            NOT NULL
+- DISPLAY_NAME
+- EMAIL
+- MOBILE
+- STATUS、EFFECTIVE_FROM、EFFECTIVE_TO
+
+fm_employee_org_assignment
+- TENANT_ID、EMPLOYEE_ID、ORG_UNIT_ID
+- MANAGER_SOURCE、DIRECT_MANAGER_ASSIGNMENT_ID
+- IS_PRIMARY、STATUS、EFFECTIVE_FROM、EFFECTIVE_TO
 ```
 
 設計原則：
 
-- 員工可以尚未開通帳號，因此 `FM_PERSON.account` 可為 `NULL`。
+- 現行 `fm_employee.ACCOUNT` 為 `NOT NULL`；未開通帳號的員工不能依此表原樣保存為空帳號。
 - 可被指派 User Task 的員工必須有有效的 `TB_ACCOUNT.ACCOUNT`。
-- `TB_ACCOUNT.ON_JOB` 與 `FM_EMPLOYMENT.employment_status` 都必須有效。
+- 帳號、Tenant membership、`fm_employee` 與任職的狀態及有效期間須依各 Runtime 路徑重新驗證；現行沒有 `FM_EMPLOYMENT.employment_status`。
 - 不使用姓名、Email 或 Employee Number 作為 Flowable Assignee。
 - 不建議使用 `TB_ACCOUNT.OID` 作為 Flowable Assignee，因現有登入與權限 API 以 `ACCOUNT` 為主要識別值。
 - Account 更名需有受控 Migration 與歷史映射。
@@ -91,7 +99,7 @@ FM_PERSON
 | 領域 | 資料來源 | 用途 | 不可用於 |
 | --- | --- | --- | --- |
 | QIFU4 Program Role | `TB_ROLE`、`TB_USER_ROLE`、`TB_ROLE_PERMISSION` | 程式、選單、Controller、API 權限 | 尋找簽核人 |
-| Organization Role | `FM_ORG_ROLE_ASSIGNMENT` | 單位主管、代理主管、HR、財務窗口 | QIFU4 程式授權 |
+| Organization Head／Assignment | `fm_org_unit_head`、`fm_employee_org_assignment`；簽核群組另由 `fm_approval_group` 管理 | 部門主管與人員任職、正式簽核群組 | QIFU4 程式授權 |
 | BPMN Assignment Rule | Process Definition／Task Policy | 描述 User Task 如何解析人員 | 登入及程式權限 |
 
 範例：
@@ -103,17 +111,16 @@ TB_ROLE
 - FLOW_DESIGNER
 - FLOW_ADMIN
 
-FM_ORG_ROLE_ASSIGNMENT.role_type
+fm_org_unit_head.HEAD_TYPE
 - HEAD
 - DEPUTY_HEAD
 - ACTING_HEAD
-- FINANCE_APPROVER
-- HR_PARTNER
+
+財務／HR 簽核人需依實際 Approval Group 或 Resolver 配置，不能當成上述 HEAD_TYPE。
 
 BPMN Assignment Resolver
-- INITIATOR_DIRECT_MANAGER
+- DIRECT_MANAGER
 - INITIATOR_ORG_HEAD
-- ORG_ROLE
 - APPROVAL_GROUP
 ```
 
@@ -129,15 +136,14 @@ TB_ROLE = BPMN_TASK_APPROVER
 
 ## 5. User Task 的正確解析
 
-BPMN 設定：
+BPMN User Task 的 Assignment Rule 設定：
 
 ```json
-{
-  "resolver": "INITIATOR_ORG_HEAD",
-  "scope": "PRIMARY_ASSIGNMENT",
-  "orgRole": "HEAD"
-}
+resolverType = "INITIATOR_ORG_HEAD"
+resolverConfig = {}
 ```
+
+`INITIATOR_ORG_HEAD` 不要求 `scope` 或 `orgRole` 設定；後端依流程發起人的有效主要任職找部門主管配置。2026-09-29 原始碼核對：`FmAssignmentResolverService.firstOrgUnitHead()` 目前依 `PRIORITY` 取第一筆有效配置，未篩 `HEAD_TYPE=HEAD`；有 `DEPUTY_HEAD`／`ACTING_HEAD` 且優先序更前時，不能保證結果一定是正式主要主管。
 
 Runtime：
 
@@ -145,19 +151,19 @@ Runtime：
 取得發起人的 TB_ACCOUNT.ACCOUNT
         |
         v
-找到 FM_PERSON
+找到同 Tenant 的 fm_employee
         |
         v
-找到有效 Employment 與主職 Assignment
+找到有效主要 fm_employee_org_assignment
         |
         v
 找到 Assignment 所屬 Organization Unit
         |
         v
-找到該單位有效的 HEAD／ACTING_HEAD
+依目前 Runtime 實作，找到該單位有效且優先序最前的主管配置
         |
         v
-找到主管 Person 關聯的 TB_ACCOUNT.ACCOUNT
+找到主管 fm_employee 關聯的 TB_ACCOUNT.ACCOUNT
         |
         v
 寫入 Flowable assignee
@@ -175,7 +181,7 @@ assignee = U000008
 TB_ROLE
 Organization Role Type
 Employee Number
-Person ID
+Employee ID
 Assignment ID
 ```
 
@@ -242,22 +248,22 @@ Flowable Assignee／Candidate
 若 MariaDB 外鍵策略允許：
 
 ```text
-FM_PERSON.account
+fm_employee.ACCOUNT
     FK -> TB_ACCOUNT.ACCOUNT
 ```
 
 並建立：
 
 ```text
-UNIQUE (tenant_id, account)
-INDEX  (account, status)
+UNIQUE (TENANT_ID, ACCOUNT)
+INDEX  (ACCOUNT, STATUS)
 ```
 
 如果考量既有 QIFU4 Schema 升級相容性而不建立實體 FK，仍必須由 Service 層保證：
 
 - Account 存在。
 - Account 不重複綁定。
-- Account 刪除或停用前檢查 Person／Active Task。
+- Account 刪除或停用前檢查員工關聯／Active Task。
 - 同步與修復工作可偵測孤兒關聯。
 
 建議不要直接刪除 `TB_ACCOUNT`；使用 `ON_JOB` 或狀態停用並保留歷史。
@@ -269,7 +275,7 @@ INDEX  (account, status)
 ```text
 ProgramRole
 ProgramPermission
-OrgRoleAssignment
+OrgUnitHead
 ApprovalGroup
 WorkQueue
 AssignmentResolverType
