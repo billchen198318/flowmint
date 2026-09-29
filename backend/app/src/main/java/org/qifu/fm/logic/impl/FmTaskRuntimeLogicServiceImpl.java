@@ -655,7 +655,17 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         if (running) {
             return "RUNNING";
         }
-        transitionProcess(process, "COMPLETED", now, account);
+        // The Flowable completion listener may have already updated the projection
+        // while taskService.complete() was running.
+        if (!processInstanceService.updateStatus(
+                process.getTenantId(), process.getProcessInstanceId(),
+                "RUNNING", "COMPLETED", now, account)) {
+            FmProcessInstance completed = processInstanceService.lockInstance(
+                    process.getTenantId(), process.getProcessInstanceId());
+            if (completed == null || !"COMPLETED".equals(completed.getInstanceStatus())) {
+                throw new ServiceException("流程狀態已被其他操作更新");
+            }
+        }
         updateFormStatus(formData, "COMPLETED", account, now);
         return "COMPLETED";
     }

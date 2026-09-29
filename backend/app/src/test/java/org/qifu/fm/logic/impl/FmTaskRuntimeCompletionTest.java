@@ -39,6 +39,25 @@ class FmTaskRuntimeCompletionTest {
     }
 
     @Test
+    void acceptsCompletionAlreadyRecordedByFlowableListener() throws Exception {
+        Fixture fixture = fixture(null);
+        when(fixture.processService.updateStatus(
+                eq("tenant-1"), eq("process-1"), eq("RUNNING"), eq("COMPLETED"),
+                any(Date.class), eq("applicant"))).thenReturn(false);
+        FmProcessInstance completed = new FmProcessInstance();
+        completed.setInstanceStatus("COMPLETED");
+        when(fixture.processService.lockInstance("tenant-1", "process-1"))
+                .thenReturn(completed);
+
+        String status = fixture.logic.completeTask(fixture.task, fixture.process,
+                fixture.formData, "applicant", fixture.now);
+
+        assertEquals("COMPLETED", status);
+        assertEquals("COMPLETED", fixture.formData.getDataStatus());
+        verify(fixture.formDataService).update(fixture.formData);
+    }
+
+    @Test
     void keepsIndexesRunningWhenResubmitContinuesFlowableInstance() throws Exception {
         Fixture fixture = fixture(mock(ProcessInstance.class));
 
