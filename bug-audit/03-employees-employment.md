@@ -4,6 +4,8 @@
 
 ### BUG-003：員工維護 API 缺少操作人的 Tenant 授權檢查
 
+- 複核與修正狀態：**程式路徑確認，已修正（2026-10-06）**。原員工／任職 OID 操作與全部 Tenant 分頁查詢確實沒有 Tenant 授權限制。現在員工與任職服務在存取目標 Tenant 前檢查 `FmTenantAccessGuard`；Tenant／帳號選項按可讀範圍限制；分頁查詢以授權 Tenant ID 集合約束 SQL，空集合回傳零筆。`FmEmployeeTenantAccessTest`、`FmEmployeeMapperXmlTest` 共 3 項測試通過；現有資料僅一個 Tenant，未執行跨 Tenant HTTP 重現。
+
 - 嚴重度：高。性質：Java 權限邊界；Vue 透過 Tenant 選單傳入目標 Tenant。現有資料只有一個 Tenant，無法進行跨 Tenant 實際重現。
 - 預期：具有員工維護程式權限的登入者，仍只能查詢或修改自己有權存取的 Tenant 資料；QIFU4 全域 Program Role 不等同 Tenant 資料授權（`backend/doc/17-QIFU4帳號與Role邊界.md` 第 4 節）。
 - 實際：`FMPROG002D0001Controller.findPage()` 直接使用可由請求指定的 `tenantId` 查詢，且未限定可存取 Tenant；`FmEmployeeLogicServiceImpl` 的 `create`、`load`、`update`、`deactivate`、`tenantOptions`、`accountOptions` 均未呼叫 `FmTenantAccessGuard` 或等價檢查。`validateReferences()` 只驗證目標 Tenant 及帳號存在、啟用，沒有驗證操作人是否有該 Tenant 的 membership。同一 Controller 的任職端點使用 `FmEmployeeOrgAssignmentLogicServiceImpl`，以員工 OID 取資料，也沒有操作人的 Tenant 檢查。持有 `FM_PROG002D0001` 程式權限的人可藉由目標 OID 或 Tenant ID 存取其他 Tenant 的員工與任職資料。
@@ -11,6 +13,8 @@
 - 驗證：MariaDB 唯讀查詢顯示員工 140 筆、任職 141 筆，均為單一 Tenant；目前沒有跨 Tenant 資料可用於實際授權驗證。
 
 ### BUG-004：指定直屬主管可選未生效或已到期的任職
+
+- 複核與修正狀態：**程式路徑確認，已修正（2026-10-06）**。原主管候選與指定主管驗證只依 `STATUS='ACTIVE'`，未檢查有效期間。現在兩處都排除尚未生效或已到期的任職；`FmEmployeeOrgAssignmentRulesTest` 覆蓋未來主管被拒絕並通過。現有資料沒有此類任職，未執行瀏覽器重現。
 
 - 嚴重度：中。性質：Java 驗證與 Vue 候選清單。
 - 預期：`EXPLICIT` 直屬主管應指向有效任職；`backend/doc/37-部門人員與主管配置操作說明.md` 第 6 節明確要求「特定有效任職」。
@@ -20,6 +24,8 @@
 
 ### BUG-052：主要任職不重疊期間仍被判為重複
 
+- 複核與修正狀態：**程式路徑確認，已修正（2026-10-06）**。原驗證只要找到另一筆 `ACTIVE` 主要任職就拒絕；現在只有兩段有效期間重疊才拒絕，前一段截止時刻等於下一段起始時刻可保存。`FmEmployeeOrgAssignmentRulesTest` 覆蓋接續任職並通過；未在資料庫建立雙主要任職測試併發情境。
+
 - 嚴重度：中。性質：Java 任職有效期間驗證；目前資料沒有同一員工的兩段主要任職可直接重現。
 - 預期：依 `README.md`「員工與任職管理」，同一員工在同一有效時間點只能有一筆主要任職；前後不重疊的主要任職可用於預排調職或接續任職。
 - 實際：`FmEmployeeOrgAssignmentLogicServiceImpl.validate()` 在新任職 `IS_PRIMARY='Y'` 時，只要同一員工存在另一筆 `STATUS='ACTIVE'` 且 `IS_PRIMARY='Y'`，就直接拒絕，沒有比較兩段 `EFFECTIVE_FROM`／`EFFECTIVE_TO` 是否重疊。例如現任職月底結束、下月新任職開始，仍無法預先保存第二筆主要任職。資料表只有包含期間欄位的查詢索引與關係唯一鍵，沒有禁止不同期間主要任職的唯一約束。
@@ -27,6 +33,8 @@
 - 驗證限制：現有任職 141 筆，其中 ACTIVE 主要任職 140 筆，沒有可供重現的不重疊雙主要任職；未新增或修改資料。
 
 ### BUG-053：停用未來生效的任職會觸發有效期間約束而失敗
+
+- 複核與修正狀態：**程式與約束對照確認，已修正（2026-10-06）**。原停用會將未來任職的截止時間改為現在，可能違反 `CK_FM_EOA_DATE`。現在未來任職只改為 `INACTIVE`，保留原有效期間；`FmEmployeeOrgAssignmentRulesTest` 覆蓋此情境並通過。現有資料無未來任職，未執行資料庫交易重現。
 
 - 嚴重度：中。性質：Java 停用邏輯與 MariaDB 日期約束；現有資料沒有未來生效的 ACTIVE 任職可直接重現。
 - 預期：預先排定、尚未生效的任職應可取消或停用，操作後不再被 Runtime 選用。
@@ -36,9 +44,10 @@
 
 ### BUG-054：員工失效時間無法由編輯畫面清除
 
+- 複核與修正狀態：**Vue、Java 與 Mapper 路徑確認，已修正（2026-10-06）**。原更新 SQL 在 `effectiveTo=null` 時不寫欄位；現在更新會明確寫入 `EFFECTIVE_TO=NULL`。`FmEmployeeMapperXmlTest` 驗證產生的 SQL，測試通過；未送出實際編輯請求。
+
 - 嚴重度：中。性質：Vue 編輯、Java 更新與 MyBatis NULL 欄位寫入。
 - 預期：員工編輯畫面的「失效時間」清空並儲存後，`fm_employee.EFFECTIVE_TO` 應變為 `NULL`，讓員工不再因舊截止時間到期。
 - 實際：`edit/[id].vue` 清空失效時間後將 `effectiveTo: null` 送到 `/update`；`FmEmployeeLogicServiceImpl.apply()` 也把 Entity 的 `effectiveTo` 設為 `null`。但 `FmEmployeeMapper.xml` 的 `update` 只在 `<if test="effectiveTo != null">` 成立時寫入 `EFFECTIVE_TO`，因此資料庫保留舊值。API 更新後重新載入，畫面也會顯示原截止時間。
 - 證據：`frontend-v-nx/pages/fm_prog002d0001/edit/[id].vue` 的 `btnSave()`；`backend/app/src/main/java/org/qifu/fm/logic/impl/FmEmployeeLogicServiceImpl.java` 的 `update()`／`apply()`；`backend/app/src/main/resources/org/qifu/fm/mapper/FmEmployeeMapper.xml` 的 `update`。
 - 驗證：MariaDB 唯讀 DDL 確認 `EFFECTIVE_TO` 可為 `NULL`；現有 140 筆員工均有非空截止時間，因此此操作具實際使用需求。未送出更新請求。
-

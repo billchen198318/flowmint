@@ -234,7 +234,7 @@ public class AuthController {
 	    	
 	    	TokenStoreValidateBuilder tsv = TokenStoreValidateBuilder.build(this.dataSource);
 	    	if (tsv.refreshValidate(refreshToken)) {
-	    		String userId = StringUtils.defaultIfBlank(loginRequest.getUsername(), tsv.getUserIdByRefreshToken(refreshToken));
+				String userId = tsv.getUserIdByRefreshToken(refreshToken);
 	    		if (StringUtils.isBlank(userId)) {
 	    			throw new ControllerException( BaseSystemMessage.parameterBlank() );
 	    		}
@@ -269,9 +269,12 @@ public class AuthController {
 	
 	@PostMapping("/logout")
 	public ResponseEntity<String> logout(HttpServletRequest request, HttpServletResponse response) {
+		String refreshToken = CookieUtils.getCookieValue(request, Constants.TOKEN_REFRESH_COOKIE_NAME);
+		String accessToken = CookieUtils.getCookieValue(request, Constants.TOKEN_ACCESS_COOKIE_NAME);
+		TokenStoreBuilder.build(this.dataSource).revoke(refreshToken, accessToken);
 		CookieUtils.setTokenCookie(response, Constants.TOKEN_ACCESS_COOKIE_NAME, StringUtils.EMPTY, 0);
 		CookieUtils.setTokenCookie(response, Constants.TOKEN_REFRESH_COOKIE_NAME, StringUtils.EMPTY, 0);
-		logger.info("User logged out and cookies cleared.");
+		logger.info("User logged out and session tokens revoked.");
 		return ResponseEntity.ok().body("OK");
 	}
 	

@@ -48,6 +48,12 @@ export function setRefreshAndAccessTokenCookie(rfToken: string, accessToken: str
   setCookie(uat, 'Y', 24, true);
 }
 
+export function isValidAuthResponse(value: any): boolean {
+  return value?.onJob === 'Y'
+    && typeof value.userId === 'string' && value.userId.trim().length > 0
+    && value.accessToken === 'Y' && value.refreshToken === 'Y';
+}
+
 export function getRefreshTokenCookie(): string {
   const config = useRuntimeConfig();
   return getCookie(config.public.ckHeadName + '__urt_flag');

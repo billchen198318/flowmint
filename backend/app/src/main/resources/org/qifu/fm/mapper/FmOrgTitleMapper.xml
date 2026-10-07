@@ -23,6 +23,17 @@
     SELECT * FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_title WHERE OID = #{oid,jdbcType=CHAR}
   </select>
   <sql id="conditions">
+    <if test="readableTenantIds != null">
+      <choose>
+        <when test="readableTenantIds.size() > 0">
+          AND TENANT_ID IN
+          <foreach collection="readableTenantIds" item="readableTenantId" open="(" separator="," close=")">
+            #{readableTenantId,jdbcType=VARCHAR}
+          </foreach>
+        </when>
+        <otherwise>AND 1 = 0</otherwise>
+      </choose>
+    </if>
     <if test="titleId!=null and titleId!=''">
       AND TITLE_ID=#{titleId,jdbcType=VARCHAR}
     </if>
@@ -170,9 +181,7 @@
       <if test="effectiveFrom != null">
         EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
       </if>
-      <if test="effectiveTo != null">
-        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
-      </if>
+      EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
       <if test="description != null">
         DESCRIPTION = #{description,jdbcType=VARCHAR},
       </if>

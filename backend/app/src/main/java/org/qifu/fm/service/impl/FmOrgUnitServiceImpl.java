@@ -22,4 +22,10 @@ public class FmOrgUnitServiceImpl extends BaseService<FmOrgUnit, String> impleme
 	protected IBaseMapper<FmOrgUnit, String> getBaseMapper() {
 		return orgUnitMapper;
 	}
+
+	@Override
+	@Transactional(propagation = Propagation.REQUIRED, timeout = 300, readOnly = false)
+	public int advanceVersion(String oid, int expectedVersionNo) {
+		return orgUnitMapper.advanceVersion(oid, expectedVersionNo);
+	}
 }

@@ -22,6 +22,7 @@ import org.qifu.fm.entity.FmAttachmentUploadFile;
 import org.qifu.fm.entity.FmAttachmentUploadSession;
 import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.logic.IFmAttachmentUploadLogicService;
 import org.qifu.fm.service.IFmAttachmentUploadFileService;
 import org.qifu.fm.service.IFmAttachmentUploadSessionService;
@@ -52,6 +53,7 @@ public class FmAttachmentUploadLogicServiceImpl
     private final IFmAttachmentUploadFileService fileService;
     private final IFmFormVersionService formVersionService;
     private final IFmTenantAccountService tenantAccountService;
+    private final FmTenantStatusGuard tenantStatusGuard;
     private final FmAttachmentStorageService storageService;
     private final ObjectMapper objectMapper;
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -61,6 +63,7 @@ public class FmAttachmentUploadLogicServiceImpl
             IFmAttachmentUploadFileService fileService,
             IFmFormVersionService formVersionService,
             IFmTenantAccountService tenantAccountService,
+            FmTenantStatusGuard tenantStatusGuard,
             FmAttachmentStorageService storageService,
             ObjectMapper objectMapper,
             NamedParameterJdbcTemplate jdbcTemplate) {
@@ -68,6 +71,7 @@ public class FmAttachmentUploadLogicServiceImpl
         this.fileService = fileService;
         this.formVersionService = formVersionService;
         this.tenantAccountService = tenantAccountService;
+        this.tenantStatusGuard = tenantStatusGuard;
         this.storageService = storageService;
         this.objectMapper = objectMapper;
         this.jdbcTemplate = jdbcTemplate;
@@ -401,6 +405,7 @@ public class FmAttachmentUploadLogicServiceImpl
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         if (StringUtils.isBlank(tenantId)) throw new ServiceException("Tenant 不可為空");
         String account = UserUtils.getCurrentUser().getUsername();
         Map<String, Object> parameters = new HashMap<>();

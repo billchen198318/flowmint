@@ -20,6 +20,7 @@ import org.qifu.fm.dto.view.FmOrgUnitView;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmOrgTitle;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.logic.IFmEmployeeOrgAssignmentLogicService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
@@ -38,15 +39,18 @@ public class FmEmployeeOrgAssignmentLogicServiceImpl implements IFmEmployeeOrgAs
 	private final IFmEmployeeOrgAssignmentService assignmentService;
 	private final IFmOrgUnitVersionService orgUnitVersionService;
 	private final IFmOrgTitleService titleService;
+	private final FmTenantAccessGuard tenantAccessGuard;
 
 	public FmEmployeeOrgAssignmentLogicServiceImpl(IFmEmployeeService employeeService,
 			IFmEmployeeOrgAssignmentService assignmentService,
 			IFmOrgUnitVersionService orgUnitVersionService,
-			IFmOrgTitleService titleService) {
+			IFmOrgTitleService titleService,
+			FmTenantAccessGuard tenantAccessGuard) {
 		this.employeeService = employeeService;
 		this.assignmentService = assignmentService;
 		this.orgUnitVersionService = orgUnitVersionService;
 		this.titleService = titleService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@Override
@@ -107,8 +111,10 @@ public class FmEmployeeOrgAssignmentLogicServiceImpl implements IFmEmployeeOrgAs
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		assignment.setStatus("INACTIVE");
-		if (assignment.getEffectiveTo() == null || assignment.getEffectiveTo().after(new Date())) {
-			assignment.setEffectiveTo(new Date());
+		Date disabledAt = new Date();
+		if ((assignment.getEffectiveFrom() == null || !assignment.getEffectiveFrom().after(disabledAt))
+				&& (assignment.getEffectiveTo() == null || assignment.getEffectiveTo().after(disabledAt))) {
+			assignment.setEffectiveTo(disabledAt);
 		}
 		assignmentService.update(assignment);
 		return list(employeeOid);
@@ -175,7 +181,9 @@ public class FmEmployeeOrgAssignmentLogicServiceImpl implements IFmEmployeeOrgAs
 		if ("Y".equals(StringUtils.defaultIfBlank(command.isPrimary(), "N"))) {
 			boolean duplicate = assignments(employee).stream()
 					.anyMatch(value -> "Y".equals(value.getIsPrimary()) && "ACTIVE".equals(value.getStatus())
-							&& !value.getOid().equals(command.oid()));
+							&& !value.getOid().equals(command.oid())
+							&& periodsOverlap(value.getEffectiveFrom(), value.getEffectiveTo(),
+									command.effectiveFrom(), command.effectiveTo()));
 			if (duplicate) {
 				throw new ServiceException("同一員工只能有一筆有效的主要任職");
 			}
@@ -192,7 +200,8 @@ public class FmEmployeeOrgAssignmentLogicServiceImpl implements IFmEmployeeOrgAs
 		params.put("status", "ACTIVE");
 		FmEmployeeOrgAssignment manager = assignmentService.selectListByParams(params,
 				"EMPLOYEE_ORG_ASSIGNMENT_ID", "ASC").getValue().stream()
-				.filter(value -> value.getEmployeeOrgAssignmentId().equals(command.directManagerAssignmentId()))
+				.filter(value -> value.getEmployeeOrgAssignmentId().equals(command.directManagerAssignmentId())
+						&& effectiveNow(value))
 				.findFirst().orElseThrow(() -> new ServiceException("指定的直屬主管任職不存在或已停用"));
 		if (employee.getEmployeeId().equals(manager.getEmployeeId())) {
 			throw new ServiceException("直屬主管不可指定自己");
@@ -236,7 +245,7 @@ public class FmEmployeeOrgAssignmentLogicServiceImpl implements IFmEmployeeOrgAs
 		Map<String, String> values = new HashMap<>();
 		for (FmEmployeeOrgAssignment assignment : assignments) {
 			FmEmployee employee = employees.get(assignment.getEmployeeId());
-			if (employee != null) {
+			if (employee != null && effectiveNow(assignment)) {
 				values.put(assignment.getEmployeeOrgAssignmentId(), employee.getEmployeeNo() + "／"
 						+ employee.getDisplayName() + "／" + units.getOrDefault(assignment.getOrgUnitId(), ""));
 			}
@@ -244,11 +253,26 @@ public class FmEmployeeOrgAssignmentLogicServiceImpl implements IFmEmployeeOrgAs
 		return values;
 	}
 
+	private boolean periodsOverlap(Date leftFrom, Date leftTo, Date rightFrom, Date rightTo) {
+		return (leftTo == null || rightFrom == null || rightFrom.before(leftTo))
+				&& (rightTo == null || leftFrom == null || leftFrom.before(rightTo));
+	}
+
+	private boolean effectiveNow(FmEmployeeOrgAssignment assignment) {
+		Date now = new Date();
+		return (assignment.getEffectiveFrom() == null
+				|| !assignment.getEffectiveFrom().after(now))
+				&& (assignment.getEffectiveTo() == null
+						|| assignment.getEffectiveTo().after(now));
+	}
+
 	private FmEmployee requiredEmployee(String oid) throws ServiceException {
 		if (StringUtils.isBlank(oid)) {
 			throw new ServiceException(BaseSystemMessage.parameterBlank());
 		}
-		return employeeService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		FmEmployee employee = employeeService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(employee.getTenantId());
+		return employee;
 	}
 
 	private void apply(FmEmployeeOrgAssignment assignment, FmEmployeeOrgAssignmentCommand command) {

@@ -50,6 +50,7 @@ import org.qifu.fm.entity.FmTaskFormRule;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.entity.FmTaskParallelAddSign;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.entity.FmWorkflowDelegation;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
@@ -89,6 +90,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private final TaskService taskService;
     private final RuntimeService runtimeService;
     private final IFmTenantAccountService tenantAccountService;
+    private final FmTenantStatusGuard tenantStatusGuard;
     private final IFmWorkflowDelegationService workflowDelegationService;
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessDefService processDefService;
@@ -118,6 +120,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             TaskService taskService,
             RuntimeService runtimeService,
             IFmTenantAccountService tenantAccountService,
+            FmTenantStatusGuard tenantStatusGuard,
             IFmWorkflowDelegationService workflowDelegationService,
             IFmProcessInstanceService processInstanceService,
             IFmProcessDefService processDefService,
@@ -144,6 +147,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
         this.taskService = taskService;
         this.runtimeService = runtimeService;
         this.tenantAccountService = tenantAccountService;
+        this.tenantStatusGuard = tenantStatusGuard;
         this.workflowDelegationService = workflowDelegationService;
         this.processInstanceService = processInstanceService;
         this.processDefService = processDefService;
@@ -766,6 +770,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         String account = UserUtils.getCurrentUser().getUsername();
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);

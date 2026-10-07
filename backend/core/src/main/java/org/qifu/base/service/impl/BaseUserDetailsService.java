@@ -28,6 +28,7 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.base.properties.LdapLoginConfigProperties;
 import org.qifu.core.entity.TbAccount;
+import org.qifu.base.exception.ServiceException;
 import org.qifu.core.model.User;
 import org.qifu.core.service.IAccountService;
 import org.slf4j.Logger;
@@ -104,6 +105,16 @@ public class BaseUserDetailsService implements UserDetailsService {
 		}
 		if (Boolean.FALSE.equals(auth)) {
 			throw new UsernameNotFoundException("LDAP auth fail!");
+		}
+		TbAccount account = new TbAccount();
+		account.setAccount(username);
+		try {
+			TbAccount existing = this.accountService.selectByUniqueKey(account).getValue();
+			if (existing != null && !YesNoKeyProvide.YES.equals(existing.getOnJob())) {
+				throw new UsernameNotFoundException("auth fail!");
+			}
+		} catch (ServiceException e) {
+			throw new UsernameNotFoundException("Unable to verify local account status", e);
 		}
 		User user = new User(username, passwordEncoder.encode(userPassword), YesNoKeyProvide.YES);
 		user.setByLdap(YesNoKeyProvide.YES);

@@ -39,6 +39,8 @@
 
 ### BUG-018：停用 Tenant 仍可能透過直接 API 起單
 
+- 跨單元修正紀錄（2026-10-06）：與 02 單元 BUG-049 同一 Tenant 狀態根因。`FmProcessRuntimeLogicServiceImpl.validateTenantMembership()` 現在於 membership 檢查前要求 Tenant 為 `ACTIVE`，直接起單入口會經過此檢查；已編譯，尚未以停用 Tenant 執行 HTTP 情境。16 單元其餘條目尚未處理。
+
 - 嚴重度：高。性質：Java Runtime 授權；限於流程未設定 `DOCUMENT_TYPE` 的情境。現有 Tenant 皆啟用，尚無資料可重現。
 - 預期：Tenant 停用後，起單目錄及 Runtime API 都應拒絕新起單（`README.md`「登入、身分與 Tenant 邊界」）。
 - 實際：`FmProcessRuntimeLogicServiceImpl.tenants()` 會過濾停用 Tenant，因此前端選單看不到；但 `catalog()`、`loadStart()`、`submitAs()` 只透過 `validateTenantMembership()` 確認 membership 有效，該方法不查 `fm_tenant.STATUS`。`nextDocumentNumber()` 只在流程有 `DOCUMENT_TYPE` 時查啟用 Tenant；沒有單據類型的流程會直接回傳 `null`，可繼續送單。知道 Tenant ID 與流程 ID 的使用者可直接呼叫 API。

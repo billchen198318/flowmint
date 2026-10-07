@@ -16,16 +16,18 @@ public class TokenStoreValidateBuilder implements TokenStoreValidate {
 	private static final String CURRENT_DATE_PARAM = "currDate";
 	
 	private static final String HEAD_COUNT_COMMAND = "select count(*) from ";
+	private static final String ACTIVE_ACCOUNT = " and exists (select 1 from tb_account a"
+			+ " where a.ACCOUNT = USER_ID and a.ON_JOB = 'Y')";
 	
-	private final String refreshValidateSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where OID = :refreshTokenOrOID and RF_EXPIRES_DATE > :currDate ";
+	private final String refreshValidateSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where OID = :refreshTokenOrOID and RF_EXPIRES_DATE > :currDate " + ACTIVE_ACCOUNT;
 	
-	private final String findUserIdByRefreshSql = "select USER_ID from " + TokenStoreConfig.getTableName() + " where OID = :refreshTokenOrOID and RF_EXPIRES_DATE > :currDate ";
+	private final String findUserIdByRefreshSql = "select USER_ID from " + TokenStoreConfig.getTableName() + " where OID = :refreshTokenOrOID and RF_EXPIRES_DATE > :currDate " + ACTIVE_ACCOUNT;
 	
-	private final String accessValidateSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where TOKEN = :accessToken and EXPIRES_DATE > :currDate ";
+	private final String accessValidateSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where TOKEN = :accessToken and EXPIRES_DATE > :currDate " + ACTIVE_ACCOUNT;
 	
-	private final String refreshValidateWithUserIdSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where OID = :refreshTokenOrOID and USER_ID = :userId and RF_EXPIRES_DATE > :currDate ";
+	private final String refreshValidateWithUserIdSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where OID = :refreshTokenOrOID and USER_ID = :userId and RF_EXPIRES_DATE > :currDate " + ACTIVE_ACCOUNT;
 	
-	private final String accessValidateWithUserIdSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where TOKEN = :accessToken and USER_ID = :userId and EXPIRES_DATE > :currDate ";	
+	private final String accessValidateWithUserIdSql = HEAD_COUNT_COMMAND + TokenStoreConfig.getTableName() + " where TOKEN = :accessToken and USER_ID = :userId and EXPIRES_DATE > :currDate " + ACTIVE_ACCOUNT;
 	
 	public static TokenStoreValidateBuilder build(DataSource dataSource) {
 		return new TokenStoreValidateBuilder(dataSource);

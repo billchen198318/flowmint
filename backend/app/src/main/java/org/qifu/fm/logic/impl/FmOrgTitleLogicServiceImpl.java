@@ -1,7 +1,5 @@
 package org.qifu.fm.logic.impl;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
@@ -10,9 +8,10 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.fm.dto.command.FmOrgTitleCommand;
 import org.qifu.fm.dto.view.FmOrgTitleView;
+import org.qifu.fm.domain.organization.FmApprovalLevelAvailability;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmOrgTitle;
 import org.qifu.fm.logic.IFmOrgTitleLogicService;
-import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmOrgTitleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,17 +20,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   private final IFmOrgTitleService titles;
-  private final IFmOrgApprovalLevelService levels;
+  private final FmApprovalLevelAvailability availableLevels;
+  private final FmTenantAccessGuard tenantAccessGuard;
 
   public FmOrgTitleLogicServiceImpl(IFmOrgTitleService titles,
-      IFmOrgApprovalLevelService levels) {
+      FmApprovalLevelAvailability availableLevels, FmTenantAccessGuard tenantAccessGuard) {
     this.titles = titles;
-    this.levels = levels;
+    this.availableLevels = availableLevels;
+    this.tenantAccessGuard = tenantAccessGuard;
   }
 
   @Transactional(readOnly = false, rollbackFor = Exception.class)
   public DefaultResult<FmOrgTitleView> create(FmOrgTitleCommand command) throws ServiceException {
     validate(command);
+    tenantAccessGuard.requireAccess(command.tenantId());
     requireReferences(command);
     FmOrgTitle value = new FmOrgTitle();
     value.setTenantId(command.tenantId());
@@ -44,6 +46,7 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
 
   public DefaultResult<FmOrgTitleView> load(String oid, String message) throws ServiceException {
     FmOrgTitle value = titles.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+    tenantAccessGuard.requireAccess(value.getTenantId());
     DefaultResult<FmOrgTitleView> result = new DefaultResult<>();
     result.setSuccess(YesNoKeyProvide.YES);
     result.setValue(FmOrgTitleView.from(value));
@@ -55,6 +58,7 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   public DefaultResult<FmOrgTitleView> update(FmOrgTitleCommand command) throws ServiceException {
     validate(command);
     FmOrgTitle value = titles.selectByPrimaryKey(command.oid()).getValueEmptyThrowMessage();
+    tenantAccessGuard.requireAccess(value.getTenantId());
     if (!value.getTenantId().equals(command.tenantId())) {
       throw new ServiceException(BaseSystemMessage.parameterIncorrect());
     }
@@ -67,6 +71,7 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   @Transactional(readOnly = false, rollbackFor = Exception.class)
   public DefaultResult<FmOrgTitleView> deactivate(String oid) throws ServiceException {
     FmOrgTitle value = titles.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+    tenantAccessGuard.requireAccess(value.getTenantId());
     value.setStatus("INACTIVE");
     titles.update(value);
     return load(oid, BaseSystemMessage.updateSuccess());
@@ -84,13 +89,9 @@ public class FmOrgTitleLogicServiceImpl implements IFmOrgTitleLogicService {
   }
 
   private void requireReferences(FmOrgTitleCommand command) throws ServiceException {
-    Map<String, Object> params = new HashMap<>();
-    params.put("tenantId", command.tenantId());
-    params.put("tenantId", command.tenantId());
-    params.put("status", "ACTIVE");
-    if (levels.selectListByParams(params, "LEVEL_ORDER", "ASC").getValue().stream()
+    if (availableLevels.availableDuring(command.tenantId(), command.effectiveFrom(), command.effectiveTo()).stream()
         .noneMatch(value -> value.getApprovalLevelId().equals(command.approvalLevelId()))) {
-      throw new ServiceException("簽核 Level 不存在、已停用或不屬於所選 Tenant");
+      throw new ServiceException("簽核 Level 不存在、已停用或不涵蓋職稱有效期間");
     }
   }
 

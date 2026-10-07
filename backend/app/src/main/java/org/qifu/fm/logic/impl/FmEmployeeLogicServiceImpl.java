@@ -18,6 +18,7 @@ import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmTenant;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.logic.IFmEmployeeLogicService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmTenantAccountService;
@@ -32,13 +33,16 @@ public class FmEmployeeLogicServiceImpl implements IFmEmployeeLogicService {
 	private final IFmTenantService tenantService;
 	private final IFmTenantAccountService tenantAccountService;
 	private final IAccountService<TbAccount, String> accountService;
+	private final FmTenantAccessGuard tenantAccessGuard;
 
 	public FmEmployeeLogicServiceImpl(IFmEmployeeService employeeService, IFmTenantService tenantService,
-			IFmTenantAccountService tenantAccountService, IAccountService<TbAccount, String> accountService) {
+			IFmTenantAccountService tenantAccountService, IAccountService<TbAccount, String> accountService,
+			FmTenantAccessGuard tenantAccessGuard) {
 		this.employeeService = employeeService;
 		this.tenantService = tenantService;
 		this.tenantAccountService = tenantAccountService;
 		this.accountService = accountService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@Override
@@ -85,15 +89,18 @@ public class FmEmployeeLogicServiceImpl implements IFmEmployeeLogicService {
 
 	@Override
 	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
+		var readableTenantIds = tenantAccessGuard.readableTenantIds();
 		Map<String, Object> params = new HashMap<>();
 		params.put("status", "ACTIVE");
 		List<FmOptionView> options = tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue().stream()
+				.filter(tenant -> readableTenantIds.contains(tenant.getTenantId()))
 				.map(v -> new FmOptionView(v.getTenantId(), v.getTenantCode() + "／" + v.getTenantName())).toList();
 		return success(options);
 	}
 
 	@Override
 	public DefaultResult<List<FmOptionView>> accountOptions(String tenantId) throws ServiceException {
+		tenantAccessGuard.requireAccess(tenantId);
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("status", "ACTIVE");
@@ -103,6 +110,7 @@ public class FmEmployeeLogicServiceImpl implements IFmEmployeeLogicService {
 	}
 
 	private void validateReferences(String tenantId, String accountId) throws ServiceException {
+		tenantAccessGuard.requireAccess(tenantId);
 		Map<String, Object> tenantParams = new HashMap<>();
 		tenantParams.put("tenantId", tenantId);
 		tenantParams.put("status", "ACTIVE");
@@ -132,7 +140,9 @@ public class FmEmployeeLogicServiceImpl implements IFmEmployeeLogicService {
 		if (StringUtils.isBlank(oid)) {
 			throw new ServiceException(BaseSystemMessage.parameterBlank());
 		}
-		return employeeService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		FmEmployee employee = employeeService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(employee.getTenantId());
+		return employee;
 	}
 
 	private void apply(FmEmployee employee, FmEmployeeCommand command) {

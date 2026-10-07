@@ -123,6 +123,13 @@
     WHERE OID = #{oid,jdbcType=CHAR}
   </update>
 
+  <update id="advanceVersion">
+    UPDATE <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
+       SET CURRENT_VERSION_NO = CURRENT_VERSION_NO + 1
+     WHERE OID = #{oid,jdbcType=CHAR}
+       AND CURRENT_VERSION_NO = #{expectedVersionNo,jdbcType=INTEGER}
+  </update>
+
   <delete id="delete" parameterType="java.lang.String">
     DELETE FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_org_unit
      WHERE OID = #{oid,jdbcType=CHAR}

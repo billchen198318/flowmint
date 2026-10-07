@@ -307,6 +307,10 @@
     <if test="status != null and status != ''.toString()">
       AND v.STATUS = #{status,jdbcType=VARCHAR}
     </if>
+    <if test="effectiveAt != null">
+      AND v.EFFECTIVE_FROM &lt;= #{effectiveAt,jdbcType=TIMESTAMP}
+      AND (v.EFFECTIVE_TO IS NULL OR v.EFFECTIVE_TO &gt; #{effectiveAt,jdbcType=TIMESTAMP})
+    </if>
   </sql>
 
   <sql id="effectiveSelect">

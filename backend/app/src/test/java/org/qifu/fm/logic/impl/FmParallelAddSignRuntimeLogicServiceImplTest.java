@@ -32,7 +32,9 @@ class FmParallelAddSignRuntimeLogicServiceImplTest {
         FmParallelAddSignRuntimeLogicServiceImpl logic =
                 new FmParallelAddSignRuntimeLogicServiceImpl(
                         mock(TaskService.class), mock(IFmEmployeeService.class),
-                        mock(IFmTenantAccountService.class), mock(IFmTaskPolicyService.class),
+                        mock(IFmTenantAccountService.class),
+                        mock(org.qifu.fm.domain.tenant.FmTenantStatusGuard.class),
+                        mock(IFmTaskPolicyService.class),
                         batches, members, mock(FmParallelAddSignStartService.class),
                         mock(FmParallelAddSignCompleteService.class),
                         mock(FmParallelAddSignCancelService.class));

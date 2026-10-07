@@ -14,6 +14,7 @@ import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.fm.dto.command.FmOrgUnitHeadCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmOrgUnitHeadView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmOrgUnitHead;
@@ -37,22 +38,25 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 	private final IFmEmployeeOrgAssignmentService assignmentService;
 	private final IFmEmployeeService employeeService;
 	private final IFmTenantService tenantService;
+	private final FmTenantAccessGuard tenantAccessGuard;
 
 	public FmOrgUnitHeadLogicServiceImpl(IFmOrgUnitHeadService headService,
 			IFmOrgUnitVersionService orgUnitVersionService,
 			IFmEmployeeOrgAssignmentService assignmentService,
 			IFmEmployeeService employeeService,
-			IFmTenantService tenantService) {
+			IFmTenantService tenantService, FmTenantAccessGuard tenantAccessGuard) {
 		this.headService = headService;
 		this.orgUnitVersionService = orgUnitVersionService;
 		this.assignmentService = assignmentService;
 		this.employeeService = employeeService;
 		this.tenantService = tenantService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@Override
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmOrgUnitHeadView> create(FmOrgUnitHeadCommand command) throws ServiceException {
+		tenantAccessGuard.requireAccess(command.tenantId());
 		validate(command, null);
 		FmOrgUnitHead value = new FmOrgUnitHead();
 		value.setTenantId(command.tenantId());
@@ -65,6 +69,7 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 	@Override
 	public DefaultResult<FmOrgUnitHeadView> load(String oid, String message) throws ServiceException {
 		FmOrgUnitHead value = headService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(value.getTenantId());
 		DefaultResult<FmOrgUnitHeadView> result = success(view(value));
 		result.setMessage(message);
 		return result;
@@ -74,6 +79,7 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmOrgUnitHeadView> update(FmOrgUnitHeadCommand command) throws ServiceException {
 		FmOrgUnitHead value = headService.selectByPrimaryKey(command.oid()).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(value.getTenantId());
 		if (!value.getTenantId().equals(command.tenantId())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
@@ -87,9 +93,12 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmOrgUnitHeadView> deactivate(String oid) throws ServiceException {
 		FmOrgUnitHead value = headService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(value.getTenantId());
 		value.setStatus("INACTIVE");
-		if (value.getEffectiveTo() == null || value.getEffectiveTo().after(new Date())) {
-			value.setEffectiveTo(new Date());
+		Date now = new Date();
+		if (!value.getEffectiveFrom().after(now)
+				&& (value.getEffectiveTo() == null || value.getEffectiveTo().after(now))) {
+			value.setEffectiveTo(now);
 		}
 		headService.update(value);
 		return load(oid, BaseSystemMessage.updateSuccess());
@@ -97,6 +106,7 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 
 	@Override
 	public FmOrgUnitHeadView view(FmOrgUnitHead value) throws ServiceException {
+		tenantAccessGuard.requireAccess(value.getTenantId());
 		String unitLabel = orgUnitOptions(value.getTenantId()).getValue().stream()
 				.filter(option -> option.value().equals(value.getOrgUnitId()))
 				.map(FmOptionView::label).findFirst().orElse(value.getOrgUnitId());
@@ -113,7 +123,9 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
 		Map<String, Object> params = new HashMap<>();
 		params.put("status", "ACTIVE");
+		var readableTenantIds = tenantAccessGuard.readableTenantIds();
 		return success(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue().stream()
+				.filter(value -> readableTenantIds.contains(value.getTenantId()))
 				.map(value -> new FmOptionView(value.getTenantId(),
 						value.getTenantCode() + "／" + value.getTenantName())).toList());
 	}
@@ -123,6 +135,7 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 		if (StringUtils.isBlank(tenantId)) {
 			return success(List.of());
 		}
+		tenantAccessGuard.requireAccess(tenantId);
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("status", "ACTIVE");
@@ -137,14 +150,24 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 		if (StringUtils.isAnyBlank(tenantId, orgUnitId)) {
 			return success(List.of());
 		}
+		tenantAccessGuard.requireAccess(tenantId);
+		Date now = new Date();
+		return eligibleEmployees(tenantId, orgUnitId, now, now);
+	}
+
+	private DefaultResult<List<FmOptionView>> eligibleEmployees(String tenantId, String orgUnitId,
+			Date from, Date to) throws ServiceException {
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("orgUnitId", orgUnitId);
 		params.put("status", "ACTIVE");
 		List<FmEmployeeOrgAssignment> assignments = assignmentService
 				.selectListByParams(params, "IS_PRIMARY DESC,EFFECTIVE_FROM", "ASC").getValue();
-		Map<String, FmEmployee> employees = employeeMap(tenantId);
-		return success(assignments.stream().map(FmEmployeeOrgAssignment::getEmployeeId).distinct()
+		Map<String, FmEmployee> employees = employeeMap(tenantId, from, to);
+		return success(assignments.stream()
+				.filter(assignment -> "ACTIVE".equals(assignment.getStatus())
+						&& covers(assignment.getEffectiveFrom(), assignment.getEffectiveTo(), from, to))
+				.map(FmEmployeeOrgAssignment::getEmployeeId).distinct()
 				.filter(employees::containsKey).map(employeeId -> {
 					FmEmployee employee = employees.get(employeeId);
 					return new FmOptionView(employeeId,
@@ -165,7 +188,8 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 				.noneMatch(value -> value.value().equals(command.orgUnitId()))) {
 			throw new ServiceException("部門不存在、已停用或不屬於所選 Tenant");
 		}
-		if (employeeOptions(command.tenantId(), command.orgUnitId()).getValue().stream()
+		if (eligibleEmployees(command.tenantId(), command.orgUnitId(),
+				command.effectiveFrom(), command.effectiveTo()).getValue().stream()
 				.noneMatch(value -> value.value().equals(command.employeeId()))) {
 			throw new ServiceException("所選員工沒有此部門的有效任職");
 		}
@@ -185,15 +209,23 @@ public class FmOrgUnitHeadLogicServiceImpl implements IFmOrgUnitHeadLogicService
 		}
 	}
 
-	private Map<String, FmEmployee> employeeMap(String tenantId) throws ServiceException {
+	private Map<String, FmEmployee> employeeMap(String tenantId, Date from, Date to) throws ServiceException {
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("status", "ACTIVE");
 		Map<String, FmEmployee> values = new HashMap<>();
 		for (FmEmployee employee : employeeService.selectListByParams(params, "EMPLOYEE_NO", "ASC").getValue()) {
-			values.put(employee.getEmployeeId(), employee);
+			if ("ACTIVE".equals(employee.getStatus())
+					&& covers(employee.getEffectiveFrom(), employee.getEffectiveTo(), from, to))
+				values.put(employee.getEmployeeId(), employee);
 		}
 		return values;
+	}
+
+	private boolean covers(Date effectiveFrom, Date effectiveTo, Date from, Date to) {
+		return effectiveFrom != null && !effectiveFrom.after(from)
+				&& (effectiveTo == null || effectiveTo.after(from))
+				&& (to != null ? effectiveTo == null || !effectiveTo.before(to) : effectiveTo == null);
 	}
 
 	private boolean overlaps(Date start1, Date end1, Date start2, Date end2) {

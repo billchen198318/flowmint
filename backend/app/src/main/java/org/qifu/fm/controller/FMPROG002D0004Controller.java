@@ -1,6 +1,7 @@
 package org.qifu.fm.controller;
 
 import java.util.HashMap;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import org.qifu.base.message.BaseSystemMessage;
@@ -13,10 +14,10 @@ import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmOrgTitleCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmOrgTitleView;
-import org.qifu.fm.entity.FmOrgApprovalLevel;
+import org.qifu.fm.domain.organization.FmApprovalLevelAvailability;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmOrgTitle;
 import org.qifu.fm.logic.IFmOrgTitleLogicService;
-import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmOrgTitleService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.http.MediaType;
@@ -35,15 +36,17 @@ public class FMPROG002D0004Controller extends CoreApiSupport {
   private final transient IFmOrgTitleService titleService;
   private final transient IFmOrgTitleLogicService titleLogicService;
   private final transient IFmTenantService tenantService;
-  private final transient IFmOrgApprovalLevelService levelService;
+  private final transient FmApprovalLevelAvailability availableLevels;
+  private final transient FmTenantAccessGuard tenantAccessGuard;
 
   public FMPROG002D0004Controller(IFmOrgTitleService titleService,
       IFmOrgTitleLogicService titleLogicService, IFmTenantService tenantService,
-      IFmOrgApprovalLevelService levelService) {
+      FmApprovalLevelAvailability availableLevels, FmTenantAccessGuard tenantAccessGuard) {
     this.titleService = titleService;
     this.titleLogicService = titleLogicService;
     this.tenantService = tenantService;
-    this.levelService = levelService;
+    this.availableLevels = availableLevels;
+    this.tenantAccessGuard = tenantAccessGuard;
   }
 
   @ControllerMethodAuthority(programId = "FM_PROG002D0004Q", check = true)
@@ -51,9 +54,14 @@ public class FMPROG002D0004Controller extends CoreApiSupport {
   public ResponseEntity<QueryResult<List<FmOrgTitleView>>> findPage(@RequestBody SearchBody body) {
     QueryResult<List<FmOrgTitleView>> result = initResult();
     try {
-      QueryResult<List<FmOrgTitle>> query = titleService.findPage(queryParameter(body)
+      Map<String, Object> parameters = queryParameter(body)
           .fullEquals("tenantId").fullEquals("approvalLevelId")
-          .fullEquals("status").fullLink("titleCodeLike").fullLink("titleNameLike").value(),
+          .fullEquals("status").fullLink("titleCodeLike").fullLink("titleNameLike").value();
+      String tenantId = (String) parameters.get("tenantId");
+      if (tenantId != null && !tenantId.isBlank())
+        tenantAccessGuard.requireAccess(tenantId);
+      parameters.put("readableTenantIds", tenantAccessGuard.readableTenantIds());
+      QueryResult<List<FmOrgTitle>> query = titleService.findPage(parameters,
           body.getPageOf().orderBy("TENANT_ID,SORT_NO,TITLE_CODE").sortTypeAsc());
       QueryResult<List<FmOrgTitleView>> view = new QueryResult<>();
       view.setValue(query.getValue() == null ? List.of()
@@ -115,22 +123,34 @@ public class FMPROG002D0004Controller extends CoreApiSupport {
   @ControllerMethodAuthority(programId = "FM_PROG002D0004Q", check = true)
   @PostMapping("/tenant-options")
   public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> tenantOptions() {
-    Map<String, Object> params = new HashMap<>();
-    params.put("status", "ACTIVE");
-    return options(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue().stream()
-        .map(value -> new FmOptionView(value.getTenantId(), value.getTenantCode() + "／" + value.getTenantName())).toList());
+    try {
+      Map<String, Object> params = new HashMap<>();
+      params.put("status", "ACTIVE");
+      var readableTenantIds = tenantAccessGuard.readableTenantIds();
+      return options(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue().stream()
+          .filter(value -> readableTenantIds.contains(value.getTenantId()))
+          .map(value -> new FmOptionView(value.getTenantId(), value.getTenantCode() + "／" + value.getTenantName())).toList());
+    } catch (Exception exception) { return optionError(exception); }
   }
 
   @ControllerMethodAuthority(programId = "FM_PROG002D0004Q", check = true)
   @PostMapping("/level-options")
   public ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> levelOptions(
       @RequestBody Map<String, String> body) {
-    Map<String, Object> params = new HashMap<>();
-    params.put("tenantId", body.get("tenantId"));
-    params.put("status", "ACTIVE");
-    List<FmOrgApprovalLevel> values = levelService.selectListByParams(params, "LEVEL_ORDER", "ASC").getValue();
-    return options(values.stream().map(value -> new FmOptionView(value.getApprovalLevelId(),
-        value.getLevelCode() + "／" + value.getLevelName())).toList());
+    try {
+      String tenantId = body.get("tenantId");
+      tenantAccessGuard.requireAccess(tenantId);
+      Date now = new Date();
+      return options(availableLevels.availableDuring(tenantId, now, now).stream()
+          .map(value -> new FmOptionView(value.getApprovalLevelId(),
+              value.getLevelCode() + "／" + value.getLevelName())).toList());
+    } catch (Exception exception) { return optionError(exception); }
+  }
+
+  private ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> optionError(Exception exception) {
+    DefaultControllerJsonResultObj<List<FmOptionView>> result = initDefaultJsonResult();
+    exceptionResult(result, exception);
+    return ResponseEntity.ok(result);
   }
 
   private ResponseEntity<DefaultControllerJsonResultObj<List<FmOptionView>>> options(List<FmOptionView> values) {

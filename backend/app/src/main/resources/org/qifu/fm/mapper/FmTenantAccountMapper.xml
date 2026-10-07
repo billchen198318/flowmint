@@ -128,9 +128,7 @@
       <if test="effectiveFrom != null">
         EFFECTIVE_FROM = #{effectiveFrom,jdbcType=TIMESTAMP},
       </if>
-      <if test="effectiveTo != null">
-        EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
-      </if>
+      EFFECTIVE_TO = #{effectiveTo,jdbcType=TIMESTAMP},
       <if test="uuserid != null">
         UUSERID = #{uuserid,jdbcType=VARCHAR},
       </if>

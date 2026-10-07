@@ -18,6 +18,7 @@ import org.qifu.fm.dto.view.FmEmployeeOrgAssignmentView;
 import org.qifu.fm.dto.view.FmEmployeeView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmEmployee;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.logic.IFmEmployeeLogicService;
 import org.qifu.fm.logic.IFmEmployeeOrgAssignmentLogicService;
 import org.qifu.fm.service.IFmEmployeeService;
@@ -37,13 +38,16 @@ public class FMPROG002D0001Controller extends CoreApiSupport {
 	private final transient IFmEmployeeService employeeService;
 	private final transient IFmEmployeeLogicService employeeLogicService;
 	private final transient IFmEmployeeOrgAssignmentLogicService assignmentLogicService;
+	private final transient FmTenantAccessGuard tenantAccessGuard;
 
 	public FMPROG002D0001Controller(IFmEmployeeService employeeService,
 			IFmEmployeeLogicService employeeLogicService,
-			IFmEmployeeOrgAssignmentLogicService assignmentLogicService) {
+			IFmEmployeeOrgAssignmentLogicService assignmentLogicService,
+			FmTenantAccessGuard tenantAccessGuard) {
 		this.employeeService = employeeService;
 		this.employeeLogicService = employeeLogicService;
 		this.assignmentLogicService = assignmentLogicService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG002D0001Q", check = true)
@@ -51,9 +55,17 @@ public class FMPROG002D0001Controller extends CoreApiSupport {
 	public ResponseEntity<QueryResult<List<FmEmployeeView>>> findPage(@RequestBody SearchBody searchBody) {
 		QueryResult<List<FmEmployeeView>> result = this.initResult();
 		try {
+			String tenantId = searchBody.getField().get("tenantId");
+			if (org.apache.commons.lang3.StringUtils.isNotBlank(tenantId)) {
+				tenantAccessGuard.requireAccess(tenantId);
+			}
+			Map<String, Object> parameters = this.queryParameter(searchBody)
+					.fullEquals("tenantId").fullEquals("status")
+					.fullLink("employeeNoLike").fullLink("accountLike")
+					.fullLink("displayNameLike").value();
+			parameters.put("tenantIds", tenantAccessGuard.readableTenantIds());
 			QueryResult<List<FmEmployee>> query = employeeService.findPage(
-					this.queryParameter(searchBody).fullEquals("tenantId").fullEquals("status")
-							.fullLink("employeeNoLike").fullLink("accountLike").fullLink("displayNameLike").value(),
+					parameters,
 					searchBody.getPageOf().orderBy("TENANT_ID,EMPLOYEE_NO").sortTypeAsc());
 			QueryResult<List<FmEmployeeView>> viewResult = new QueryResult<>();
 			viewResult.setValue(query.getValue() == null ? List.of()

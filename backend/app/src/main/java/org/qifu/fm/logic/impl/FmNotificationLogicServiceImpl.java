@@ -12,6 +12,7 @@ import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.view.FmNotificationInboxView;
 import org.qifu.fm.dto.view.FmNotificationView;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.logic.IFmNotificationLogicService;
 import org.qifu.fm.service.IFmNotificationService;
 import org.qifu.fm.service.IFmTenantAccountService;
@@ -25,11 +26,14 @@ public class FmNotificationLogicServiceImpl implements IFmNotificationLogicServi
 
 	private final IFmNotificationService notificationService;
 	private final IFmTenantAccountService tenantAccountService;
+	private final FmTenantStatusGuard tenantStatusGuard;
 
 	public FmNotificationLogicServiceImpl(IFmNotificationService notificationService,
-			IFmTenantAccountService tenantAccountService) {
+			IFmTenantAccountService tenantAccountService,
+			FmTenantStatusGuard tenantStatusGuard) {
 		this.notificationService = notificationService;
 		this.tenantAccountService = tenantAccountService;
+		this.tenantStatusGuard = tenantStatusGuard;
 	}
 
 	@Override
@@ -66,6 +70,7 @@ public class FmNotificationLogicServiceImpl implements IFmNotificationLogicServi
 	}
 
 	private String currentAccount(String tenantId) throws ServiceException {
+		tenantStatusGuard.requireActive(tenantId);
 		if (StringUtils.isBlank(tenantId)) {
 			throw new ServiceException("Tenant 不可為空");
 		}

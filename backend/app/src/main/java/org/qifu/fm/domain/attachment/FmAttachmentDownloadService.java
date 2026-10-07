@@ -9,6 +9,7 @@ import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.core.util.UserUtils;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.dto.view.FmAttachmentView;
 import org.qifu.fm.entity.FmTaskParallelAddSign;
 import org.qifu.fm.entity.FmTaskParallelAddSignMember;
@@ -42,6 +43,7 @@ public class FmAttachmentDownloadService {
             """;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final FmTenantStatusGuard tenantStatusGuard;
     private final FmAttachmentStorageService storageService;
     private final TaskService taskService;
     private final ObjectMapper objectMapper;
@@ -50,12 +52,14 @@ public class FmAttachmentDownloadService {
 
     public FmAttachmentDownloadService(
             NamedParameterJdbcTemplate jdbcTemplate,
+            FmTenantStatusGuard tenantStatusGuard,
             FmAttachmentStorageService storageService,
             TaskService taskService,
             ObjectMapper objectMapper,
             IFmTaskParallelAddSignService parallelBatchService,
             IFmTaskParallelAddSignMemberService parallelMemberService) {
         this.jdbcTemplate = jdbcTemplate;
+        this.tenantStatusGuard = tenantStatusGuard;
         this.storageService = storageService;
         this.taskService = taskService;
         this.objectMapper = objectMapper;
@@ -205,6 +209,7 @@ public class FmAttachmentDownloadService {
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         if (StringUtils.isBlank(tenantId)) throw new ServiceException("Tenant 不可為空");
         return UserUtils.getCurrentUser().getUsername();
     }

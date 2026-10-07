@@ -13,6 +13,7 @@ import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.view.FmDataActionExecutionView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.logic.IFmDataActionLogicService;
 import org.qifu.fm.service.IFmTenantAccountService;
 import org.springframework.http.ResponseEntity;
@@ -35,12 +36,15 @@ public class FmDataActionController extends CoreApiSupport {
 
 	private final transient IFmDataActionLogicService actionLogicService;
 	private final transient IFmTenantAccountService tenantAccountService;
+	private final transient FmTenantStatusGuard tenantStatusGuard;
 
 	public FmDataActionController(
 			IFmDataActionLogicService actionLogicService,
-			IFmTenantAccountService tenantAccountService) {
+			IFmTenantAccountService tenantAccountService,
+			FmTenantStatusGuard tenantStatusGuard) {
 		this.actionLogicService = actionLogicService;
 		this.tenantAccountService = tenantAccountService;
+		this.tenantStatusGuard = tenantStatusGuard;
 	}
 
 	@PostMapping("/{actionCode}/execute")
@@ -99,6 +103,7 @@ public class FmDataActionController extends CoreApiSupport {
 
 	private void validateTenantMembership(String tenantId, String account)
 			throws ServiceException {
+		tenantStatusGuard.requireActive(tenantId);
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("account", account);

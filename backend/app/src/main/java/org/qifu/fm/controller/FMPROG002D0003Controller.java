@@ -11,6 +11,7 @@ import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmOrgLevelSchemeCommand;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmOrgLevelSchemeView;
 import org.qifu.fm.entity.FmOrgLevelScheme;
@@ -34,11 +35,13 @@ public class FMPROG002D0003Controller extends CoreApiSupport {
 	private final transient IFmOrgLevelSchemeService fmOrgLevelSchemeService;
 	private final transient IFmOrgLevelSchemeLogicService fmOrgLevelSchemeLogicService;
 	private final transient IFmTenantService fmTenantService;
+	private final transient FmTenantAccessGuard tenantAccessGuard;
 
-	public FMPROG002D0003Controller(IFmOrgLevelSchemeService fmOrgLevelSchemeService, IFmOrgLevelSchemeLogicService fmOrgLevelSchemeLogicService, IFmTenantService fmTenantService) {
+	public FMPROG002D0003Controller(IFmOrgLevelSchemeService fmOrgLevelSchemeService, IFmOrgLevelSchemeLogicService fmOrgLevelSchemeLogicService, IFmTenantService fmTenantService, FmTenantAccessGuard tenantAccessGuard) {
 		this.fmOrgLevelSchemeService = fmOrgLevelSchemeService;
 		this.fmOrgLevelSchemeLogicService = fmOrgLevelSchemeLogicService;
 		this.fmTenantService = fmTenantService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG002D0003Q", check = true)
@@ -46,9 +49,14 @@ public class FMPROG002D0003Controller extends CoreApiSupport {
 	public ResponseEntity<QueryResult<List<FmOrgLevelSchemeView>>> findPage(@RequestBody SearchBody b) {
 		QueryResult<List<FmOrgLevelSchemeView>> r = initResult();
 		try {
+			Map<String, Object> parameters = queryParameter(b).fullEquals("tenantId").fullEquals("status")
+					.fullLink("schemeCodeLike").fullLink("schemeNameLike").value();
+			String tenantId = (String) parameters.get("tenantId");
+			if (tenantId != null && !tenantId.isBlank())
+				tenantAccessGuard.requireAccess(tenantId);
+			parameters.put("readableTenantIds", tenantAccessGuard.readableTenantIds());
 			QueryResult<List<FmOrgLevelScheme>> q = fmOrgLevelSchemeService.findPage(
-					queryParameter(b).fullEquals("tenantId").fullEquals("status").fullLink("schemeCodeLike")
-							.fullLink("schemeNameLike").value(),
+					parameters,
 					b.getPageOf().orderBy("TENANT_ID,SCHEME_CODE").sortTypeAsc());
 			QueryResult<List<FmOrgLevelSchemeView>> v = new QueryResult<>();
 			v.setValue(q.getValue() == null ? List.of()
@@ -124,9 +132,11 @@ public class FMPROG002D0003Controller extends CoreApiSupport {
 		try {
 			Map<String, Object> p = new HashMap<>();
 			p.put("status", "ACTIVE");
+			var readableTenantIds = tenantAccessGuard.readableTenantIds();
 			DefaultResult<List<FmOptionView>> d = new DefaultResult<>();
 			d.setSuccess("Y");
 			d.setValue(fmTenantService.selectListByParams(p, "TENANT_CODE", "ASC").getValue().stream()
+					.filter(x -> readableTenantIds.contains(x.getTenantId()))
 					.map(x -> new FmOptionView(x.getTenantId(), x.getTenantCode() + "／" + x.getTenantName())).toList());
 			setDefaultResponseJsonResult(d, r);
 		} catch (Exception e) {

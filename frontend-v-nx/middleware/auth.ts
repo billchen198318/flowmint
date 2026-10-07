@@ -4,7 +4,8 @@ import {
     checkUserHasLogined, 
     checkHasPermission, 
     userLogoutClearCookie, 
-    setRefreshAndAccessTokenCookie } from '../components/BaseHelper';
+    setRefreshAndAccessTokenCookie,
+    isValidAuthResponse } from '../components/BaseHelper';
 import { useBaseStore } from '../store/baseStore';
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
@@ -32,9 +33,13 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
                 body: { accessToken: ac, refreshToken: rc }
             });
             
-            if (uData) {
+            if (isValidAuthResponse(uData)) {
                 baseStore.setUserData(uData);
                 setRefreshAndAccessTokenCookie(uData.refreshToken, uData.accessToken);
+            } else {
+                baseStore.clearUserData();
+                userLogoutClearCookie();
+                return navigateTo(loginPageUrl);
             }
         } catch (error) {
             console.error('Auto login failed:', error);

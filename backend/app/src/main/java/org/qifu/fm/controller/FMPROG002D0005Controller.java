@@ -12,6 +12,7 @@ import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmOrgUnitHeadCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmOrgUnitHeadView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmOrgUnitHead;
 import org.qifu.fm.logic.IFmOrgUnitHeadLogicService;
 import org.qifu.fm.service.IFmOrgUnitHeadService;
@@ -30,11 +31,13 @@ public class FMPROG002D0005Controller extends CoreApiSupport {
 	private static final long serialVersionUID = 1L;
 	private final transient IFmOrgUnitHeadService headService;
 	private final transient IFmOrgUnitHeadLogicService headLogicService;
+	private final transient FmTenantAccessGuard tenantAccessGuard;
 
 	public FMPROG002D0005Controller(IFmOrgUnitHeadService headService,
-			IFmOrgUnitHeadLogicService headLogicService) {
+			IFmOrgUnitHeadLogicService headLogicService, FmTenantAccessGuard tenantAccessGuard) {
 		this.headService = headService;
 		this.headLogicService = headLogicService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG002D0005Q", check = true)
@@ -42,9 +45,14 @@ public class FMPROG002D0005Controller extends CoreApiSupport {
 	public ResponseEntity<QueryResult<List<FmOrgUnitHeadView>>> findPage(@RequestBody SearchBody body) {
 		QueryResult<List<FmOrgUnitHeadView>> result = initResult();
 		try {
-			QueryResult<List<FmOrgUnitHead>> query = headService.findPage(queryParameter(body)
+			Map<String, Object> parameters = queryParameter(body)
 					.fullEquals("tenantId").fullEquals("orgUnitId").fullEquals("headType")
-					.fullEquals("status").value(),
+					.fullEquals("status").value();
+			String tenantId = (String) parameters.get("tenantId");
+			if (tenantId != null && !tenantId.isBlank())
+				tenantAccessGuard.requireAccess(tenantId);
+			parameters.put("readableTenantIds", tenantAccessGuard.readableTenantIds());
+			QueryResult<List<FmOrgUnitHead>> query = headService.findPage(parameters,
 					body.getPageOf().orderBy("TENANT_ID,ORG_UNIT_ID,HEAD_TYPE,PRIORITY").sortTypeAsc());
 			QueryResult<List<FmOrgUnitHeadView>> view = new QueryResult<>();
 			view.setValue(query.getValue() == null ? List.of()

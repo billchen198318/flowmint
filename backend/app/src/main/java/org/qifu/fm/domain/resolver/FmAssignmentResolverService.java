@@ -795,9 +795,16 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             throws ServiceException {
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("orgUnitId", orgUnitId);
-        return orgUnitHeadService.selectListByParams(parameters, "PRIORITY", "ASC")
-                .getValue().stream()
-                .filter(head -> isEffective(head.getEffectiveFrom(), head.getEffectiveTo()))
+        parameters.put("headType", "HEAD");
+        return firstEffectiveFormalHead(
+                orgUnitHeadService.selectListByParams(parameters, "PRIORITY", "ASC").getValue(), new Date());
+    }
+
+    static FmOrgUnitHead firstEffectiveFormalHead(List<FmOrgUnitHead> heads, Date now) {
+        return heads.stream()
+                .filter(head -> "HEAD".equals(head.getHeadType()) && "ACTIVE".equals(head.getStatus()))
+                .filter(head -> (head.getEffectiveFrom() == null || !head.getEffectiveFrom().after(now))
+                        && (head.getEffectiveTo() == null || head.getEffectiveTo().after(now)))
                 .findFirst().orElse(null);
     }
 

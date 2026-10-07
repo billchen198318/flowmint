@@ -21,6 +21,7 @@ import org.qifu.fm.dto.command.FmOrgUnitMoveCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmOrgUnitMovePreviewView;
 import org.qifu.fm.dto.view.FmOrgUnitView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmOrgUnit;
 import org.qifu.fm.entity.FmOrgUnitVersion;
 import org.qifu.fm.logic.IFmOrgUnitLogicService;
@@ -39,18 +40,22 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 	private final IFmOrgUnitService orgUnitService;
 	private final IFmOrgUnitVersionService orgUnitVersionService;
 	private final IFmTenantService tenantService;
+	private final FmTenantAccessGuard tenantAccessGuard;
 
 	public FmOrgUnitLogicServiceImpl(IFmOrgUnitService orgUnitService,
-			IFmOrgUnitVersionService orgUnitVersionService, IFmTenantService tenantService) {
+			IFmOrgUnitVersionService orgUnitVersionService, IFmTenantService tenantService,
+			FmTenantAccessGuard tenantAccessGuard) {
 		this.orgUnitService = orgUnitService;
 		this.orgUnitVersionService = orgUnitVersionService;
 		this.tenantService = tenantService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@Override
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmOrgUnitView> create(FmOrgUnitCommand command) throws ServiceException {
 		validateCommand(command);
+		tenantAccessGuard.requireAccess(command.tenantId());
 		validateTenant(command.tenantId());
 		validateUnitCode(command.tenantId(), command.unitCode(), null);
 
@@ -94,12 +99,16 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 		if (!Objects.equals(current.getParentOrgUnitId(), normalizeId(command.parentOrgUnitId()))) {
 			throw new ServiceException("父部門異動請使用組織樹移動功能");
 		}
+		if (INACTIVE.equals(command.status()) && ACTIVE.equals(current.getStatus())) {
+			assertNoActiveChild(orgUnit);
+		}
 		FmOrgUnitVersion oldVersion = requiredVersion(current.getVersionOid());
 		Date versionTime = nextVersionTime(oldVersion);
+		if (command.effectiveTo() != null && !command.effectiveTo().after(versionTime)) {
+			throw new ServiceException("失效時間必須晚於新版本生效時間");
+		}
+		advanceVersion(orgUnit, current.getCurrentVersionNo());
 		closeVersion(oldVersion, versionTime);
-
-		orgUnit.setCurrentVersionNo(orgUnit.getCurrentVersionNo() + 1);
-		orgUnitService.update(orgUnit);
 
 		FmOrgUnitVersion newVersion = copyVersion(oldVersion, orgUnit.getCurrentVersionNo(), versionTime);
 		applyCommand(newVersion, command);
@@ -116,17 +125,12 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 		FmOrgUnit orgUnit = requiredOrgUnit(oid);
 		assertVersion(orgUnit, currentVersionNo);
 		FmOrgUnitView current = requiredCurrentView(orgUnit.getTenantId(), orgUnit.getOrgUnitId());
-		boolean hasActiveChild = currentTree(orgUnit.getTenantId(), false).stream()
-				.anyMatch(item -> orgUnit.getOrgUnitId().equals(item.getParentOrgUnitId()));
-		if (hasActiveChild) {
-			throw new ServiceException("部門仍有啟用中的子部門，不可停用");
-		}
+		assertNoActiveChild(orgUnit);
 
 		FmOrgUnitVersion oldVersion = requiredVersion(current.getVersionOid());
 		Date versionTime = nextVersionTime(oldVersion);
+		advanceVersion(orgUnit, current.getCurrentVersionNo());
 		closeVersion(oldVersion, versionTime);
-		orgUnit.setCurrentVersionNo(orgUnit.getCurrentVersionNo() + 1);
-		orgUnitService.update(orgUnit);
 
 		FmOrgUnitVersion inactiveVersion = copyVersion(oldVersion, orgUnit.getCurrentVersionNo(), versionTime);
 		inactiveVersion.setStatus(INACTIVE);
@@ -140,6 +144,7 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 		if (StringUtils.isBlank(tenantId)) {
 			throw new ServiceException("請選擇 Tenant");
 		}
+		tenantAccessGuard.requireAccess(tenantId);
 		return success(currentTree(tenantId, includeInactive), null);
 	}
 
@@ -178,11 +183,11 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 			if (orgUnit == null) {
 				throw new ServiceException("找不到子樹部門主檔：" + current.getUnitName());
 			}
+			assertVersion(orgUnit, current.getCurrentVersionNo());
 			FmOrgUnitVersion oldVersion = requiredVersion(current.getVersionOid());
 			Date versionTime = nextVersionTime(oldVersion);
+			advanceVersion(orgUnit, current.getCurrentVersionNo());
 			closeVersion(oldVersion, versionTime);
-			orgUnit.setCurrentVersionNo(orgUnit.getCurrentVersionNo() + 1);
-			orgUnitService.update(orgUnit);
 
 			FmOrgUnitVersion newVersion = copyVersion(oldVersion, orgUnit.getCurrentVersionNo(), versionTime);
 			String relativePath = current.getPath().substring(context.source().getPath().length());
@@ -201,7 +206,9 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
 		Map<String, Object> params = new HashMap<>();
 		params.put("status", ACTIVE);
+		var readableTenantIds = tenantAccessGuard.readableTenantIds();
 		List<FmOptionView> options = tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue().stream()
+				.filter(tenant -> readableTenantIds.contains(tenant.getTenantId()))
 				.map(tenant -> new FmOptionView(
 						tenant.getTenantId(), tenant.getTenantCode() + "／" + tenant.getTenantName()))
 				.toList();
@@ -245,7 +252,17 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 		if (StringUtils.isBlank(oid)) {
 			throw new ServiceException(BaseSystemMessage.parameterBlank());
 		}
-		return orgUnitService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		FmOrgUnit orgUnit = orgUnitService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(orgUnit.getTenantId());
+		return orgUnit;
+	}
+
+	private void assertNoActiveChild(FmOrgUnit orgUnit) throws ServiceException {
+		boolean hasActiveChild = currentTree(orgUnit.getTenantId(), false).stream()
+				.anyMatch(item -> orgUnit.getOrgUnitId().equals(item.getParentOrgUnitId()));
+		if (hasActiveChild) {
+			throw new ServiceException("部門仍有啟用中的子部門，不可停用");
+		}
 	}
 
 	private FmOrgUnitVersion requiredVersion(String versionOid) throws ServiceException {
@@ -253,15 +270,24 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 	}
 
 	private FmOrgUnitView requiredCurrentView(String tenantId, String orgUnitId) throws ServiceException {
-		return currentTree(tenantId, true).stream()
+		return allCurrentTree(tenantId, true).stream()
 				.filter(item -> orgUnitId.equals(item.getOrgUnitId()))
 				.findFirst()
 				.orElseThrow(() -> new ServiceException("找不到部門目前版本"));
 	}
 
 	private List<FmOrgUnitView> currentTree(String tenantId, boolean includeInactive) {
+		return queryCurrentTree(tenantId, includeInactive, new Date());
+	}
+
+	private List<FmOrgUnitView> allCurrentTree(String tenantId, boolean includeInactive) {
+		return queryCurrentTree(tenantId, includeInactive, null);
+	}
+
+	private List<FmOrgUnitView> queryCurrentTree(String tenantId, boolean includeInactive, Date effectiveAt) {
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
+		params.put("effectiveAt", effectiveAt);
 		if (!includeInactive) {
 			params.put("status", ACTIVE);
 		}
@@ -297,6 +323,13 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 		if (expectedVersionNo == null || !expectedVersionNo.equals(orgUnit.getCurrentVersionNo())) {
 			throw new ServiceException("部門資料已被異動，請重新載入後再操作");
 		}
+	}
+
+	private void advanceVersion(FmOrgUnit orgUnit, Integer expectedVersionNo) throws ServiceException {
+		if (expectedVersionNo == null || orgUnitService.advanceVersion(orgUnit.getOid(), expectedVersionNo) != 1) {
+			throw new ServiceException("部門資料已被異動，請重新載入後再操作");
+		}
+		orgUnit.setCurrentVersionNo(expectedVersionNo + 1);
 	}
 
 	private void applyCommand(FmOrgUnitVersion version, FmOrgUnitCommand command) {
@@ -361,6 +394,7 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 		if (command == null || StringUtils.isAnyBlank(command.tenantId(), command.orgUnitId())) {
 			throw new ServiceException(BaseSystemMessage.parameterBlank());
 		}
+		tenantAccessGuard.requireAccess(command.tenantId());
 		List<FmOrgUnitView> tree = currentTree(command.tenantId(), false);
 		FmOrgUnitView source = tree.stream()
 				.filter(item -> command.orgUnitId().equals(item.getOrgUnitId()))
@@ -380,7 +414,7 @@ public class FmOrgUnitLogicServiceImpl implements IFmOrgUnitLogicService {
 			throw new ServiceException("不可將部門移到自己或其子部門下");
 		}
 		int newDepth = parent == null ? 0 : parent.getTreeDepth() + 1;
-		List<FmOrgUnitView> subtree = tree.stream()
+		List<FmOrgUnitView> subtree = currentTree(command.tenantId(), true).stream()
 				.filter(item -> item.getPath().startsWith(source.getPath()))
 				.sorted(Comparator.comparing(FmOrgUnitView::getTreeDepth))
 				.toList();

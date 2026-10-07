@@ -37,6 +37,7 @@ import org.qifu.fm.entity.FmProcessInstance;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.logic.IFmRequestTrackingLogicService;
 import org.qifu.fm.logic.IFmGroovyCancellationLogicService;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
@@ -68,6 +69,7 @@ public class FmRequestTrackingLogicServiceImpl
     private final RuntimeService runtimeService;
     private final HistoryService historyService;
     private final IFmTenantAccountService tenantAccountService;
+    private final FmTenantStatusGuard tenantStatusGuard;
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessDefService processDefService;
     private final IFmProcessVersionService processVersionService;
@@ -88,6 +90,7 @@ public class FmRequestTrackingLogicServiceImpl
             RuntimeService runtimeService,
             HistoryService historyService,
             IFmTenantAccountService tenantAccountService,
+            FmTenantStatusGuard tenantStatusGuard,
             IFmProcessInstanceService processInstanceService,
             IFmProcessDefService processDefService,
             IFmProcessVersionService processVersionService,
@@ -107,6 +110,7 @@ public class FmRequestTrackingLogicServiceImpl
         this.runtimeService = runtimeService;
         this.historyService = historyService;
         this.tenantAccountService = tenantAccountService;
+        this.tenantStatusGuard = tenantStatusGuard;
         this.processInstanceService = processInstanceService;
         this.processDefService = processDefService;
         this.processVersionService = processVersionService;
@@ -463,6 +467,7 @@ public class FmRequestTrackingLogicServiceImpl
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         String account = UserUtils.getCurrentUser().getUsername();
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);

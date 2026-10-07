@@ -12,6 +12,7 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.domain.runtime.FmParallelAddSignRequestValidator;
 import org.qifu.fm.domain.notification.FmNotificationPublisher;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.dto.command.FmParallelAddSignStartRequest;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmFormData;
@@ -38,6 +39,7 @@ public class FmParallelAddSignStartService {
 
     private final TaskService taskService;
     private final IFmTenantAccountService tenantAccountService;
+    private final FmTenantStatusGuard tenantStatusGuard;
     private final IFmEmployeeService employeeService;
     private final IFmProcessInstanceService processInstanceService;
     private final IFmFormDataService formDataService;
@@ -51,6 +53,7 @@ public class FmParallelAddSignStartService {
     public FmParallelAddSignStartService(
             TaskService taskService,
             IFmTenantAccountService tenantAccountService,
+            FmTenantStatusGuard tenantStatusGuard,
             IFmEmployeeService employeeService,
             IFmProcessInstanceService processInstanceService,
             IFmFormDataService formDataService,
@@ -62,6 +65,7 @@ public class FmParallelAddSignStartService {
             FmNotificationPublisher notificationPublisher) {
         this.taskService = taskService;
         this.tenantAccountService = tenantAccountService;
+        this.tenantStatusGuard = tenantStatusGuard;
         this.employeeService = employeeService;
         this.processInstanceService = processInstanceService;
         this.formDataService = formDataService;
@@ -177,6 +181,7 @@ public class FmParallelAddSignStartService {
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         String account = UserUtils.getCurrentUser().getUsername();
         if (!activeMembership(tenantId, account, new Date())) {
             throw new ServiceException("登入帳號不具有效 Tenant membership");

@@ -1,6 +1,7 @@
 package org.qifu.fm.logic.impl;
 
-import java.util.Date;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +20,7 @@ import org.qifu.fm.dto.command.FmTenantCommand;
 import org.qifu.fm.dto.command.FmResetPasswordCommand;
 import org.qifu.fm.dto.view.FmTenantAccountView;
 import org.qifu.fm.dto.view.FmTenantView;
+import org.qifu.fm.domain.tenant.FmAccountTokenRevoker;
 import org.qifu.fm.entity.FmTenant;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.logic.IFmTenantLogicService;
@@ -26,6 +28,7 @@ import org.qifu.fm.service.IFmTenantAccountService;
 import org.qifu.fm.service.IFmTenantService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -36,20 +39,23 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 	private final IAccountService<TbAccount, String> accountService;
 	private final IUserRoleService<TbUserRole, String> userRoleService;
 	private final PasswordEncoder passwordEncoder;
+	private final FmAccountTokenRevoker tokenRevoker;
 
 	public FmTenantLogicServiceImpl(IFmTenantService tenantService, IFmTenantAccountService tenantAccountService,
 			IAccountService<TbAccount, String> accountService, IUserRoleService<TbUserRole, String> userRoleService,
-			PasswordEncoder passwordEncoder) {
+			PasswordEncoder passwordEncoder, FmAccountTokenRevoker tokenRevoker) {
 		this.tenantService = tenantService;
 		this.tenantAccountService = tenantAccountService;
 		this.accountService = accountService;
 		this.userRoleService = userRoleService;
 		this.passwordEncoder = passwordEncoder;
+		this.tokenRevoker = tokenRevoker;
 	}
 
 	@Override
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmTenantView> create(FmTenantCommand command) throws ServiceException {
+		validateTimezone(command.defaultTimezone());
 		FmTenant tenant = toNewEntity(command);
 		DefaultResult<FmTenant> result = tenantService.insert(tenant);
 		return load(result.getValueEmptyThrowMessage().getOid(), BaseSystemMessage.insertSuccess());
@@ -72,6 +78,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 	@Override
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmTenantView> update(FmTenantCommand command) throws ServiceException {
+		validateTimezone(command.defaultTimezone());
 		FmTenant tenant = requiredTenant(command.oid());
 		tenant.setTenantName(command.tenantName());
 		tenant.setDefaultLocale(defaultValue(command.defaultLocale(), "zh-TW"));
@@ -92,7 +99,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 	}
 
 	@Override
-	@Transactional(readOnly = false, rollbackFor = Exception.class)
+	@Transactional(readOnly = false, rollbackFor = Exception.class, isolation = Isolation.SERIALIZABLE)
 	public DefaultResult<FmTenantView> addAccount(FmTenantAccountCommand command) throws ServiceException {
 		FmTenant tenant = requiredTenant(command.tenantOid());
 		validateAccountCommand(command);
@@ -116,14 +123,18 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		link.setStatus(defaultValue(command.status(), "ACTIVE"));
 		link.setEffectiveFrom(command.effectiveFrom());
 		link.setEffectiveTo(command.effectiveTo());
+		if (YesNoKeyProvide.YES.equals(link.getIsDefault())) {
+			clearOtherDefaultTenants(link.getAccount(), null);
+		}
 		tenantAccountService.insert(link);
 		return load(tenant.getOid(), BaseSystemMessage.insertSuccess());
 	}
 
 	@Override
-	@Transactional(readOnly = false, rollbackFor = Exception.class)
+	@Transactional(readOnly = false, rollbackFor = Exception.class, isolation = Isolation.SERIALIZABLE)
 	public DefaultResult<FmTenantView> updateAccount(FmTenantAccountCommand command) throws ServiceException {
 		FmTenant tenant = requiredTenant(command.tenantOid());
+		validateAccountCommand(command);
 		FmTenantAccount link = tenantAccountService.selectByPrimaryKey(command.oid()).getValueEmptyThrowMessage();
 		if (!tenant.getTenantId().equals(link.getTenantId())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
@@ -132,6 +143,9 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		link.setStatus(defaultValue(command.status(), "ACTIVE"));
 		link.setEffectiveFrom(command.effectiveFrom());
 		link.setEffectiveTo(command.effectiveTo());
+		if (YesNoKeyProvide.YES.equals(link.getIsDefault())) {
+			clearOtherDefaultTenants(link.getAccount(), link.getOid());
+		}
 		tenantAccountService.update(link);
 		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
@@ -155,6 +169,7 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		TbAccount account = accountService.selectByUniqueKey(accountKey).getValueEmptyThrowMessage();
 		account.setPassword(passwordEncoder.encode(command.password()));
 		accountService.update(account);
+		tokenRevoker.revokeAll(account.getAccount());
 		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
 	@Override
@@ -181,18 +196,6 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		account.setOnJob(YesNoKeyProvide.NO);
 		accountService.update(account);
 
-		Date disabledAt = new Date();
-		Map<String, Object> activeLinkParams = new HashMap<>();
-		activeLinkParams.put("account", accountId);
-		activeLinkParams.put("status", "ACTIVE");
-		for (FmTenantAccount link : tenantAccountService
-				.selectListByParams(activeLinkParams, "TENANT_ID", "ASC").getValue()) {
-			link.setStatus("INACTIVE");
-			if (link.getEffectiveTo() == null || link.getEffectiveTo().after(disabledAt)) {
-				link.setEffectiveTo(disabledAt);
-			}
-			tenantAccountService.update(link);
-		}
 		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
 	@Override
@@ -212,15 +215,6 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		account.setOnJob(YesNoKeyProvide.YES);
 		accountService.update(account);
 
-		Map<String, Object> inactiveLinkParams = new HashMap<>();
-		inactiveLinkParams.put("account", accountId);
-		inactiveLinkParams.put("status", "INACTIVE");
-		for (FmTenantAccount link : tenantAccountService
-				.selectListByParams(inactiveLinkParams, "TENANT_ID", "ASC").getValue()) {
-			link.setStatus("ACTIVE");
-			link.setEffectiveTo(null);
-			tenantAccountService.update(link);
-		}
 		return load(tenant.getOid(), BaseSystemMessage.updateSuccess());
 	}
 	private FmTenant requiredTenant(String oid) throws ServiceException {
@@ -228,6 +222,18 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 			throw new ServiceException(BaseSystemMessage.parameterBlank());
 		}
 		return tenantService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+	}
+
+	private void clearOtherDefaultTenants(String accountId, String selectedOid) throws ServiceException {
+		Map<String, Object> parameters = new HashMap<>();
+		parameters.put("account", accountId);
+		for (FmTenantAccount existing : tenantAccountService.selectListByParams(parameters).getValue()) {
+			if (YesNoKeyProvide.YES.equals(existing.getIsDefault())
+					&& !StringUtils.equals(existing.getOid(), selectedOid)) {
+				existing.setIsDefault(YesNoKeyProvide.NO);
+				tenantAccountService.update(existing);
+			}
+		}
 	}
 
 	private FmTenant toNewEntity(FmTenantCommand command) {
@@ -240,6 +246,14 @@ public class FmTenantLogicServiceImpl implements IFmTenantLogicService {
 		tenant.setStatus(defaultValue(command.status(), "ACTIVE"));
 		tenant.setDescription(command.description());
 		return tenant;
+	}
+
+	private void validateTimezone(String timezone) throws ServiceException {
+		try {
+			ZoneId.of(defaultValue(timezone, "Asia/Taipei"));
+		} catch (DateTimeException e) {
+			throw new ServiceException("Tenant 時區無效：" + timezone);
+		}
 	}
 
 	private void validateAccountCommand(FmTenantAccountCommand command) throws ServiceException {

@@ -16,18 +16,21 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.core.model.User;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.entity.FmTenantAccount;
+import org.qifu.fm.entity.FmTenant;
 import org.qifu.fm.service.IFmTenantAccountService;
+import org.qifu.fm.service.IFmTenantService;
 
 class FmTenantAccessGuardTest {
 
     @Test
-    void adminMayAccessAnyTenant() {
+    void adminMayAccessAnyTenant() throws Exception {
         FmTenantAccessGuard guard = new FmTenantAccessGuard(
-                mock(IFmTenantAccountService.class));
+                mock(IFmTenantAccountService.class), activeTenants("T-ANY"));
         try (MockedStatic<UserUtils> users = mockStatic(UserUtils.class)) {
             users.when(UserUtils::isAdmin).thenReturn(true);
             assertDoesNotThrow(() -> guard.requireAccess("T-ANY"));
-            assertDoesNotThrow(() -> guard.requireQueryAccess(null));
+            assertDoesNotThrow(() -> guard.requireQueryAccess("T-ANY"));
+            assertThrows(ServiceException.class, () -> guard.requireQueryAccess(null));
         }
     }
 
@@ -45,11 +48,34 @@ class FmTenantAccessGuardTest {
         try (MockedStatic<UserUtils> users = mockStatic(UserUtils.class)) {
             users.when(UserUtils::isAdmin).thenReturn(false);
             users.when(UserUtils::getCurrentUser).thenReturn(user);
-            FmTenantAccessGuard guard = new FmTenantAccessGuard(service);
+            FmTenantAccessGuard guard = new FmTenantAccessGuard(service, activeTenants("T-ALLOWED"));
 
             assertDoesNotThrow(() -> guard.requireAccess("T-ALLOWED"));
             assertThrows(ServiceException.class, () -> guard.requireAccess("T-DENIED"));
             assertThrows(ServiceException.class, () -> guard.requireQueryAccess(null));
         }
+    }
+
+    @Test
+    void disabledTenantIsRejectedEvenForAdmin() throws Exception {
+        IFmTenantService tenants = activeTenants("T-ACTIVE");
+        FmTenantAccessGuard guard = new FmTenantAccessGuard(
+                mock(IFmTenantAccountService.class), tenants);
+        try (MockedStatic<UserUtils> users = mockStatic(UserUtils.class)) {
+            users.when(UserUtils::isAdmin).thenReturn(true);
+            assertThrows(ServiceException.class, () -> guard.requireAccess("T-DISABLED"));
+            assertThrows(ServiceException.class, () -> guard.requireQueryAccess("T-DISABLED"));
+        }
+    }
+
+    private IFmTenantService activeTenants(String tenantId) throws Exception {
+        IFmTenantService service = mock(IFmTenantService.class);
+        FmTenant tenant = new FmTenant();
+        tenant.setTenantId(tenantId);
+        tenant.setStatus("ACTIVE");
+        DefaultResult<List<FmTenant>> result = new DefaultResult<>();
+        result.setValue(List.of(tenant));
+        when(service.<FmTenant>selectListByParams(anyMap())).thenReturn(result);
+        return service;
     }
 }

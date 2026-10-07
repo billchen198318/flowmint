@@ -3,7 +3,7 @@ import { ref } from 'vue';
 import { useBaseStore } from '../store/baseStore';
 import { toast } from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
-import { setRefreshAndAccessTokenCookie, userLogoutClearCookie } from '../components/BaseHelper';
+import { isValidAuthResponse, setRefreshAndAccessTokenCookie, userLogoutClearCookie } from '../components/BaseHelper';
 import { useSwalLoading } from '@/composables/useSwalLoading';
 
 definePageMeta({ layout: 'blank' });
@@ -36,13 +36,14 @@ const loginBtnClick = async () => {
       }
     });
 
-    if (responseJson) {
+    if (isValidAuthResponse(responseJson)) {
       baseStore.setUserData(responseJson);
       setRefreshAndAccessTokenCookie(responseJson.refreshToken, responseJson.accessToken);
       navigateTo('/workspace');
     } else {
       baseStore.clearUserData();
       userLogoutClearCookie();
+      message.value = '登入失敗，請確認帳號與密碼';
     }
   } catch (error: any) {
     userLogoutClearCookie();

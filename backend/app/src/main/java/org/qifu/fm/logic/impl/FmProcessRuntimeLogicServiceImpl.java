@@ -567,6 +567,12 @@ public class FmProcessRuntimeLogicServiceImpl
 
     private void validateTenantMembership(String tenantId, String account)
             throws ServiceException {
+        Map<String, Object> tenantParameters = activeParameters(tenantId);
+        if (tenantService.selectListByParams(tenantParameters).getValue().stream()
+                .noneMatch(tenant -> tenantId.equals(tenant.getTenantId())
+                        && "ACTIVE".equals(tenant.getStatus()))) {
+            throw new ServiceException("Tenant 不存在或已停用");
+        }
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("account", account);
         List<FmTenantAccount> memberships = tenantAccountService

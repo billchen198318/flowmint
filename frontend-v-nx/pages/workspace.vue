@@ -22,6 +22,7 @@ const unreadNotificationCount = ref(0);
 const myRequests = ref<any[]>([]);
 const processCount = ref(0);
 const loading = ref(false);
+let workspaceRequestId = 0;
 
 const runningRequests = computed(() => myRequests.value.filter((item) => item.instanceStatus === "RUNNING"));
 const completedRequests = computed(() => myRequests.value.filter((item) => item.instanceStatus === "COMPLETED"));
@@ -44,15 +45,27 @@ const loadTenants = async () => {
   tenantId.value = preferred?.tenantId || tenants.value[0]?.tenantId || "";
 };
 const loadWorkspace = async () => {
-  if (!tenantId.value) return;
+  const selectedTenantId = tenantId.value;
+  const requestId = ++workspaceRequestId;
+  inbox.value = [];
+  myRequests.value = [];
+  notifications.value = [];
+  unreadNotificationCount.value = 0;
+  processCount.value = 0;
+  if (!selectedTenantId) {
+    loading.value = false;
+    return;
+  }
   loading.value = true;
   try {
+    const headers = { "X-FlowMint-Tenant": selectedTenantId };
     const [inboxResponse, requestResponse, notificationResponse, catalogResponse]: any[] = await Promise.all([
-      runtimePost("/tasks/inbox", {}, tenantHeaders()),
-      runtimePost("/mine", {}, tenantHeaders()),
+      runtimePost("/tasks/inbox", {}, headers),
+      runtimePost("/mine", {}, headers),
       notificationPost("/inbox"),
-      runtimePost("/start/catalog", { applicantAccount: baseStore.userId }, tenantHeaders()),
+      runtimePost("/start/catalog", { applicantAccount: baseStore.userId }, headers),
     ]);
+    if (requestId !== workspaceRequestId || tenantId.value !== selectedTenantId) return;
     if (ok(inboxResponse)) inbox.value = inboxResponse.value || [];
     if (ok(requestResponse)) myRequests.value = requestResponse.value || [];
     if (ok(notificationResponse)) {
@@ -61,7 +74,7 @@ const loadWorkspace = async () => {
     }
     processCount.value = ok(catalogResponse) ? (catalogResponse.value || []).length : 0;
   } finally {
-    loading.value = false;
+    if (requestId === workspaceRequestId) loading.value = false;
   }
 };
 const markNotificationRead = async (notification: any) => {

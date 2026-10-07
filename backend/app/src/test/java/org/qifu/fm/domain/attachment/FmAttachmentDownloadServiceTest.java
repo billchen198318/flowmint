@@ -17,6 +17,7 @@ class FmAttachmentDownloadServiceTest {
     private final FmAttachmentDownloadService service =
             new FmAttachmentDownloadService(
                     mock(NamedParameterJdbcTemplate.class),
+                    mock(org.qifu.fm.domain.tenant.FmTenantStatusGuard.class),
                     mock(FmAttachmentStorageService.class),
                     mock(TaskService.class),
                     new ObjectMapper(),

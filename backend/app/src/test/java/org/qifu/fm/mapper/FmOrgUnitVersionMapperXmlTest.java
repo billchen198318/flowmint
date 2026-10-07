@@ -1,8 +1,12 @@
 package org.qifu.fm.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.io.Reader;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.io.Resources;
@@ -19,6 +23,25 @@ class FmOrgUnitVersionMapperXmlTest {
 				"org.qifu.fm.mapper.FmOrgUnitVersionMapper.selectEffective"));
 		assertTrue(configuration.hasStatement(
 				"org.qifu.fm.mapper.FmOrgUnitVersionMapper.selectEffectiveTree"));
+	}
+
+	@Test
+	void currentTreeAppliesEffectivePeriodWhenRequested() throws Exception {
+		Configuration configuration = new Configuration();
+		parse(configuration, "org/qifu/core/mapper/DB1Config.xml");
+		parse(configuration, "org/qifu/fm/mapper/FmOrgUnitVersionMapper.xml");
+		Map<String, Object> params = new HashMap<>();
+		params.put("tenantId", "T-1");
+		String unfiltered = configuration.getMappedStatement(
+				"org.qifu.fm.mapper.FmOrgUnitVersionMapper.selectCurrentTree")
+				.getBoundSql(params).getSql();
+		assertFalse(unfiltered.contains("v.EFFECTIVE_FROM <="));
+		params.put("effectiveAt", new Date());
+		String filtered = configuration.getMappedStatement(
+				"org.qifu.fm.mapper.FmOrgUnitVersionMapper.selectCurrentTree")
+				.getBoundSql(params).getSql();
+		assertTrue(filtered.contains("v.EFFECTIVE_FROM <="));
+		assertTrue(filtered.contains("v.EFFECTIVE_TO >"));
 	}
 
 	private void parse(Configuration configuration, String resource) throws Exception {

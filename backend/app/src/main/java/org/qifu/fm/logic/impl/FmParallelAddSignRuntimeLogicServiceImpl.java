@@ -20,6 +20,7 @@ import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmParallelAddSignDetailView;
 import org.qifu.fm.dto.view.FmParallelAddSignMemberView;
 import org.qifu.fm.dto.view.FmTaskActionResultView;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmTaskParallelAddSign;
 import org.qifu.fm.entity.FmTaskPolicy;
@@ -42,6 +43,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
     private final TaskService taskService;
     private final IFmEmployeeService employeeService;
     private final IFmTenantAccountService tenantAccountService;
+    private final FmTenantStatusGuard tenantStatusGuard;
     private final IFmTaskPolicyService taskPolicyService;
     private final IFmTaskParallelAddSignService batchService;
     private final IFmTaskParallelAddSignMemberService memberService;
@@ -53,6 +55,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
             TaskService taskService,
             IFmEmployeeService employeeService,
             IFmTenantAccountService tenantAccountService,
+            FmTenantStatusGuard tenantStatusGuard,
             IFmTaskPolicyService taskPolicyService,
             IFmTaskParallelAddSignService batchService,
             IFmTaskParallelAddSignMemberService memberService,
@@ -62,6 +65,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
         this.taskService = taskService;
         this.employeeService = employeeService;
         this.tenantAccountService = tenantAccountService;
+        this.tenantStatusGuard = tenantStatusGuard;
         this.taskPolicyService = taskPolicyService;
         this.batchService = batchService;
         this.memberService = memberService;
@@ -106,6 +110,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
     public DefaultResult<FmParallelAddSignDetailView> start(
             String tenantId, FmParallelAddSignStartRequest request)
             throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         return success(detailView(tenantId, startService.start(tenantId, request)));
     }
 
@@ -114,6 +119,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
     public DefaultResult<FmTaskActionResultView> complete(
             String tenantId, FmParallelAddSignCompleteRequest request)
             throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         return success(completeService.complete(tenantId, request));
     }
 
@@ -122,6 +128,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
     public DefaultResult<FmTaskActionResultView> cancel(
             String tenantId, FmParallelAddSignCancelRequest request)
             throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         return success(cancelService.cancel(tenantId, request));
     }
 
@@ -156,6 +163,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
     @Override
     public DefaultResult<List<FmParallelAddSignDetailView>> processDetails(
             String tenantId, String processInstanceId) throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         if (StringUtils.isAnyBlank(tenantId, processInstanceId)) {
             throw new ServiceException("Tenant 與流程實例不可為空");
         }
@@ -192,6 +200,7 @@ public class FmParallelAddSignRuntimeLogicServiceImpl
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
+        tenantStatusGuard.requireActive(tenantId);
         String actor = UserUtils.getCurrentUser().getUsername();
         if (!activeMembership(tenantId, actor, new Date())) {
             throw new ServiceException("登入帳號不具有效 Tenant membership");

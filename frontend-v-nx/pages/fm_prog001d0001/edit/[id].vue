@@ -39,6 +39,7 @@ const accountForm = ref<any>({
   effectiveFrom: "",
   effectiveTo: null,
 });
+const editingAccountOid = ref("");
 
 const resetPasswordForm = ref({
   account: "",
@@ -53,6 +54,7 @@ const applyTenant = (value: any) => {
 };
 
 const resetAccountForm = () => {
+  editingAccountOid.value = "";
   accountForm.value = {
     tenantOid: form.value.oid,
     account: "",
@@ -63,6 +65,30 @@ const resetAccountForm = () => {
     status: "ACTIVE",
     effectiveFrom: "",
     effectiveTo: null,
+  };
+};
+
+const toDateTimeLocal = (value: string | null): string => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString().slice(0, 16);
+};
+
+const editAccount = (item: any) => {
+  editingAccountOid.value = item.oid;
+  accountForm.value = {
+    oid: item.oid,
+    tenantOid: form.value.oid,
+    account: item.account,
+    createNewAccount: false,
+    password: "",
+    confirmPassword: "",
+    isDefault: item.isDefault,
+    status: item.status,
+    effectiveFrom: toDateTimeLocal(item.effectiveFrom),
+    effectiveTo: toDateTimeLocal(item.effectiveTo),
   };
 };
 
@@ -133,6 +159,11 @@ const validateAccount = (): boolean => {
     toast.warning("請輸入生效時間。");
     return false;
   }
+  if (accountForm.value.effectiveTo &&
+      new Date(accountForm.value.effectiveTo) <= new Date(accountForm.value.effectiveFrom)) {
+    toast.warning("失效時間必須晚於生效時間。");
+    return false;
+  }
   if (accountForm.value.createNewAccount && !accountForm.value.password) {
     toast.warning("建立新帳號時，初始密碼為必填。");
     return false;
@@ -147,7 +178,7 @@ const validateAccount = (): boolean => {
   return true;
 };
 
-const btnAddAccount = async () => {
+const btnSaveAccount = async () => {
   if (!validateAccount()) {
     return;
   }
@@ -165,7 +196,7 @@ const btnAddAccount = async () => {
     const response = await getAxiosInstance().post(
       import.meta.env.VITE_API_URL +
         PageConstants.eventNamespace +
-        "/account/save",
+        (editingAccountOid.value ? "/account/update" : "/account/save"),
       payload,
     );
 
@@ -182,7 +213,7 @@ const btnAddAccount = async () => {
     resetAccountForm();
     toast.success(response.data.message);
   } catch (error: any) {
-    toast.error(error?.message || "加入 Tenant Account 失敗。");
+    toast.error(error?.message || "儲存 Tenant Account 失敗。");
   } finally {
     hideLoading();
   }
@@ -293,7 +324,7 @@ const doActivateAccount = async (account: string) => {
 
 const btnActivateAccount = (account: string) => {
   confirmFire(
-    `確定全域啟用帳號 ${account}？此帳號的所有 Tenant 權限都會恢復為有效。`,
+    `確定全域啟用帳號 ${account}？各 Tenant 原有的 membership 狀態與有效期間會保留。`,
     doActivateAccount,
     account,
   );
@@ -384,10 +415,11 @@ onMounted(loadData);
             id="account"
             v-model="accountForm.account"
             class="form-control"
+            :readonly="!!editingAccountOid"
             placeholder="請輸入帳號"
           />
         </div>
-        <div class="col-md-2 d-flex align-items-end pb-2">
+        <div v-if="!editingAccountOid" class="col-md-2 d-flex align-items-end pb-2">
           <div class="form-check">
             <input
               id="createNewAccount"
@@ -429,6 +461,15 @@ onMounted(loadData);
             class="form-control"
           />
         </div>
+        <div class="col-md-3">
+          <label for="effectiveTo" class="form-label">失效時間（可留空）</label>
+          <input
+            id="effectiveTo"
+            v-model="accountForm.effectiveTo"
+            type="datetime-local"
+            class="form-control"
+          />
+        </div>
         <div class="col-md-2">
           <label for="isDefault" class="form-label">Tenant 類型</label>
           <select
@@ -441,9 +482,11 @@ onMounted(loadData);
           </select>
         </div>
         <div class="col-md-2 d-flex align-items-end">
-          <button type="button" class="btn btn-primary" @click="btnAddAccount">
-            <i class="bi bi-person-plus"></i> 加入帳號
+          <button type="button" class="btn btn-primary" @click="btnSaveAccount">
+            <i :class="editingAccountOid ? 'bi bi-save' : 'bi bi-person-plus'"></i>
+            {{ editingAccountOid ? "儲存 membership" : "加入帳號" }}
           </button>
+          <button v-if="editingAccountOid" type="button" class="btn btn-outline-secondary ms-1" @click="resetAccountForm">取消編輯</button>
         </div>
       </div>
 
@@ -467,6 +510,7 @@ onMounted(loadData);
               <td>{{ item.effectiveFrom }}</td>
               <td>{{ item.effectiveTo || "-" }}</td>
               <td>
+                <button type="button" class="btn btn-sm btn-outline-primary me-1" @click="editAccount(item)">編輯</button>
                 <button
                   type="button"
                   class="btn btn-sm btn-outline-warning"
@@ -475,7 +519,6 @@ onMounted(loadData);
                   <i class="bi bi-key"></i> 重設密碼
                 </button>
                 <button
-                  v-if="item.status === 'ACTIVE'"
                   type="button"
                   class="btn btn-sm btn-outline-danger ms-1"
                   @click="btnDeactivateAccount(item.account)"
@@ -483,7 +526,6 @@ onMounted(loadData);
                   <i class="bi bi-person-x"></i> 全域停用
                 </button>
                 <button
-                  v-if="item.status === 'INACTIVE'"
                   type="button"
                   class="btn btn-sm btn-outline-success ms-1"
                   @click="btnActivateAccount(item.account)"
