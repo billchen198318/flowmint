@@ -31,7 +31,10 @@ import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmProcessVersionService;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -48,6 +51,7 @@ public class FmExternalRequestSubmitService {
 	private final IFmEmployeeService employeeService;
 	private final IFmEmployeeOrgAssignmentService assignmentService;
 	private final ObjectMapper canonicalMapper;
+	private final TransactionTemplate transactionTemplate;
 
 	public FmExternalRequestSubmitService(IFmApiRequestService apiRequestService,
 			IFmProcessRuntimeLogicService runtimeLogicService,
@@ -55,6 +59,7 @@ public class FmExternalRequestSubmitService {
 			IFmFormVersionService formVersionService,
 			IFmEmployeeService employeeService,
 			IFmEmployeeOrgAssignmentService assignmentService,
+			@Qualifier("transactionManager") PlatformTransactionManager transactionManager,
 			ObjectMapper objectMapper) {
 		this.apiRequestService = apiRequestService;
 		this.runtimeLogicService = runtimeLogicService;
@@ -64,6 +69,7 @@ public class FmExternalRequestSubmitService {
 		this.assignmentService = assignmentService;
 		this.canonicalMapper = objectMapper.rebuild()
 				.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS).build();
+		this.transactionTemplate = new TransactionTemplate(transactionManager);
 	}
 
 	public FmExternalRequestSubmitView submit(OffsetDateTime requestTime,
@@ -99,8 +105,28 @@ public class FmExternalRequestSubmitService {
 		FmApiRequest ledger = reservation(principal, request, processVersion, formVersion,
 				idempotencyHash, payloadHash);
 		try {
-			apiRequestService.insert(ledger);
-		} catch (DataIntegrityViolationException exception) {
+			return transactionTemplate.execute(status -> {
+				try {
+					try {
+						apiRequestService.insert(ledger);
+					} catch (DataIntegrityViolationException exception) {
+						throw new ReservationConflict(exception);
+					}
+					FmProcessSubmitView result = runtimeLogicService.submitAs(
+							new FmProcessSubmitCommand(principal.tenantId(), request.processDefId(),
+									request.formId(), formVersion.getVersionNo(),
+									"external:" + ledger.getApiRequestId(),
+									request.applicantAccount(), submission, null,
+									processVersion.getVersionNo()),
+								request.initiatorAccount()).getValue();
+					complete(ledger, result, processVersion.getVersionNo(),
+							formVersion.getVersionNo());
+					return view(ledger, false);
+				} catch (ServiceException exception) {
+					throw new SubmitFailure(exception);
+				}
+			});
+		} catch (ReservationConflict exception) {
 			FmApiRequest raced = apiRequestService.findByIdempotency(principal.tenantId(),
 					principal.clientId(), idempotencyHash);
 			if (raced != null) {
@@ -108,20 +134,8 @@ public class FmExternalRequestSubmitService {
 			}
 			throw new FmExternalApiConflictException("EXTERNAL_REFERENCE_CONFLICT",
 					"The external reference has already been used.");
-		}
-		try {
-			FmProcessSubmitView result = runtimeLogicService.submitAs(
-					new FmProcessSubmitCommand(principal.tenantId(), request.processDefId(),
-							request.formId(), formVersion.getVersionNo(),
-							"external:" + ledger.getApiRequestId(),
-							request.applicantAccount(), submission, null),
-					request.initiatorAccount()).getValue();
-			complete(ledger, result, processVersion.getVersionNo(),
-					formVersion.getVersionNo());
-			return view(ledger, false);
-		} catch (ServiceException exception) {
-			fail(ledger, "RUNTIME_SUBMIT_FAILED");
-			throw exception;
+		} catch (SubmitFailure exception) {
+			throw exception.failure;
 		}
 	}
 
@@ -274,17 +288,18 @@ public class FmExternalRequestSubmitService {
 		}
 	}
 
-	private void fail(FmApiRequest ledger, String code) {
-		try {
-			ledger.setRequestStatus("FAILED");
-			ledger.setResultCode(code);
-			ledger.setSafeErrorMessage("The request could not be submitted.");
-			ledger.setCompletedAt(new Date());
-			ledger.setUuserid(ledger.getCuserid());
-			ledger.setUdate(ledger.getCompletedAt());
-			apiRequestService.updateResult(ledger);
-		} catch (Exception ignored) {
-			// Preserve the original controlled runtime error.
+	private static final class SubmitFailure extends RuntimeException {
+		private final ServiceException failure;
+
+		private SubmitFailure(ServiceException failure) {
+			super(failure);
+			this.failure = failure;
+		}
+	}
+
+	private static final class ReservationConflict extends RuntimeException {
+		private ReservationConflict(DataIntegrityViolationException cause) {
+			super(cause);
 		}
 	}
 

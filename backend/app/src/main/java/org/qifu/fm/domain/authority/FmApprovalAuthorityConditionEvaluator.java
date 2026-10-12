@@ -58,7 +58,9 @@ public class FmApprovalAuthorityConditionEvaluator {
             JsonNode expected = condition.path("value");
             if (StringUtils.isBlank(field) || !OPERATORS.contains(operator)
                     || expected.isMissingNode()
-                    || (List.of("IN", "NOT_IN").contains(operator) && !expected.isArray())) {
+                    || (List.of("IN", "NOT_IN").contains(operator) && !expected.isArray())
+                    || (List.of("GT", "GTE", "LT", "LTE").contains(operator)
+                            && !expected.isNumber())) {
                 throw new ServiceException("核決權限條件項目不正確");
             }
         }
@@ -104,7 +106,11 @@ public class FmApprovalAuthorityConditionEvaluator {
         }
         if (actual instanceof Number) {
             try {
-                return new BigDecimal(actual.toString()).compareTo(expected.decimalValue()) == 0;
+                if (!expected.isNumber() && !expected.isString()) {
+                    return false;
+                }
+                return new BigDecimal(actual.toString())
+                        .compareTo(new BigDecimal(expected.asString())) == 0;
             } catch (RuntimeException exception) {
                 return false;
             }

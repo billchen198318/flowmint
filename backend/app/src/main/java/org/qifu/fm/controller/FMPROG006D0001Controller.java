@@ -14,6 +14,7 @@ import org.qifu.base.model.QueryResult;
 import org.qifu.base.model.SearchBody;
 import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmDataSourcePoolCommand;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.view.FmDataSourcePoolView;
 import org.qifu.fm.dto.view.FmDataSourceTestView;
 import org.qifu.fm.dto.view.FmOptionView;
@@ -35,11 +36,14 @@ public class FMPROG006D0001Controller extends CoreApiSupport {
 	private static final long serialVersionUID = 1L;
 	private final transient IFmDataSourcePoolService poolService;
 	private final transient IFmDataSourcePoolLogicService poolLogicService;
+	private final transient FmTenantAccessGuard tenantAccessGuard;
 
 	public FMPROG006D0001Controller(IFmDataSourcePoolService poolService,
-			IFmDataSourcePoolLogicService poolLogicService) {
+			IFmDataSourcePoolLogicService poolLogicService,
+			FmTenantAccessGuard tenantAccessGuard) {
 		this.poolService = poolService;
 		this.poolLogicService = poolLogicService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG006D0001Q", check = true)
@@ -48,6 +52,8 @@ public class FMPROG006D0001Controller extends CoreApiSupport {
 			@RequestBody SearchBody body) {
 		QueryResult<List<FmDataSourcePoolView>> result = initResult();
 		try {
+			tenantAccessGuard.requireQueryAccess(
+					body.getField() == null ? null : body.getField().get("tenantId"));
 			QueryResult<List<FmDataSourcePool>> query = poolService.findPage(
 					queryParameter(body).fullEquals("tenantId").value(),
 					body.getPageOf().orderBy("POOL_CODE").sortTypeAsc());

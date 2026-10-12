@@ -44,6 +44,136 @@ class FmFormDesignValidatorTest {
     }
 
     @Test
+    void runtimePublishingRejectsUnsupportedCustomValidation() throws Exception {
+        var custom = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"textfield","key":"name",
+                  "validate":{"custom":"valid = input === 'ok'"}}]}
+                """);
+        var jsonLogic = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"panel","key":"group",
+                  "input":false,"components":[{"type":"textfield","key":"name",
+                  "validate":{"json":{"==":[{"var":"data.name"},"ok"]}}}]}]}
+                """);
+        var empty = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"textfield","key":"name",
+                  "validate":{"custom":"","json":""}}]}
+                """);
+
+        assertThrows(ServiceException.class, () -> validator.validateRuntimeSchema(custom));
+        assertThrows(ServiceException.class, () -> validator.validateRuntimeSchema(jsonLogic));
+        assertDoesNotThrow(() -> validator.validateRuntimeSchema(empty));
+    }
+
+    @Test
+    void runtimePublishingRejectsInvalidAttachmentFileTypes() throws Exception {
+        var invalid = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"file","key":"receipt",
+                  "fileTypes":[{"label":"Executable","value":".exe"}]}]}
+                """);
+        var mixed = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"file","key":"receipt",
+                  "fileTypes":[{"label":"Mixed","value":".pdf,.exe"}]}]}
+                """);
+        var valid = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"file","key":"receipt",
+                  "fileTypes":[{"label":"Documents","value":".pdf,.docx"}]}]}
+                """);
+        assertThrows(ServiceException.class, () -> validator.validateRuntimeSchema(invalid));
+        assertThrows(ServiceException.class, () -> validator.validateRuntimeSchema(mixed));
+        assertDoesNotThrow(() -> validator.validateRuntimeSchema(valid));
+    }
+
+    @Test
+    void runtimePublishingRejectsAttachmentSizeAboveStorageLimit() throws Exception {
+        var tooLarge = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"file","key":"receipt",
+                  "fileMaxSize":"10MB"}]}
+                """);
+        var atLimit = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"file","key":"receipt",
+                  "fileMaxSize":"8MB"}]}
+                """);
+        assertThrows(ServiceException.class, () -> validator.validateRuntimeSchema(tooLarge));
+        assertDoesNotThrow(() -> validator.validateRuntimeSchema(atLimit));
+    }
+
+    @Test
+    void runtimePublishingRejectsMultipleFilesForSingleFileField() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"file","key":"receipt",
+                  "multiple":false,"maxNumberOfFiles":2}]}
+                """);
+        assertThrows(ServiceException.class, () -> validator.validateRuntimeSchema(schema));
+    }
+
+    @Test
+    void taskActionHookRejectsUnknownRequestSource() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"display":"form","components":[{"type":"container","key":"details",
+                  "components":[{"type":"textfield","key":"orderNo"}]}]}
+                """);
+        var valid = objectMapper.readTree("""
+                [{"hookId":"hook","requestMapping":{"number":"form.details.orderNo",
+                  "task":"context.taskId"}}]
+                """);
+        var wrongPrefix = objectMapper.readTree("""
+                [{"hookId":"hook","requestMapping":{"number":"from.details.orderNo"}}]
+                """);
+        var missingField = objectMapper.readTree("""
+                [{"hookId":"hook","requestMapping":{"number":"json:form.missing"}}]
+                """);
+        assertDoesNotThrow(() -> validator.validateTaskActionHookSources(schema, valid));
+        assertThrows(ServiceException.class,
+                () -> validator.validateTaskActionHookSources(schema, wrongPrefix));
+        assertThrows(ServiceException.class,
+                () -> validator.validateTaskActionHookSources(schema, missingField));
+    }
+
+    @Test
+    void rejectsContainerChildMappedAsTopLevelField() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"display":"form","components":[
+                  {"type":"container","key":"details","components":[
+                    {"type":"number","key":"amount"}]},
+                  {"type":"button","key":"lookup","action":"event","event":"lookup"}
+                ]}
+                """);
+        var wrongRequest = objectMapper.readTree("""
+                {"dataActions":[{"bindingId":"b1","event":"lookup","actionCode":"LOOKUP",
+                  "requestMapping":{"amount":"submission.amount"}}]}
+                """);
+        var wrongResponse = objectMapper.readTree("""
+                {"dataActions":[{"bindingId":"b1","event":"lookup","actionCode":"LOOKUP",
+                  "responseMapping":{"amount":"amount"}}]}
+                """);
+        var fullPath = objectMapper.readTree("""
+                {"dataActions":[{"bindingId":"b1","event":"lookup","actionCode":"LOOKUP",
+                  "requestMapping":{"amount":"submission.details.amount"},
+                  "responseMapping":{"amount":"details.amount"}}]}
+                """);
+
+        assertThrows(ServiceException.class, () -> validator.validate(schema, wrongRequest));
+        assertThrows(ServiceException.class, () -> validator.validate(schema, wrongResponse));
+        assertDoesNotThrow(() -> validator.validate(schema, fullPath));
+    }
+
+    @Test
+    void rejectsGridChildWithoutRowAddressing() throws Exception {
+        var schema = objectMapper.readTree("""
+                {"display":"form","components":[
+                  {"type":"datagrid","key":"lines","components":[
+                    {"type":"number","key":"amount"}]},
+                  {"type":"button","key":"lookup","action":"event","event":"lookup"}
+                ]}
+                """);
+        var uiSchema = objectMapper.readTree("""
+                {"dataActions":[{"bindingId":"b1","event":"lookup","actionCode":"LOOKUP",
+                  "requestMapping":{"amount":"submission.lines.amount"}}]}
+                """);
+        assertThrows(ServiceException.class, () -> validator.validate(schema, uiSchema));
+    }
+
+    @Test
     void rejectsDuplicateAndDangerousKeys() throws Exception {
         var duplicate = objectMapper.readTree("""
                 {"components":[

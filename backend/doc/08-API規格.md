@@ -116,6 +116,10 @@ POST   /api/fm/requests/mine/withdraw
 POST   /api/fm/requests/mine/cancel
 ```
 
+`/api/fm/requests/submit` 的 body 必須包含 `processVersionNo`，值取自
+`/api/fm/requests/start/load` 回傳的同名欄位。送出時若流程已發布新版，
+後端會拒絕該請求，使用者須重新載入起單頁並檢視新版流程。
+
 - `start/tenants` 依 Security Context 回傳登入者有效且啟用的 Tenant membership，不接受帳號參數。
 - `start/catalog` 以 `X-FlowMint-Tenant` header 與 body 的 `applicantAccount`，回傳同時通過 Tenant membership、在職、代起單、起單政策、已發布版本及表單綁定檢查的流程。
 - `start/catalog`、`start/load` 與 `submit` 必須以 `X-FlowMint-Tenant` header 指定 Tenant，body 不接受 `tenantId`。

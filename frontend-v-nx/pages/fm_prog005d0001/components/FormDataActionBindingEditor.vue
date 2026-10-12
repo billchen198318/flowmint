@@ -44,6 +44,7 @@ const loadingMetadata = ref(false);
 const editingIndex = ref<number | null>(null);
 const eventName = ref("");
 const actionCode = ref("");
+const bindingVersion = ref<number | null>(null);
 const requestMapping = ref<MappingRow[]>([]);
 const responseMapping = ref<MappingRow[]>([]);
 const statusTarget = ref("dataActionStatus");
@@ -76,18 +77,32 @@ const formFields = computed(() => {
   try {
     const schema = JSON.parse(props.schemaContent || "{}");
     const fields = new Set<string>();
-    const collect = (components: any[]) => {
+    const collect = (components: any[], parent = "") => {
       for (const component of components || []) {
-        if (component?.key && component?.input !== false && component?.type !== "button") fields.add(component.key);
-        collect(component?.components || []);
-        for (const column of component?.columns || []) collect(column?.components || []);
-        for (const row of component?.rows || []) for (const cell of row || []) collect(cell?.components || []);
+        const type = component?.type;
+        if (["datagrid", "editgrid"].includes(type)) continue;
+        const key = component?.key || "";
+        const path = parent && key ? `${parent}.${key}` : key;
+        if (key && component?.input !== false
+          && !["button", "container", "columns", "fieldset", "panel", "table", "tabs", "well"].includes(type)) {
+          fields.add(path);
+        }
+        const childParent = type === "container" ? path : parent;
+        collect(component?.components || [], childParent);
+        for (const column of component?.columns || []) collect(column?.components || [], childParent);
+        for (const row of component?.rows || []) for (const cell of row || []) collect(cell?.components || [], childParent);
       }
     };
     collect(schema.components || []);
     return [...fields].sort();
   } catch { return []; }
 });
+
+const matchingFormField = (name: string) => {
+  if (formFields.value.includes(name)) return name;
+  const nested = formFields.value.filter((field) => field.endsWith(`.${name}`));
+  return nested.length === 1 ? nested[0] : "";
+};
 
 const responseFields = computed(() => {
   if (metadata.value?.responseFields?.length) return metadata.value.responseFields;
@@ -163,12 +178,12 @@ const loadMetadata = async (resetMappings = false) => {
     metadata.value = response.data.value as DataActionMetadata;
     if (resetMappings) {
       requestMapping.value = (metadata.value.requestFields || []).map((field) => ({
-        source: `submission.${field}`,
+        source: matchingFormField(field) ? `submission.${matchingFormField(field)}` : "",
         target: field,
       }));
       responseMapping.value = (metadata.value.responseKeys || []).map((key) => ({
         source: key,
-        target: key,
+        target: matchingFormField(key),
       }));
     }
   } catch (error: unknown) {
@@ -180,10 +195,23 @@ const loadMetadata = async (resetMappings = false) => {
   }
 };
 
+const selectAction = async () => {
+  bindingVersion.value = null;
+  await loadMetadata(true);
+};
+
+const upgradeVersion = () => {
+  if (metadata.value) {
+    bindingVersion.value = metadata.value.versionNo;
+    toast.info("已改用目前版本，請確認 Request 與 Response Mapping 後儲存");
+  }
+};
+
 const resetEditor = () => {
   editingIndex.value = null;
   eventName.value = buttonEvents.value[0] || "";
   actionCode.value = "";
+  bindingVersion.value = null;
   metadata.value = null;
   requestMapping.value = [];
   responseMapping.value = [];
@@ -206,6 +234,7 @@ const editBinding = async (index: number) => {
   editingIndex.value = index;
   eventName.value = binding.event;
   actionCode.value = binding.actionCode;
+  bindingVersion.value = binding.actionVersion || null;
   requestMapping.value = objectToRows(binding.requestMapping, true);
   responseMapping.value = objectToRows(binding.responseMapping);
   statusTarget.value = binding.statusTarget || "";
@@ -247,7 +276,7 @@ const saveBinding = () => {
           `binding-${Date.now()}`,
     event: eventName.value,
     actionCode: actionCode.value,
-    actionVersion: metadata.value.versionNo,
+    actionVersion: bindingVersion.value ?? metadata.value.versionNo,
     requestMapping: rowsToRequestMapping(),
     responseMapping: rowsToResponseMapping(),
     statusTarget: statusTarget.value.trim() || undefined,
@@ -333,7 +362,7 @@ watch(buttonEvents, (events) => {
               v-model="actionCode"
               class="form-select"
               :disabled="loadingOptions"
-              @change="loadMetadata(true)"
+              @change="selectAction"
             >
               <option value="">{{ loadingOptions ? "讀取中…" : "請選擇 Action" }}</option>
               <option v-for="option in actionOptions" :key="option.value" :value="option.value">
@@ -351,7 +380,16 @@ watch(buttonEvents, (events) => {
           <div class="metadata-strip mt-3">
             <span><strong>名稱：</strong>{{ metadata.actionName }}</span>
             <span><strong>類型：</strong>{{ metadata.actionType }}</span>
-            <span><strong>版本：</strong>v{{ metadata.versionNo }}</span>
+            <span><strong>綁定版本：</strong>v{{ bindingVersion ?? metadata.versionNo }}</span>
+            <span v-if="bindingVersion && bindingVersion !== metadata.versionNo">
+              <strong>目前版本：</strong>v{{ metadata.versionNo }}
+              <button type="button" class="btn btn-sm btn-outline-primary ms-2" @click="upgradeVersion">
+                升級綁定版本
+              </button>
+            </span>
+          </div>
+          <div v-if="bindingVersion && bindingVersion !== metadata.versionNo" class="form-text">
+            欄位建議來自目前版本；儲存仍保留原綁定版本，升級後請重新檢查 Mapping。
           </div>
 
           <div class="row g-3 mt-1">

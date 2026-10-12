@@ -9,6 +9,7 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
+import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
 import org.qifu.fm.entity.FmApiClient;
 import org.qifu.fm.entity.FmApiClientKey;
 import org.qifu.fm.service.IFmApiClientKeyService;
@@ -24,14 +25,17 @@ public class FmExternalApiAuthenticator {
 	private final IFmApiClientKeyService keyService;
 	private final IFmApiClientService clientService;
 	private final FmExternalApiKeyService apiKeyService;
+	private final FmTenantStatusGuard tenantStatusGuard;
 	private final ObjectMapper objectMapper;
 
 	public FmExternalApiAuthenticator(IFmApiClientKeyService keyService,
 			IFmApiClientService clientService, FmExternalApiKeyService apiKeyService,
+			FmTenantStatusGuard tenantStatusGuard,
 			ObjectMapper objectMapper) {
 		this.keyService = keyService;
 		this.clientService = clientService;
 		this.apiKeyService = apiKeyService;
+		this.tenantStatusGuard = tenantStatusGuard;
 		this.objectMapper = objectMapper;
 	}
 
@@ -50,6 +54,11 @@ public class FmExternalApiAuthenticator {
 			throw unauthorized();
 		}
 		FmApiClient client = loadClient(key);
+		try {
+			tenantStatusGuard.requireActive(client.getTenantId());
+		} catch (ServiceException exception) {
+			throw unauthorized();
+		}
 		Set<String> ipAllowlist = readSet(client.getIpAllowlist());
 		if (!FmIpAllowlistMatcher.allows(ipAllowlist, sourceIp)) {
 			throw new ServiceException("Source IP is not allowed for this API client.");

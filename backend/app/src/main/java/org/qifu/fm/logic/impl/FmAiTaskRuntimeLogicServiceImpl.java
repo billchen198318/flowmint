@@ -116,6 +116,7 @@ public class FmAiTaskRuntimeLogicServiceImpl implements IFmAiTaskRuntimeLogicSer
 		JsonNode context = contextBuilder.build(detail);
 		String hash = contentHashService.hash(tenantId, process.getProcessInstanceId(),
 				command.taskId(), formData.getRevisionNo(), context,
+				provider.getProviderCode(), provider.getProviderType(), provider.getModelId(),
 				provider.getConfigVersion(), PROMPT_VERSION);
 		if (!Boolean.TRUE.equals(command.forceRefresh())) {
 			FmAiAnalysis cached = analysisService.findLatestSucceeded(tenantId, hash);
@@ -127,10 +128,15 @@ public class FmAiTaskRuntimeLogicServiceImpl implements IFmAiTaskRuntimeLogicSer
 		}
 		FmAiAnalysis analysis = createValue(tenantId, detail, process, formData,
 				provider, actor, hash, Boolean.TRUE.equals(command.forceRefresh()));
-		startWithRetry(analysis);
-		record(tenantId, analysis.getAnalysisId(), command.taskId(), actor,
-				"START", "SUCCESS", null);
+		analysisService.start(analysis);
 		long startedAt = System.currentTimeMillis();
+		try {
+			record(tenantId, analysis.getAnalysisId(), command.taskId(), actor,
+					"START", "SUCCESS", null);
+		} catch (ServiceException exception) {
+			fail(analysis, startedAt);
+			throw exception;
+		}
 		try {
 			FmAiAnalysisResponse response = clientRegistry.required(provider.getProviderType())
 					.analyze(config(provider),
@@ -140,9 +146,9 @@ public class FmAiTaskRuntimeLogicServiceImpl implements IFmAiTaskRuntimeLogicSer
 			analysis.setInputTokens(response.inputTokens());
 			analysis.setOutputTokens(response.outputTokens());
 			analysis.setResultContent(objectMapper.writeValueAsString(response.result()));
-			analysisService.complete(analysis);
 			record(tenantId, analysis.getAnalysisId(), command.taskId(), actor,
 					"SUCCEEDED", "SUCCESS", null);
+			analysisService.complete(analysis);
 			return success(view(analysis, false));
 		} catch (Exception exception) {
 			fail(analysis, startedAt);
@@ -210,21 +216,6 @@ public class FmAiTaskRuntimeLogicServiceImpl implements IFmAiTaskRuntimeLogicSer
 		return value;
 	}
 
-	private void startWithRetry(FmAiAnalysis analysis) throws ServiceException {
-		for (int attempt = 0; attempt < 3; attempt++) {
-			analysis.setGenerationNo(analysisService.nextGenerationNo(
-					analysis.getTenantId(), analysis.getContentHash()));
-			try {
-				analysisService.start(analysis);
-				return;
-			} catch (RuntimeException exception) {
-				if (attempt == 2) {
-					throw new ServiceException("AI 分析同時執行，請稍後重試");
-				}
-			}
-		}
-	}
-
 	private FmAiProviderConfig config(FmAiProvider provider) throws ServiceException {
 		return new FmAiProviderConfig(provider.getProviderCode(), provider.getProviderType(),
 				provider.getBaseUrl(), provider.getModelId(),
@@ -256,11 +247,11 @@ public class FmAiTaskRuntimeLogicServiceImpl implements IFmAiTaskRuntimeLogicSer
 	}
 
 	private void record(String tenantId, String analysisId, String taskId,
-			String actor, String type, String status, String errorCode) {
+			String actor, String type, String status, String errorCode) throws ServiceException {
 		try {
 			accessLedger.record(tenantId, analysisId, taskId, actor, type, status, errorCode);
-		} catch (Exception ignored) {
-			// Access logging must not conceal the primary result.
+		} catch (Exception exception) {
+			throw new ServiceException("AI 存取稽核寫入失敗");
 		}
 	}
 

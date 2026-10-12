@@ -23,3 +23,9 @@
 - 實際：`create()` 先以 `validateOverlap()` 查詢既有代理，再執行 `insert()`；兩個交易若同時讀到無既有資料，都可通過。`fm_workflow_delegation` 只有代理 ID 唯一鍵及一般查詢索引，沒有可排除期間交疊的鎖定或約束。因此可能建立兩筆同範圍、同期間的有效代理。
 - 證據：`FmWorkflowDelegationLogicServiceImpl.create()`／`validateOverlap()`、`FmWorkflowDelegationMapper.xml` 的一般 `SELECT`／`INSERT`，以及 MariaDB `SHOW CREATE TABLE fm_workflow_delegation`。單一交易的順序新增會被 Java 擋下；併發情境仍待隔離環境驗證。
 
+### 2026-10-07 修復複核
+
+- **BUG-011 — 已修正（程式確認）：**原本帳號候選只核對 membership 狀態。現在候選核對目前有效 membership 與全域帳號 `ON_JOB=Y`；儲存時要求 membership 覆蓋整段代理期間，並核對帳號啟用狀態。
+- **BUG-083 — 已修正（程式確認）：**清單要求指定可讀 Tenant；單筆讀寫和選項核對操作人的 Tenant 權限，Tenant 選項只顯示可讀範圍。
+- **BUG-084 — 已修正（程式與定向測試確認）：**原先一般查詢後插入可讓兩個交易同時通過，代理表也沒有期間排他約束。現在 ACTIVE 建立與更新先以 `FOR UPDATE` 鎖同 Tenant 的固定資料列，再用鎖定讀取檢查半開區間重疊；同 Tenant 寫入依資料庫交易序列化。定向測試檢查鎖定順序與 Mapper 的範圍、期間 SQL。尚未在隔離 MariaDB 以雙連線實測競態。
+- 後端 `mvn -q -pl app -am -DskipTests compile`、`FmWorkflowDelegationOverlapTest`、`FmWorkflowDelegationMapperXmlTest` 通過。現有代理設定為空，尚未以跨 Tenant 或併發請求重現。

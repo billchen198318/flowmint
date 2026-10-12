@@ -32,15 +32,41 @@ public class FmExternalApiAccessLedger {
 			Date requestDate) {
 		FmApiAccessLog access = new FmApiAccessLog();
 		access.setTenantId(principal.tenantId());
-		access.setAccessId(UUID.randomUUID().toString());
 		access.setClientId(principal.clientId());
 		access.setKeyId(principal.keyId());
+		access.setSourceIp(StringUtils.abbreviate(principal.sourceIp(), 45));
+		access.setCuserid(StringUtils.abbreviate(principal.clientCode(), 24));
+		append(access, requestId, traceId, endpointCode, requiredScope, userAgent,
+				httpStatus, resultCode, elapsedMillis, requestBytes, responseBytes,
+				idempotencyKey, requestDate);
+	}
+
+	@Transactional(propagation = Propagation.REQUIRES_NEW,
+			rollbackFor = Exception.class)
+	public void recordAuthenticationFailure(String sourceIp, String requestId,
+			String traceId, String endpointCode, String requiredScope,
+			String userAgent, long elapsedMillis, long requestBytes,
+			long responseBytes, String idempotencyKey, Date requestDate) {
+		FmApiAccessLog access = new FmApiAccessLog();
+		access.setSourceIp(StringUtils.abbreviate(
+				StringUtils.defaultIfBlank(sourceIp, "UNKNOWN"), 45));
+		access.setCuserid("UNAUTHENTICATED");
+		append(access, requestId, traceId, endpointCode, requiredScope, userAgent,
+				401, "AUTHENTICATION_FAILED", elapsedMillis, requestBytes,
+				responseBytes, idempotencyKey, requestDate);
+	}
+
+	private void append(FmApiAccessLog access, String requestId, String traceId,
+			String endpointCode, String requiredScope, String userAgent,
+			int httpStatus, String resultCode, long elapsedMillis,
+			long requestBytes, long responseBytes, String idempotencyKey,
+			Date requestDate) {
+		access.setAccessId(UUID.randomUUID().toString());
 		access.setRequestId(StringUtils.abbreviate(requestId, 64));
 		access.setTraceId(StringUtils.abbreviate(StringUtils.trimToNull(traceId), 64));
 		access.setEndpointCode(StringUtils.abbreviate(endpointCode, 100));
 		access.setRequiredScope(StringUtils.abbreviate(
 				StringUtils.trimToNull(requiredScope), 100));
-		access.setSourceIp(StringUtils.abbreviate(principal.sourceIp(), 45));
 		access.setUserAgentSummary(StringUtils.abbreviate(
 				StringUtils.trimToNull(userAgent), 255));
 		access.setHttpStatus(httpStatus);
@@ -50,7 +76,6 @@ public class FmExternalApiAccessLedger {
 		access.setResponseBytes(responseBytes < 0 ? null : responseBytes);
 		access.setIdempotencyKeyHash(hash(StringUtils.trimToNull(idempotencyKey)));
 		access.setRequestDate(requestDate);
-		access.setCuserid(StringUtils.abbreviate(principal.clientCode(), 24));
 		accessLogService.append(access);
 	}
 

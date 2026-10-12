@@ -138,6 +138,10 @@ public class FmTaskFieldPolicyValidator {
             if (!policy.isObject() || !policy.path("fields").isObject()) {
                 throw new ServiceException("待辦欄位權限設定格式錯誤");
             }
+            JsonNode startForm = policy.path("startForm");
+            if (!startForm.isMissingNode() && !startForm.isBoolean()) {
+                throw new ServiceException("起單用表單設定須為布林值");
+            }
             String defaultPolicy = normalized(policy.path("default").asString("READ"));
             if (!POLICIES.contains(defaultPolicy)) {
                 throw new ServiceException("待辦欄位預設權限不正確");

@@ -125,6 +125,14 @@ const valid = () => {
   if (form.value.connectionTimeoutMs < 250 || form.value.connectionTimeoutMs > 120000) {
     fields.connectionTimeoutMs = "連線逾時必須介於 250 到 120000 毫秒";
   }
+  if (!Number.isInteger(form.value.idleTimeoutMs) ||
+      (form.value.idleTimeoutMs !== 0 && form.value.idleTimeoutMs < 10000)) {
+    fields.idleTimeoutMs = "閒置逾時須為 0 或至少 10000 毫秒";
+  }
+  if (!Number.isInteger(form.value.maxLifetimeMs) ||
+      (form.value.maxLifetimeMs !== 0 && form.value.maxLifetimeMs < 30000)) {
+    fields.maxLifetimeMs = "連線最長存活時間須為 0 或至少 30000 毫秒";
+  }
   checkFields.value = fields;
   const firstMessage = Object.values(fields)[0];
   if (firstMessage) {
@@ -251,7 +259,7 @@ onMounted(async () => {
     </div>
     <div class="col-md-4">
       <label for="password" class="form-label">
-        密碼 {{ props.edit ? "（留空表示不變）" : "*" }}
+        密碼 {{ props.edit ? "（連線目標不變時可留空）" : "*" }}
       </label>
       <input id="password" v-model="form.password" type="password" autocomplete="new-password"
         :class="['form-control', checkInvalid('password', checkFields) ? 'is-invalid' : '']" />
@@ -283,7 +291,19 @@ onMounted(async () => {
       <div class="invalid-feedback">{{ invalidFeedback("connectionTimeoutMs", checkFields) }}</div>
     </div>
     <div class="col-md-3">
-      <label for="validationQuery" class="form-label">驗證 SQL</label>
+      <label for="idleTimeoutMs" class="form-label">閒置逾時(ms)</label>
+      <input id="idleTimeoutMs" v-model.number="form.idleTimeoutMs" type="number" min="0" step="1000"
+        :class="['form-control', checkInvalid('idleTimeoutMs', checkFields) ? 'is-invalid' : '']" />
+      <div class="invalid-feedback">{{ invalidFeedback("idleTimeoutMs", checkFields) }}</div>
+    </div>
+    <div class="col-md-3">
+      <label for="maxLifetimeMs" class="form-label">連線最長存活時間(ms)</label>
+      <input id="maxLifetimeMs" v-model.number="form.maxLifetimeMs" type="number" min="0" step="1000"
+        :class="['form-control', checkInvalid('maxLifetimeMs', checkFields) ? 'is-invalid' : '']" />
+      <div class="invalid-feedback">{{ invalidFeedback("maxLifetimeMs", checkFields) }}</div>
+    </div>
+    <div class="col-md-3">
+      <label for="validationQuery" class="form-label">驗證 SQL（僅允許 SELECT 1；Oracle 可用 SELECT 1 FROM DUAL）</label>
       <input id="validationQuery" v-model="form.validationQuery" class="form-control" />
     </div>
     <div class="col-12">

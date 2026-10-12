@@ -3,7 +3,9 @@ package org.qifu.fm.logic.impl;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.qifu.base.exception.ServiceException;
@@ -18,9 +20,13 @@ import org.qifu.fm.dto.view.FmApprovalAuthorityRuleView;
 import org.qifu.fm.dto.view.FmApprovalAuthorityView;
 import org.qifu.fm.entity.FmApprovalAuthority;
 import org.qifu.fm.entity.FmApprovalAuthorityRule;
+import org.qifu.fm.entity.FmProcessVersion;
+import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.logic.IFmApprovalAuthorityLogicService;
 import org.qifu.fm.service.IFmApprovalAuthorityRuleService;
 import org.qifu.fm.service.IFmApprovalAuthorityService;
+import org.qifu.fm.service.IFmProcessVersionService;
+import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,18 +51,24 @@ public class FmApprovalAuthorityLogicServiceImpl
     private final FmApprovalAuthorityConditionEvaluator conditionEvaluator;
     private final FmTenantAccessGuard tenantAccessGuard;
     private final ObjectMapper objectMapper;
+    private final IFmProcessVersionService processVersionService;
+    private final IFmTaskAssignmentRuleService assignmentRuleService;
 
     public FmApprovalAuthorityLogicServiceImpl(
             IFmApprovalAuthorityService authorityService,
             IFmApprovalAuthorityRuleService ruleService,
             FmApprovalAuthorityConditionEvaluator conditionEvaluator,
             FmTenantAccessGuard tenantAccessGuard,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            IFmProcessVersionService processVersionService,
+            IFmTaskAssignmentRuleService assignmentRuleService) {
         this.authorityService = authorityService;
         this.ruleService = ruleService;
         this.conditionEvaluator = conditionEvaluator;
         this.tenantAccessGuard = tenantAccessGuard;
         this.objectMapper = objectMapper;
+        this.processVersionService = processVersionService;
+        this.assignmentRuleService = assignmentRuleService;
     }
 
     @Override
@@ -111,6 +123,7 @@ public class FmApprovalAuthorityLogicServiceImpl
         if (!authority.getTenantId().equals(command.tenantId())) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
+        requireUnreferencedByReleasedVersion(authority);
         authority.setAuthorityCode(command.authorityCode());
         apply(authority, command);
         ensureUniqueCode(authority, authority.getOid());
@@ -125,9 +138,54 @@ public class FmApprovalAuthorityLogicServiceImpl
             throws ServiceException {
         FmApprovalAuthority authority = requiredAuthority(oid);
         tenantAccessGuard.requireAccess(authority.getTenantId());
+        requireUnreferencedByReleasedVersion(authority);
         authority.setStatus("INACTIVE");
         authorityService.update(authority);
         return success(view(authority));
+    }
+
+    void requireUnreferencedByReleasedVersion(FmApprovalAuthority authority)
+            throws ServiceException {
+        Map<String, Object> parameters = new HashMap<>();
+        parameters.put("tenantId", authority.getTenantId());
+        parameters.put("processDefId", authority.getProcessDefId());
+        Set<Integer> releasedVersions = processVersionService.selectListByParams(parameters)
+                .getValue().stream()
+                .filter(version -> Set.of("PUBLISHED", "RETIRED")
+                        .contains(version.getVersionStatus()))
+                .map(FmProcessVersion::getVersionNo)
+                .collect(Collectors.toSet());
+        if (releasedVersions.isEmpty()) {
+            return;
+        }
+        parameters.put("status", "ACTIVE");
+        for (FmTaskAssignmentRule rule : assignmentRuleService
+                .selectListByParams(parameters).getValue()) {
+            if (releasedVersions.contains(rule.getProcessVersionNo())
+                    && (referencesAuthority(rule.getResolverType(), rule.getResolverConfig(),
+                            authority.getApprovalAuthorityId())
+                        || referencesAuthorityFallback(rule.getFallbackConfig(),
+                            authority.getApprovalAuthorityId()))) {
+                throw new ServiceException("已發布流程版本引用此核決權限，請建立新權限並重新發布流程");
+            }
+        }
+    }
+
+    private boolean referencesAuthority(String resolverType, String config, String authorityId) {
+        return "APPROVAL_AUTHORITY".equals(resolverType)
+                && authorityId.equals(objectMapper.readTree(
+                        StringUtils.defaultIfBlank(config, "{}"))
+                        .path("approvalAuthorityId").asString());
+    }
+
+    private boolean referencesAuthorityFallback(String fallbackConfig, String authorityId) {
+        if (StringUtils.isBlank(fallbackConfig)) {
+            return false;
+        }
+        JsonNode fallback = objectMapper.readTree(fallbackConfig);
+        return "APPROVAL_AUTHORITY".equals(fallback.path("resolverType").asString())
+                && authorityId.equals(fallback.path("resolverConfig")
+                        .path("approvalAuthorityId").asString());
     }
 
     private void validate(FmApprovalAuthorityCommand command, boolean create)

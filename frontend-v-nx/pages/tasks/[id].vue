@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { toast } from "vue3-toastify";
 import "vue3-toastify/dist/index.css";
@@ -54,6 +54,9 @@ const aiProviderOptions = ref<any[]>([]);
 const selectedAiProviderCode = ref("");
 const aiAnalysisLoading = ref(false);
 const aiAnalysis = ref<any>(null);
+watch(selectedAiProviderCode, () => {
+  aiAnalysis.value = null;
+});
 const { attach: attachDataActionBridge } = useFormioDataActionBridge();
 const { attach: attachCustomJavascript } = useFormCustomJavascript();
 let formInstance: any = null;
@@ -102,23 +105,26 @@ const openAiAssistant = async () => {
 };
 const analyzeWithAi = async (forceRefresh = false) => {
   if (!selectedAiProviderCode.value || aiAnalysisLoading.value) return;
+  const requestedProviderCode = selectedAiProviderCode.value;
   aiAnalysisLoading.value = true;
   try {
     const response: any = await useApi("/fm/tasks/ai-analysis", {
       method: "POST",
       body: {
         taskId: route.params.id,
-        providerCode: selectedAiProviderCode.value,
+        providerCode: requestedProviderCode,
         forceRefresh,
       },
       headers: { "X-FlowMint-Tenant": tenantId },
     });
+    if (selectedAiProviderCode.value !== requestedProviderCode) return;
     if (!ok(response)) {
       toast.warning(response?.message || "AI 分析失敗");
       return;
     }
     aiAnalysis.value = response.value;
   } catch (error) {
+    if (selectedAiProviderCode.value !== requestedProviderCode) return;
     toast.error(escapeQifuHtmlMsg(
       error instanceof Error ? error.message : "AI 分析失敗",
     ));
@@ -636,7 +642,7 @@ onBeforeUnmount(() => void destroyForm());
                   </div>
                   <div v-if="aiAnalysis" class="border rounded p-3 mb-3">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                      <strong>分析結果</strong>
+                      <strong>分析結果／{{ aiAnalysis.providerCode }}／{{ aiAnalysis.modelId }}</strong>
                       <span v-if="aiAnalysis.cacheHit" class="badge text-bg-light border">快取結果</span>
                     </div>
                     <div v-if="aiAnalysis.result?.summary" class="mb-3">

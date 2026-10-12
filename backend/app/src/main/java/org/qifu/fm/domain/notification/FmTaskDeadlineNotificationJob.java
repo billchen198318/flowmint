@@ -11,6 +11,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.flowable.engine.TaskService;
 import org.flowable.identitylink.api.IdentityLink;
 import org.flowable.task.api.Task;
+import org.flowable.task.api.TaskQuery;
 import org.qifu.fm.entity.FmTaskPolicy;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.service.IFmTaskPolicyService;
@@ -50,14 +51,28 @@ public class FmTaskDeadlineNotificationJob {
     public void notifyDeadlines() {
         Date now = new Date();
         Date horizon = Date.from(now.toInstant().plus(8760, ChronoUnit.HOURS));
-        int offset = 0;
-        List<Task> tasks;
-        do {
-            tasks = taskService.createTaskQuery().taskDueBefore(horizon)
-                    .orderByTaskDueDate().asc().listPage(offset, PAGE_SIZE);
-            tasks.forEach(task -> notifyTask(task, now));
-            offset += tasks.size();
-        } while (tasks.size() == PAGE_SIZE);
+        Date cursor = null;
+        while (true) {
+            TaskQuery query = taskService.createTaskQuery().taskDueBefore(horizon);
+            if (cursor != null) {
+                query.taskDueAfter(cursor);
+            }
+            List<Task> tasks = query.orderByTaskDueDate().asc().listPage(0, PAGE_SIZE);
+            if (tasks.isEmpty()) {
+                return;
+            }
+            if (tasks.size() < PAGE_SIZE) {
+                tasks.forEach(task -> notifyTask(task, now));
+                return;
+            }
+            Date boundary = tasks.get(tasks.size() - 1).getDueDate();
+            tasks.stream().filter(task -> task.getDueDate().before(boundary))
+                    .forEach(task -> notifyTask(task, now));
+            taskService.createTaskQuery().taskDueDate(boundary)
+                    .orderByTaskId().asc().list()
+                    .forEach(task -> notifyTask(task, now));
+            cursor = boundary;
+        }
     }
 
     private void notifyTask(Task task, Date now) {

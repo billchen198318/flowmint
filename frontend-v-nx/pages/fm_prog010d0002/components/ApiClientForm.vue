@@ -115,6 +115,13 @@ const validate = () => {
   }
   if (!form.value.allowedScopes.length)
     errors.allowedScopes = "請至少選擇一個 API Scope";
+  if (
+    form.value.allowedScopes.some(
+      (scope) => scope.startsWith("design.") || scope.startsWith("runtime.request."),
+    ) && !lines(processIdsText.value).length
+  ) {
+    errors.allowedProcessIds = "流程相關 Scope 必須指定至少一個允許流程 ID";
+  }
   checkFields.value = errors;
   const message = Object.values(errors).join("<br>");
   if (message) {
@@ -503,7 +510,10 @@ onMounted(async () => {
           rows="6"
           class="form-control font-monospace"
         ></textarea>
-        <div class="form-text">每行一筆；空白代表不限制。</div>
+        <div class="form-text">每行一筆；空白代表不可存取流程。</div>
+        <div v-if="checkInvalid('allowedProcessIds', checkFields)" class="text-danger small">
+          {{ invalidFeedback("allowedProcessIds", checkFields) }}
+        </div>
       </div>
       <div class="col-md-4">
         <label class="form-label">允許 Initiator 帳號</label

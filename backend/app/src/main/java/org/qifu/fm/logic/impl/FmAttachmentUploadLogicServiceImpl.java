@@ -32,6 +32,10 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 
 import tools.jackson.databind.JsonNode;
@@ -42,6 +46,8 @@ public class FmAttachmentUploadLogicServiceImpl
         implements IFmAttachmentUploadLogicService {
 
     private static final long SESSION_LIFETIME_MILLIS = 24L * 60L * 60L * 1000L;
+    private static final Logger LOGGER =
+            LoggerFactory.getLogger(FmAttachmentUploadLogicServiceImpl.class);
     private static final int ACCOUNT_UPLOADS_PER_MINUTE = 30;
     private static final int TENANT_UPLOADS_PER_MINUTE = 200;
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
@@ -107,11 +113,15 @@ public class FmAttachmentUploadLogicServiceImpl
             throws ServiceException {
         String account = currentAccount(tenantId);
         FmAttachmentUploadSession session = requireSession(tenantId, sessionId, account);
+        lockOpenSessionForUpload(tenantId, sessionId, account);
         validateUploadRate(tenantId, account);
         AttachmentRule rule = attachmentRule(session, fieldKey);
         validateUpload(fieldKey, file, rule);
         validateFileCount(tenantId, sessionId, fieldKey, rule.maxFiles());
         validateTotalSize(tenantId, sessionId, fieldKey, file.getSize(), rule.maxTotalSize());
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("附件上傳必須在資料庫交易中執行");
+        }
         FmAttachmentStorageService.StoredFile stored;
         try {
             stored = storageService.storeTemporary(
@@ -119,7 +129,7 @@ public class FmAttachmentUploadLogicServiceImpl
         } catch (IOException exception) {
             throw new ServiceException("無法讀取上傳附件");
         }
-        try {
+        registerUploadRollbackCleanup(tenantId, sessionId, stored.fileOid());
             Date now = new Date();
             FmAttachmentUploadFile value = new FmAttachmentUploadFile();
             value.setOid(UUID.randomUUID().toString());
@@ -136,7 +146,6 @@ public class FmAttachmentUploadLogicServiceImpl
             String extension = StringUtils.substringAfterLast(
                     value.getFileName(), ".").toLowerCase(Locale.ROOT);
             if (!storageService.hasExpectedSignature(stored.path(), extension)) {
-                storageService.deleteTemporary(tenantId, sessionId, stored.fileOid());
                 throw new ServiceException("附件內容與檔案類型不符");
             }
             value.setScanStatus("CLEAN");
@@ -144,10 +153,43 @@ public class FmAttachmentUploadLogicServiceImpl
             value.setCdate(now);
             fileService.insert(value).getValueEmptyThrowMessage();
             return success(view(value));
-        } catch (ServiceException exception) {
-            storageService.deleteTemporary(tenantId, sessionId, stored.fileOid());
-            throw exception;
+    }
+
+    void lockOpenSessionForUpload(String tenantId, String sessionId, String account)
+            throws ServiceException {
+        List<String> sessions = jdbcTemplate.queryForList("""
+                SELECT OID
+                  FROM fm_attachment_upload_session
+                 WHERE TENANT_ID = :tenantId
+                   AND UPLOAD_SESSION_ID = :sessionId
+                   AND OWNER_ACCOUNT = :account
+                   AND SESSION_STATUS = 'OPEN'
+                   AND EXPIRES_DATE > CURRENT_TIMESTAMP
+                 FOR UPDATE
+                """, new MapSqlParameterSource()
+                        .addValue("tenantId", tenantId)
+                        .addValue("sessionId", sessionId)
+                        .addValue("account", account), String.class);
+        if (sessions.size() != 1) {
+            throw new ServiceException("附件上傳批次不存在、已過期或已封存");
         }
+    }
+
+    void registerUploadRollbackCleanup(String tenantId, String sessionId, String fileOid) {
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        if (status != TransactionSynchronization.STATUS_ROLLED_BACK) return;
+                        try {
+                            storageService.deleteTemporary(tenantId, sessionId, fileOid);
+                        } catch (ServiceException exception) {
+                            LOGGER.error("Unable to remove uploaded file after rollback: "
+                                    + "tenant={}, session={}, fileOid={}",
+                                    tenantId, sessionId, fileOid, exception);
+                        }
+                    }
+                });
     }
 
     @Override
@@ -176,11 +218,11 @@ public class FmAttachmentUploadLogicServiceImpl
         parameters.put("fileStatus", "TEMPORARY");
         FmAttachmentUploadFile file = fileService.selectListByParams(parameters).getValue()
                 .stream().findFirst().orElseThrow(() -> new ServiceException("找不到暫存附件"));
-        storageService.deleteTemporary(tenantId, sessionId, file.getFileOid());
         file.setFileStatus("DELETED");
         file.setUuserid(account);
         file.setUdate(new Date());
         fileService.update(file).getValueEmptyThrowMessage();
+        storageService.deleteTemporaryAfterCommit(tenantId, sessionId, file.getFileOid());
         return success(Boolean.TRUE);
     }
 
@@ -272,6 +314,9 @@ public class FmAttachmentUploadLogicServiceImpl
             long maximum = configuredMaximumSize(component.path("fileMaxSize").asString(""));
             int maxFiles = component.path("maxNumberOfFiles").asInt(
                     component.path("multiple").asBoolean(false) ? 10 : 1);
+            if (!component.path("multiple").asBoolean(false)) {
+                maxFiles = Math.min(maxFiles, 1);
+            }
             if (maxFiles < 1 || maxFiles > 20) {
                 throw new ServiceException("附件數量設定必須介於 1 至 20");
             }
@@ -308,17 +353,30 @@ public class FmAttachmentUploadLogicServiceImpl
         return null;
     }
 
-    private Set<String> configuredExtensions(JsonNode fileTypes) {
+    private Set<String> configuredExtensions(JsonNode fileTypes) throws ServiceException {
+        if (fileTypes.isMissingNode() || fileTypes.isNull()
+                || fileTypes.isArray() && fileTypes.isEmpty()) {
+            return ALLOWED_EXTENSIONS;
+        }
+        if (!fileTypes.isArray()) {
+            throw new ServiceException("附件 File Types 設定格式錯誤");
+        }
         Set<String> configured = new java.util.HashSet<>();
         for (JsonNode fileType : fileTypes) {
             String value = fileType.isString()
                     ? fileType.asString() : fileType.path("value").asString("");
-            for (String token : value.toLowerCase(Locale.ROOT).split("[, ]+")) {
+            if (StringUtils.isBlank(value)) {
+                throw new ServiceException("附件 File Types 不可包含空白類型");
+            }
+            for (String token : value.trim().toLowerCase(Locale.ROOT).split("[, ]+")) {
                 String extension = Strings.CS.removeStart(token.trim(), ".");
-                if (ALLOWED_EXTENSIONS.contains(extension)) configured.add(extension);
+                if (!ALLOWED_EXTENSIONS.contains(extension)) {
+                    throw new ServiceException("附件 File Types 不支援副檔名：" + token);
+                }
+                configured.add(extension);
             }
         }
-        return configured.isEmpty() ? ALLOWED_EXTENSIONS : Set.copyOf(configured);
+        return Set.copyOf(configured);
     }
 
     private long configuredMaximumSize(String value) throws ServiceException {

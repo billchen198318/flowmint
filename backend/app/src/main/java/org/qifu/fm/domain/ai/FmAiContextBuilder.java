@@ -51,7 +51,8 @@ public class FmAiContextBuilder {
 		collectComponents(schema.path("components"), detail.formData(), form, "");
 		ArrayNode history = context.putArray("history");
 		if (detail.actions() != null) {
-			for (FmTaskActionView action : detail.actions().stream().limit(50).toList()) {
+			int first = Math.max(0, detail.actions().size() - 50);
+			for (FmTaskActionView action : detail.actions().subList(first, detail.actions().size())) {
 				ObjectNode item = history.addObject();
 				item.put("action", safe(action.actionType(), 100));
 				item.put("actor", safe(action.actorAccount(), 100));
@@ -65,7 +66,7 @@ public class FmAiContextBuilder {
 		return context;
 	}
 
-	private void collectComponents(JsonNode components, Map<String, Object> data,
+	void collectComponents(JsonNode components, Map<String, Object> data,
 			ArrayNode output, String prefix) {
 		if (!components.isArray()) {
 			return;
@@ -93,26 +94,66 @@ public class FmAiContextBuilder {
 
 	private void collectNested(JsonNode component, Map<String, Object> data,
 			ArrayNode output, String prefix, String key) {
+		String type = StringUtils.lowerCase(component.path("type").asText());
+		if (Set.of("datagrid", "editgrid").contains(type)) {
+			collectGrid(component, data, output, prefix, key);
+			return;
+		}
+		Map<String, Object> nestedData = data;
+		if ("container".equals(type) && StringUtils.isNotBlank(key)
+				&& data != null && data.get(key) instanceof Map<?, ?> values) {
+			nestedData = stringKeyMap(values);
+			prefix += key + ".";
+		}
 		JsonNode nested = component.path("components");
 		if (nested.isArray()) {
-			collectComponents(nested, data, output, prefix);
+			collectComponents(nested, nestedData, output, prefix);
 		}
 		for (JsonNode column : component.path("columns")) {
-			collectComponents(column.path("components"), data, output, prefix);
+			collectComponents(column.path("components"), nestedData, output, prefix);
 		}
 		for (JsonNode row : component.path("rows")) {
 			for (JsonNode cell : row) {
-				collectComponents(cell.path("components"), data, output, prefix);
+				collectComponents(cell.path("components"), nestedData, output, prefix);
 			}
 		}
-		if (Set.of("datagrid", "editgrid").contains(
-				StringUtils.lowerCase(component.path("type").asText()))
-				&& StringUtils.isNotBlank(key) && data != null && data.containsKey(key)) {
-			ObjectNode field = output.addObject();
-			field.put("label", safe(component.path("label").asText(key), 300));
-			field.put("key", prefix + key);
-			field.set("value", safeValue(objectMapper.valueToTree(data.get(key))));
+	}
+
+	private void collectGrid(JsonNode component, Map<String, Object> data,
+			ArrayNode output, String prefix, String key) {
+		if (StringUtils.isBlank(key) || data == null || !(data.get(key) instanceof Iterable<?> rows)) {
+			return;
 		}
+		ArrayNode safeRows = objectMapper.createArrayNode();
+		int count = 0;
+		for (Object row : rows) {
+			if (count++ >= 100) {
+				break;
+			}
+			if (!(row instanceof Map<?, ?> values)) {
+				continue;
+			}
+			ArrayNode fields = objectMapper.createArrayNode();
+			collectComponents(component.path("components"), stringKeyMap(values), fields, "");
+			ObjectNode safeRow = safeRows.addObject();
+			for (JsonNode field : fields) {
+				safeRow.set(field.path("key").asText(), field.path("value"));
+			}
+		}
+		ObjectNode field = output.addObject();
+		field.put("label", safe(component.path("label").asText(key), 300));
+		field.put("key", prefix + key);
+		field.set("value", safeRows);
+	}
+
+	private Map<String, Object> stringKeyMap(Map<?, ?> values) {
+		Map<String, Object> result = new java.util.HashMap<>();
+		values.forEach((key, value) -> {
+			if (key instanceof String name) {
+				result.put(name, value);
+			}
+		});
+		return result;
 	}
 
 	private boolean excluded(JsonNode component, String type, String key) {

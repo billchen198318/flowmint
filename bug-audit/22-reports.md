@@ -10,3 +10,8 @@
 - 預期：非系統管理員即使擁有全域 `FLOWMINT_OPERATIONS` 角色，仍應只看到其有資料授權的 Tenant 報表及流程明細。
 - 實際：`FmProcessMonitorLogicServiceImpl.report()`、`load()` 等入口只執行 `requireOperator()`；它只檢查全域角色，不檢查操作人的 Tenant membership。請求中的 Tenant ID 直接用作查詢條件，因此持有營運角色的非管理員可查其他 Tenant 的報表、表單快照與簽核歷程。
 - 證據：`backend/app/src/main/java/org/qifu/fm/logic/impl/FmProcessMonitorLogicServiceImpl.java` 的 `report()`、`load()`、`requireOperator()`。MariaDB 唯讀查詢顯示目前流程實例 0 筆，沒有可驗證跨 Tenant 明細的現成資料。
+
+### 2026-10-09 BUG-021 修復複核
+
+- **BUG-021 已修正**：核對 `report()`、`find()`、`load()` 原先均只檢查全域營運角色，未查指定 Tenant membership，缺陷成立。三個入口現在對非系統管理員要求指定 Tenant 的 ACTIVE 且在生效期間內的 membership；無權時在查詢報表或明細前拒絕。沿用第 20 單元 Incident 營運入口的授權語意。
+- `FmProcessMonitorLogicServiceImplTest` 驗證營運角色無 membership 時三個入口均拒絕，既有管理員空頁測試仍通過；Maven 定向測試通過。尚未以雙 Tenant 的 HTTP／資料庫情境驗收。

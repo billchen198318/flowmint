@@ -111,7 +111,7 @@ export const useFormCustomJavascript = () => {
     const generation = Symbol("form-custom-javascript");
     let activeGeneration: symbol | null = generation;
     let handlingChange = false;
-    let pendingChange: any = null;
+    const pendingChanges: any[] = [];
     let data =
       options.form.submission?.data || ({} as Record<string, unknown>);
     let submission = options.form.submission || { data };
@@ -356,15 +356,14 @@ export const useFormCustomJavascript = () => {
         toast.error(error instanceof Error ? error.message : "onFieldChange 執行失敗");
       } finally {
         handlingChange = false;
-        const next = pendingChange;
-        pendingChange = null;
+        const next = pendingChanges.shift();
         if (next && !destroying && !destroyed) void processChange(next);
       }
     };
     const changeHandler = async (changed: any) => {
       if (destroying || destroyed) return;
       if (handlingChange) {
-        pendingChange = changed;
+        pendingChanges.push(changed);
         return;
       }
       await processChange(changed);
@@ -394,7 +393,7 @@ export const useFormCustomJavascript = () => {
         if (destroying || destroyed) return;
         destroying = true;
         activeGeneration = null;
-        pendingChange = null;
+        pendingChanges.length = 0;
         if (options.mode !== "READ_ONLY") {
           options.form.off?.("change", changeHandler);
         }

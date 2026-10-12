@@ -1,6 +1,7 @@
 package org.qifu.fm.flowable;
 
 import java.util.HashMap;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -11,10 +12,16 @@ import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.fm.domain.workflow.FmDataActionTaskPublishValidator;
+import org.qifu.fm.domain.workflow.FmGroovyContractJson;
+import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
 import org.qifu.fm.dto.view.FmDataActionExecutionView;
 import org.qifu.fm.entity.FmFormData;
+import org.qifu.fm.entity.FmFormSnapshot;
+import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.logic.IFmDataActionLogicService;
 import org.qifu.fm.service.IFmFormDataService;
+import org.qifu.fm.service.IFmFormSnapshotService;
+import org.qifu.fm.service.IFmFormVersionService;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.core.type.TypeReference;
@@ -25,14 +32,23 @@ public class FmDataActionTaskDelegate implements JavaDelegate {
 
     private final IFmDataActionLogicService actionLogicService;
     private final IFmFormDataService formDataService;
+    private final IFmFormSnapshotService formSnapshotService;
+    private final IFmFormVersionService formVersionService;
+    private final FmFormSubmissionValidator formSubmissionValidator;
     private final ObjectMapper objectMapper;
 
     public FmDataActionTaskDelegate(
             IFmDataActionLogicService actionLogicService,
             IFmFormDataService formDataService,
+            IFmFormSnapshotService formSnapshotService,
+            IFmFormVersionService formVersionService,
+            FmFormSubmissionValidator formSubmissionValidator,
             ObjectMapper objectMapper) {
         this.actionLogicService = actionLogicService;
         this.formDataService = formDataService;
+        this.formSnapshotService = formSnapshotService;
+        this.formVersionService = formVersionService;
+        this.formSubmissionValidator = formSubmissionValidator;
         this.objectMapper = objectMapper;
     }
 
@@ -54,9 +70,10 @@ public class FmDataActionTaskDelegate implements JavaDelegate {
             Map<String, String> responseMapping = mapping(task, "responseMapping");
             if (!responseMapping.isEmpty()) {
                 applyResponse(responseMapping, formData, result.data());
-                execution.setVariable(FmTaskAssignmentListener.VARIABLE_FORM_DATA, formData);
                 persistFormData(tenantId, requiredVariable(execution,
-                        FmTaskAssignmentListener.VARIABLE_FORM_DATA_ID), formData);
+                        FmTaskAssignmentListener.VARIABLE_FORM_DATA_ID),
+                        execution.getProcessInstanceId(), formData);
+                execution.setVariable(FmTaskAssignmentListener.VARIABLE_FORM_DATA, formData);
             }
         } catch (Exception exception) {
             throw new IllegalStateException("FlowMint Data Action Task 執行失敗："
@@ -116,11 +133,11 @@ public class FmDataActionTaskDelegate implements JavaDelegate {
         };
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> mutableFormData(DelegateExecution execution) {
+    private Map<String, Object> mutableFormData(DelegateExecution execution) throws Exception {
         Object value = execution.getVariable(FmTaskAssignmentListener.VARIABLE_FORM_DATA);
         if (value instanceof Map<?, ?> source) {
-            return new HashMap<>((Map<String, Object>) source);
+            return objectMapper.readValue(objectMapper.writeValueAsString(source),
+                    new TypeReference<Map<String, Object>>() { });
         }
         return new HashMap<>();
     }
@@ -156,6 +173,7 @@ public class FmDataActionTaskDelegate implements JavaDelegate {
     }
 
     private void persistFormData(String tenantId, String formDataId,
+            String processInstanceId,
             Map<String, Object> data) throws Exception {
         formDataService.lockByFormDataId(tenantId, formDataId);
         Map<String, Object> params = new HashMap<>();
@@ -166,11 +184,45 @@ public class FmDataActionTaskDelegate implements JavaDelegate {
                 List.of());
         FmFormData formData = values.stream().findFirst()
                 .orElseThrow(() -> new ServiceException("找不到 System Task 對應的表單資料"));
+        Map<String, Object> versionParams = new HashMap<>();
+        versionParams.put("tenantId", tenantId);
+        versionParams.put("formId", formData.getFormId());
+        versionParams.put("versionNo", formData.getFormVersionNo());
+        List<FmFormVersion> versions = Objects.requireNonNullElse(
+                formVersionService.selectListByParams(versionParams).getValue(), List.of());
+        FmFormVersion version = versions.stream().findFirst()
+                .orElseThrow(() -> new ServiceException("找不到 System Task 對應的表單版本"));
+        formSubmissionValidator.validate(version.getSchemaContent(), data);
         int expectedLockVersion = Objects.requireNonNullElse(formData.getLockVersion(), 0);
+        String content = objectMapper.writeValueAsString(data);
         int updated = formDataService.updateDataContent(tenantId, formDataId,
-                objectMapper.writeValueAsString(data), expectedLockVersion);
+                content, expectedLockVersion);
         if (updated != 1) {
             throw new ServiceException("System Task 更新表單資料時發生併發衝突");
+        }
+        List<FmFormData> updatedValues = Objects.requireNonNullElse(
+                formDataService.selectListByParams(params, "FORM_DATA_ID", "ASC").getValue(),
+                List.of());
+        FmFormData saved = updatedValues.stream().findFirst()
+                .orElseThrow(() -> new ServiceException("System Task 寫回後找不到表單資料"));
+        if (!Objects.equals(saved.getRevisionNo(), formData.getRevisionNo() + 1)
+                || !Objects.equals(saved.getLockVersion(), expectedLockVersion + 1)
+                || !content.equals(saved.getDataContent())) {
+            throw new ServiceException("System Task 寫回版本不一致");
+        }
+        FmFormSnapshot snapshot = new FmFormSnapshot();
+        snapshot.setTenantId(tenantId);
+        snapshot.setFormDataId(formDataId);
+        snapshot.setProcessInstanceId(processInstanceId);
+        snapshot.setActionType("SYSTEM_TASK_APPLY");
+        snapshot.setFormVersionNo(saved.getFormVersionNo());
+        snapshot.setRevisionNo(saved.getRevisionNo());
+        snapshot.setDataContent(content);
+        snapshot.setContentSha256(FmGroovyContractJson.sha256(content));
+        snapshot.setSnapshotDate(new Date());
+        String snapshotOid = formSnapshotService.insertSystemTaskSnapshot(snapshot);
+        if (StringUtils.isBlank(snapshotOid)) {
+            throw new ServiceException("System Task 表單快照寫入失敗");
         }
     }
 

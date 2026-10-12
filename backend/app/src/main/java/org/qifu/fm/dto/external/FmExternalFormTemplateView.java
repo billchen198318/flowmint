@@ -17,8 +17,9 @@ public record FmExternalFormTemplateView(
 		List<AttachmentField> attachmentFields,
 		Date publishedAt) {
 
-	public record FieldContract(String key, String type, boolean required,
-			boolean multiple) { }
+	public record FieldContract(String key, String path, String type,
+			String valueType, String itemType, boolean required,
+			boolean multiple, List<JsonNode> enumValues) { }
 
 	public record AttachmentField(String key, boolean multiple) { }
 }

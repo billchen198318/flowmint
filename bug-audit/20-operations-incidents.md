@@ -1,5 +1,7 @@
 ## 20 異常處理與營運流程管理 — 靜態／唯讀盤查完成
 
+2026-10-08 修復複核：BUG-020 確認為真。`FLOWMINT_OPERATIONS`／`FLOWMINT_REASSIGN` 只是全域程式角色，原營運入口沒有檢查操作者對 Header Tenant 的有效 membership。已在 `FmIncidentOperationsLogicServiceImpl` 的所有營運及改派入口共用權限檢查加入非系統管理員的 Tenant membership 驗證；系統管理員權限不變。BUG-020 已修正（靜態與定向測試驗證；現有 Incident 0 筆，未以真實資料跨 Tenant 操作）。
+
 2026-10-05 收尾：已對照營運權限規格、`FmIncidentOperationsController` 的 Incident 查詢／重試／重派、流程查詢／終止、Task 重派及平行加簽重派入口，`FmIncidentOperationsLogicServiceImpl` 與營運 Vue；報表入口歸 22。非管理員 Tenant membership 邊界見 BUG-020。既有 Incident 與流程實例沒有可用資料，未做跨 Tenant 操作或故障注入重現。
 
 ### BUG-020：非系統管理員的營運角色未受 Tenant membership 限制

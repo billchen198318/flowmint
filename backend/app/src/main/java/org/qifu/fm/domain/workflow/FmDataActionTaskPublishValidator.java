@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
 
 @Component
 public class FmDataActionTaskPublishValidator {
@@ -104,6 +105,73 @@ public class FmDataActionTaskPublishValidator {
         }
     }
 
+    public void validateFormTargets(BpmnModel model, List<String> formSchemas)
+            throws ServiceException {
+        if (formSchemas == null || formSchemas.isEmpty()) {
+            throw new ServiceException("Data Action Task 缺少綁定表單 Schema");
+        }
+        for (ServiceTask task : model.getMainProcess().findFlowElementsOfType(ServiceTask.class)) {
+            if (!"DATA_ACTION".equals(task.getAttributeValue(FLOWMINT_NAMESPACE, "taskType"))) {
+                continue;
+            }
+            Map<String, String> responses;
+            try {
+                responses = mapping(task, "responseMapping");
+            } catch (Exception exception) {
+                throw new ServiceException("Data Action Task「" + label(task)
+                        + "」Response Mapping 無法解析");
+            }
+            for (String target : responses.values()) {
+                if (target == null || !target.startsWith("FORM_DATA.")) {
+                    throw new ServiceException("Data Action Task「" + label(task)
+                            + "」Response Mapping 目標不合法：" + target);
+                }
+                String path = target.substring("FORM_DATA.".length());
+                for (String schema : formSchemas) {
+                    JsonNode components;
+                    try {
+                        components = objectMapper.readTree(schema).path("components");
+                    } catch (RuntimeException exception) {
+                        throw new ServiceException("Data Action Task 綁定表單 Schema 無法解析");
+                    }
+                    if (!components.isArray() || !persistentField(components,
+                            path.split("\\."), 0)) {
+                        throw new ServiceException("Data Action Task「" + label(task)
+                                + "」Response Mapping 目標不在綁定表單 Schema：" + target);
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean persistentField(JsonNode components, String[] segments, int index) {
+        if (index >= segments.length || segments[index].isBlank()) return false;
+        for (JsonNode component : components) {
+            String type = component.path("type").asString("");
+            String key = component.path("key").asString("");
+            if (segments[index].equals(key)) {
+                if (!component.path("input").asBoolean(true)
+                        || !component.path("persistent").asBoolean(true)) return false;
+                if (index == segments.length - 1) return true;
+                return "container".equals(type) && persistentField(
+                        component.path("components"), segments, index + 1);
+            }
+            if (Set.of("columns", "fieldset", "panel", "table", "tabs", "well")
+                    .contains(type)) {
+                if (persistentField(component.path("components"), segments, index)) return true;
+                for (JsonNode column : component.path("columns")) {
+                    if (persistentField(column.path("components"), segments, index)) return true;
+                }
+                for (JsonNode row : component.path("rows")) {
+                    for (JsonNode cell : row) {
+                        if (persistentField(cell.path("components"), segments, index)) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     private void validateMappings(ServiceTask task, FmDataAction action,
             int actionVersion) throws ServiceException {
         try {
@@ -120,8 +188,9 @@ public class FmDataActionTaskPublishValidator {
             params.put("actionId", action.getActionId());
             params.put("versionNo", actionVersion);
             Set<String> responseKeys = Objects.requireNonNullElse(
-                    stepService.selectListByParams(params, "STEP_NO", "ASC").getValue(),
+                    stepService.selectListByParams(params, "EXECUTION_ORDER", "ASC").getValue(),
                     List.<FmDataActionStep>of()).stream()
+                    .filter(step -> "ACTIVE".equals(step.getStatus()))
                     .filter(step -> !"NONE".equals(step.getResultMode()))
                     .map(FmDataActionStep::getResultKey)
                     .filter(StringUtils::isNotBlank)

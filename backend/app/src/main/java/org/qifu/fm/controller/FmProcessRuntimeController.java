@@ -477,7 +477,8 @@ public class FmProcessRuntimeController extends CoreApiSupport {
 							idempotencyKey,
 							request.applicantAccount(),
 							request.formData(),
-							request.uploadSessionId())), result);
+							request.uploadSessionId(),
+							request.processVersionNo())), result);
 		} catch (Exception exception) {
 			exceptionResult(result, exception);
 		}

@@ -1,6 +1,8 @@
 package org.qifu.fm.service.impl;
 
+import org.qifu.base.exception.ServiceException;
 import org.qifu.base.mapper.IBaseMapper;
+import org.qifu.base.model.DefaultResult;
 import org.qifu.base.service.BaseService;
 import org.qifu.fm.entity.FmTaskAction;
 import org.qifu.fm.mapper.FmTaskActionMapper;
@@ -23,6 +25,16 @@ public class FmTaskActionServiceImpl extends BaseService<FmTaskAction, String>
 	@Override
 	protected IBaseMapper<FmTaskAction, String> getBaseMapper() {
 		return mapper;
+	}
+
+	@Override
+	public DefaultResult<FmTaskAction> update(FmTaskAction action) throws ServiceException {
+		throw new ServiceException("簽核動作不可修改");
+	}
+
+	@Override
+	public DefaultResult<Boolean> delete(FmTaskAction action) throws ServiceException {
+		throw new ServiceException("簽核動作不可刪除");
 	}
 
 }

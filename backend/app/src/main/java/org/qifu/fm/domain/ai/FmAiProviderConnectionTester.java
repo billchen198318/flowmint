@@ -38,6 +38,9 @@ public class FmAiProviderConnectionTester {
 	HttpRequest request(FmAiProviderConfig config) throws ServiceException {
 		String type = FmAiProviderCatalog.requireType(config.providerType());
 		String baseUrl = stripTrailingSlash(config.baseUrl());
+		if ("OPENAI".equals(type) && baseUrl.endsWith("/responses")) {
+			baseUrl = baseUrl.substring(0, baseUrl.length() - "/responses".length());
+		}
 		String path = "GEMINI".equals(type) ? "/v1beta/models" : "/models";
 		HttpRequest.Builder builder = HttpRequest.newBuilder(URI.create(baseUrl + path))
 				.timeout(Duration.ofSeconds(config.timeoutSeconds()))

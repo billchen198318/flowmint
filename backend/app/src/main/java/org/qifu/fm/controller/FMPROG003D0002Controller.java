@@ -13,6 +13,7 @@ import org.qifu.core.util.CoreApiSupport;
 import org.qifu.fm.dto.command.FmWorkflowDelegationCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmWorkflowDelegationView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmWorkflowDelegation;
 import org.qifu.fm.logic.IFmWorkflowDelegationLogicService;
 import org.qifu.fm.service.IFmWorkflowDelegationService;
@@ -32,12 +33,15 @@ public class FMPROG003D0002Controller extends CoreApiSupport {
 
 	private final transient IFmWorkflowDelegationService delegationService;
 	private final transient IFmWorkflowDelegationLogicService delegationLogicService;
+	private final transient FmTenantAccessGuard tenantAccessGuard;
 
 	public FMPROG003D0002Controller(
 			IFmWorkflowDelegationService delegationService,
-			IFmWorkflowDelegationLogicService delegationLogicService) {
+			IFmWorkflowDelegationLogicService delegationLogicService,
+			FmTenantAccessGuard tenantAccessGuard) {
 		this.delegationService = delegationService;
 		this.delegationLogicService = delegationLogicService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG003D0002Q", check = true)
@@ -46,6 +50,8 @@ public class FMPROG003D0002Controller extends CoreApiSupport {
 			@RequestBody SearchBody body) {
 		QueryResult<List<FmWorkflowDelegationView>> result = initResult();
 		try {
+			tenantAccessGuard.requireQueryAccess(
+					body.getField() == null ? null : body.getField().get("tenantId"));
 			QueryResult<List<FmWorkflowDelegation>> query = delegationService.findPage(
 					queryParameter(body).fullEquals("tenantId").fullEquals("principalAccount")
 							.fullEquals("delegateAccount").fullEquals("scopeType")

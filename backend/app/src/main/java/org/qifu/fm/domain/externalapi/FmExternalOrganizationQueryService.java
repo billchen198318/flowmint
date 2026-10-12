@@ -162,7 +162,7 @@ public class FmExternalOrganizationQueryService {
 		}
 		int page = positive(request.page(), 1, "page");
 		int pageSize = boundedPageSize(request.pageSize());
-		int from = Math.min((page - 1) * pageSize, employees.size());
+		int from = pageStart(page, pageSize, employees.size());
 		int to = Math.min(from + pageSize, employees.size());
 		int pages = employees.isEmpty() ? 0
 				: (employees.size() + pageSize - 1) / pageSize;
@@ -215,7 +215,7 @@ public class FmExternalOrganizationQueryService {
 		}
 		int page = positive(value.page(), 1, "page");
 		int pageSize = boundedPageSize(value.pageSize());
-		int from = Math.min((page - 1) * pageSize, views.size());
+		int from = pageStart(page, pageSize, views.size());
 		int to = Math.min(from + pageSize, views.size());
 		int pages = views.isEmpty() ? 0 : (views.size() + pageSize - 1) / pageSize;
 		return new FmExternalDepartmentTreeView(format, views.size(), pages, page,
@@ -295,6 +295,10 @@ public class FmExternalOrganizationQueryService {
 			throw new ServiceException("pageSize must not exceed 200.");
 		}
 		return result;
+	}
+
+	static int pageStart(int page, int pageSize, int total) {
+		return (int) Math.min((long) (page - 1) * pageSize, total);
 	}
 
 	public FmExternalEmployeeView employeeDetail(FmExternalEmployeeDetailRequest request)

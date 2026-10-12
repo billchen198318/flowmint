@@ -1,6 +1,7 @@
 package org.qifu.fm.domain.ai;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -52,17 +53,21 @@ public class FmGeminiProviderClient implements FmAiProviderClient {
 				.followRedirects(HttpClient.Redirect.NEVER)
 				.build();
 		try {
-			HttpResponse<String> response = client.send(buildRequest(config, request),
-					HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+			HttpResponse<InputStream> response = client.send(buildRequest(config, request),
+					HttpResponse.BodyHandlers.ofInputStream());
+			String body;
+			try (InputStream input = response.body()) {
+				byte[] bytes = input.readNBytes(MAX_RESPONSE_BYTES + 1);
+				if (bytes.length > MAX_RESPONSE_BYTES) {
+					throw new ServiceException("Gemini API 回應內容過大");
+				}
+				body = new String(bytes, StandardCharsets.UTF_8);
+			}
 			if (response.statusCode() < 200 || response.statusCode() >= 300) {
 				throw new ServiceException("Gemini API 呼叫失敗：HTTP "
 						+ response.statusCode());
 			}
-			if (response.body().getBytes(StandardCharsets.UTF_8).length
-					> MAX_RESPONSE_BYTES) {
-				throw new ServiceException("Gemini API 回應內容過大");
-			}
-			return parseResponse(response.body());
+			return parseResponse(body);
 		} catch (InterruptedException exception) {
 			Thread.currentThread().interrupt();
 			throw new ServiceException("Gemini API 呼叫已中斷");

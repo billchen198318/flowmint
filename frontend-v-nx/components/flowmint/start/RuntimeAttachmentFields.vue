@@ -16,25 +16,25 @@ defineEmits<{
 
 <template>
   <div v-if="fields.length" class="attachments mt-4">
-    <div v-for="field in fields" :key="field.key" class="attachment-field">
+    <div v-for="field in fields" :key="field.stateKey" class="attachment-field">
       <label class="form-label fw-semibold">
         {{ field.label || field.key }}
         <span v-if="field.validate?.required" class="text-danger">*</span>
       </label>
-      <input
+      <input v-if="!field.orphaned"
         class="form-control"
         type="file"
         :accept="acceptedFileTypes(field)"
-        :disabled="!uploadSessionId || uploadingField === field.key || disabled"
+        :disabled="!uploadSessionId || uploadingField === field.stateKey || disabled"
         @change="$emit('upload', field, $event)"
       >
-      <div class="form-text">
+      <div v-if="!field.orphaned" class="form-text">
         單檔上限 {{ field.fileMaxSize || "8MB" }}；最多
         {{ field.maxNumberOfFiles || (field.multiple ? 10 : 1) }} 個。
       </div>
-      <ul v-if="files[field.key]?.length" class="list-group mt-2">
+      <ul v-if="files[field.stateKey]?.length" class="list-group mt-2">
         <li
-          v-for="file in files[field.key]"
+          v-for="file in files[field.stateKey]"
           :key="file.attachmentId"
           class="list-group-item d-flex justify-content-between align-items-center"
         >

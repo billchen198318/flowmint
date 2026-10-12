@@ -32,6 +32,7 @@ import org.qifu.fm.entity.FmFormVersion;
 import org.qifu.fm.entity.FmDataAction;
 import org.qifu.fm.entity.FmDataActionStep;
 import org.qifu.fm.logic.IFmFormDefLogicService;
+import org.qifu.fm.mapper.FmFormVersionMapper;
 import org.qifu.fm.service.IFmFormDefService;
 import org.qifu.fm.service.IFmFormVersionService;
 import org.qifu.fm.service.IFmDataActionService;
@@ -67,6 +68,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
 
     private final IFmFormDefService formDefService;
     private final IFmFormVersionService formVersionService;
+    private final FmFormVersionMapper formVersionMapper;
     private final IFmTenantService tenantService;
     private final IFmDataActionService dataActionService;
     private final IFmDataActionVersionService dataActionVersionService;
@@ -79,6 +81,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     public FmFormDefLogicServiceImpl(
             IFmFormDefService formDefService,
             IFmFormVersionService formVersionService,
+            FmFormVersionMapper formVersionMapper,
             IFmTenantService tenantService,
             IFmDataActionService dataActionService,
             IFmDataActionVersionService dataActionVersionService,
@@ -89,6 +92,7 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
             FmTenantAccessGuard tenantAccessGuard) {
         this.formDefService = formDefService;
         this.formVersionService = formVersionService;
+        this.formVersionMapper = formVersionMapper;
         this.tenantService = tenantService;
         this.dataActionService = dataActionService;
         this.dataActionVersionService = dataActionVersionService;
@@ -219,7 +223,8 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 version.getUiSchemaContent(),
                 version.getCustomScriptContent());
         assertRuntimeFormioSchema(content.schemaContent());
-        validatePublishedDataActionBindings(version.getTenantId(), content.uiSchemaContent());
+        validatePublishedDataActionBindings(version.getTenantId(),
+                content.schemaContent(), content.uiSchemaContent());
         FmFormDef formDef = findDef(version.getTenantId(), version.getFormId());
         assertFormActive(formDef);
         for (FmFormVersion previous : versions(formDef)) {
@@ -317,8 +322,10 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
     }
 
     private FmFormVersion draft(String oid) throws ServiceException {
-        FmFormVersion version = formVersionService.selectByPrimaryKey(oid)
-                .getValueEmptyThrowMessage();
+        FmFormVersion version = formVersionMapper.selectForUpdate(oid);
+        if (version == null) {
+            throw new ServiceException(BaseSystemMessage.dataNoExist());
+        }
         tenantAccessGuard.requireAccess(version.getTenantId());
         if (!"DRAFT".equals(version.getVersionStatus())) {
             throw new ServiceException("已發布或已退役版本不可修改");
@@ -442,7 +449,8 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
         }
     }
 
-    private void validatePublishedDataActionBindings(String tenantId, String uiSchemaContent)
+    private void validatePublishedDataActionBindings(String tenantId,
+            String schemaContent, String uiSchemaContent)
             throws ServiceException {
         try {
             JsonNode uiSchema = objectMapper.readTree(uiSchemaContent);
@@ -466,6 +474,8 @@ public class FmFormDefLogicServiceImpl implements IFmFormDefLogicService {
                 }
             }
             validateTaskActionHooks(tenantId, uiSchema.path("taskActionHooks"));
+            formDesignValidator.validateTaskActionHookSources(
+                    objectMapper.readTree(schemaContent), uiSchema.path("taskActionHooks"));
         } catch (JacksonException exception) {
             throw new ServiceException("表單 Data Action Binding JSON 格式錯誤："
                     + exception.getMessage());

@@ -74,13 +74,18 @@ const removeCondition = (index: number) => {
   });
 };
 
-const parseValue = (condition: Condition, rawValue: string) => {
-  if (["IN", "NOT_IN"].includes(condition.operator)) {
-    return rawValue.split(",").map((value) => value.trim()).filter(Boolean);
-  }
+const parseSingleValue = (rawValue: string) => {
   if (rawValue !== "" && !Number.isNaN(Number(rawValue))) return Number(rawValue);
   if (rawValue === "true" || rawValue === "false") return rawValue === "true";
   return rawValue;
+};
+
+const parseValue = (condition: Condition, rawValue: string) => {
+  if (["IN", "NOT_IN"].includes(condition.operator)) {
+    return rawValue.split(",").map((value) => value.trim()).filter(Boolean)
+      .map(parseSingleValue);
+  }
+  return parseSingleValue(rawValue);
 };
 
 const displayValue = (condition: Condition) =>
@@ -89,8 +94,17 @@ const displayValue = (condition: Condition) =>
 const changeConditionField = (index: number, event: Event) =>
   updateCondition(index, { field: (event.target as HTMLSelectElement).value });
 
-const changeConditionOperator = (index: number, event: Event) =>
-  updateCondition(index, { operator: (event.target as HTMLSelectElement).value });
+const changeConditionOperator = (index: number, event: Event) => {
+  const operator = (event.target as HTMLSelectElement).value;
+  const current = config.value.conditions[index];
+  const rawValue = displayValue(current);
+  const isList = ["IN", "NOT_IN"].includes(operator);
+  updateCondition(index, {
+    operator,
+    value: !isList && Array.isArray(current.value) && current.value.length > 1
+      ? "" : parseValue({ ...current, operator }, rawValue),
+  });
+};
 
 const changeConditionValue = (index: number, condition: Condition, event: Event) =>
   updateCondition(index, {

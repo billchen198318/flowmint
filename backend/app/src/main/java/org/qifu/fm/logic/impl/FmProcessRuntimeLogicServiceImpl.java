@@ -20,6 +20,7 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.domain.runtime.FmFormSubmissionValidator;
+import org.qifu.fm.domain.runtime.FmStartFormSelection;
 import org.qifu.fm.domain.runtime.FmDocumentNumberService;
 import org.qifu.fm.domain.attachment.FmAttachmentBindingService;
 import org.qifu.fm.domain.runtime.FmProcessStartPolicyEvaluator;
@@ -36,6 +37,7 @@ import org.qifu.fm.dto.view.FmProcessStartLoadView;
 import org.qifu.fm.dto.view.FmProcessSubmitView;
 import org.qifu.fm.dto.view.FmRuntimeTenantView;
 import org.qifu.fm.entity.FmApprovalGroupMember;
+import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmFormData;
@@ -53,6 +55,7 @@ import org.qifu.fm.flowable.FmTaskAssignmentListener;
 import org.qifu.fm.logic.IFmProcessRuntimeLogicService;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
 import org.qifu.fm.service.IFmApprovalGroupMemberService;
+import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmFormDataService;
@@ -90,6 +93,7 @@ public class FmProcessRuntimeLogicServiceImpl
     private final IFmProcessInstanceService processInstanceService;
     private final IFmProcessStartPolicyService startPolicyService;
     private final IFmApprovalGroupMemberService approvalGroupMemberService;
+    private final IFmApprovalGroupService approvalGroupService;
     private final FmProcessStartPolicyEvaluator startPolicyEvaluator;
     private final IFmProcessStartProxyService startProxyService;
     private final FmProcessStartProxyEvaluator startProxyEvaluator;
@@ -116,6 +120,7 @@ public class FmProcessRuntimeLogicServiceImpl
             IFmProcessInstanceService processInstanceService,
             IFmProcessStartPolicyService startPolicyService,
             IFmApprovalGroupMemberService approvalGroupMemberService,
+            IFmApprovalGroupService approvalGroupService,
             FmProcessStartPolicyEvaluator startPolicyEvaluator,
             IFmProcessStartProxyService startProxyService,
             FmProcessStartProxyEvaluator startProxyEvaluator,
@@ -140,6 +145,7 @@ public class FmProcessRuntimeLogicServiceImpl
         this.processInstanceService = processInstanceService;
         this.startPolicyService = startPolicyService;
         this.approvalGroupMemberService = approvalGroupMemberService;
+        this.approvalGroupService = approvalGroupService;
         this.startPolicyEvaluator = startPolicyEvaluator;
         this.startProxyService = startProxyService;
         this.startProxyEvaluator = startProxyEvaluator;
@@ -266,7 +272,7 @@ public class FmProcessRuntimeLogicServiceImpl
         activeApplicant(command.tenantId(), starterAccount);
         FmEmployee applicant = activeApplicant(
                 command.tenantId(), command.applicantAccount());
-        Map<String, Object> parameters = publishedParameters(command.tenantId());
+        Map<String, Object> parameters = processDefParameters(command.tenantId());
         Map<String, Object> categoryParameters = activeParameters(command.tenantId());
         Map<String, FmProcessCategory> categories = processCategoryService
                 .selectListByParams(categoryParameters).getValue().stream()
@@ -277,6 +283,9 @@ public class FmProcessRuntimeLogicServiceImpl
         List<FmProcessStartCatalogView> values = new ArrayList<>();
         for (FmProcessDef processDef : processDefService
                 .selectListByParams(parameters, "PROCESS_NAME", "ASC").getValue()) {
+            if (!isStartableProcessDef(processDef)) {
+                continue;
+            }
             try {
                 FmProcessVersion version = publishedProcessVersion(
                         command.tenantId(), processDef.getProcessDefId());
@@ -377,10 +386,16 @@ public class FmProcessRuntimeLogicServiceImpl
 		if (StringUtils.isBlank(starterAccount)) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
+        requireActiveTenant(command.tenantId());
+        FmProcessSubmitView existing = existingSubmission(command, starterAccount);
+        if (existing != null) {
+            return success(existing);
+        }
         FmProcessVersion processVersion = publishedProcessVersion(
                 command.tenantId(), command.processDefId());
-        FmFormVersion formVersion = publishedFormVersion(command);
+        requireExpectedProcessVersion(command, processVersion);
         ensureFormBound(command, processVersion);
+        FmFormVersion formVersion = publishedFormVersion(command);
         formSubmissionValidator.validate(formVersion.getSchemaContent(), command.formData());
         FmEmployee applicant = activeApplicant(command.tenantId(), command.applicantAccount());
         validateTenantMembership(command.tenantId(), starterAccount);
@@ -395,10 +410,7 @@ public class FmProcessRuntimeLogicServiceImpl
         authorizeStart(
                 command.tenantId(), command.processDefId(),
                 processVersion, applicant);
-        FmProcessSubmitView existing = existingSubmission(command, starterAccount);
-        if (existing != null) {
-            return success(existing);
-        }
+        activeFormDef(command.tenantId(), command.formId());
         FmProcessDef processDef = activeProcessDef(
                 command.tenantId(), command.processDefId());
         Date now = new Date();
@@ -436,7 +448,8 @@ public class FmProcessRuntimeLogicServiceImpl
                 now);
         attachmentBindingService.bind(
                 command.tenantId(), command.uploadSessionId(), starterAccount,
-                command.formId(), command.formVersionNo(), formData.getFormDataId(), now);
+                command.formId(), command.formVersionNo(), formData.getFormDataId(), now,
+                formVersion.getSchemaContent(), command.formData());
         return success(new FmProcessSubmitView(
                 businessKey,
                 documentNumber,
@@ -454,6 +467,7 @@ public class FmProcessRuntimeLogicServiceImpl
                         command.idempotencyKey(),
                         command.applicantAccount())
                 || command.formVersionNo() == null
+                || command.processVersionNo() == null
                 || command.formData() == null) {
             throw new ServiceException(BaseSystemMessage.parameterIncorrect());
         }
@@ -487,19 +501,27 @@ public class FmProcessRuntimeLogicServiceImpl
         parameters.put("tenantId", tenantId);
         parameters.put("formId", formId);
         parameters.put("versionNo", formVersionNo);
-        parameters.put("versionStatus", "PUBLISHED");
         return formVersionService.selectListByParams(parameters).getValue().stream()
+                .filter(version -> Set.of("PUBLISHED", "RETIRED")
+                        .contains(version.getVersionStatus()))
                 .findFirst()
-                .orElseThrow(() -> new ServiceException("指定表單版本尚未發布"));
+                .orElseThrow(() -> new ServiceException("指定表單版本尚未發布或已失效"));
     }
 
     private FmProcessDef activeProcessDef(String tenantId, String processDefId)
             throws ServiceException {
-        Map<String, Object> parameters = publishedParameters(tenantId);
+        Map<String, Object> parameters = processDefParameters(tenantId);
         parameters.put("processDefId", processDefId);
-        return processDefService.selectListByParams(parameters).getValue().stream()
+        FmProcessDef processDef = processDefService.selectListByParams(parameters).getValue().stream()
+                .filter(this::isStartableProcessDef)
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("找不到可發起的流程主檔"));
+        Map<String, Object> categoryParameters = activeParameters(tenantId);
+        categoryParameters.put("categoryCode", processDef.getCategory());
+        if (processCategoryService.selectListByParams(categoryParameters).getValue().isEmpty()) {
+            throw new ServiceException("流程分類不存在或未啟用");
+        }
+        return processDef;
     }
 
     private String nextDocumentNumber(
@@ -525,20 +547,25 @@ public class FmProcessRuntimeLogicServiceImpl
             String tenantId, FmProcessVersion processVersion) throws ServiceException {
         Map<String, List<String>> taskKeysByForm = new LinkedHashMap<>();
         Map<String, FmTaskFormRule> rulesByForm = new LinkedHashMap<>();
-        for (FmTaskFormRule rule : taskFormRuleService.findByVersion(
+        List<FmTaskFormRule> rules = taskFormRuleService.findByVersion(
                 tenantId,
                 processVersion.getProcessDefId(),
-                processVersion.getVersionNo())) {
+                processVersion.getVersionNo());
+        for (FmTaskFormRule rule : rules) {
             String key = rule.getFormId() + ":" + rule.getFormVersionNo();
             rulesByForm.putIfAbsent(key, rule);
             taskKeysByForm.computeIfAbsent(key, ignored -> new ArrayList<>())
                     .add(rule.getTaskDefKey());
         }
-        if (rulesByForm.isEmpty()) {
-            throw new ServiceException("已發布流程版本沒有綁定表單");
-        }
+        List<FmTaskFormRule> selected = FmStartFormSelection.select(rules, objectMapper);
+        Set<String> selectedKeys = selected.stream()
+                .map(rule -> rule.getFormId() + ":" + rule.getFormVersionNo())
+                .collect(Collectors.toSet());
         List<FmProcessStartFormView> forms = new ArrayList<>();
         for (Map.Entry<String, FmTaskFormRule> entry : rulesByForm.entrySet()) {
+            if (!selectedKeys.contains(entry.getKey())) {
+                continue;
+            }
             FmTaskFormRule rule = entry.getValue();
             FmFormVersion version = publishedFormVersion(
                     tenantId, rule.getFormId(), rule.getFormVersionNo());
@@ -558,21 +585,25 @@ public class FmProcessRuntimeLogicServiceImpl
 
     private FmFormDef activeFormDef(String tenantId, String formId)
             throws ServiceException {
-        Map<String, Object> parameters = publishedParameters(tenantId);
+        Map<String, Object> parameters = processDefParameters(tenantId);
         parameters.put("formId", formId);
         return formDefService.selectListByParams(parameters).getValue().stream()
+                .filter(formDef -> Set.of("PUBLISHED", "DRAFT").contains(formDef.getStatus()))
                 .findFirst()
                 .orElseThrow(() -> new ServiceException("找不到流程綁定的表單主檔"));
     }
 
-    private void validateTenantMembership(String tenantId, String account)
-            throws ServiceException {
-        Map<String, Object> tenantParameters = activeParameters(tenantId);
-        if (tenantService.selectListByParams(tenantParameters).getValue().stream()
+    private void requireActiveTenant(String tenantId) throws ServiceException {
+        if (tenantService.selectListByParams(activeParameters(tenantId)).getValue().stream()
                 .noneMatch(tenant -> tenantId.equals(tenant.getTenantId())
                         && "ACTIVE".equals(tenant.getStatus()))) {
-            throw new ServiceException("Tenant 不存在或已停用");
+            throw new ServiceException("Tenant is inactive or unavailable");
         }
+    }
+
+    private void validateTenantMembership(String tenantId, String account)
+            throws ServiceException {
+        requireActiveTenant(tenantId);
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("account", account);
         List<FmTenantAccount> memberships = tenantAccountService
@@ -589,10 +620,11 @@ public class FmProcessRuntimeLogicServiceImpl
     private void ensureFormBound(
             FmProcessSubmitCommand command,
             FmProcessVersion processVersion) throws ServiceException {
-        boolean bound = taskFormRuleService.findByVersion(
+        List<FmTaskFormRule> rules = taskFormRuleService.findByVersion(
                 command.tenantId(),
                 command.processDefId(),
-                processVersion.getVersionNo()).stream()
+                processVersion.getVersionNo());
+        boolean bound = FmStartFormSelection.select(rules, objectMapper).stream()
                 .anyMatch(rule -> command.formId().equals(rule.getFormId())
                         && command.formVersionNo().equals(rule.getFormVersionNo()));
         if (!bound) {
@@ -672,10 +704,15 @@ public class FmProcessRuntimeLogicServiceImpl
 
         Map<String, Object> groupParameters = activeParameters(tenantId);
         groupParameters.put("employeeId", applicant.getEmployeeId());
+        Set<String> activeGroupIds = approvalGroupService
+                .selectListByParams(activeParameters(tenantId)).getValue().stream()
+                .map(FmApprovalGroup::getApprovalGroupId)
+                .collect(Collectors.toSet());
         Set<String> groupIds = approvalGroupMemberService
                 .selectListByParams(groupParameters).getValue().stream()
                 .filter(value -> isEffective(value.getEffectiveFrom(), value.getEffectiveTo()))
                 .map(FmApprovalGroupMember::getApprovalGroupId)
+                .filter(activeGroupIds::contains)
                 .collect(Collectors.toSet());
 
         boolean allowed = startPolicyEvaluator.isAllowed(
@@ -736,7 +773,9 @@ public class FmProcessRuntimeLogicServiceImpl
             throw new ServiceException("Idempotency key 已被不完整的資料佔用");
         }
         FmProcessInstance process = processValues.getFirst();
-        boolean sameRequest = command.formId().equals(formData.getFormId())
+        boolean sameRequest = command.processDefId().equals(process.getProcessDefId())
+                && command.processVersionNo().equals(process.getProcessVersionNo())
+                && command.formId().equals(formData.getFormId())
                 && command.formVersionNo().equals(formData.getFormVersionNo())
                 && command.applicantAccount().equals(formData.getOwnerAccount())
                 && starterAccount.equals(process.getInitiatorAccount())
@@ -847,11 +886,28 @@ public class FmProcessRuntimeLogicServiceImpl
         return parameters;
     }
 
-    private Map<String, Object> publishedParameters(String tenantId) {
+    private Map<String, Object> processDefParameters(String tenantId) {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("tenantId", tenantId);
+        return parameters;
+    }
+
+    private void requireExpectedProcessVersion(FmProcessSubmitCommand command,
+            FmProcessVersion processVersion) throws ServiceException {
+        if (!command.processVersionNo().equals(processVersion.getVersionNo())) {
+            throw new ServiceException("流程版本已變更，請重新載入起單頁並確認內容");
+        }
+    }
+
+    private Map<String, Object> publishedParameters(String tenantId) {
+        Map<String, Object> parameters = processDefParameters(tenantId);
         parameters.put("status", "PUBLISHED");
         return parameters;
+    }
+
+    private boolean isStartableProcessDef(FmProcessDef processDef) {
+        return "PUBLISHED".equals(processDef.getStatus())
+                || "DRAFT".equals(processDef.getStatus());
     }
 
     private boolean isEffective(Date from, Date to) {

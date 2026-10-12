@@ -59,4 +59,36 @@ class FmDataActionParameterResolverTest {
 		assertEquals("A01", parameters.get("itemCode"));
 		assertEquals("OK", parameters.get("status"));
 	}
+
+	@Test
+	void stepMappingCannotOverrideServerContext() throws Exception {
+		String mapping = """
+				{"tenantId":"${item.tenantId}",
+				 "loginAccount":"${steps.previous.loginAccount}",
+				 "now":"${item.now}",
+				 "itemCode":"${item.itemCode}"}
+				""";
+		Map<String, Object> base = resolver.resolve(mapping, Map.of(),
+				"TENANT-A", "user01");
+		Map<String, Object> resolved = resolver.resolveForStep(mapping, base,
+				Map.of(), Map.of("previous", Map.of("loginAccount", "forged")),
+				Map.of("tenantId", "TENANT-B", "now", "forged",
+						"itemCode", "A01"));
+		assertEquals("TENANT-A", resolved.get("tenantId"));
+		assertEquals("user01", resolved.get("loginAccount"));
+		assertEquals(base.get("now"), resolved.get("now"));
+		assertEquals("A01", resolved.get("itemCode"));
+	}
+
+	@Test
+	void rawItemCannotOverrideServerContextWithoutSchema() throws Exception {
+		Map<String, Object> base = resolver.resolve(null, Map.of(),
+				"TENANT-A", "user01");
+		Map<String, Object> resolved = resolver.resolveForStep(null, base,
+				Map.of(), Map.of(), Map.of("tenantId", "TENANT-B",
+						"loginAccount", "forged", "sku", "A01"));
+		assertEquals("TENANT-A", resolved.get("tenantId"));
+		assertEquals("user01", resolved.get("loginAccount"));
+		assertEquals("A01", resolved.get("sku"));
+	}
 }

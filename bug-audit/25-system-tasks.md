@@ -19,12 +19,28 @@
 - 實際：`FmDataActionTaskDelegate.execute()` 在 response mapping 非空時更新 Flowable 變數，接著 `persistFormData()` 呼叫 `updateDataContent()`。Mapper 同時增加 `REVISION_NO` 與 `LOCK_VERSION`，但這條 Delegate 路徑沒有建立 `fm_form_snapshot`。若後續 Task 或查詢依快照還原該 revision，會缺少 Data Action 產生的版本；相對地 Groovy 寫回路徑在增加 revision 後建立快照。
 - 證據：`backend/app/src/main/java/org/qifu/fm/flowable/FmDataActionTaskDelegate.java` 的 `execute()`、`persistFormData()`；`backend/app/src/main/resources/org/qifu/fm/mapper/FmFormDataMapper.xml` 的 `updateDataContent`；`backend/app/src/main/java/org/qifu/fm/logic/impl/FmGroovyRuntimeCommitLogicServiceImpl.java` 的寫回與 snapshot。尚未用執行中流程驗證前端歷程呈現。
 
+### 2026-10-09 BUG-151 修復複核
+
+- **BUG-151 已修正**：核對 Delegate 寫回路徑及 `updateDataContent` 的 revision 遞增，確認原路徑缺少快照，並非誤判。Data Action 寫回後現在讀回新 revision／lock version／JSON，建立 `SYSTEM_TASK_APPLY` 不可變快照；快照寫入失敗則使 Delegate 失敗，避免流程繼續使用沒有快照的資料。
+- `FmDataActionTaskDelegateTest` 驗證寫回建立相同內容與 revision 的快照，無 Response Mapping 時不寫快照；Maven 定向測試通過。尚未以 Flowable／MariaDB 實際執行驗證交易回滾與歷程畫面。
+
 ### BUG-152：Data Action Task 的 Response Mapping 可寫入未經表單 Schema 驗證的欄位
 
 - 嚴重度：高。性質：System Task 表單資料完整性；目前無 System Task 配置及執行紀錄，屬程式碼推論。
 - 預期：`backend/doc/33-SystemTask與DataActionTask規劃.md` 第 158 行要求 Response Mapping 的 `FORM_DATA` 目標為已發布表單 Schema 中存在、型別相容且允許持久化的欄位；`backend/doc/04-流程與表單規格.md` 規定 Runtime 只接受 Schema 定義的欄位並在後端重新驗證。
 - 實際：`FmBpmnDesignValidator.validateMapping()` 只驗證目標為格式合法的 `FORM_DATA.<path>`；`FmDataActionTaskPublishValidator.validateMappings()` 只確認來源 root 是 Action 結果 key，未檢查目標欄位是否存在或型別相容。設計器的 `DataActionTaskPanel.vue` 接受 JSON 文字。執行時 `FmDataActionTaskDelegate.applyResponse()` 只要求目標以 `FORM_DATA.` 開頭，再用 `setPath()` 新增或覆寫欄位，`persistFormData()` 直接更新 JSON，沒有呼叫表單 Schema 驗證。設定錯誤但格式合法的欄位路徑或型別可進入正式表單資料。
 - 證據：`backend/app/src/main/java/org/qifu/fm/domain/workflow/FmBpmnDesignValidator.java` 的 `validateMapping()`；`backend/app/src/main/java/org/qifu/fm/domain/workflow/FmDataActionTaskPublishValidator.java` 的 `validateMappings()`；`backend/app/src/main/java/org/qifu/fm/flowable/FmDataActionTaskDelegate.java` 的 `applyResponse()`、`setPath()`、`persistFormData()`；`frontend-v-nx/pages/fm_prog004d0001/components/DataActionTaskPanel.vue` 的 Response Mapping 輸入。
+
+### 2026-10-09 BUG-152 修復進度
+
+- **BUG-152 部分修正，尚未標示已修正**：核對發布檢查只驗證 Response 來源、Delegate 寫回前不驗證目標，缺陷成立。Delegate 現在依表單資料綁定的版本載入 Schema，在資料庫寫入前用正式表單驗證器檢查完整寫回資料；不合法欄位或型別會使執行失敗。表單資料改為深複製，並在資料庫寫回成功後才更新 Flowable 變數，避免拒絕時污染原變數。
+- `FmDataActionTaskDelegateTest` 驗證未宣告欄位被拒且沒有新增寫入，定向測試通過。發布時仍未依綁定表單 Schema 預先拒絕無效 Response Mapping，故此項保持未完成；尚未執行 Flowable／MariaDB 實際流程。
+
+### 2026-10-09 BUG-152 完成複核
+
+- **BUG-152 已修正**：發布流程時，Data Action Task 的 Response Mapping 目標須存在於該流程版本每個綁定表單的 Schema，且欄位須允許輸入與持久化；支援 Container 巢狀欄位。執行時仍依當次表單版本用正式表單驗證器檢查整份寫回資料及型別，避免 Action 回傳值與發布時預期不同時污染表單。
+- `FmDataActionTaskPublishValidatorTest` 與 `FmDataActionTaskDelegateTest` 定向測試通過；尚未以 Flowable／MariaDB 實際發布及執行驗收。上方「部分修正」為本日中間狀態，現以此結論為準。
+- 2026-10-09 延伸測試：補齊 `FmProcessMultiInstanceBpmnTest` 的 Data Action 綁定表單測試情境後，該 BPMN 轉換測試與上述發布驗證測試一併通過；未改變正式發布時缺少綁定表單會拒絕的行為。
 
 ### BUG-169：Data Action Task 發布驗證使用不存在的 STEP_NO 欄位排序
 
@@ -33,12 +49,20 @@
 - 實際：`FmDataActionTaskPublishValidator.validateMappings()` 呼叫 `stepService.selectListByParams(params, "STEP_NO", "ASC")`。`FmDataActionStepMapper.xml` 會把 `orderBy` 放入 `ORDER BY ${orderBy}`，但 `fm_data_action_step` 表與 Mapper 的 Step 排序欄位是 `EXECUTION_ORDER`，沒有 `STEP_NO`。`validateMappings()` 對每個 DATA_ACTION Task 都執行這個查詢，包含 Response Mapping 為空的情況；因此前面 Action／Version 驗證通過後，流程發布會因未知欄位而失敗。
 - 證據：`FmProcessDefLogicServiceImpl.publish()` 呼叫 `FmDataActionTaskPublishValidator.validate()`／`validateDataActions()`；`FmDataActionTaskPublishValidator.validateMappings()`；`FmDataActionStepMapper.xml` 的 `selectListByParams`；`backend/doc/flowmint.sql` 的 `fm_data_action_step` DDL。MariaDB CLI 唯讀確認 Step 49 筆；`SELECT STEP_ID FROM fm_data_action_step ORDER BY STEP_NO LIMIT 1` 回 `ERROR 1054 (42S22): Unknown column 'STEP_NO' in 'ORDER BY'`。未異動流程或資料庫。
 
+### 2026-10-08 BUG-169 修復複核
+- **BUG-169 已修正**：核對資料表、Mapper 與發布驗證，確認 `STEP_NO` 不存在，並非誤判。Step 查詢改以 `EXECUTION_ORDER` 排序；`FmDataActionTaskPublishValidatorTest` 驗證查詢欄位，目標測試通過。未在 MariaDB 實際發布流程。
+
 ### BUG-170：Response Mapping 可引用停用 Step，Runtime 將缺失結果寫成 null
+
+- 修正狀態：**已修正（2026-10-08；2026-10-10 複核）**。發布驗證目前只收集 `STATUS=ACTIVE` 且 `ResultMode` 非 `NONE` 的 Step Result Key；下方「實際」為修正前行為。複核現行程式後確認不需重複修改。
 
 - 嚴重度：中。性質：Data Action Task 發布驗證／表單寫回不一致；BUG-169 修復後才可沿正式發布路徑重現，目前屬靜態推論。
 - 預期：Response Mapping 的來源應是固定 Action Version 中實際會執行、且會產生結果的 ACTIVE Step；停用 Step 的 Result Key 應在流程發布時被拒絕。
 - 實際：`FmDataActionTaskPublishValidator.validateMappings()` 從該版本所有 Step 蒐集 Result Key，只排除 `ResultMode=NONE`，沒有檢查 `STATUS=ACTIVE`。`FmDataActionExecutor.executeSteps()` 遇到非 ACTIVE Step 會跳過，回傳資料不含其 Result Key。`FmDataActionTaskDelegate.applyResponse()` 讀取缺失來源路徑得到 `null`，`setPath()` 仍把 `null` 寫入 `FORM_DATA`，並持久化。設定為 INACTIVE 的 Step 因此可在發布驗證通過後清空目標欄位。
 - 證據：`FmDataActionTaskPublishValidator.validateMappings()`；`FmDataActionExecutor.executeSteps()`；`FmDataActionTaskDelegate.applyResponse()`／`path()`／`setPath()`／`persistFormData()`。MariaDB 唯讀確認目前 Published 版本共有 34 筆 Step，全部 ACTIVE；沒有現成停用 Step 與 Response Mapping 可重現，且 BUG-169 現階段會先阻斷發布。
+
+### 2026-10-08 BUG-170 修復複核
+- **BUG-170 已修正**：核對發布驗證、Executor 跳過停用 Step 與 Delegate 寫回行為，確認缺失來源可被寫成 `null`，並非誤判。可用 Result Key 只從 ACTIVE 且 Result Mode 非 NONE 的 Step 蒐集；目標測試驗證 INACTIVE 來源被拒、ACTIVE 來源可通過。未在 MariaDB 實際發布流程。
 
 2026-10-04 續查 DATA_ACTION 發布路徑，核對 Action／Version／Step Mapper 篩選、流程發布入口、Step 排序欄位與 MariaDB 表結構。Action、Version、Step 的 `selectListByParams` 均有相應動態篩選；第 14 單元 Pool Mapper 漏篩的問題未在這三張表重現。發布驗證的錯誤排序欄位記為 BUG-169；停用 Step 被算入 Response Mapping 可用來源記為 BUG-170。Groovy worker 與本單元其他生命週期仍待盤查。
 

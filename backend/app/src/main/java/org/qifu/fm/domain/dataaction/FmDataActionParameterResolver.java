@@ -4,6 +4,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.message.BaseSystemMessage;
@@ -14,6 +15,10 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class FmDataActionParameterResolver {
+
+	private static final Set<String> PROTECTED_STEP_PARAMETERS = Set.of(
+			"tenantId", "loginAccount", "businessKey", "processInstanceId",
+			"now", "page", "pageSize");
 
 	private final ObjectMapper objectMapper;
 
@@ -64,8 +69,12 @@ public class FmDataActionParameterResolver {
 		Map<String, Object> parameters = new LinkedHashMap<>(baseParameters);
 		if (requestSchema == null || requestSchema.isBlank()) {
 			if (item instanceof Map<?, ?> itemMap) {
-				itemMap.forEach((key, value) ->
-						parameters.put(String.valueOf(key), value));
+				itemMap.forEach((key, value) -> {
+					String name = String.valueOf(key);
+					if (!PROTECTED_STEP_PARAMETERS.contains(name)) {
+						parameters.put(name, value);
+					}
+				});
 			}
 			return parameters;
 		}
@@ -74,6 +83,7 @@ public class FmDataActionParameterResolver {
 		context.put("steps", stepResults);
 		context.put("item", item);
 		for (Map.Entry<String, String> mapping : readMappings(requestSchema).entrySet()) {
+			if (PROTECTED_STEP_PARAMETERS.contains(mapping.getKey())) continue;
 			String expression = mapping.getValue();
 			if (expression != null && expression.startsWith("${")
 					&& expression.endsWith("}")) {

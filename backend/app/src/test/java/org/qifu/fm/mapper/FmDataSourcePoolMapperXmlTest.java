@@ -3,6 +3,7 @@ package org.qifu.fm.mapper;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.Reader;
+import java.util.Map;
 
 import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.io.Resources;
@@ -18,6 +19,13 @@ class FmDataSourcePoolMapperXmlTest {
 		parse(configuration, "org/qifu/fm/mapper/FmDataSourcePoolMapper.xml");
 		assertTrue(configuration.hasStatement(
 				"org.qifu.fm.mapper.FmDataSourcePoolMapper.selectByPrimaryKey"));
+		String sql = configuration.getMappedStatement(
+				"org.qifu.fm.mapper.FmDataSourcePoolMapper.selectListByParams")
+				.getBoundSql(Map.of("tenantId", "tenant", "poolId", "pool",
+						"status", "ACTIVE"))
+				.getSql();
+		assertTrue(sql.contains("POOL_ID = ?"));
+		assertTrue(sql.contains("STATUS = ?"));
 	}
 
 	private void parse(Configuration configuration, String resource) throws Exception {

@@ -69,6 +69,12 @@
   </select>
   <sql id='baseConditions'>
     AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    <if test='poolId != null and poolId != ""'>
+      AND POOL_ID = #{poolId,jdbcType=VARCHAR}
+    </if>
+    <if test='status != null and status != ""'>
+      AND STATUS = #{status,jdbcType=VARCHAR}
+    </if>
   </sql>
   <select id='selectListByParams' parameterType='java.util.HashMap' resultMap='BaseResultMap'>
     SELECT <include refid='BaseColumnList' />

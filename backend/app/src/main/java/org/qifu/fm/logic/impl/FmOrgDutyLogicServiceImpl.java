@@ -18,6 +18,7 @@ import org.qifu.fm.dto.command.FmOrgDutyCommand;
 import org.qifu.fm.dto.view.FmEmployeeDutyView;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmOrgDutyView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmEmployeeDuty;
 import org.qifu.fm.entity.FmEmployeeOrgAssignment;
@@ -44,6 +45,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 	private final IFmEmployeeService employeeService;
 	private final IFmOrgUnitVersionService orgUnitVersionService;
 	private final IFmTenantService tenantService;
+	private final FmTenantAccessGuard tenantAccessGuard;
 
 	public FmOrgDutyLogicServiceImpl(
 			IFmOrgDutyService dutyService,
@@ -51,19 +53,21 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 			IFmEmployeeOrgAssignmentService assignmentService,
 			IFmEmployeeService employeeService,
 			IFmOrgUnitVersionService orgUnitVersionService,
-			IFmTenantService tenantService) {
+			IFmTenantService tenantService, FmTenantAccessGuard tenantAccessGuard) {
 		this.dutyService = dutyService;
 		this.employeeDutyService = employeeDutyService;
 		this.assignmentService = assignmentService;
 		this.employeeService = employeeService;
 		this.orgUnitVersionService = orgUnitVersionService;
 		this.tenantService = tenantService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@Override
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmOrgDutyView> create(FmOrgDutyCommand command) throws ServiceException {
 		validateDuty(command);
+		tenantAccessGuard.requireAccess(command.tenantId());
 		FmOrgDuty duty = new FmOrgDuty();
 		duty.setTenantId(command.tenantId());
 		duty.setDutyId(UUID.randomUUID().toString());
@@ -76,6 +80,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 	@Override
 	public DefaultResult<FmOrgDutyView> load(String oid, String message) throws ServiceException {
 		FmOrgDuty duty = dutyService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(duty.getTenantId());
 		DefaultResult<FmOrgDutyView> result = success(view(duty));
 		result.setMessage(message);
 		return result;
@@ -85,10 +90,19 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmOrgDutyView> update(FmOrgDutyCommand command) throws ServiceException {
 		FmOrgDuty duty = dutyService.selectByPrimaryKey(command.oid()).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(duty.getTenantId());
 		if (!duty.getTenantId().equals(command.tenantId())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		validateDuty(command);
+		if (!duty.getOrgUnitId().equals(command.orgUnitId())) {
+			Map<String, Object> params = new HashMap<>();
+			params.put("tenantId", duty.getTenantId());
+			params.put("dutyId", duty.getDutyId());
+			if (!employeeDutyService.selectListByParams(params).getValue().isEmpty()) {
+				throw new ServiceException("職務已有擔任人紀錄，請另建職務以更換部門");
+			}
+		}
 		applyDuty(duty, command);
 		dutyService.update(duty);
 		return load(duty.getOid(), BaseSystemMessage.updateSuccess());
@@ -98,9 +112,12 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmOrgDutyView> deactivate(String oid) throws ServiceException {
 		FmOrgDuty duty = dutyService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(duty.getTenantId());
 		duty.setStatus("INACTIVE");
-		if (duty.getEffectiveTo() == null || duty.getEffectiveTo().after(new Date())) {
-			duty.setEffectiveTo(new Date());
+		Date now = new Date();
+		if (!duty.getEffectiveFrom().after(now)
+				&& (duty.getEffectiveTo() == null || duty.getEffectiveTo().after(now))) {
+			duty.setEffectiveTo(now);
 		}
 		dutyService.update(duty);
 		return load(oid, BaseSystemMessage.updateSuccess());
@@ -111,6 +128,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 	public DefaultResult<FmOrgDutyView> saveAssignee(FmEmployeeDutyCommand command)
 			throws ServiceException {
 		FmOrgDuty duty = dutyService.selectByPrimaryKey(command.dutyOid()).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(duty.getTenantId());
 		FmEmployeeOrgAssignment assignment = requiredAssignment(duty, command.employeeOrgAssignmentId());
 		validatePeriod(command.effectiveFrom(), command.effectiveTo(), "擔任期間不正確");
 		validatePrimary(command, duty);
@@ -147,6 +165,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 	public DefaultResult<FmOrgDutyView> deactivateAssignee(String dutyOid, String oid)
 			throws ServiceException {
 		FmOrgDuty duty = dutyService.selectByPrimaryKey(dutyOid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(duty.getTenantId());
 		FmEmployeeDuty employeeDuty = employeeDutyService.selectByPrimaryKey(oid)
 				.getValueEmptyThrowMessage();
 		if (!duty.getTenantId().equals(employeeDuty.getTenantId())
@@ -154,8 +173,10 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		employeeDuty.setStatus("INACTIVE");
-		if (employeeDuty.getEffectiveTo() == null || employeeDuty.getEffectiveTo().after(new Date())) {
-			employeeDuty.setEffectiveTo(new Date());
+		Date now = new Date();
+		if (!employeeDuty.getEffectiveFrom().after(now)
+				&& (employeeDuty.getEffectiveTo() == null || employeeDuty.getEffectiveTo().after(now))) {
+			employeeDuty.setEffectiveTo(now);
 		}
 		employeeDutyService.update(employeeDuty);
 		return load(dutyOid, BaseSystemMessage.updateSuccess());
@@ -163,6 +184,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 
 	@Override
 	public FmOrgDutyView view(FmOrgDuty duty) throws ServiceException {
+		tenantAccessGuard.requireAccess(duty.getTenantId());
 		Map<String, String> unitLabels = orgUnitOptions(duty.getTenantId()).getValue().stream()
 				.collect(Collectors.toMap(FmOptionView::value, FmOptionView::label));
 		Map<String, String> assignmentLabels = assignmentLabelMap(duty);
@@ -191,9 +213,11 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 
 	@Override
 	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
+		var readableTenantIds = tenantAccessGuard.readableTenantIds();
 		Map<String, Object> params = new HashMap<>();
 		params.put("status", "ACTIVE");
 		return success(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue().stream()
+				.filter(value -> readableTenantIds.contains(value.getTenantId()))
 				.map(value -> new FmOptionView(value.getTenantId(),
 						value.getTenantCode() + "／" + value.getTenantName()))
 				.toList());
@@ -204,6 +228,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 		if (StringUtils.isBlank(tenantId)) {
 			return success(List.of());
 		}
+		tenantAccessGuard.requireAccess(tenantId);
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("status", "ACTIVE");
@@ -216,6 +241,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 	@Override
 	public DefaultResult<List<FmOptionView>> assignmentOptions(String dutyOid) throws ServiceException {
 		FmOrgDuty duty = dutyService.selectByPrimaryKey(dutyOid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(duty.getTenantId());
 		return success(assignmentLabelMap(duty).entrySet().stream()
 				.map(entry -> new FmOptionView(entry.getKey(), entry.getValue()))
 				.sorted((left, right) -> left.label().compareTo(right.label()))
@@ -241,6 +267,7 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 		params.put("orgUnitId", duty.getOrgUnitId());
 		params.put("status", "ACTIVE");
 		return assignmentService.selectListByParams(params, "EFFECTIVE_FROM", "ASC").getValue().stream()
+				.filter(this::currentlyEffective)
 				.filter(value -> value.getEmployeeOrgAssignmentId().equals(assignmentId))
 				.findFirst()
 				.orElseThrow(() -> new ServiceException("所選員工沒有此部門的有效任職"));
@@ -278,6 +305,9 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 				.collect(Collectors.toMap(FmEmployee::getEmployeeId, Function.identity()));
 		Map<String, String> labels = new HashMap<>();
 		for (FmEmployeeOrgAssignment assignment : assignments) {
+			if (!currentlyEffective(assignment)) {
+				continue;
+			}
 			FmEmployee employee = employees.get(assignment.getEmployeeId());
 			if (employee != null) {
 				labels.put(assignment.getEmployeeOrgAssignmentId(),
@@ -285,6 +315,12 @@ public class FmOrgDutyLogicServiceImpl implements IFmOrgDutyLogicService {
 			}
 		}
 		return labels;
+	}
+
+	private boolean currentlyEffective(FmEmployeeOrgAssignment assignment) {
+		Date now = new Date();
+		return !assignment.getEffectiveFrom().after(now)
+				&& (assignment.getEffectiveTo() == null || assignment.getEffectiveTo().after(now));
 	}
 
 	private void validatePeriod(Date effectiveFrom, Date effectiveTo, String message)

@@ -24,9 +24,15 @@ import org.qifu.base.exception.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class FmAttachmentStorageService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FmAttachmentStorageService.class);
 
     private static final long DEFAULT_MAX_FILE_SIZE = 8L * 1024L * 1024L;
     private final Path root;
@@ -55,13 +61,14 @@ public class FmAttachmentStorageService {
         return write(target, fileOid, content, declaredSize);
     }
 
-    public Path promote(String tenantId, String sessionId, String fileOid)
+    public Path promote(String tenantId, String sessionId, String fileOid, Date createdDate)
             throws ServiceException {
         validateSegment("Tenant", tenantId);
         validateSegment("Upload Session", sessionId);
         validateSegment("File OID", fileOid);
+        if (createdDate == null) throw new ServiceException("附件建立日期不可為空");
         Path source = resolveInsideRoot(tenantId, "temporary", sessionId, fileOid + ".bin");
-        YearMonth month = YearMonth.now(ZoneOffset.UTC);
+        YearMonth month = YearMonth.from(createdDate.toInstant().atZone(ZoneOffset.UTC));
         Path target = resolveInsideRoot(tenantId, "attachments",
                 String.valueOf(month.getYear()), String.format("%02d", month.getMonthValue()),
                 fileOid + ".bin");
@@ -170,6 +177,91 @@ public class FmAttachmentStorageService {
         }
     }
 
+    public void verifyTemporary(String tenantId, String sessionId, String fileOid,
+            long expectedSize, String expectedSha256) throws ServiceException {
+        validateSegment("Tenant", tenantId);
+        validateSegment("Upload Session", sessionId);
+        validateSegment("File OID", fileOid);
+        Path source = resolveInsideRoot(tenantId, "temporary", sessionId, fileOid + ".bin");
+        try (InputStream content = Files.newInputStream(source)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            long actualSize = 0;
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = content.read(buffer)) != -1) {
+                actualSize += count;
+                if (actualSize > maxFileSize || actualSize > expectedSize) {
+                    throw new ServiceException("暫存附件大小與上傳紀錄不一致");
+                }
+                digest.update(buffer, 0, count);
+            }
+            if (actualSize != expectedSize
+                    || !HexFormat.of().formatHex(digest.digest()).equals(expectedSha256)) {
+                throw new ServiceException("暫存附件內容與上傳紀錄不一致");
+            }
+        } catch (IOException | NoSuchAlgorithmException exception) {
+            throw new ServiceException("無法驗證暫存附件內容");
+        }
+    }
+
+    public void deleteTemporaryAfterCommit(String tenantId, String sessionId, String fileOid) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            throw new IllegalStateException("暫存附件刪除必須在資料庫交易中執行");
+        }
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        try {
+                            deleteTemporary(tenantId, sessionId, fileOid);
+                        } catch (ServiceException exception) {
+                            LOGGER.error("Unable to remove deleted temporary attachment: "
+                                    + "tenant={}, session={}, fileOid={}",
+                                    tenantId, sessionId, fileOid, exception);
+                        }
+                    }
+                });
+    }
+
+    public List<TemporaryFile> findTemporaryFilesOlderThan(Instant cutoff, int maximum)
+            throws ServiceException {
+        List<TemporaryFile> result = new ArrayList<>();
+        if (!Files.exists(root)) return result;
+        try (var paths = Files.walk(root, 5)) {
+            paths.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().endsWith(".bin"))
+                    .filter(path -> modifiedBefore(path, cutoff))
+                    .forEach(path -> {
+                        if (result.size() < maximum) addTemporaryFile(result, path);
+                    });
+            return result;
+        } catch (IOException exception) {
+            throw new ServiceException("無法掃描暫存附件目錄");
+        }
+    }
+
+    private void addTemporaryFile(List<TemporaryFile> result, Path path) {
+        Path relative = root.relativize(path.toAbsolutePath().normalize());
+        if (relative.getNameCount() != 4
+                || !"temporary".equals(relative.getName(1).toString())) return;
+        String name = path.getFileName().toString();
+        result.add(new TemporaryFile(relative.getName(0).toString(),
+                relative.getName(2).toString(), Strings.CS.removeEnd(name, ".bin"), path));
+    }
+
+    public Path quarantineTemporary(TemporaryFile file) throws ServiceException {
+        Path source = file.path().toAbsolutePath().normalize();
+        if (!source.startsWith(root)) throw new ServiceException("孤兒暫存附件路徑不合法");
+        Path target = resolveInsideRoot(file.tenantId(), "orphaned",
+                System.currentTimeMillis() + "-" + source.getFileName());
+        try {
+            Files.createDirectories(target.getParent());
+            return Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException exception) {
+            throw new ServiceException("無法隔離孤兒暫存附件");
+        }
+    }
+
     public Path quarantine(FormalFile file) throws ServiceException {
         Path source = file.path().toAbsolutePath().normalize();
         if (!source.startsWith(root)) throw new ServiceException("孤兒附件路徑不合法");
@@ -264,6 +356,9 @@ public class FmAttachmentStorageService {
     }
 
     public record FormalFile(String tenantId, String fileOid, Path path) {
+    }
+
+    public record TemporaryFile(String tenantId, String sessionId, String fileOid, Path path) {
     }
 
     private static final class SizeLimitedInputStream extends InputStream {

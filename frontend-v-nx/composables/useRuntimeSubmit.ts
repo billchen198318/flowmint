@@ -10,10 +10,13 @@ import type { FormScriptRunner } from "@/types/formCustomJavascript";
 interface RuntimeSubmitOptions {
   tenantId: Ref<string>;
   processDefId: Ref<string>;
+  processVersionNo: Ref<number | null>;
   applicantAccount: Ref<string>;
   selectedForm: Ref<any>;
   idempotencyKey: Ref<string>;
   uploadSessionId: Ref<string>;
+  uploadBatchExpiresDate: Ref<string>;
+  createUploadBatch: (expired: boolean) => Promise<boolean>;
   attachmentFields: Ref<any[]>;
   attachmentFiles: Ref<Record<string, any[]>>;
   result: Ref<any>;
@@ -41,8 +44,12 @@ export const useRuntimeSubmit = (options: RuntimeSubmitOptions) => {
       toast.warning("請完成表單必填欄位");
       return;
     }
+    if (options.attachmentFields.value.some((field: any) => field.orphaned)) {
+      toast.warning("請先刪除已移除表單列的暫存附件");
+      return;
+    }
     const missingAttachment = options.attachmentFields.value.find((field: any) =>
-      field.validate?.required && !options.attachmentFiles.value[field.key]?.length);
+      field.validate?.required && !options.attachmentFiles.value[field.stateKey]?.length);
     if (missingAttachment) {
       toast.warning(`${missingAttachment.label || missingAttachment.key} 為必填附件`);
       return;
@@ -71,16 +78,27 @@ export const useRuntimeSubmit = (options: RuntimeSubmitOptions) => {
       toast.warning("請選擇申請人");
       return;
     }
+    const expiresAt = Date.parse(options.uploadBatchExpiresDate.value);
+    const sessionExpired = !!options.uploadSessionId.value
+      && (!Number.isFinite(expiresAt) || expiresAt <= Date.now() + 30_000);
+    const hasUploadedFiles = Object.values(options.attachmentFiles.value)
+      .some((files: any[]) => files.length > 0);
+    if ((!options.uploadSessionId.value || sessionExpired) && hasUploadedFiles) {
+      await options.createUploadBatch(true);
+      return;
+    }
+    const sessionIdForSubmit = sessionExpired ? null : options.uploadSessionId.value || null;
     const response: any = await useApi("/fm/requests/submit", {
       method: "POST",
       headers: tenantHeaders(),
       body: {
         processDefId: options.processDefId.value,
+        processVersionNo: options.processVersionNo.value,
         formId: selectedForm.formId,
         formVersionNo: selectedForm.formVersionNo,
         applicantAccount,
         formData: withoutFlowmintDisplayFields(renderedFormData),
-        uploadSessionId: options.uploadSessionId.value || null,
+        uploadSessionId: sessionIdForSubmit,
       },
     });
     if (!ok(response)) {

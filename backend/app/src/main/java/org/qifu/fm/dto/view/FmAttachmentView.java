@@ -5,5 +5,6 @@ public record FmAttachmentView(
         String fieldKey,
         String fileName,
         String contentType,
-        Long fileSize) {
+        Long fileSize,
+        boolean deletable) {
 }

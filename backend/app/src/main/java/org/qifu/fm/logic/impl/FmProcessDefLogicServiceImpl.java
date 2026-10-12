@@ -42,6 +42,8 @@ import org.qifu.fm.dto.view.FmTaskPolicyView;
 import org.qifu.fm.dto.view.FmTaskAssignmentRuleView;
 import org.qifu.fm.entity.FmTaskAssignmentRule;
 import org.qifu.fm.entity.FmApprovalGroup;
+import org.qifu.fm.entity.FmApprovalGroupMember;
+import org.qifu.fm.entity.FmEmployeeOrgAssignment;
 import org.qifu.fm.entity.FmProcessDef;
 import org.qifu.fm.entity.FmProcessCategory;
 import org.qifu.fm.entity.FmProcessVersion;
@@ -53,6 +55,8 @@ import org.qifu.fm.domain.form.FmFormFieldCatalog;
 import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.domain.runtime.FmApprovalGroupModeValidator;
 import org.qifu.fm.domain.runtime.FmTaskFieldPolicyValidator;
+import org.qifu.fm.domain.runtime.FmStartFormSelection;
+import org.qifu.fm.flowable.FmMultiInstanceIncidentBpmn;
 import org.qifu.fm.domain.workflow.FmAssignmentRuleConfigValidator;
 import org.qifu.fm.domain.workflow.FmBpmnDesignValidator;
 import org.qifu.fm.domain.workflow.FmProcessPublishValidator;
@@ -74,7 +78,9 @@ import org.qifu.fm.service.IFmTaskFormRuleService;
 import org.qifu.fm.service.IFmTaskPolicyService;
 import org.qifu.fm.service.IFmTaskAssignmentRuleService;
 import org.qifu.fm.service.IFmEmployeeService;
+import org.qifu.fm.service.IFmEmployeeOrgAssignmentService;
 import org.qifu.fm.service.IFmApprovalGroupService;
+import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmOrgApprovalLevelService;
 import org.qifu.fm.service.IFmOrgTitleService;
 import org.qifu.fm.service.IFmOrgDutyService;
@@ -114,7 +120,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
     private final IFmProcessStartPolicyService startPolicyService;
     private final IFmAssignmentResolverService assignmentResolverService;
     private final IFmEmployeeService employeeService;
+    private final IFmEmployeeOrgAssignmentService employeeOrgAssignmentService;
     private final IFmApprovalGroupService approvalGroupService;
+    private final IFmApprovalGroupMemberService approvalGroupMemberService;
     private final IFmOrgApprovalLevelService orgApprovalLevelService;
     private final IFmOrgTitleService orgTitleService;
     private final IFmOrgDutyService orgDutyService;
@@ -142,7 +150,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             IFmProcessStartPolicyService startPolicyService,
             IFmAssignmentResolverService assignmentResolverService,
             IFmEmployeeService employeeService,
+            IFmEmployeeOrgAssignmentService employeeOrgAssignmentService,
             IFmApprovalGroupService approvalGroupService,
+            IFmApprovalGroupMemberService approvalGroupMemberService,
             IFmOrgApprovalLevelService orgApprovalLevelService,
             IFmOrgTitleService orgTitleService,
             IFmOrgDutyService orgDutyService,
@@ -167,7 +177,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         this.startPolicyService = startPolicyService;
         this.assignmentResolverService = assignmentResolverService;
         this.employeeService = employeeService;
+        this.employeeOrgAssignmentService = employeeOrgAssignmentService;
         this.approvalGroupService = approvalGroupService;
+        this.approvalGroupMemberService = approvalGroupMemberService;
         this.orgApprovalLevelService = orgApprovalLevelService;
         this.orgTitleService = orgTitleService;
         this.orgDutyService = orgDutyService;
@@ -273,13 +285,13 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         if (!groovyDraftEnabled && command.groovyBindings() != null && !command.groovyBindings().isEmpty()) {
             throw new ServiceException("Groovy 草稿功能尚未啟用");
         }
+        if (command.expectedLockVersion() == null || processVersionService.advanceDraftLock(
+                version.getTenantId(), version.getOid(), command.expectedLockVersion()) != 1) {
+            throw new ServiceException("流程草稿已被修改，請重新載入後再儲存");
+        }
         if (groovyDraftEnabled) {
             List<FmProcessSystemTask> bindings = groovyDraftValidator.validate(
                     version, command.bpmnXml(), command.groovyBindings());
-            if (command.expectedLockVersion() == null || processVersionService.advanceDraftLock(
-                    version.getTenantId(), version.getOid(), command.expectedLockVersion()) != 1) {
-                throw new ServiceException("流程草稿已被修改，請重新載入後再儲存");
-            }
             if (!bindings.isEmpty() || !groovyBindings(version).isEmpty()) {
                 groovyDesignAccess.require(version.getTenantId());
             }
@@ -305,6 +317,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         FmProcessDef processDef = processDefService.selectByPrimaryKey(processDefOid)
                 .getValueEmptyThrowMessage();
         tenantAccessGuard.requireAccess(processDef.getTenantId());
+        if ("INACTIVE".equals(processDef.getStatus())) {
+            throw new ServiceException("已停用流程不可建立新版本");
+        }
         List<FmProcessVersion> versions = versions(processDef);
         FmProcessVersion existingDraft = versions.stream()
                 .filter(value -> "DRAFT".equals(value.getVersionStatus())).findFirst().orElse(null);
@@ -408,6 +423,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             VerifiedPublication evidence) throws ServiceException {
         FmProcessVersion version = draft(versionOid);
         FmProcessDef processDef = findDef(version.getTenantId(), version.getProcessDefId());
+        if ("INACTIVE".equals(processDef.getStatus())) {
+            throw new ServiceException("已停用流程不可發布版本");
+        }
+        requireActiveCategory(version.getTenantId(), processDef.getCategory());
         if (evidence == null) {
             validateBpmn(version.getBpmnXml(), processDef.getProcessKey());
         } else {
@@ -417,6 +436,8 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         processPublishValidator.validate(taskKeys, taskFormRules(version),
                 taskPolicies(version), assignmentRules(version));
         validateTaskFormsForPublish(version, taskKeys);
+        FmStartFormSelection.select(taskFormRules(version),
+                new tools.jackson.databind.ObjectMapper());
         validateGatewayFormFieldsForPublish(version);
         validateTaskPoliciesForPublish(version, taskKeys);
         validateAssignmentRulesForPublish(version);
@@ -500,6 +521,21 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             } else {
                 dataActionTaskPublishValidator.validateDataActions(version.getTenantId(), model);
             }
+            if (model.getMainProcess().findFlowElementsOfType(
+                    org.flowable.bpmn.model.ServiceTask.class).stream().anyMatch(task ->
+                    "DATA_ACTION".equals(task.getAttributeValue(
+                            FmDataActionTaskPublishValidator.FLOWMINT_NAMESPACE, "taskType")))) {
+                List<FmTaskFormRule> boundRules = taskFormRules(version);
+                List<FmPublishedFormOptionView> publishedForms =
+                        taskFormRuleService.publishedFormOptions(version.getTenantId());
+                List<String> formSchemas = boundRules.stream().map(rule -> publishedForms.stream()
+                        .filter(form -> rule.getFormId().equals(form.formId())
+                                && rule.getFormVersionNo().equals(form.formVersionNo()))
+                        .findFirst().orElseThrow(() -> new IllegalStateException(
+                                "Data Action Task 綁定表單版本不存在")).schemaContent())
+                        .distinct().toList();
+                dataActionTaskPublishValidator.validateFormTargets(model, formSchemas);
+            }
             for (org.flowable.bpmn.model.UserTask userTask
                     : model.getMainProcess().findFlowElementsOfType(
                             org.flowable.bpmn.model.UserTask.class)) {
@@ -523,16 +559,19 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                         .contains(policy.getAssignmentMode())) {
                     org.flowable.bpmn.model.MultiInstanceLoopCharacteristics loop =
                             new org.flowable.bpmn.model.MultiInstanceLoopCharacteristics();
-                    loop.setInputDataItem("${fmTaskAssignmentListener.multiInstanceAccounts(execution, '"
-                            + userTask.getId() + "')}");
+                    loop.setInputDataItem("${flowmintMiAccounts}");
                     loop.setElementVariable("flowmintAssignee");
                     loop.setSequential("SEQUENTIAL".equals(policy.getAssignmentMode()));
                     userTask.setLoopCharacteristics(loop);
+                    FmMultiInstanceIncidentBpmn.wrap(model, userTask);
                 }
             }
             for (org.flowable.bpmn.model.ServiceTask serviceTask
                     : model.getMainProcess().findFlowElementsOfType(
                             org.flowable.bpmn.model.ServiceTask.class)) {
+                if (FmMultiInstanceIncidentBpmn.isPreflightTask(serviceTask.getId())) {
+                    continue;
+                }
                 if (evidence != null && "GROOVY".equals(serviceTask.getAttributeValue(
                         FmDataActionTaskPublishValidator.FLOWMINT_NAMESPACE, "taskType"))) {
                     continue;
@@ -600,7 +639,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         parameters.put("tenantId", tenantId);
         parameters.put("status", "ACTIVE");
         return success(employeeService.selectListByParams(parameters, "EMPLOYEE_NO", "ASC")
-                .getValue().stream().map(employee -> new FmOptionView(employee.getAccount(),
+                .getValue().stream()
+                .filter(employee -> effective(employee.getEffectiveFrom(), employee.getEffectiveTo()))
+                .map(employee -> new FmOptionView(employee.getAccount(),
                         employee.getEmployeeNo() + "／" + employee.getDisplayName())).toList());
     }
 
@@ -727,6 +768,9 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     || !category.getCategoryCode().equals(command.categoryCode())) {
                 throw new ServiceException("不可變更分類的 Tenant 或代碼");
             }
+            if ("INACTIVE".equals(command.status())) {
+                requireCategoryUnused(category);
+            }
             applyCategory(command, category);
             category.setStatus("INACTIVE".equals(command.status())
                     ? "INACTIVE" : "ACTIVE");
@@ -742,6 +786,13 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         FmProcessCategory category = processCategoryService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
         tenantAccessGuard.requireAccess(category.getTenantId());
+        requireCategoryUnused(category);
+        category.setStatus("INACTIVE");
+        processCategoryService.update(category);
+        return categoryList(category.getTenantId());
+    }
+
+    private void requireCategoryUnused(FmProcessCategory category) throws ServiceException {
         Map<String, Object> references = new HashMap<>();
         references.put("tenantId", category.getTenantId());
         references.put("category", category.getCategoryCode());
@@ -749,9 +800,6 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         if (!processDefService.selectListByParams(references).getValue().isEmpty()) {
             throw new ServiceException("分類仍有未停用流程使用，不可停用");
         }
-        category.setStatus("INACTIVE");
-        processCategoryService.update(category);
-        return categoryList(category.getTenantId());
     }
 
     private void applyCategory(FmProcessCategoryCommand command,
@@ -808,7 +856,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                                 policy.getPolicySeq(), policy.getSubjectType(),
                                 policy.getSubjectRefId(), policy.getAllowStart())).toList(),
                         groovyBindings(value),
-                        groovyDraftEnabled ? processVersionService.findLockVersion(value.getTenantId(), value.getOid()) : null,
+                        processVersionService.findLockVersion(value.getTenantId(), value.getOid()),
                         groovyDraftEnabled))
                 .toList();
         return new FmProcessDefView(processDef.getOid(), processDef.getTenantId(),
@@ -856,12 +904,10 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         FmProcessVersion version = processVersionService.selectByPrimaryKey(oid)
                 .getValueEmptyThrowMessage();
         tenantAccessGuard.requireAccess(version.getTenantId());
-        if (groovyDraftEnabled) {
-            if (processVersionService.lockDraft(version.getTenantId(), oid) == null) {
-                throw new ServiceException("流程版本已發布或不存在，請重新載入");
-            }
-            version = processVersionService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+        if (processVersionService.lockDraft(version.getTenantId(), oid) == null) {
+            throw new ServiceException("流程版本已發布或不存在，請重新載入");
         }
+        version = processVersionService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
         if (!"DRAFT".equals(version.getVersionStatus())) {
             throw new ServiceException("已發布或已退役版本不可修改");
         }
@@ -1006,13 +1052,57 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return policy;
     }
 
-    private void validateStartPoliciesForPublish(FmProcessVersion version)
+    void validateStartPoliciesForPublish(FmProcessVersion version)
             throws ServiceException {
         List<FmProcessStartPolicy> policies = startPolicies(version);
         if (policies.isEmpty()
                 || policies.stream().noneMatch(policy -> "Y".equals(policy.getAllowStart()))) {
             throw new ServiceException("流程至少需要一筆允許啟動的規則");
         }
+        for (FmProcessStartPolicy policy : policies) {
+            if (!"Y".equals(policy.getAllowStart())) {
+                continue;
+            }
+            boolean valid = switch (policy.getSubjectType()) {
+                case "ALL" -> true;
+                case "ACCOUNT" -> validateFixedAccount(
+                        version.getTenantId(), policy.getSubjectRefId());
+                case "APPROVAL_GROUP" -> validateApprovalGroup(
+                        version.getTenantId(), policy.getSubjectRefId());
+                case "ORG_UNIT" -> hasActiveApplicantInOrgUnit(
+                        version.getTenantId(), policy.getSubjectRefId());
+                default -> false;
+            };
+            if (!valid) {
+                throw new ServiceException("流程啟動規則的允許對象目前沒有有效申請人："
+                        + policy.getSubjectType() + "/" + policy.getSubjectRefId());
+            }
+        }
+    }
+
+    private boolean hasActiveApplicantInOrgUnit(String tenantId, String orgUnitId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        if (!exists(orgUnitService, parameters, "orgUnitId", orgUnitId)) {
+            return false;
+        }
+        parameters.put("orgUnitId", orgUnitId);
+        for (FmEmployeeOrgAssignment assignment : employeeOrgAssignmentService
+                .selectListByParams(parameters).getValue()) {
+            if (!effective(assignment.getEffectiveFrom(), assignment.getEffectiveTo())) {
+                continue;
+            }
+            Map<String, Object> employeeParameters = activeOptionParameters(tenantId);
+            employeeParameters.put("employeeId", assignment.getEmployeeId());
+            for (org.qifu.fm.entity.FmEmployee employee : employeeService
+                    .selectListByParams(employeeParameters).getValue()) {
+                if (effective(employee.getEffectiveFrom(), employee.getEffectiveTo())
+                        && validateFixedAccount(tenantId, employee.getAccount())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void saveAssignmentRules(FmProcessVersion version,
@@ -1144,13 +1234,13 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return "Y".equals(value) || "N".equals(value);
     }
 
-    private boolean validSla(Integer dueHours, Integer reminderBeforeHours) {
+    static boolean validSla(Integer dueHours, Integer reminderBeforeHours) {
         if (dueHours == null) {
             return reminderBeforeHours == null;
         }
         return dueHours >= 1 && dueHours <= 8760
                 && (reminderBeforeHours == null
-                        || (reminderBeforeHours >= 0 && reminderBeforeHours < dueHours));
+                        || (reminderBeforeHours >= 1 && reminderBeforeHours < dueHours));
     }
 
     private FmTaskPolicy newTaskPolicy(
@@ -1323,8 +1413,17 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 .collect(Collectors.toMap(
                         FmApprovalGroup::getApprovalGroupId,
                         FmApprovalGroup::getAssignmentMode));
+        Map<String, Set<String>> authorityGroupIds = approvalAuthorityRuleService
+                .selectListByParams(parameters).getValue().stream()
+                .filter(rule -> "APPROVAL_GROUP".equals(rule.getTargetType()))
+                .collect(Collectors.groupingBy(
+                        org.qifu.fm.entity.FmApprovalAuthorityRule::getApprovalAuthorityId,
+                        Collectors.mapping(
+                                org.qifu.fm.entity.FmApprovalAuthorityRule::getTargetRefId,
+                                Collectors.toSet())));
         approvalGroupModeValidator.validate(
-                taskPolicies(version), assignmentRules(version), groupModes);
+                taskPolicies(version), assignmentRules(version), groupModes,
+                authorityGroupIds);
     }
 
     private void validateAssignmentRulesForPublish(FmProcessVersion version)
@@ -1347,15 +1446,17 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                     rule.getFallbackConfig());
             validateResolverReference(rule.getTenantId(), rule.getResolverType(),
                     rule.getResolverConfig());
-            validateFallbackReference(rule);
+            validateFallbackReference(rule, taskForms, forms);
             if (Set.of("FORM_ACCOUNT_FIELD", "FORM_ACCOUNT_FIELD_MANAGER")
                     .contains(rule.getResolverType())) {
-                validateFormAccountField(rule, taskForms, forms);
+                validateFormAccountField(rule, rule.getResolverConfig(), taskForms, forms);
             }
         }
     }
 
-    private void validateFallbackReference(FmTaskAssignmentRule rule)
+    private void validateFallbackReference(FmTaskAssignmentRule rule,
+            Map<String, FmTaskFormRule> taskForms,
+            Map<String, FmPublishedFormOptionView> forms)
             throws ServiceException {
         if (StringUtils.isBlank(rule.getFallbackConfig())) {
             return;
@@ -1366,10 +1467,14 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
             if (fallback.isObject() && fallback.isEmpty()) {
                 return;
             }
-            validateResolverReference(rule.getTenantId(),
-                    fallback.path("resolverType").asString(),
-                    new tools.jackson.databind.ObjectMapper().writeValueAsString(
-                            fallback.path("resolverConfig")));
+            String resolverType = fallback.path("resolverType").asString();
+            String resolverConfig = new tools.jackson.databind.ObjectMapper()
+                    .writeValueAsString(fallback.path("resolverConfig"));
+            validateResolverReference(rule.getTenantId(), resolverType, resolverConfig);
+            if (Set.of("FORM_ACCOUNT_FIELD", "FORM_ACCOUNT_FIELD_MANAGER")
+                    .contains(resolverType)) {
+                validateFormAccountField(rule, resolverConfig, taskForms, forms);
+            }
         } catch (ServiceException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -1386,47 +1491,44 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         } catch (Exception exception) {
             throw new ServiceException("無法檢查 Resolver 引用資料");
         }
-        Map<String, Object> parameters = activeOptionParameters(tenantId);
         boolean valid = switch (resolverType) {
             case "FIXED_ACCOUNT" -> validateFixedAccounts(
                     tenantId, config.path("accounts"));
-            case "APPROVAL_GROUP" -> exists(approvalGroupService, parameters,
-                    "approvalGroupId", config.path("approvalGroupId").asString());
-            case "TARGET_LEVEL_HEAD" -> exists(orgApprovalLevelService, parameters,
-                    "approvalLevelId", config.path("approvalLevelId").asString());
-            case "ORG_TITLE" -> exists(orgTitleService, parameters,
-                    "titleId", config.path("titleId").asString());
-            case "ORG_DUTY" -> exists(orgDutyService, parameters,
-                    "dutyId", config.path("dutyId").asString());
-            case "APPROVAL_AUTHORITY" -> exists(approvalAuthorityService, parameters,
-                    "approvalAuthorityId", config.path("approvalAuthorityId").asString())
-                    && validateAuthorityTargets(tenantId,
-                            config.path("approvalAuthorityId").asString());
+            case "APPROVAL_GROUP" -> validateApprovalGroup(tenantId,
+                    config.path("approvalGroupId").asString());
+            case "TARGET_LEVEL_HEAD" -> validateActiveApprovalLevel(tenantId,
+                    config.path("approvalLevelId").asString());
+            case "ORG_TITLE" -> validateActiveOrgTitle(tenantId,
+                    config.path("titleId").asString());
+            case "ORG_DUTY" -> validateActiveOrgDuty(tenantId,
+                    config.path("dutyId").asString());
+            case "APPROVAL_AUTHORITY" -> validateApprovalAuthority(tenantId,
+                    config.path("approvalAuthorityId").asString());
             default -> true;
         };
         if (!valid) {
             throw new ServiceException("Resolver " + resolverType
-                    + " 引用的主檔不存在、未啟用或無有效 Tenant membership");
+                    + " 引用的主檔不存在、未啟用、未生效或無有效 Tenant membership");
         }
     }
 
     private boolean validateAuthorityTargets(String tenantId, String authorityId)
             throws ServiceException {
-        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        boolean hasActiveRule = false;
         for (org.qifu.fm.entity.FmApprovalAuthorityRule rule
                 : approvalAuthorityRuleService.findByAuthority(tenantId, authorityId)) {
             if (!"ACTIVE".equals(rule.getStatus())) {
                 continue;
             }
+            hasActiveRule = true;
             boolean valid = switch (rule.getTargetType()) {
-                case "APPROVAL_LEVEL" -> exists(orgApprovalLevelService, parameters,
-                        "approvalLevelId", rule.getTargetRefId());
-                case "ORG_TITLE" -> exists(orgTitleService, parameters,
-                        "titleId", rule.getTargetRefId());
-                case "ORG_DUTY" -> exists(orgDutyService, parameters,
-                        "dutyId", rule.getTargetRefId());
-                case "APPROVAL_GROUP" -> exists(approvalGroupService, parameters,
-                        "approvalGroupId", rule.getTargetRefId());
+                case "APPROVAL_LEVEL" -> validateActiveApprovalLevel(
+                        tenantId, rule.getTargetRefId());
+                case "ORG_TITLE" -> validateActiveOrgTitle(
+                        tenantId, rule.getTargetRefId());
+                case "ORG_DUTY" -> validateActiveOrgDuty(
+                        tenantId, rule.getTargetRefId());
+                case "APPROVAL_GROUP" -> validateApprovalGroup(tenantId, rule.getTargetRefId());
                 case "FIXED_ACCOUNT" -> validateFixedAccount(
                         tenantId, rule.getTargetRefId());
                 default -> false;
@@ -1435,7 +1537,40 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
                 return false;
             }
         }
-        return true;
+        return hasActiveRule;
+    }
+
+    boolean validateActiveApprovalLevel(String tenantId, String levelId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        parameters.put("approvalLevelId", levelId);
+        return orgApprovalLevelService.selectListByParams(parameters).getValue().stream()
+                .anyMatch(value -> effective(value.getEffectiveFrom(), value.getEffectiveTo()));
+    }
+
+    boolean validateActiveOrgTitle(String tenantId, String titleId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        parameters.put("titleId", titleId);
+        return orgTitleService.selectListByParams(parameters).getValue().stream()
+                .anyMatch(value -> effective(value.getEffectiveFrom(), value.getEffectiveTo()));
+    }
+
+    boolean validateActiveOrgDuty(String tenantId, String dutyId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        parameters.put("dutyId", dutyId);
+        return orgDutyService.selectListByParams(parameters).getValue().stream()
+                .anyMatch(value -> effective(value.getEffectiveFrom(), value.getEffectiveTo()));
+    }
+
+    private boolean validateApprovalAuthority(String tenantId, String authorityId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        parameters.put("approvalAuthorityId", authorityId);
+        boolean active = approvalAuthorityService.selectListByParams(parameters).getValue().stream()
+                .anyMatch(value -> effective(value.getEffectiveFrom(), value.getEffectiveTo()));
+        return active && validateAuthorityTargets(tenantId, authorityId);
     }
 
     private boolean validateFixedAccount(String tenantId, String account)
@@ -1446,13 +1581,39 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         return validateFixedAccounts(tenantId, accounts);
     }
 
+    private boolean validateApprovalGroup(String tenantId, String groupId)
+            throws ServiceException {
+        Map<String, Object> parameters = activeOptionParameters(tenantId);
+        if (!exists(approvalGroupService, parameters, "approvalGroupId", groupId)) {
+            return false;
+        }
+        parameters.put("approvalGroupId", groupId);
+        for (FmApprovalGroupMember member : approvalGroupMemberService
+                .selectListByParams(parameters).getValue()) {
+            if (!effective(member.getEffectiveFrom(), member.getEffectiveTo())) {
+                continue;
+            }
+            Map<String, Object> employeeParams = activeOptionParameters(tenantId);
+            employeeParams.put("employeeId", member.getEmployeeId());
+            for (org.qifu.fm.entity.FmEmployee employee : employeeService
+                    .selectListByParams(employeeParams).getValue()) {
+                if (effective(employee.getEffectiveFrom(), employee.getEffectiveTo())
+                        && validateFixedAccount(tenantId, employee.getAccount())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private boolean validateFixedAccounts(String tenantId,
             tools.jackson.databind.JsonNode accounts) throws ServiceException {
         for (tools.jackson.databind.JsonNode accountNode : accounts) {
             String account = accountNode.asString();
             Map<String, Object> employeeParameters = activeOptionParameters(tenantId);
             employeeParameters.put("account", account);
-            if (employeeService.selectListByParams(employeeParameters).getValue().isEmpty()) {
+            if (employeeService.selectListByParams(employeeParameters).getValue().stream()
+                    .noneMatch(value -> effective(value.getEffectiveFrom(), value.getEffectiveTo()))) {
                 return false;
             }
             Map<String, Object> membershipParameters = activeOptionParameters(tenantId);
@@ -1482,6 +1643,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
 
     private void validateFormAccountField(
             FmTaskAssignmentRule rule,
+            String resolverConfig,
             Map<String, FmTaskFormRule> taskForms,
             Map<String, FmPublishedFormOptionView> forms) throws ServiceException {
         FmTaskFormRule taskForm = taskForms.get(rule.getTaskDefKey());
@@ -1497,7 +1659,7 @@ public class FmProcessDefLogicServiceImpl implements IFmProcessDefLogicService {
         }
         try {
             tools.jackson.databind.JsonNode config = new tools.jackson.databind.ObjectMapper()
-                    .readTree(rule.getResolverConfig());
+                    .readTree(resolverConfig);
             String fieldKey = config.path("fieldKey").asString();
             if (!formFieldCatalog.fields(form.schemaContent()).contains(fieldKey)) {
                 throw new ServiceException("User Task「" + rule.getTaskDefKey()

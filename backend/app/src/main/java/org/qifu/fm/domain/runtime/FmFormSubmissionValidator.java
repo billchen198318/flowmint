@@ -1,6 +1,8 @@
 package org.qifu.fm.domain.runtime;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -18,6 +20,10 @@ import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class FmFormSubmissionValidator {
+
+    // Compatibility for the one published legacy Form.io custom rule.
+    private static final String LEGACY_DELIVERY_DATE_RULE =
+            "valid = !input || !data.acceptanceDate || input <= data.acceptanceDate ? true : \"到貨日期不得晚於驗收日期\";";
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
@@ -65,7 +71,9 @@ public class FmFormSubmissionValidator {
         Set<String> declaredKeys = new java.util.HashSet<>();
         collectScopeKeys(components, declaredKeys);
         for (String key : data.keySet()) {
-            if (!declaredKeys.contains(key)) {
+            if (FmSystemFormFields.DOCUMENT_NUMBER.equals(key)) {
+                errors.add("documentNumber is a display-only system field");
+            } else if (!declaredKeys.contains(key)) {
                 String path = StringUtils.isBlank(parentPath) ? key : parentPath + "." + key;
                 errors.add(path + " 不是 Schema 宣告的欄位");
             }
@@ -103,6 +111,8 @@ public class FmFormSubmissionValidator {
         Object value = StringUtils.isBlank(key) ? null : data.get(key);
         String path = StringUtils.isBlank(parentPath) ? key : parentPath + "." + key;
 
+        validateLegacyCustomRule(component, data, value, path, errors);
+
         if (!isLayout(type) && component.path("input").asBoolean(true)) {
             validateValue(component, value, path, errors);
         }
@@ -139,6 +149,38 @@ public class FmFormSubmissionValidator {
         validateNestedLayout(component, data, parentPath, errors);
     }
 
+    private void validateLegacyCustomRule(JsonNode component, Map<String, Object> data,
+            Object value, String path, List<String> errors) {
+        JsonNode rules = component.path("validate");
+        JsonNode custom = rules.path("custom");
+        JsonNode json = rules.path("json");
+        if (configured(json)) {
+            errors.add(path + " 使用後端不支援的自訂驗證規則");
+        }
+        if (!configured(custom)) return;
+        if (!"deliveryDate".equals(component.path("key").asString())
+                || !LEGACY_DELIVERY_DATE_RULE.equals(custom.asString())) {
+            errors.add(path + " 使用後端不支援的自訂驗證規則");
+            return;
+        }
+        Object acceptanceDate = data.get("acceptanceDate");
+        if (isEmpty(value) || isEmpty(acceptanceDate)) return;
+        try {
+            if (LocalDate.parse(String.valueOf(value))
+                    .isAfter(LocalDate.parse(String.valueOf(acceptanceDate)))) {
+                errors.add("到貨日期不得晚於驗收日期");
+            }
+        } catch (DateTimeParseException exception) {
+            errors.add(path + " 或驗收日期格式錯誤");
+        }
+    }
+
+    private boolean configured(JsonNode rule) {
+        return !rule.isMissingNode() && !rule.isNull()
+                && !(rule.isString() && StringUtils.isBlank(rule.asString()))
+                && !((rule.isArray() || rule.isObject()) && rule.isEmpty());
+    }
+
     private void validateNestedLayout(JsonNode component, Map<String, Object> data,
             String parentPath, List<String> errors) {
         validateComponents(component.path("components"), data, parentPath, errors);
@@ -160,6 +202,24 @@ public class FmFormSubmissionValidator {
             return;
         }
         if (isEmpty(value)) {
+            return;
+        }
+        if ("file".equals(component.path("type").asString())
+                && !component.path("multiple").asBoolean(false)) {
+            if (value instanceof Collection<?> files) {
+                if (files.size() > 1) {
+                    errors.add(label(component, path) + " 最多只能有 1 個附件");
+                } else if (!files.isEmpty() && !(files.iterator().next() instanceof String)) {
+                    errors.add(label(component, path) + " 附件 ID 必須為文字");
+                }
+            } else if (!(value instanceof String)) {
+                errors.add(label(component, path) + " 附件 ID 必須為文字");
+            }
+            return;
+        }
+        if ("selectboxes".equals(component.path("type").asString())
+                && hasFixedChoices(component)) {
+            validateSelectBoxes(component, value, path, errors);
             return;
         }
         if (component.path("multiple").asBoolean(false)) {
@@ -191,11 +251,83 @@ public class FmFormSubmissionValidator {
             errors.add(name + " 必須為文字");
             return;
         }
+        if (("select".equals(type) || "radio".equals(type))
+                && hasFixedChoices(component) && !matchesFixedChoice(component, value)) {
+            errors.add(name + " 不是允許的選項");
+            return;
+        }
         if (value instanceof Number number) {
             validateNumber(rules, number, name, errors);
         }
         if (value instanceof String text) {
             validateText(component, rules, text, name, errors);
+        }
+    }
+
+    private boolean hasFixedChoices(JsonNode component) {
+        String type = component.path("type").asString("");
+        String dataSrc = component.path("dataSrc").asString("values");
+        return Set.of("select", "radio", "selectboxes").contains(type)
+                && "values".equals(dataSrc);
+    }
+
+    private JsonNode fixedChoices(JsonNode component) {
+        return "select".equals(component.path("type").asString())
+                ? component.path("data").path("values") : component.path("values");
+    }
+
+    private boolean matchesFixedChoice(JsonNode component, Object value) {
+        JsonNode choices = fixedChoices(component);
+        if (!choices.isArray()) {
+            return false;
+        }
+        JsonNode submitted = objectMapper.valueToTree(value);
+        String dataType = component.path("dataType").asString("auto");
+        for (JsonNode option : choices) {
+            JsonNode choice = option.path("value");
+            if (choice.equals(submitted)) {
+                return true;
+            }
+            if (choice.isString() && value instanceof Number number
+                    && Set.of("auto", "number").contains(dataType)) {
+                try {
+                    if (new BigDecimal(choice.asString())
+                            .compareTo(new BigDecimal(number.toString())) == 0) {
+                        return true;
+                    }
+                } catch (NumberFormatException ignored) {
+                    // A text option cannot match a numeric submission.
+                }
+            }
+            if (choice.isString() && value instanceof Boolean booleanValue
+                    && Set.of("auto", "boolean").contains(dataType)
+                    && Boolean.toString(booleanValue).equals(choice.asString())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void validateSelectBoxes(JsonNode component, Object value,
+            String path, List<String> errors) {
+        String name = label(component, path);
+        if (!(value instanceof Map<?, ?> selected)) {
+            errors.add(name + " 必須為選項物件");
+            return;
+        }
+        JsonNode choices = fixedChoices(component);
+        Set<String> allowed = new java.util.HashSet<>();
+        if (choices.isArray()) {
+            for (JsonNode option : choices) {
+                allowed.add(option.path("value").asString());
+            }
+        }
+        for (Map.Entry<?, ?> entry : selected.entrySet()) {
+            if (!(entry.getKey() instanceof String key) || !allowed.contains(key)
+                    || !(entry.getValue() instanceof Boolean)) {
+                errors.add(name + " 包含不允許的選項");
+                return;
+            }
         }
     }
 

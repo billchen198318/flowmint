@@ -26,7 +26,8 @@ public class FmAiContentHashService {
 	}
 
 	public String hash(String tenantId, String processInstanceId, String taskId,
-			Integer formRevision, JsonNode context, Integer providerConfigVersion,
+			Integer formRevision, JsonNode context, String providerCode,
+			String providerType, String modelId, Integer providerConfigVersion,
 			Integer promptTemplateVersion) throws ServiceException {
 		ObjectNode content = objectMapper.createObjectNode();
 		content.put("tenantId", tenantId);
@@ -34,6 +35,9 @@ public class FmAiContentHashService {
 		content.put("taskId", taskId);
 		content.put("formRevision", formRevision);
 		content.set("context", canonical(context));
+		content.put("providerCode", providerCode);
+		content.put("providerType", providerType);
+		content.put("modelId", modelId);
 		content.put("providerConfigVersion", providerConfigVersion);
 		content.put("promptTemplateVersion", promptTemplateVersion);
 		try {

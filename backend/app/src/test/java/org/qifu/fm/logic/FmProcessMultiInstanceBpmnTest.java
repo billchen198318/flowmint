@@ -22,9 +22,12 @@ import org.flowable.bpmn.model.ServiceTask;
 import org.junit.jupiter.api.Test;
 import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.entity.FmTaskPolicy;
+import org.qifu.fm.entity.FmTaskFormRule;
+import org.qifu.fm.dto.view.FmPublishedFormOptionView;
 import org.qifu.fm.logic.impl.FmProcessDefLogicServiceImpl;
 import org.qifu.fm.domain.workflow.FmDataActionTaskPublishValidator;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmTaskFormRuleService;
 
 class FmProcessMultiInstanceBpmnTest {
 
@@ -36,8 +39,8 @@ class FmProcessMultiInstanceBpmnTest {
                 policy("allApproval", "ALL"),
                 policy("orderedApproval", "SEQUENTIAL")));
         FmProcessDefLogicServiceImpl service = new FmProcessDefLogicServiceImpl(
-                null, null, null, null, null, policies, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, policies, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
                 mock(FmDataActionTaskPublishValidator.class), null, null, false, null);
         FmProcessVersion version = new FmProcessVersion();
         version.setTenantId("T1");
@@ -68,6 +71,14 @@ class FmProcessMultiInstanceBpmnTest {
         assertNull(candidate.getLoopCharacteristics());
         assertFalse(all.getLoopCharacteristics().isSequential());
         assertTrue(ordered.getLoopCharacteristics().isSequential());
+        for (String key : List.of("allApproval", "orderedApproval")) {
+            assertNotNull(model.getMainProcess().getFlowElement(key + "__fmMiPreflight"));
+            assertNotNull(model.getMainProcess().getFlowElement(key + "__fmMiRoute"));
+            assertNotNull(model.getMainProcess().getFlowElement(key + "__fmMiIncident"));
+            assertEquals(key + "__fmMiToTask",
+                    ((UserTask) model.getMainProcess().getFlowElement(key))
+                            .getIncomingFlows().getFirst().getId());
+        }
         assertEquals("flowmintAssignee",
                 ordered.getLoopCharacteristics().getElementVariable());
         String collection = ordered.getLoopCharacteristics().getCollectionString();
@@ -75,12 +86,19 @@ class FmProcessMultiInstanceBpmnTest {
             collection = ordered.getLoopCharacteristics().getInputDataItem();
         }
         assertNotNull(collection);
-        assertTrue(collection.contains("multiInstanceAccounts"));
+        assertEquals("${flowmintMiAccounts}", collection);
     }
 
     @Test
     void convertsDataActionTaskToFixedAsyncDelegate() throws Exception {
         IFmTaskPolicyService policies = mock(IFmTaskPolicyService.class);
+        IFmTaskFormRuleService forms = mock(IFmTaskFormRuleService.class);
+        FmTaskFormRule boundForm = new FmTaskFormRule();
+        boundForm.setFormId("F1");
+        boundForm.setFormVersionNo(1);
+        when(forms.findByVersion("T1", "P1", 1)).thenReturn(List.of(boundForm));
+        when(forms.publishedFormOptions("T1")).thenReturn(List.of(
+                new FmPublishedFormOptionView("F1", 1, "Form", "{\"components\":[]}")));
         when(policies.findByVersion("T1", "P1", 1)).thenReturn(List.of());
         FmDataActionTaskPublishValidator validator =
                 mock(FmDataActionTaskPublishValidator.class);
@@ -92,8 +110,8 @@ class FmProcessMultiInstanceBpmnTest {
         }).when(validator).validate(org.mockito.ArgumentMatchers.eq("T1"),
                 org.mockito.ArgumentMatchers.any(BpmnModel.class));
         FmProcessDefLogicServiceImpl service = new FmProcessDefLogicServiceImpl(
-                null, null, null, null, null, policies, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, forms, policies, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
                 validator, null, null, false, null);
         FmProcessVersion version = new FmProcessVersion();
         version.setTenantId("T1");

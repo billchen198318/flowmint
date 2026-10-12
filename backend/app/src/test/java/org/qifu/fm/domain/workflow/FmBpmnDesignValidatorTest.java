@@ -15,8 +15,11 @@ class FmBpmnDesignValidatorTest {
 
     @Test
     void extractsReferencedFormFields() throws Exception {
-        String xml = "${flowmintFormData.totalAmount >= 1000 && "
-                + "flowmintFormData.currency == \"TWD\"}";
+        String xml = process("""
+                <sequenceFlow id="flow_cond" sourceRef="start" targetRef="end">
+                  <conditionExpression xsi:type="tFormalExpression">${flowmintFormData.totalAmount &gt;= 1000 &amp;&amp; flowmintFormData.currency == "TWD"}</conditionExpression>
+                </sequenceFlow>
+                """);
 
         assertEquals(Set.of("totalAmount", "currency"),
                 validator.referencedFormFields(xml));
@@ -27,10 +30,29 @@ class FmBpmnDesignValidatorTest {
         assertDoesNotThrow(() -> validator.validate(process("""
                 <exclusiveGateway id="gateway" default="flow_default" />
                 <userTask id="approval" />
+                <sequenceFlow id="flow_start" sourceRef="start" targetRef="gateway" />
                 <sequenceFlow id="flow_amount" sourceRef="gateway" targetRef="approval">
                   <conditionExpression xsi:type="tFormalExpression">${flowmintFormData.totalAmountTwd &gt; 300000}</conditionExpression>
                 </sequenceFlow>
+                <sequenceFlow id="flow_approval_end" sourceRef="approval" targetRef="end" />
                 <sequenceFlow id="flow_default" sourceRef="gateway" targetRef="end" />
+                """), "TEST_PROCESS"));
+    }
+
+    @Test
+    void rejectsDisconnectedUserTask() {
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <userTask id="isolatedApproval" />
+                <sequenceFlow id="flow_start_end" sourceRef="start" targetRef="end" />
+                """), "TEST_PROCESS"));
+    }
+
+    @Test
+    void rejectsUserTaskWithoutPathToEnd() {
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <userTask id="deadEndApproval" />
+                <sequenceFlow id="flow_start_task" sourceRef="start" targetRef="deadEndApproval" />
+                <sequenceFlow id="flow_start_end" sourceRef="start" targetRef="end" />
                 """), "TEST_PROCESS"));
     }
 
@@ -50,6 +72,8 @@ class FmBpmnDesignValidatorTest {
                     flowmint:actionVersion="1"
                     flowmint:requestMapping="{&quot;employeeId&quot;:&quot;FORM_DATA.employeeId&quot;}"
                     flowmint:responseMapping="{&quot;employee.name&quot;:&quot;FORM_DATA.employeeName&quot;}" />
+                <sequenceFlow id="flow_start_action" sourceRef="start" targetRef="loadEmployee" />
+                <sequenceFlow id="flow_action_end" sourceRef="loadEmployee" targetRef="end" />
                 """, " xmlns:flowmint=\"https://flowmint.qifu.org/schema/bpmn\""),
                 "TEST_PROCESS"));
     }
@@ -113,6 +137,86 @@ class FmBpmnDesignValidatorTest {
                   <conditionExpression xsi:type="tFormalExpression">${unsafeBean.execute()}</conditionExpression>
                 </sequenceFlow>
                 <sequenceFlow id="flow_default" sourceRef="gateway" targetRef="end" />
+                """), "TEST_PROCESS"));
+    }
+
+    @Test
+    void ignoresFieldNamesOutsideConditionExpressions() throws Exception {
+        String xml = process("""
+                <documentation>flowmintFormData.oldField</documentation>
+                <exclusiveGateway id="gateway" name="flowmintFormData.nodeName" default="flow_default" />
+                <userTask id="approval" />
+                <sequenceFlow id="flow_cond" sourceRef="gateway" targetRef="approval">
+                  <conditionExpression xsi:type="tFormalExpression">${flowmintFormData.amount &gt; 100}</conditionExpression>
+                </sequenceFlow>
+                <sequenceFlow id="flow_default" sourceRef="gateway" targetRef="end" />
+                """);
+        assertEquals(Set.of("amount"), validator.referencedFormFields(xml));
+    }
+
+    @Test
+    void rejectsMixedGatewayOperatorsRegardlessOfWhitespace() {
+        for (String expression : Set.of(
+                "${flowmintFormData.a==1&amp;&amp;flowmintFormData.b==2||flowmintFormData.c==3}",
+                "${flowmintFormData.a==1 &amp;&amp; flowmintFormData.b==2||flowmintFormData.c==3}")) {
+            assertThrows(ServiceException.class, () -> validator.validate(process("""
+                    <exclusiveGateway id="gateway" default="flow_default" />
+                    <userTask id="approval" />
+                    <sequenceFlow id="flow_cond" sourceRef="gateway" targetRef="approval">
+                      <conditionExpression xsi:type="tFormalExpression">%s</conditionExpression>
+                    </sequenceFlow>
+                    <sequenceFlow id="flow_default" sourceRef="gateway" targetRef="end" />
+                    """.formatted(expression)), "TEST_PROCESS"));
+        }
+    }
+
+    @Test
+    void logicalOperatorTextInsideStringValueDoesNotCountAsMixing() {
+        assertDoesNotThrow(() -> validator.validate(process("""
+                <exclusiveGateway id="gateway" default="flow_default" />
+                <userTask id="approval" />
+                <sequenceFlow id="flow_start" sourceRef="start" targetRef="gateway" />
+                <sequenceFlow id="flow_cond" sourceRef="gateway" targetRef="approval">
+                  <conditionExpression xsi:type="tFormalExpression">${flowmintFormData.note=="a||b"&amp;&amp;flowmintFormData.a==1}</conditionExpression>
+                </sequenceFlow>
+                <sequenceFlow id="flow_approval_end" sourceRef="approval" targetRef="end" />
+                <sequenceFlow id="flow_default" sourceRef="gateway" targetRef="end" />
+                """), "TEST_PROCESS"));
+    }
+
+    @Test
+    void rejectsUserTaskDispatchAndExecutionAttributes() {
+        for (String attribute : Set.of(
+                "flowable:assignee=\"otherUser\"",
+                "flowable:candidateUsers=\"otherUser\"",
+                "flowable:async=\"true\"")) {
+            assertThrows(ServiceException.class, () -> validator.validate(process(
+                    "<userTask id=\"approval\" " + attribute + " />",
+                    " xmlns:flowable=\"http://flowable.org/bpmn\""), "TEST_PROCESS"));
+        }
+    }
+
+    @Test
+    void rejectsStartEventExecutionAttributes() {
+        String xml = process("", " xmlns:flowable=\"http://flowable.org/bpmn\"")
+                .replace("<startEvent id=\"start\" />",
+                        "<startEvent id=\"start\" flowable:async=\"true\" />");
+        assertThrows(ServiceException.class, () -> validator.validate(xml, "TEST_PROCESS"));
+    }
+
+    @Test
+    void rejectsArbitraryConditionsOutsideMultiExitGateways() {
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <sequenceFlow id="flow_start" sourceRef="start" targetRef="end">
+                  <conditionExpression xsi:type="tFormalExpression">${unsafeBean.execute()}</conditionExpression>
+                </sequenceFlow>
+                """), "TEST_PROCESS"));
+        assertThrows(ServiceException.class, () -> validator.validate(process("""
+                <exclusiveGateway id="gateway" />
+                <sequenceFlow id="flow_start" sourceRef="start" targetRef="gateway" />
+                <sequenceFlow id="flow_gateway" sourceRef="gateway" targetRef="end">
+                  <conditionExpression xsi:type="tFormalExpression">${unsafeBean.execute()}</conditionExpression>
+                </sequenceFlow>
                 """), "TEST_PROCESS"));
     }
 

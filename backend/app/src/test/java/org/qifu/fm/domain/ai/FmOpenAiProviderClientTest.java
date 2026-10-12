@@ -32,6 +32,16 @@ class FmOpenAiProviderClientTest {
 	}
 
 	@Test
+	void buildsResponsesEndpointFromDefaultBaseUrl() throws Exception {
+		FmAiProviderConfig config = new FmAiProviderConfig("OPENAI_MAIN", "OPENAI",
+				"https://api.openai.com/v1", "gpt-test", "secret-key",
+				new BigDecimal("0.20"), 2000, 45);
+		HttpRequest request = client.buildRequest(config, new FmAiAnalysisRequest(
+				objectMapper.readTree("{\"form\":[]}"), "繁體中文", 1));
+		assertEquals("https://api.openai.com/v1/responses", request.uri().toString());
+	}
+
+	@Test
 	void parsesAndValidatesStructuredResponse() throws Exception {
 		String result = """
 				{

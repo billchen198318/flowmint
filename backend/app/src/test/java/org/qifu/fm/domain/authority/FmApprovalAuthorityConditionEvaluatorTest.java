@@ -2,10 +2,12 @@ package org.qifu.fm.domain.authority;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.qifu.base.exception.ServiceException;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -63,5 +65,36 @@ class FmApprovalAuthorityConditionEvaluatorTest {
                 Map.of("form", Map.of("category", "IT_EQUIPMENT"))));
         assertFalse(evaluator.matches(config,
                 Map.of("form", Map.of("category", "MISC"))));
+    }
+
+    @Test
+    void matchesNumericFormValueAgainstEditorStringList() throws Exception {
+        String config = """
+                {"match":"ALL","conditions":[
+                  {"field":"form.amount","operator":"IN","value":["100","200"]}
+                ]}
+                """;
+        assertTrue(evaluator.matches(config, Map.of("form", Map.of("amount", 100))));
+    }
+
+    @Test
+    void rejectsTextValueForNumericComparisonBeforeRuntime() {
+        String config = """
+                {"match":"ALL","conditions":[
+                  {"field":"form.amount","operator":"GT","value":"abc"}
+                ]}
+                """;
+        assertThrows(ServiceException.class, () -> evaluator.validate(config));
+    }
+
+    @Test
+    void matchesContainerFieldByFullPath() throws Exception {
+        String config = """
+                {"match":"ALL","conditions":[
+                  {"field":"form.details.amount","operator":"GTE","value":100}
+                ]}
+                """;
+        assertTrue(evaluator.matches(config,
+                Map.of("form", Map.of("details", Map.of("amount", 100)))));
     }
 }

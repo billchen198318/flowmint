@@ -1,5 +1,7 @@
 ## 12 流程設計、版本、發布與 Resolver（`FM_PROG004D0001`）— 靜態／唯讀盤查完成
 
+> 最新接手狀態（2026-10-10）：BUG-090、BUG-135 已在 2026-10-06／07 修正，現行驗證器分別檢查所有 Sequence Flow 的條件及 User Task 屬性；BUG-138 已由 Flowable H2 引擎測試驗證修正。本檔下方較早的「尚未修正／待重現」敘述是歷史盤查結果。其他條目仍須逐項確認，不可直接視為已修正。
+
 2026-10-05 收尾結論：既有規格／Java／Vue／唯讀資料核對見下方紀錄。本輪補對 `FMPROG004D0001Controller` 的管理端點、`FmAssignmentResolverService.resolveType()` 的 15 種 Resolver 分支及核決目標 5 種分支、`FmIncidentOperationsLogicServiceImpl` 的 Incident 重派／重試與 ALL／SEQUENTIAL 邊界、設計器的版本匯入／匯出，以及 BPMN／多人簽核相關測試。BUG-085／088～089／096～099／103／107／148～149／180 涵蓋既有 Resolver 差異，BUG-138／139 涵蓋多人簽核 Incident；跨 Tenant 權限由 Controller／Logic 的 Guard 路徑核對。先前 MariaDB 唯讀證據為流程版本 4 筆 PUBLISHED、0 筆 DRAFT，現有員工／規則與權限資料見下方紀錄。本輪未重新連資料庫、部署流程或逐型建立 Preview／Runtime 案例；這些是重現限制，不將 42 條觀察宣稱為已確認缺陷。
 
 > 計數校正（2026-10-04）：本檔有 42 個 `BUG-` 標題，涵蓋流程主檔／版本與設計器 8、BPMN／Gateway／發布 8、起單政策 2、Task Policy／多人簽核 4、Resolver／核決條件 20。這些是待確認問題條目，不能稱為「Resolver 已確認有 42 個 bug」；多數依靜態程式推論，尚未用隔離流程重現。整體 185 個編號均唯一且連續，先前總索引把本單元寫成 41 條、其他單元部分計數也有誤，已依各檔標題重算。
@@ -13,7 +15,7 @@
 - [x] Task Form／Policy／Assignment Rule、起單政策與固定版本引用：已核對發布及 Runtime 的版本查詢，問題見 BUG-014、092、094、101～102。
 - [x] 核決權限條件、編輯器、候選合併與 Fallback：已核對主要 Java／Vue 路徑，問題見 BUG-087、095、181～185；缺值及型別的端到端派送保留為驗證限制。
 - [x] Resolver 類型與共用員工／任職／群組篩選：核對 15 種分支與既有發布、Preview、Runtime 紀錄；差異見 BUG-085、088～089、096～099、103、107、148～149、180；逐型端到端執行未做。
-- [x] Multi-instance／Assignment Incident／重派及人工處理：核對 Listener、營運 Logic／Controller 與多人簽核測試；BUG-138／139 待隔離流程重現。
+- [x] Multi-instance／Assignment Incident／重派及人工處理：BUG-138 已以 Flowable H2 隔離流程重現並修正；BUG-139 已修正二次解析，組織異動與循序流程的端到端驗證仍待執行。
 - [x] 管理 API、Vue、版本匯入／匯出與 Tenant 邊界：核對 Controller 端點、設計器入口與既有 Guard 路徑；未執行瀏覽器操作。
 - [x] MariaDB 唯讀現況與約束：沿用下方已記錄的流程、規則、核決權限表查詢；本輪無新查詢，沒有草稿及流程執行資料可重現時序問題。
 
@@ -79,6 +81,8 @@
 - 證據：`FmAssignmentResolverService.firstOrgUnitHead()`、`orgUnitHead()`、`levelHeadChain()`、`activeEmployeeById()`。MariaDB 唯讀查詢顯示目前期間有效的主管配置指向失效員工 0 筆；未建立資料重現。
 
 ### BUG-090：非多出口 Gateway 的 Sequence Flow 條件未套用受控格式驗證
+
+- 修正狀態：**已修正（2026-10-06；2026-10-10 複核）**。`validateAllConditions()` 檢查所有非空 Sequence Flow 條件，並拒絕混用邏輯運算子；原多出口 Gateway 的額外規則仍由 `validateGateway()` 處理。下方「實際」為修正前情況。
 
 - 嚴重度：高。性質：BPMN 發布驗證邊界；未以構造的 BPMN 實際部署重現。
 - 預期：所有可發布的條件 Sequence Flow 都應符合受控的 `flowmintFormData` 比較式，或明確拒絕不支援條件的來源節點；不能只因線不是多出口 Exclusive／Inclusive Gateway 的出口就接受任意表達式。
@@ -211,14 +215,16 @@
 - 實際：`ProcessDesignerForm.vue.publish()` 先呼叫 `/version/save-draft`，再直接呼叫 `/version/publish`，沒有取得或顯示彙總驗證報告。`FmProcessDefLogicServiceImpl.publishInTransaction()` 逐一呼叫驗證器，任一 `ServiceException` 立即中止，Controller 回傳一般錯誤訊息。Resolver Preview 另由使用者手動按 `/resolver-preview`，不屬於發布前必經的彙總報告。草稿若同時有多個缺陷，使用者需反覆修正、重試才能逐項看到錯誤。
 - 證據：`frontend-v-nx/pages/fm_prog004d0001/components/ProcessDesignerForm.vue` 的 `publish()`／`previewResolvers()`；`backend/app/src/main/java/org/qifu/fm/logic/impl/FmProcessDefLogicServiceImpl.java` 的 `publish()`／`publishInTransaction()`；`FMPROG004D0001Controller.java` 的 `/version/publish`；規格第 145 行。此為規格與靜態流程對照，未實際發布錯誤草稿。
 
-### BUG-134：Resolver Preview 未套用自簽及重複簽核政策，與實際派送候選人不同
+### BUG-134：Resolver Preview 將原始候選人標示為簽核人，未說明與實際派送的差異
 
-- 嚴重度：中。性質：流程設計預覽與 Runtime Task Policy 不一致；未用自簽規則啟動實際流程重現。
+- 嚴重度：低。性質：預覽結果語意與提示不清；未用自簽規則啟動實際流程重現。
 - 預期：簽核人解析預覽應反映已儲存的 Task Policy；若候選人等於申請人且自簽政策為 `SKIP_TO_NEXT`、`REQUIRE_ALTERNATE` 或 `INCIDENT`，應顯示實際派送結果或清楚標示預覽尚未套用政策。
 - 實際：`FmProcessDefLogicServiceImpl.resolverPreview()` 只載入該版本 ACTIVE Assignment Rule，對每筆直接呼叫 `FmAssignmentResolverService.resolve()`，回傳 Resolver 原始候選人；沒有載入 Task Policy。設計器畫面把候選人以 `RESOLVED` 顯示為「簽核人」。Runtime `FmTaskAssignmentListener.resolveAssignment()` 在相同 Resolver 結果後另執行 `applySelfApprovalPolicy()`；`SKIP_TO_NEXT`／`REQUIRE_ALTERNATE` 可移除申請人，`INCIDENT` 則會拋錯；`applyDuplicatePolicy()` 也可依同一流程先前已核准者移除候選人，但預覽命令沒有流程實例與歷史 Action。因而預覽可顯示成功，實際任務卻沒有該簽核人或進入異常。
 - 證據：`backend/app/src/main/java/org/qifu/fm/logic/impl/FmProcessDefLogicServiceImpl.java` 的 `resolverPreview()`；`backend/app/src/main/java/org/qifu/fm/flowable/FmTaskAssignmentListener.java` 的 `resolveAssignment()`／`applySelfApprovalPolicy()`／`applyDuplicatePolicy()`；`frontend-v-nx/pages/fm_prog004d0001/components/ProcessDesignerForm.vue` 的預覽表格。MariaDB 唯讀確認目前 Task Policy 已使用 SKIP_TO_NEXT 與 MERGE_CONSECUTIVE 等設定，但沒有同節點多條 ACTIVE Assignment Rule；此為靜態路徑對照，未實際啟動自簽或重複簽核流程。
 
 ### BUG-135：User Task 的 Flowable 派送與執行屬性未在發布時拒絕
+
+- 修正狀態：**已修正（2026-10-07；2026-10-10 複核）**。`assertElementWhitelist()` 現在呼叫 `validateUserTask()`，只接受無命名空間的 `id`、`name` 屬性。下方「實際」為修正前情況。
 
 - 嚴重度：高。性質：BPMN 發布驗證與派送契約；未部署手工構造的 BPMN 重現實際 Flowable 派送。
 - 預期：User Task 的簽核人只能由已發布的 Task Policy 與 Assignment Rule 解析；設計版 BPMN 不應攜帶可直接指定 assignee／candidate users 的 Flowable 擴充屬性。`backend/doc/04-流程與表單規格.md` 第 139 行要求簽核人規則保存在 FlowMint 結構化表，不把實際人員寫死於 BPMN XML。
@@ -239,11 +245,13 @@
 - 證據：`backend/app/src/main/java/org/qifu/fm/domain/workflow/FmBpmnDesignValidator.java` 的 `FIELD_REFERENCE`／`referencedFormFields()`／`ALLOWED_BPMN_ELEMENTS`；`backend/app/src/main/java/org/qifu/fm/logic/impl/FmProcessDefLogicServiceImpl.java` 的 `validateGatewayFormFieldsForPublish()`。此為靜態字串掃描路徑推論，未修改或發布流程。
 ### BUG-138：ALL／SEQUENTIAL 多人簽核解析失敗時不建立 Assignment Incident
 
-- 嚴重度：高。性質：Flowable Multi-instance 派送失敗處理；未實際啟動解析失敗的多人簽核流程。
+- 嚴重度：高。狀態：**已確認非誤判並修正（2026-10-09）**。性質：Flowable Multi-instance 派送失敗處理。
 - 預期：找不到簽核人或解析規則失效時，應保留可維運的未指派 Task 與 `OPEN` Assignment Incident；`README.md` 第 754～755 行明定此契約。
 - 實際：發布 Runtime BPMN 時，`ALL`／`SEQUENTIAL` User Task 設定 `MultiInstanceLoopCharacteristics.inputDataItem` 為 `${fmTaskAssignmentListener.multiInstanceAccounts(execution, '<taskKey>')}`。`multiInstanceAccounts()` 在解析 `ServiceException` 後直接拋 `FlowableException`，沒有呼叫 `FmAssignmentIncidentRecorder`。一般 `notify(DelegateTask)` 才有捕捉解析失敗、記錄 Incident 與將 Task 標記為未指派異常的邏輯；多人簽核的帳號清單在建立各 Task 前就需取得，失敗時無法進入該 Task Listener 路徑。因此起單或前一關核准交易可能直接失敗或回滾，而營運頁沒有對應的 Assignment Incident 供 Retry／Reassign。
 - 證據：`backend/app/src/main/java/org/qifu/fm/logic/impl/FmProcessDefLogicServiceImpl.java` 的 `runtimeBpmnXml()`；`backend/app/src/main/java/org/qifu/fm/flowable/FmTaskAssignmentListener.java` 的 `multiInstanceAccounts()`／`notify()`／`resolveAssignment()`；`README.md` 第 754～755 行。此為呼叫順序與例外路徑的靜態推論，未建立失敗資料或執行 Flowable 重現。
 ### BUG-139：循序多人簽核建立後重算簽核人，可能使後續 Task 無法指派
+
+- 修正狀態：**已修正（2026-10-10；程式路徑確認）**。新進入 ALL／SEQUENTIAL 節點的預檢保存帳號及候選人快照；Task 建立時使用該快照指派與記錄稽核，不再重新執行 Resolver。沒有候選人快照的舊部署流程仍沿用原解析路徑，避免升級後直接進入 Incident。原程式確實二次解析，且 `applyAssignment()` 會拒絕不在新結果中的既定簽核人，因此不是誤判。`FmMultiInstanceSavedAssignmentTest` 證實循序 Task 使用預檢帳號且不再呼叫 Resolver；後端編譯及既有 Multi-instance Incident 定向測試也通過。尚未以簽核期間變更群組／任職的資料執行端到端測試。下方「實際」描述修正前行為。
 
 - 嚴重度：中。性質：Multi-instance 簽核人清單與 Task Listener 解析不一致；未以實際組織資料變更重現。
 - 預期：`SEQUENTIAL` 進入節點時產生的簽核人清單應決定各個後續 Task 的指派人，讓該節點按原順序完成；若業務要求重新解析，應明確處理原清單與新結果的差異。
@@ -316,3 +324,114 @@
 - 預期：`GT`／`GTE`／`LT`／`LTE` 的預期值應在編輯或儲存時驗證為數字，避免已發布核決規則在執行時因無法比較而中止派送。
 - 實際：`ApprovalAuthorityConditionEditor.vue.parseValue()` 遇到 `abc` 等非數值輸入會保留字串；`FmApprovalAuthorityConditionEvaluator.validateConfig()` 對數值比較運算子只檢查名稱與 `value` 存在，不檢查它是數值節點，因此核決權限可儲存。Runtime `compareNumber()` 先解析表單實際值，再對預期值呼叫 `decimalValue()`；本機 Jackson 3.1.2／3.1.4 的 `StringNode` 繼承 `BaseJsonNode.decimalValue()`，對文字節點拋型別轉換例外；服務將其轉成「核決權限數值條件無法比較」的 `ServiceException`。`FmAssignmentResolverService.approvalAuthority()` 沒有逐條捕捉，後續規則與 Fallback 不會接手。BUG-181 是實際欄位缺失造成比較失敗，本項是在欄位有數值時，規則本身的預期值型別錯誤仍可通過儲存。
 - 證據：`frontend-v-nx/components/fm/ApprovalAuthorityConditionEditor.vue` 的 `parseValue()`；`backend/app/src/main/java/org/qifu/fm/domain/authority/FmApprovalAuthorityConditionEvaluator.java` 的 `validateConfig()`／`compareNumber()`；`FmApprovalAuthorityLogicServiceImpl.validateRule()`；`FmAssignmentResolverService.approvalAuthority()`；本機 Maven 快取的 Jackson `BaseJsonNode.java`。已確認型別與例外路徑，未執行端到端 Preview 或正式派送。
+
+### 2026-10-07 修復複核（進行中）
+
+- **BUG-013 — 已修正（程式確認）：**原本 Groovy 草稿關閉時略過 `advanceDraftLock()`，且 API 回傳的 lock version 為空；與前端仍送版本值的契約不符。現草稿儲存一律以預期版本做 compare-and-set，API 一律回傳實際版本號。
+- **BUG-091 — 已修正（程式確認）：**原一般發布路徑的 `draft()` 不鎖版本資料列，可能同版重複部署。現發布交易在驗證與 Flowable 部署前一律以 `lockDraft()` 鎖定草稿；第二個交易取得鎖時若已發布即被拒絕。Groovy 發布仍沿用既有編譯證據與交易流程。
+- **BUG-014 — 已修正（程式確認）：**原發布檢查只確認群組主檔 ACTIVE，確實允許沒有可用成員的群組。現在一般群組 Resolver 與核決權限內部群組目標均要求至少一位目前有效、員工與 Tenant membership 也有效的成員。
+- **BUG-085 — 已修正（程式確認）：**原固定帳號發布檢查及候選選項只看員工狀態。現在兩者都核對員工生效期間；固定帳號 Fallback 與核決目標共用同一驗證路徑。
+- **BUG-086 — 已修正（程式確認）：**原 `/category/save` 可直接將仍被未停用流程引用的分類改為 INACTIVE；現在編輯停用與專用停用入口共用相同的流程引用檢查。
+- **BUG-087 — 已修正（程式確認）：**原核決權限發布檢查只看主檔 ACTIVE，且零個 ACTIVE 規則時空迴圈仍回傳成功。現在要求權限主檔目前在生效期間內，且至少有一條 ACTIVE、目標有效的規則。
+- **BUG-088 — 已修正（程式確認）：**原 `UP_TO_LEVEL` 在到達目標層級時不確認該主管是否真的加入候選。現在只有有效主管被加入後才回傳 `RESOLVED`；失效者會繼續沿主管鏈尋找可用的更高層。
+- **BUG-089 — 已修正（程式確認）：**原主管解析取第一筆期間有效的正式主管後才檢查員工與 membership，第一筆失效會漏掉候補。現在依正式、代理、代理副主管及優先序逐一尋找可用員工，供單位主管及逐級主管解析共用。
+- **BUG-149 — 已修正（程式確認）：**同優先序主管原本沒有固定次排序鍵；現在以 `ORG_UNIT_HEAD_ID` 作為穩定次排序鍵。
+- **BUG-090 — 已修正（程式與定向測試確認）：**原條件格式檢查只涵蓋多出口 Gateway；Start Event 與單出口 Gateway 的任意條件可通過。現在所有 Sequence Flow 的非空條件都須符合受控比較式，多出口 Gateway 與 Parallel Gateway 仍保留原有額外限制。`FmBpmnDesignValidatorTest` 已加入兩條繞過路徑的拒絕案例並通過。
+- **BUG-092 — 已修正（程式確認）：**起單授權原本僅從 ACTIVE 成員與期間收集群組 ID，沒有查群組主檔。現在只保留仍為 ACTIVE 的群組 ID，停用群組的成員不再命中起單政策。
+- **BUG-093 — 已修正（畫面回報，程式確認）：**原畫面在主檔儲存成功後立即提示成功，草稿失敗時形成互相矛盾的訊息。現在完成兩步後才顯示完整成功；草稿回應失敗或網路例外時明確指出主檔已保存、草稿未保存或未確認。兩個 API 仍各自交易，部分保存情境須依畫面提示重新載入檢查。前端 `npm run build` 通過。
+- **BUG-094 — 待契約確認，未修改：**確實存在「將所有 Gateway 欄位對每張 Task 表單檢查」的程式路徑；但 Runtime 的 `FORM_DATA` 由起單選定的表單資料提供，現行規格未明確界定多張 Task 表單對同一 Gateway 欄位的來源與可達性。尚不能只因另一張 Task 表單缺欄位就斷定發布檢查是誤判或應放寬；需先定義來源契約並用多表單流程驗證。
+- 後端 `mvn -q -pl app -am -DskipTests test-compile`，以及 `FmProcessGroovyDraftLogicTest`、`FmGroovyPublicationLogicTest`、`FmProcessMultiInstanceBpmnTest`、`FmFormalHeadSelectionTest` 通過；尚未以雙連線部署競態或失效主管資料重現。其餘第 12 單元條目未在本輪標示修復。
+
+### 2026-10-07 修復複核（續）
+
+- **BUG-095 已修正（經靜態呼叫鏈核實）**：已發布／已退役版本的 ACTIVE 指派規則如在主要或備援設定引用核決權限，更新及停用該權限會被拒絕，須建立新權限 ID 並發布新流程版本。Runtime 確實按權限 ID 讀取即時主檔與規則，因此原問題並非誤判。`FmApprovalAuthorityPublishedReferenceTest` 已驗證主要引用、備援引用與僅草稿引用三種情況。此修正未建立發布快照；更新與發布同時發生的交易競態仍需資料庫層序列化驗證。
+- **BUG-096 已修正（經靜態主管鏈核實）**：`NEXT_HIGHER_LEVEL_HEAD` 和 `TARGET_LEVEL_HEAD` 遇到符合層級但員工或 Tenant membership 失效時，現在繼續尋找上層有效主管。原邏輯確實在第一個符合層級的任職直接回傳 `NOT_FOUND`，並非誤判。`EXACT` 仍依原定義只接受指定層級。
+
+### 2026-10-07 修復複核（表單選人）
+
+- **BUG-097 誤判，未修改程式**：原項目要求限定「人員選擇器」元件型態，但 `backend/doc/30-採購單與驗收單表單流程配置規劃.md` 的 `acceptanceOwnerAccount`、`backend/doc/31-公司名片申請單表單流程配置規劃.md` 的 `applicantAccount` 等既有配置使用帳號欄位；規格也描述從指定欄位讀取帳號，沒有要求元件必須是人員選擇器。Runtime 會再次驗證帳號對應有效員工與 Tenant membership。依元件型態擋一般文字欄位會誤擋合法流程；任意輸入造成 Runtime `NOT_FOUND` 屬表單輸入管制議題，不能據此判定發布驗證缺陷。
+- **BUG-098 已修正（經呼叫鏈核實）**：Fallback 的 `FORM_ACCOUNT_FIELD`／`FORM_ACCOUNT_FIELD_MANAGER` 現在沿用主要 Resolver 的 Task 表單、已發布版本及 `fieldKey` 存在性檢查。原本 Fallback 僅檢查 `fieldKey` 非空，對不存在欄位落入 `validateResolverReference()` 的預設放行，確實會讓無法解析的配置發布。已通過 `mvn -q -pl app -am -DskipTests test-compile`。
+- **BUG-099 已修正（經 UI 與 Runtime 契約核實）**：設計器對兩種表單選人共用「單一帳號或帳號陣列」提示，`FORM_ACCOUNT_FIELD_MANAGER` 原先確實將整個陣列轉成字串查帳號。現在逐筆解析帳號、查直屬主管、以員工 ID 去重並遵守 `MAX_RESULTS`；單一帳號及 `{value,label}` 仍沿原路徑處理。已通過 `mvn -q -pl app -am -DskipTests test-compile`；尚未以真實多選表單執行端到端流程。
+
+### 2026-10-07 修復複核（起單版本）
+
+- **BUG-100 已修正（經版本及 Runtime 呼叫鏈核實）**：建立下一版草稿會把流程主檔改為 DRAFT，但舊版本仍為 PUBLISHED 且有 Flowable 部署；原本申請中心及正式起單都以主檔 PUBLISHED 篩選，確實造成中斷。現在 Runtime 接受主檔 PUBLISHED 或 DRAFT，仍要求存在具部署 ID 的 PUBLISHED 流程版本；INACTIVE 主檔及從未發布的草稿仍不會開放起單。`mvn -q -pl app -am -DskipTests test-compile` 已通過。若綁定表單另有草稿造成載入失敗，屬第 13 單元 BUG-108，未包含在本項修正。
+
+### 2026-10-07 修復複核（起單政策）
+
+- **BUG-101 已修正（經發布與 Runtime 路徑核實）**：發布檢查原本只確認至少一筆 `allowStart=Y`，確實不重驗規則對象。現在逐筆重驗允許規則：`ACCOUNT` 需有效員工及 Tenant membership；`APPROVAL_GROUP` 需啟用群組、有效成員及可用帳號；`ORG_UNIT` 需存在且至少一筆有效任職，其員工與 Tenant membership 也須有效；`ALL` 可直接通過。失效對象會阻擋發布。`FmProcessStartPolicyPublishTest` 驗證失效帳號被拒與 `ALL` 通過，相關 Groovy 發布、草稿及多人簽核測試通過。這項檢查只驗證允許規則的對象可用性，不能保證所有政策組合都有實際可起單者，例如另有 `ALL/N` 否決規則時仍以 Runtime 政策評估為準。
+
+### 2026-10-07 修復複核（群組派送方式）
+
+- **BUG-102 已修正（經發布與 Runtime 呼叫鏈核實）**：既有 `FmApprovalGroupModeValidator` 只看主要 `APPROVAL_GROUP`，但 Runtime 的 Fallback 與 `APPROVAL_AUTHORITY` 內部目標確實都會呼叫群組 Resolver，因此原項並非誤判。發布時現在蒐集同 Tenant 的 ACTIVE 核決權限群組目標，並同時檢查主要、Fallback 及核決權限內部群組的 `ASSIGNMENT_MODE` 是否與 Task Policy 一致；停用群組亦會被拒。`FmApprovalGroupModeValidatorTest` 已涵蓋備援不一致、核決權限內部不一致與一致情況，Maven 測試通過。
+
+### 2026-10-07 修復複核（主管來源）
+
+- **BUG-103 已修正（經任職儲存、組織健康與 Resolver 呼叫鏈核實）**：`ORG_HEAD`／`PARENT_HEAD` 任職的顯式主管 ID 本來就為空；原 Resolver 僅讀該 ID，因此確實無法解析。現在依 `MANAGER_SOURCE` 統一取得下一位主管任職：`EXPLICIT` 使用指定 ID，`ORG_HEAD` 使用本部門有效正式 `HEAD`，`PARENT_HEAD` 使用上級部門有效正式 `HEAD`，`NONE` 無主管；動態主管也須有有效員工、Tenant membership 與相應部門任職。`DIRECT_MANAGER`、`MANAGER_CHAIN`、`NEXT_HIGHER_LEVEL_HEAD`、`TARGET_LEVEL_HEAD`／`UP_TO_LEVEL` 及由 `directManager()` 進入的 `FORM_ACCOUNT_FIELD_MANAGER` 都已接入。`FmManagerSourceResolverTest` 驗證本部門、上級部門與 NONE，Maven 測試及 `git diff --check` 通過；尚未跑真實組織資料的端到端指派。
+
+### 2026-10-07 修復複核（版本切換）
+
+- **BUG-104 已修正（經 Vue 狀態流核實）**：版本按鈕原本直接 `importXML()`，未儲存 BPMN 圖會遺失；Task Forms／Policies／Assignment Rules 等則直接改動版本物件，切回後仍殘留，因此不是誤判。現在開啟草稿時記錄圖與設定基準，切換前比較 BPMN XML、表單與節點設定、起單政策及 Groovy 綁定；有變更時提示先儲存，使用者確認放棄才會將該草稿的 XML 與設定一起還原並切換。`npm run build` 通過；尚未在瀏覽器手動驗證確認視窗操作。
+- **BUG-105 已修正（經停用及版本狀態轉換核實）**：原 `deactivate()` 會把主檔設為 `INACTIVE`，但 `createVersion()` 和 `publishInTransaction()` 無狀態檢查且會覆寫主檔狀態，確實可重新上架。現在兩個後端入口都拒絕停用流程；畫面的建立新版與發布按鈕也不再顯示。`FmProcessGroovyDraftLogicTest` 新增停用流程不得建版的測試，Maven 測試及 `npm run build` 通過。既有草稿仍可檢視，發布須先有明確的重新啟用機制；目前沒有該入口。
+
+### 2026-10-07 修復複核（分類狀態）
+
+- **BUG-106 已修正（經申請中心、直接起單與發布路徑核實）**：申請中心只列 ACTIVE 分類，但 `loadStart()`／新送單經 `activeProcessDef()` 時原本未查分類，發布也未重查；此不一致確實存在。現在正式起單主檔查詢要求分類仍為 ACTIVE，發布入口也呼叫 `requireActiveCategory()`；停用分類下的新起單與新版發布會被拒絕。相關 Maven 測試通過。既有冪等送單結果仍可按原邏輯回傳；未以停用分類的實際 HTTP 請求重現。
+- **BUG-107 已修正（經發布與 Runtime 生效期間判斷核實）**：`TARGET_LEVEL_HEAD`、`ORG_TITLE`、`ORG_DUTY` 原發布檢查只查 ACTIVE，Runtime 會再檢查有效期間，確實可能發布後立即解析失敗。現在主要及 Fallback Resolver、核決權限內部 `APPROVAL_LEVEL`／`ORG_TITLE`／`ORG_DUTY` 目標皆使用與 Runtime 一致的期間檢查。`FmProcessPublishEffectiveReferenceTest` 驗證三種主檔過期時拒絕、有效時通過；Maven 測試通過。
+
+### 2026-10-07 修復複核（BUG-133～135）
+
+- **BUG-133 已確認，待修正**：對照 `backend/doc/04-流程與表單規格.md` 的發布驗證報告要求與 `FmProcessDefLogicServiceImpl.publishInTransaction()` 的逐項例外路徑，確認目前只能回報第一個驗證錯誤；本輪未改動發布 API。
+- **BUG-134 已修正（介面標示）**：核對 `resolverPreview()` 只呼叫 Resolver、執行期另套用自簽與重複簽核政策；預覽沒有流程實例與歷史簽核資料，不能呈現最終派送。設計器將預覽標示為「原始候選人」，明示兩項政策尚未套用及正式派送差異。`npm run build` 通過。
+- **BUG-135 已修正**：確認 `FmBpmnDesignValidator.assertElementWhitelist()` 原先未檢查 User Task 屬性，且部署轉換會保留模型的派送與執行設定。新增 User Task 屬性白名單，只接受 `id`、`name`，拒絕 `flowable:assignee`、`flowable:candidateUsers`、`flowable:async` 等自帶設定；新增驗證測試。
+
+### 2026-10-07 修復複核（BUG-136）
+
+- **BUG-136 已修正，先重現再修改**：先新增無空白與部分空白的 `&&`／`||` 混用測試，原驗證器未拋出 `ServiceException`，Maven 測試確實失敗，排除誤判。修正兩處 Sequence Flow 驗證，忽略引號內的文字後檢查是否混用運算子；另確認字串值包含 `||` 而實際只有 `&&` 時仍可通過。`FmBpmnDesignValidatorTest` 全數通過；未執行 Flowable 實際部署。
+
+### 2026-10-07 修復複核（BUG-137）
+
+- **BUG-137 已修正，先重現再修改**：先以含 `<documentation>flowmintFormData.oldField</documentation>`、節點名稱 `flowmintFormData.nodeName` 及真實條件欄位 `amount` 的 BPMN 測試 `referencedFormFields()`；原程式回傳 `oldField`、`nodeName`、`amount`，測試失敗，確認不是誤判。改以安全設定的 XML reader 僅讀取 BPMN `conditionExpression` 文字，再擷取表單欄位；完整 `FmBpmnDesignValidatorTest` 通過。未執行實際發布或資料庫異動。
+
+### 2026-10-07 修復複核（BUG-138、139、148）
+
+- **BUG-138 已確認呼叫路徑，待實際重現與設計修正**：`multiInstanceAccounts()` 在建立多人 Task 前解析候選人，失敗直接拋 `FlowableException`；`notify()` 的 Incident 捕捉無法處理該路徑。尚未以 Flowable 啟動失敗流程驗證交易及持久化結果，本輪未修改。
+- **BUG-139 已確認二次解析路徑，待情境驗證**：Multi-instance 清單建立時與各 Task 建立時都會呼叫 `resolveAssignment()`；若資料在兩次呼叫間變動，`applyAssignment()` 可能拒絕原清單帳號。尚未重現組織異動與循序簽核，本輪未修改。
+- **BUG-148 已修正**：核對群組成員優先序可重複，Resolver 原本僅按 `PRIORITY` 查詢；同分順序無保證。候選人處理前增加 `PRIORITY`、`EMPLOYEE_ID`、`APPROVAL_GROUP_MEMBER_ID` 的固定排序，避免循序簽核順序及 `MAX_RESULTS` 截斷依賴資料庫同分回傳順序。`mvn -q -pl app -am -DskipTests compile` 通過；未執行實際多人流程。
+
+### 2026-10-07 修復複核（BUG-149、178、180）
+
+- **BUG-149 已修正（既有修正，未重複修改）**：重新檢查 `firstOrgUnitHead()`，目前查詢用 `PRIORITY,ORG_UNIT_HEAD_ID`，程式再依主管類型、優先序、`ORG_UNIT_HEAD_ID` 排序並尋找有效員工；清單既有修正紀錄仍成立，原缺陷描述為舊狀態。
+- **BUG-180 已修正（既有修正，未重複修改）**：重新檢查 `orgDuty()`，目前 `FmEmployeeDuty` 查詢已有 `IS_PRIMARY DESC,EFFECTIVE_FROM,EMPLOYEE_DUTY_ID` 排序，末項為固定唯一識別碼；原「完全沒有排序」的描述已過期。本輪未修改。
+- **BUG-178 已修正，先重現再修改**：以單一 Start Event 加 `flowable:async="true"` 新增測試，原驗證器沒有拋錯，確認缺口存在。新增 Start Event 屬性檢查，僅接受 `id`、`name`；`FmBpmnDesignValidatorTest` 全數通過。尚未執行 Flowable 實際部署。
+
+### 2026-10-07 修復複核（BUG-145）
+
+- **BUG-145 已修正，先重現再修改**：先新增 Start 直接連 End、User Task 孤立的 BPMN 測試，原驗證器未拋錯，確認不是誤判。新增流程連通性檢查：要求一個 Start Event、至少一個 End Event，且每個流程節點都可由 Start 到達並有路徑抵達 End；另覆蓋從 Start 可達但無法到 End 的死端 Task。修正原本缺少 Sequence Flow 的正向測試樣本；`FmBpmnDesignValidatorTest` 全數通過。未執行 Flowable 實際部署。
+
+### 2026-10-07 修復複核（BUG-181、183、184）
+
+- **BUG-181 待釐清，未修改**：缺值時 `NE`／`NOT_IN` 命中而數值比較拋錯的程式路徑存在，但規格未定義缺值在否定條件下的產品語意；本輪不擅自改變核決規則的匹配結果。
+- **BUG-183 已修正（程式路徑確認）**：`changeConditionOperator()` 原本只改運算子，從單值切到 `IN`／`NOT_IN` 時會保留非陣列值，與後端 `validateConfig()` 的陣列要求衝突。現在切換時同步轉換比較值；多項清單切回單值運算子時清空值，避免靜默取第一項。前端 `npm run build` 通過，未做瀏覽器互動測試。
+- **BUG-184 已修正，先重現再修改**：新增數值表單值 100 對編輯器字串清單 `["100","200"]` 的測試，原後端回傳不匹配，確認不是誤判。編輯器現在將數字清單項目存成數值；後端亦能把既有字串數字清單與數值表單欄位比較。`FmApprovalAuthorityConditionEvaluatorTest` 與前端 `npm run build` 通過，未執行實際 Resolver Preview。
+
+### 2026-10-07 修復複核（BUG-185）
+
+- **BUG-185 已修正，先重現再修改**：新增 `GT` 規則以文字 `abc` 作為預期值的測試；原 `validate()` 未拋例外，確認規則會通過儲存前驗證。`validateConfig()` 現在要求 `GT`／`GTE`／`LT`／`LTE` 的 `value` 為 JSON 數字節點，無效值在核決規則儲存時即遭拒絕。`FmApprovalAuthorityConditionEvaluatorTest` 全數通過；未執行實際流程派送。
+
+### 2026-10-07 修復複核（BUG-182）
+
+- **BUG-182 已修正（新選取欄位）**：核對專案安裝的 Form.io `ContainerComponent`，子元件使用 `this.dataValue` 作為資料上下文，提交資料因此位於 Container key 之下；原 `ApprovalAuthorityPanel.collectFields()` 卻只產生 `form.<childKey>`。現在遞迴累積 Container key，選項會存成 `form.details.amount`；Columns、Panel、Table 等版面元件不增加資料路徑，DataGrid／EditGrid 子欄位因需要列索引而不列入單值條件選項。後端新增完整點分隔路徑的核決比對測試，`FmApprovalAuthorityConditionEvaluatorTest` 與前端 `npm run build` 通過。既有已儲存的錯誤欄位路徑不會自動改寫，需重新選取並儲存；未執行瀏覽器或真實表單 Preview。
+
+### 2026-10-07 待決項目複核（BUG-133、138、139、181）
+
+- **BUG-133 規格待決**：多項發布驗證目前確實於首個錯誤中止；但完整報告要求列出 Resolver Preview 錯誤，而 Preview 需測試申請人與表單資料，發布命令目前只有版本 OID。需先定義發布時使用哪組輸入、是否必須每條條件分支有測試樣本，以及 Groovy 編譯失敗如何併入報告；未以缺少輸入的偽報告冒充完整修正。
+- **BUG-138 規格待決**：`multiInstanceAccounts()` 解析失敗時尚未建立 Flowable Task。資料表雖允許 `TASK_ID` 為 NULL，現有 Retry／Reassign 均要求 Task ID 與 `FLOWMINT_INCIDENT` Task category，且例外回滾可能使同交易 Incident 消失。需要先定義可恢復的流程停駐節點與營運操作契約；本輪不寫入無法 Retry 的 OPEN Incident。
+
+### 2026-10-09 BUG-138 定向重現
+
+- **BUG-138 確認成立，尚未修正**：新增 `FmMultiInstanceAssignmentFailureTest`，以 ALL 政策且沒有啟用的 Assignment Rule 呼叫 `multiInstanceAccounts()`，驗證它在 Task 建立前拋 `FlowableException`，且未呼叫 Incident Recorder；定向測試通過。現有 Incident Retry／Reassign 要求 Task ID，且 ALL／SEQUENTIAL Retry 只接受原 `flowmintAssignee` 位於重新解析的候選清單。不能用單一占位帳號建立 Task，否則可能把多人簽核錯誤地縮成單人簽核；需以保留原簽核人集合與順序的停駐／重試設計修正，並以 Flowable 整合測試驗證。
+- 2026-10-09 設計查核：專案使用 Flowable 8.0.0；其 `RuntimeService.addMultiInstanceExecution()` 有增補實例 API，但本機依賴原始碼顯示順序模式只增加 `nrOfInstances` 與建立子 Execution，沒有同步更新 Collection。直接用此 API 補一個占位 Task 不足以恢復 SEQUENTIAL 的原候選人順序，故未套用未經驗證的 Runtime 變更。
+- **2026-10-09 修正與驗證**：在發布轉換時於 ALL／SEQUENTIAL 前加入指派預檢、排他閘道與 Incident 等待 Task；預檢先解析並儲存完整候選集合，失敗則建立帶實際 Task ID 的 OPEN Incident。管理員修復規則後以 Retry 完成等待 Task，重新預檢再進入原多人簽核節點；Reassign 拒絕將此事件改成單人。Flowable H2 引擎測試確認 ALL 恢復後建立兩筆並行 Task，SEQUENTIAL 恢復後依序建立兩筆 Task；另有 Listener、Retry 定向測試。測試同時抓出舊集合表達式中的 `execution` 無法解析及 execution-local 變數不會傳給 Multi-instance root，已改由流程變數傳遞預檢集合。此修正只對重新發布的 BPMN 生效，舊部署不會自動遷移。
+- **BUG-139 歷史待決紀錄，已由 2026-10-10 修正取代**：當時已確認 Multi-instance 起始清單與 Task Listener 的二次解析可能不一致；現採節點預檢名單凍結並保留舊部署流程相容路徑，詳見條目修正狀態。
+- **BUG-181 規格待決**：缺值的否定條件與數值條件目前行為不一致，但規格未定義欄位缺失與明確 `null` 各自的比較語意；本輪不擅自改變已發布核決條件的匹配結果。

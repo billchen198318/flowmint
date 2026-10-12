@@ -1,5 +1,7 @@
 ## 21 站內通知、Email 與 Task SLA — 靜態／唯讀盤查完成
 
+2026-10-08 修復複核：BUG-146 確認為真。`ALL`／`SEQUENTIAL` 的各個 Task 僅有一名 assignee，但 Listener 原本把整組解析帳號送進指派通知。現改為 `ASSIGNEE`／`ALL`／`SEQUENTIAL` 只通知該 Task 的目前 assignee，`CANDIDATE` 則通知目前候選集合；定向測試涵蓋四種模式。BUG-146 已修正（尚未以真實多人流程與 Email 端到端驗證）。
+
 2026-10-05 收尾：已核對通知 Controller 的 inbox／read／read-all、指派通知、Email Outbox／寄送及同步排程、SLA 到期掃描，以及現有通知／郵件／SLA 單元測試。既有差異見 BUG-026／146／147／153；重入去重未發現獨立根因。現有流程實例不足以重現大量任務分頁、跨月待寄及真實郵件失敗，這些維持驗證限制。
 
 2026-10-04 續查 SLA 排程分頁與任務完成時的競態。MariaDB 目前沒有流程實例可建立實際到期任務，以下 BUG-153 僅依 Flowable live Task 查詢路徑推論，尚未執行超過 500 筆任務的重現。
@@ -15,6 +17,8 @@
 
 ### BUG-147：提前提醒設為 0 小時時永遠不會產生即將到期通知
 
+- 狀態：已修正（2026-10-09）。後端政策驗證與設計器均拒絕 0 小時；提醒可留空以只接收逾時通知。既有已發布的 0 小時政策仍依原有逾時通知行為運作，更新政策時須改為空值或至少 1 小時。
+
 - 嚴重度：中。性質：Task SLA 設定與排程條件不一致；未建立 0 小時設定的實際 Task 重現。
 - 預期：既然流程設計、後端與資料庫允許 `reminderBeforeHours=0`，系統應明確定義並執行到期當下的提醒，或在設定時拒絕此值；不能接受後卻永遠不產生對應通知。
 - 實際：`FmProcessDefLogicServiceImpl.validSla()` 接受提醒時數大於等於 0 且小於期限，資料庫 `CK_FM_TP_REMINDER_HOURS` 也接受 0。`FmTaskDeadlineNotificationJob.notifyTask()` 只有在 `dueDate > now` 時才考慮 `TASK_DUE_SOON`，同時要求 `dueDate - reminderBeforeHours <= now`。當提醒時數為 0，兩條件分別變成 `dueDate > now` 與 `dueDate <= now`，不可能同時成立；到期後則只送 `TASK_OVERDUE`。因此 0 小時的提前提醒設定沒有可觸發的時點。
@@ -22,12 +26,16 @@
 
 ### BUG-153：SLA 掃描分頁期間任務完成，可能跳過後續到期任務
 
+- 狀態：已修正（2026-10-09）。SLA 掃描改依到期時間前進，每次從下一個時間游標取首頁；頁尾同到期時間的 Task 以等值查詢補齊。已核對 Flowable 8 的 `taskDueAfter` 為嚴格大於、`taskDueDate` 為等值，定向測試通過；尚未用 500 筆以上真實 Flowable Task 並發驗收。
+
 - 嚴重度：中。性質：Java 排程分頁競態；需要超過 500 筆符合條件的 Task 並在掃描中改變查詢結果，目前尚無資料重現。
 - 預期：`README.md` 的 Task SLA 排程應掃描所有已進入提醒或逾時區間的 active Task；任務同時完成不應使其他仍有效的 Task 漏掉本輪提醒。
 - 實際：`FmTaskDeadlineNotificationJob.notifyDeadlines()` 每頁重新執行 `taskDueBefore(horizon).orderByTaskDueDate().asc().listPage(offset, 500)`，處理後將 offset 加上該頁筆數。若已掃描的任務在下一頁查詢前完成並從 live Task 查詢結果移除，後續資料索引前移，下一次固定 offset 會跨過尚未掃描的 Task。本輪漏掉的 Task 需等下一次五分鐘排程；若在此期間到期，可能失去 `TASK_DUE_SOON` 通知，只收到逾時通知。
 - 證據：`backend/app/src/main/java/org/qifu/fm/domain/notification/FmTaskDeadlineNotificationJob.java` 的 `notifyDeadlines()` 與 `notifyTask()`；排程以 `fixedDelay = 300000` 執行。這是 live 查詢加 offset 分頁的條件推論，尚未做並發或大資料量測試。
 
 ### BUG-026：跨月後上月待寄 Email 不再被寄送排程選取
+
+- 狀態：已修正（2026-10-09）。寄送查詢保留當月一般郵件範圍，並納入任一月份仍為 PENDING 且已到重試時間的 FlowMint Email 通知。
 
 - 嚴重度：中。性質：Java 寄送排程與 SQL 篩選；目前無待寄資料可實際重現。
 - 預期：失敗後等待重試的 Email，即使跨過月份，也應在 `NEXT_RETRY_DATE` 到達後繼續嘗試，直至成功或達到永久失敗次數；`README.md` 第 23 節要求延遲重試與永久 `FAILED` 狀態同步。

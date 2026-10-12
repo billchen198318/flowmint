@@ -153,6 +153,7 @@ public class FmOrganizationHealthLogicServiceImpl implements IFmOrganizationHeal
 				FmOrgUnitView::getOrgUnitId, Function.identity(), (left, right) -> left));
 		Map<String, FmEmployee> employeesById = employees.stream().collect(Collectors.toMap(
 				FmEmployee::getEmployeeId, Function.identity(), (left, right) -> left));
+		Set<String> activeEmployeeIds = employeesById.keySet();
 		Map<String, String> headByUnit = heads.stream().filter(value -> "HEAD".equals(value.getHeadType()))
 				.collect(Collectors.toMap(FmOrgUnitHead::getOrgUnitId, FmOrgUnitHead::getEmployeeId,
 						(left, right) -> left));
@@ -175,7 +176,7 @@ public class FmOrganizationHealthLogicServiceImpl implements IFmOrganizationHeal
 		Map<String, String> managerByAssignment = new HashMap<>();
 		for (FmEmployeeOrgAssignment assignment : assignments) {
 			String managerAssignmentId = managerAssignment(
-					assignment, assignments, byId, unitsById, headByUnit);
+					assignment, assignments, byId, unitsById, headByUnit, activeEmployeeIds);
 			String employeeLabel = assignmentLabel(assignment, employeesById, unitsById);
 			String unitLabel = unitsById.containsKey(assignment.getOrgUnitId())
 					? label(unitsById.get(assignment.getOrgUnitId())) : "未知部門";
@@ -248,7 +249,6 @@ public class FmOrganizationHealthLogicServiceImpl implements IFmOrganizationHeal
 				.filter(value -> StringUtils.isNotBlank(value.getAccount()))
 				.collect(Collectors.toMap(FmEmployee::getAccount,
 						value -> employeeLabel(value, value.getAccount()), (left, right) -> left));
-		Map<String, String> edges = new HashMap<>();
 		for (FmWorkflowDelegation value : values) {
 			if (value.getPrincipalAccount().equals(value.getDelegateAccount())) {
 				issues.add(issue("DELEGATION", "DELEGATION_SELF", "ERROR", "代理人為本人",
@@ -257,7 +257,6 @@ public class FmOrganizationHealthLogicServiceImpl implements IFmOrganizationHeal
 						scopeLabel(value), "改設其他有效代理人或停用此設定。",
 						"FM_PROG003D0002", List.of(accountLabel(accountLabels, value.getPrincipalAccount()))));
 			}
-			edges.put(value.getPrincipalAccount(), value.getDelegateAccount());
 		}
 		for (int left = 0; left < values.size(); left++) {
 			for (int right = left + 1; right < values.size(); right++) {
@@ -278,9 +277,69 @@ public class FmOrganizationHealthLogicServiceImpl implements IFmOrganizationHeal
 				}
 			}
 		}
-		issues.addAll(cycleIssues(edges, accountLabels, "DELEGATION", "DELEGATION_CYCLE",
-				"代理鏈形成循環", "FM_PROG003D0002"));
+		issues.addAll(delegationCycleIssues(values, accountLabels));
 		return issues;
+	}
+
+	List<FmOrganizationHealthIssueView> delegationCycleIssues(
+			List<FmWorkflowDelegation> delegations, Map<String, String> accountLabels) {
+		Map<String, List<FmWorkflowDelegation>> outgoing = delegations.stream()
+				.collect(Collectors.groupingBy(FmWorkflowDelegation::getPrincipalAccount));
+		List<FmOrganizationHealthIssueView> issues = new ArrayList<>();
+		Set<String> reported = new HashSet<>();
+		for (String start : outgoing.keySet()) {
+			Set<String> visited = new HashSet<>();
+			visited.add(start);
+			findDelegationCycles(start, start, outgoing, visited, new ArrayList<>(),
+					null, null, null, accountLabels, reported, issues);
+		}
+		return issues;
+	}
+
+	private void findDelegationCycles(String start, String current,
+			Map<String, List<FmWorkflowDelegation>> outgoing, Set<String> visited,
+			List<String> path, Date from, Date to, String scope,
+			Map<String, String> accountLabels, Set<String> reported,
+			List<FmOrganizationHealthIssueView> issues) {
+		for (FmWorkflowDelegation edge : outgoing.getOrDefault(current, List.of())) {
+			Date nextFrom = from == null || edge.getEffectiveFrom().after(from)
+					? edge.getEffectiveFrom() : from;
+			Date edgeTo = edge.getEffectiveTo();
+			Date nextTo = to == null ? edgeTo
+					: edgeTo == null || to.before(edgeTo) ? to : edgeTo;
+			if (nextTo != null && !nextFrom.before(nextTo)) {
+				continue;
+			}
+			String edgeScope = "ALL".equals(edge.getScopeType()) ? null : scope(edge);
+			if (scope != null && edgeScope != null && !scope.equals(edgeScope)) {
+				continue;
+			}
+			String nextScope = scope == null ? edgeScope : scope;
+			String next = edge.getDelegateAccount();
+			if (start.equals(next)) {
+				if (path.size() < 2) {
+					continue;
+				}
+				List<String> cycle = new ArrayList<>(path);
+				cycle.add(current);
+				String key = cycle.stream().distinct().sorted().collect(Collectors.joining("|"));
+				if (reported.add(key)) {
+					cycle.add(start);
+					List<String> displayPath = cycle.stream()
+							.map(value -> accountLabel(accountLabels, value)).toList();
+					issues.add(issue("DELEGATION", "DELEGATION_CYCLE", "ERROR", "代理鏈形成循環",
+							key, String.join(" → ", displayPath), "代理關係在重疊期間及範圍形成循環。",
+							"工作可能在代理鏈中循環。", String.join(" → ", displayPath),
+							"核對並修正循環中的至少一筆代理設定。", "FM_PROG003D0002", displayPath));
+				}
+			} else if (visited.add(next)) {
+				path.add(current);
+				findDelegationCycles(start, next, outgoing, visited, path,
+						nextFrom, nextTo, nextScope, accountLabels, reported, issues);
+				path.remove(path.size() - 1);
+				visited.remove(next);
+			}
+		}
 	}
 
 	private List<FmOrganizationHealthIssueView> cycleIssues(Map<String, String> edges,
@@ -315,9 +374,11 @@ public class FmOrganizationHealthLogicServiceImpl implements IFmOrganizationHeal
 
 	private String managerAssignment(FmEmployeeOrgAssignment value,
 			List<FmEmployeeOrgAssignment> assignments, Map<String, FmEmployeeOrgAssignment> byId,
-			Map<String, FmOrgUnitView> unitsById, Map<String, String> headByUnit) {
+			Map<String, FmOrgUnitView> unitsById, Map<String, String> headByUnit,
+			Set<String> activeEmployeeIds) {
 		if ("EXPLICIT".equals(value.getManagerSource())) {
-			return byId.containsKey(value.getDirectManagerAssignmentId())
+			FmEmployeeOrgAssignment manager = byId.get(value.getDirectManagerAssignmentId());
+			return manager != null && activeEmployeeIds.contains(manager.getEmployeeId())
 					? value.getDirectManagerAssignmentId() : null;
 		}
 		if ("ORG_HEAD".equals(value.getManagerSource())
@@ -329,7 +390,8 @@ public class FmOrganizationHealthLogicServiceImpl implements IFmOrganizationHeal
 			}
 			String employeeId = headByUnit.get(managerUnitId);
 			String finalManagerUnitId = managerUnitId;
-			return assignments.stream().filter(item -> item.getEmployeeId().equals(employeeId)
+			return assignments.stream().filter(item -> activeEmployeeIds.contains(item.getEmployeeId())
+					&& item.getEmployeeId().equals(employeeId)
 					&& item.getOrgUnitId().equals(finalManagerUnitId)).map(
 						FmEmployeeOrgAssignment::getEmployeeOrgAssignmentId).findFirst().orElse(null);
 		}

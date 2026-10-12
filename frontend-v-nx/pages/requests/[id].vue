@@ -47,7 +47,7 @@ const destroyForm = async () => {
   if (formHost.value) formHost.value.innerHTML = "";
 };
 const hydrateAttachmentFields = (data: any) => {
-  const hydrated = { ...(data || {}) };
+  const hydrated = JSON.parse(JSON.stringify(data || {}));
   const attachmentsByField = attachments.value.reduce(
     (groups: Record<string, any[]>, attachment: any) => {
       (groups[attachment.fieldKey] ||= []).push(attachment);
@@ -55,23 +55,44 @@ const hydrateAttachmentFields = (data: any) => {
     },
     {},
   );
-  for (const [fieldKey, fieldAttachments] of Object.entries(attachmentsByField)) {
-    const storedIds = Array.isArray(hydrated[fieldKey])
-      ? hydrated[fieldKey].map((item: any) =>
-        typeof item === "string" ? item : item?.attachmentId,
-      )
-      : [];
-    hydrated[fieldKey] = (fieldAttachments || [])
-      .filter((attachment: any) => storedIds.includes(attachment.attachmentId))
-      .map((attachment: any) => ({
-        storage: "url",
-        name: attachment.fileName,
-        originalName: attachment.fileName,
-        size: Number(attachment.fileSize || 0),
-        type: attachment.contentType || "application/octet-stream",
-        url: `#flowmint-attachment-${attachment.attachmentId}`,
-      }));
-  }
+  const hydrateComponents = (components: any[], values: any) => {
+    if (!values || typeof values !== "object") return;
+    for (const component of components || []) {
+      const key = component.key;
+      if (component.type === "file") {
+        const stored = values?.[key];
+        const storedIds = (Array.isArray(stored) ? stored : stored ? [stored] : [])
+          .map((item: any) => typeof item === "string" ? item : item?.attachmentId);
+        values[key] = (attachmentsByField[key] || [])
+          .filter((attachment: any) => storedIds.includes(attachment.attachmentId))
+          .map((attachment: any) => ({
+            storage: "url",
+            name: attachment.fileName,
+            originalName: attachment.fileName,
+            size: Number(attachment.fileSize || 0),
+            type: attachment.contentType || "application/octet-stream",
+            url: `#flowmint-attachment-${attachment.attachmentId}`,
+          }));
+      } else if (component.type === "container") {
+        if (values?.[key] && typeof values[key] === "object") {
+          hydrateComponents(component.components || [], values[key]);
+        }
+      } else if (component.type === "datagrid" || component.type === "editgrid") {
+        if (Array.isArray(values?.[key])) {
+          values[key].forEach((row: any) =>
+            hydrateComponents(component.components || [], row));
+        }
+      } else {
+        hydrateComponents(component.components || [], values);
+        (component.columns || []).forEach((column: any) =>
+          hydrateComponents(column.components || [], values));
+        (component.rows || []).forEach((row: any[]) =>
+          row.forEach((cell: any) =>
+            hydrateComponents(cell.components || [], values)));
+      }
+    }
+  };
+  hydrateComponents(JSON.parse(detail.value?.schemaContent || "{}").components || [], hydrated);
   return hydrated;
 };
 const handleFormAttachmentClick = (event: MouseEvent) => {
@@ -179,6 +200,7 @@ const deleteAttachment = async (attachment: any) => {
   attachments.value = attachments.value.filter(
     (file: any) => file.attachmentId !== attachment.attachmentId,
   );
+  await renderData(selectedSnapshot.value?.formData || detail.value?.currentFormData || {});
   toast.success("附件已刪除");
 };
 const withdraw = async () => {
@@ -342,8 +364,7 @@ onBeforeUnmount(() => void destroyForm());
                   <span class="d-block small text-muted ms-4">{{ file.fieldKey }} · {{ file.fileSize }} bytes</span>
                 </button>
                 <button
-                  v-if="detail.request.instanceStatus === 'RUNNING'
-                    && [detail.request.applicantAccount, detail.request.starterAccount].includes(baseStore.userId)"
+                  v-if="detail.request.instanceStatus === 'RUNNING' && file.deletable"
                   type="button" class="btn btn-sm btn-outline-danger"
                   @click="deleteAttachment(file)">
                   刪除

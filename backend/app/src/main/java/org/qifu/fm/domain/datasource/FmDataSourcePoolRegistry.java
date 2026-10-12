@@ -53,12 +53,17 @@ public class FmDataSourcePoolRegistry {
 		List<FmDataSourcePool> pools = Objects.requireNonNullElse(
 				poolService.selectListByParams(params, "POOL_ID", "ASC").getValue(),
 				List.of());
-		return pools.stream().findFirst()
+		return pools.stream()
+				.filter(pool -> tenantId.equals(pool.getTenantId())
+						&& poolId.equals(pool.getPoolId())
+						&& "ACTIVE".equals(pool.getStatus()))
+				.findFirst()
 				.orElseThrow(() -> new ServiceException(
 						BaseSystemMessage.parameterIncorrect()));
 	}
 
 	private HikariConfig config(FmDataSourcePool pool) throws ServiceException {
+		FmDataSourceValidationQuery.requireSafe(pool.getValidationQuery());
 		HikariConfig config = new HikariConfig();
 		config.setPoolName("fm-action-" + pool.getPoolCode());
 		config.setDriverClassName(pool.getDriverClass());

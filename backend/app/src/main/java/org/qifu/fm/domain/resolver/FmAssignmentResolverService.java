@@ -1,6 +1,7 @@
 package org.qifu.fm.domain.resolver;
 
 import java.util.Date;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -322,7 +323,8 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         Map<String, Object> memberParameters = activeParameters(rule.getTenantId());
         memberParameters.put("dutyId", dutyId);
         List<FmEmployeeDuty> members = employeeDutyService
-                .selectListByParams(memberParameters).getValue();
+                .selectListByParams(memberParameters, "IS_PRIMARY DESC,EFFECTIVE_FROM,EMPLOYEE_DUTY_ID", "ASC")
+                .getValue();
         Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
         for (FmEmployeeDuty member : members) {
             if (candidates.size() >= rule.getMaxResults()) {
@@ -353,16 +355,15 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         }
         FmEmployeeOrgAssignment manager = assignment;
         Set<String> visited = new HashSet<>();
-        while (StringUtils.isNotBlank(manager.getDirectManagerAssignmentId())
-                && visited.add(manager.getEmployeeOrgAssignmentId())) {
-            manager = assignmentByBusinessId(
-                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
+        while (visited.add(manager.getEmployeeOrgAssignmentId())) {
+            manager = managerAssignment(rule.getTenantId(), manager);
             if (manager == null) {
                 break;
             }
             FmOrgApprovalLevel managerLevel = approvalLevel(rule.getTenantId(), manager);
             if (managerLevel != null
-                    && managerLevel.getLevelOrder() < currentLevel.getLevelOrder()) {
+                    && managerLevel.getLevelOrder() < currentLevel.getLevelOrder()
+                    && activeEmployeeById(rule.getTenantId(), manager.getEmployeeId()) != null) {
                 return employeeResult(rule, manager.getEmployeeId(),
                         "已解析下一個較高簽核層級主管「" + managerLevel.getLevelName() + "」");
             }
@@ -391,16 +392,13 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         while (visited.add(manager.getEmployeeOrgAssignmentId())) {
             FmOrgApprovalLevel managerLevel = approvalLevel(rule.getTenantId(), manager);
             if (managerLevel != null
-                    && levelMatches(matchMode, targetLevel, managerLevel)) {
+                    && levelMatches(matchMode, targetLevel, managerLevel)
+                    && activeEmployeeById(rule.getTenantId(), manager.getEmployeeId()) != null) {
                 return employeeResult(rule, manager.getEmployeeId(),
                         "已依 " + matchMode + " 解析目標簽核層級「"
                                 + targetLevel.getLevelName() + "」");
             }
-            if (StringUtils.isBlank(manager.getDirectManagerAssignmentId())) {
-                break;
-            }
-            manager = assignmentByBusinessId(
-                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
+            manager = managerAssignment(rule.getTenantId(), manager);
             if (manager == null) {
                 break;
             }
@@ -415,18 +413,14 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             FmOrgApprovalLevel targetLevel) throws ServiceException {
         Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
         Set<String> visited = new HashSet<>();
-        FmEmployeeOrgAssignment manager = assignment;
-        if (StringUtils.isNotBlank(manager.getDirectManagerAssignmentId())) {
-            manager = assignmentByBusinessId(
-                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
-        } else {
-            manager = null;
-        }
+        FmEmployeeOrgAssignment manager = managerAssignment(rule.getTenantId(), assignment);
         while (manager != null && visited.add(manager.getEmployeeOrgAssignmentId())) {
             FmOrgApprovalLevel managerLevel = approvalLevel(rule.getTenantId(), manager);
             if (managerLevel != null) {
+                int candidateCountBefore = candidates.size();
                 addEmployeeCandidate(rule.getTenantId(), manager.getEmployeeId(), candidates);
-                if (managerLevel.getLevelOrder() <= targetLevel.getLevelOrder()) {
+                if (managerLevel.getLevelOrder() <= targetLevel.getLevelOrder()
+                        && candidates.size() > candidateCountBefore) {
                     return result(rule, "RESOLVED",
                             "已逐級解析至「" + managerLevel.getLevelName() + "」",
                             List.copyOf(candidates.values()));
@@ -436,11 +430,7 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
                             "逐級簽核人數超過 MAX_RESULTS，尚未到達目標層級", List.of());
                 }
             }
-            if (StringUtils.isBlank(manager.getDirectManagerAssignmentId())) {
-                break;
-            }
-            manager = assignmentByBusinessId(
-                    rule.getTenantId(), manager.getDirectManagerAssignmentId());
+            manager = managerAssignment(rule.getTenantId(), manager);
         }
         return result(rule, "NOT_FOUND", "主管鏈未到達指定或更高簽核層級", List.of());
     }
@@ -551,27 +541,41 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             return result(rule, "ERROR", "尚未選擇表單帳號欄位", List.of());
         }
         Object fieldValue = readFormField(variables.get("form"), fieldKey);
-        Object accountValue = fieldValue instanceof Map<?, ?> option
-                && option.containsKey("value") ? option.get("value") : fieldValue;
-        String account = accountValue == null ? null : accountValue.toString().trim();
-        if (StringUtils.isBlank(account)) {
-            return result(rule, "NOT_FOUND", "表單帳號欄位沒有選擇有效人員", List.of());
+        List<?> accounts = fieldValue instanceof List<?> values
+                ? values : fieldValue == null ? List.of() : List.of(fieldValue);
+        Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
+        for (Object value : accounts) {
+            if (candidates.size() >= rule.getMaxResults()) {
+                break;
+            }
+            Object accountValue = value instanceof Map<?, ?> option
+                    && option.containsKey("value") ? option.get("value") : value;
+            String account = accountValue == null ? null : accountValue.toString().trim();
+            if (StringUtils.isBlank(account)) {
+                continue;
+            }
+            FmEmployee employee = activeEmployeeByAccount(rule.getTenantId(), account);
+            if (employee == null) {
+                return result(rule, "NOT_FOUND",
+                        "表單欄位包含不存在或未啟用的帳號：" + account, List.of());
+            }
+            FmEmployeeOrgAssignment employeeAssignment = primaryAssignment(
+                    rule.getTenantId(), employee.getEmployeeId());
+            if (employeeAssignment == null) {
+                return result(rule, "NOT_FOUND", "表單指定人員沒有有效主要任職", List.of());
+            }
+            FmResolverPreviewView manager = directManager(rule, employeeAssignment);
+            if (!"RESOLVED".equals(manager.resultStatus())) {
+                return manager;
+            }
+            for (FmResolverCandidateView candidate : manager.candidates()) {
+                candidates.putIfAbsent(candidate.employeeId(), candidate);
+            }
         }
-        FmEmployee employee = activeEmployeeByAccount(rule.getTenantId(), account);
-        if (employee == null) {
-            return result(rule, "NOT_FOUND",
-                    "表單欄位包含不存在或未啟用的帳號：" + account, List.of());
-        }
-        FmEmployeeOrgAssignment employeeAssignment = primaryAssignment(
-                rule.getTenantId(), employee.getEmployeeId());
-        if (employeeAssignment == null) {
-            return result(rule, "NOT_FOUND", "表單指定人員沒有有效主要任職", List.of());
-        }
-        FmResolverPreviewView manager = directManager(rule, employeeAssignment);
-        return "RESOLVED".equals(manager.resultStatus())
-                ? result(rule, "RESOLVED", "已由表單欄位「" + fieldKey
-                        + "」解析人員的直屬主管", manager.candidates())
-                : manager;
+        return candidates.isEmpty()
+                ? result(rule, "NOT_FOUND", "表單帳號欄位沒有選擇有效人員", List.of())
+                : result(rule, "RESOLVED", "已由表單欄位「" + fieldKey
+                        + "」解析人員的直屬主管", List.copyOf(candidates.values()));
     }
 
     private Object readFormField(Object source, String fieldKey) {
@@ -672,6 +676,14 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         memberParameters.put("approvalGroupId", approvalGroupId);
         List<FmApprovalGroupMember> members = approvalGroupMemberService
                 .selectListByParams(memberParameters, "PRIORITY", "ASC").getValue();
+        members = members.stream().sorted(Comparator
+                .comparing(FmApprovalGroupMember::getPriority,
+                        Comparator.nullsLast(Integer::compareTo))
+                .thenComparing(FmApprovalGroupMember::getEmployeeId,
+                        Comparator.nullsLast(String::compareTo))
+                .thenComparing(FmApprovalGroupMember::getApprovalGroupMemberId,
+                        Comparator.nullsLast(String::compareTo)))
+                .toList();
         Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
         for (FmApprovalGroupMember member : members) {
             if (candidates.size() >= rule.getMaxResults()) {
@@ -728,11 +740,9 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
         Map<String, FmResolverCandidateView> candidates = new LinkedHashMap<>();
         Set<String> visited = new HashSet<>();
         FmEmployeeOrgAssignment current = assignment;
-        while (StringUtils.isNotBlank(current.getDirectManagerAssignmentId())
-                && visited.add(current.getEmployeeOrgAssignmentId())
+        while (visited.add(current.getEmployeeOrgAssignmentId())
                 && candidates.size() < rule.getMaxResults()) {
-            current = assignmentByBusinessId(
-                    rule.getTenantId(), current.getDirectManagerAssignmentId());
+            current = managerAssignment(rule.getTenantId(), current);
             if (current == null) {
                 break;
             }
@@ -770,15 +780,11 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
     private FmResolverPreviewView directManager(
             FmTaskAssignmentRule rule,
             FmEmployeeOrgAssignment assignment) throws ServiceException {
-        if (StringUtils.isBlank(assignment.getDirectManagerAssignmentId())) {
-            return result(rule, "NOT_FOUND", "主要部門配置沒有直屬主管", List.of());
-        }
-        FmEmployeeOrgAssignment managerAssignment = assignmentByBusinessId(
-                rule.getTenantId(), assignment.getDirectManagerAssignmentId());
-        if (managerAssignment == null) {
+        FmEmployeeOrgAssignment manager = managerAssignment(rule.getTenantId(), assignment);
+        if (manager == null) {
             return result(rule, "NOT_FOUND", "直屬主管的部門配置不存在或未啟用", List.of());
         }
-        return employeeResult(rule, managerAssignment.getEmployeeId(), "已解析直屬主管");
+        return employeeResult(rule, manager.getEmployeeId(), "已解析直屬主管");
     }
 
     private FmResolverPreviewView orgUnitHead(
@@ -795,9 +801,30 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
             throws ServiceException {
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("orgUnitId", orgUnitId);
-        parameters.put("headType", "HEAD");
-        return firstEffectiveFormalHead(
-                orgUnitHeadService.selectListByParams(parameters, "PRIORITY", "ASC").getValue(), new Date());
+        List<FmOrgUnitHead> heads = orgUnitHeadService.selectListByParams(parameters,
+                "PRIORITY,ORG_UNIT_HEAD_ID", "ASC").getValue().stream()
+                .filter(head -> isEffective(head.getEffectiveFrom(), head.getEffectiveTo()))
+                .sorted(java.util.Comparator
+                        .comparingInt((FmOrgUnitHead head) -> headTypeOrder(head.getHeadType()))
+                        .thenComparing(FmOrgUnitHead::getPriority)
+                        .thenComparing(FmOrgUnitHead::getOrgUnitHeadId))
+                .toList();
+        for (FmOrgUnitHead head : heads) {
+            if (headTypeOrder(head.getHeadType()) < 3
+                    && activeEmployeeById(tenantId, head.getEmployeeId()) != null) {
+                return head;
+            }
+        }
+        return null;
+    }
+
+    private int headTypeOrder(String headType) {
+        return switch (headType) {
+            case "HEAD" -> 0;
+            case "ACTING_HEAD" -> 1;
+            case "DEPUTY_HEAD" -> 2;
+            default -> 3;
+        };
     }
 
     static FmOrgUnitHead firstEffectiveFormalHead(List<FmOrgUnitHead> heads, Date now) {
@@ -895,9 +922,59 @@ public class FmAssignmentResolverService implements IFmAssignmentResolverService
                 .findFirst().orElse(null);
     }
 
+    FmEmployeeOrgAssignment managerAssignment(String tenantId,
+            FmEmployeeOrgAssignment assignment) throws ServiceException {
+        if (assignment == null || "NONE".equals(assignment.getManagerSource())) {
+            return null;
+        }
+        String source = assignment.getManagerSource();
+        if ("EXPLICIT".equals(source) || StringUtils.isBlank(source)) {
+            FmEmployeeOrgAssignment manager = assignmentByBusinessId(
+                    tenantId, assignment.getDirectManagerAssignmentId());
+            return manager != null && !manager.getEmployeeOrgAssignmentId()
+                    .equals(assignment.getEmployeeOrgAssignmentId()) ? manager : null;
+        }
+        if (!"ORG_HEAD".equals(source) && !"PARENT_HEAD".equals(source)) {
+            return null;
+        }
+        String managerUnitId = assignment.getOrgUnitId();
+        if ("PARENT_HEAD".equals(source)) {
+            FmOrgUnitVersion unit = currentOrgUnit(tenantId, managerUnitId);
+            managerUnitId = unit == null ? null : unit.getParentOrgUnitId();
+        }
+        if (StringUtils.isBlank(managerUnitId)) {
+            return null;
+        }
+        Map<String, Object> headParameters = activeParameters(tenantId);
+        headParameters.put("orgUnitId", managerUnitId);
+        for (FmOrgUnitHead head : orgUnitHeadService.selectListByParams(
+                headParameters, "PRIORITY,ORG_UNIT_HEAD_ID", "ASC").getValue()) {
+            if (!"HEAD".equals(head.getHeadType())
+                    || !isEffective(head.getEffectiveFrom(), head.getEffectiveTo())
+                    || activeEmployeeById(tenantId, head.getEmployeeId()) == null) {
+                continue;
+            }
+            Map<String, Object> managerParameters = activeParameters(tenantId);
+            managerParameters.put("orgUnitId", managerUnitId);
+            managerParameters.put("employeeId", head.getEmployeeId());
+            for (FmEmployeeOrgAssignment manager : assignmentService.selectListByParams(
+                    managerParameters, "EMPLOYEE_ORG_ASSIGNMENT_ID", "ASC").getValue()) {
+                if (isEffective(manager.getEffectiveFrom(), manager.getEffectiveTo())
+                        && !manager.getEmployeeOrgAssignmentId().equals(
+                                assignment.getEmployeeOrgAssignmentId())) {
+                    return manager;
+                }
+            }
+        }
+        return null;
+    }
+
     private FmEmployeeOrgAssignment assignmentByBusinessId(
             String tenantId,
             String assignmentId) throws ServiceException {
+        if (StringUtils.isBlank(assignmentId)) {
+            return null;
+        }
         Map<String, Object> parameters = activeParameters(tenantId);
         parameters.put("employeeOrgAssignmentId", assignmentId);
         return assignmentService.selectListByParams(parameters).getValue().stream()

@@ -9,6 +9,7 @@
     <result column="VERSION_NO" jdbcType="INTEGER" property="versionNo"/>
     <result column="VERSION_STATUS" jdbcType="VARCHAR" property="versionStatus"/>
     <result column="CONTENT_SHA256" jdbcType="CHAR" property="contentSha256"/>
+    <result column="ACTION_CONFIG" jdbcType="LONGVARCHAR" property="actionConfig"/>
     <result column="PUBLISHED_BY" jdbcType="VARCHAR" property="publishedBy"/>
     <result column="PUBLISHED_DATE" jdbcType="TIMESTAMP" property="publishedDate"/>
     <result column="CUSERID" jdbcType="VARCHAR" property="cuserid"/>
@@ -24,6 +25,7 @@
       VERSION_NO,
       VERSION_STATUS,
       CONTENT_SHA256,
+      ACTION_CONFIG,
       PUBLISHED_BY,
       PUBLISHED_DATE,
       CUSERID,
@@ -133,6 +135,9 @@
       <if test="contentSha256 != null">
         CONTENT_SHA256,
       </if>
+      <if test="actionConfig != null">
+        ACTION_CONFIG,
+      </if>
       <if test="publishedBy != null">
         PUBLISHED_BY,
       </if>
@@ -171,6 +176,9 @@
       <if test="contentSha256 != null">
         #{contentSha256,jdbcType=CHAR},
       </if>
+      <if test="actionConfig != null">
+        #{actionConfig,jdbcType=LONGVARCHAR},
+      </if>
       <if test="publishedBy != null">
         #{publishedBy,jdbcType=VARCHAR},
       </if>
@@ -203,6 +211,9 @@
       </if>
       <if test="contentSha256 != null">
         CONTENT_SHA256 = #{contentSha256,jdbcType=CHAR},
+      </if>
+      <if test="actionConfig != null">
+        ACTION_CONFIG = #{actionConfig,jdbcType=LONGVARCHAR},
       </if>
       <if test="publishedBy != null">
         PUBLISHED_BY = #{publishedBy,jdbcType=VARCHAR},

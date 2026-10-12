@@ -19,7 +19,7 @@ public record FmExternalApiPrincipal(
 	}
 
 	public boolean allowsProcess(String processId) {
-		return allowedProcessIds.isEmpty() || allowedProcessIds.contains(processId);
+		return allowedProcessIds.contains(processId);
 	}
 
 	public boolean allowsInitiator(String account) {

@@ -44,4 +44,33 @@ class FmDataActionExecutorColumnNameTest {
                         + "WHERE name='ORDER BY kept'",
                 FmDataActionExecutor.stripTopLevelOrderBy(sql));
     }
+
+    @Test
+    void keepsOrderByInsideDoubleQuotedTextAndNestedQueries() {
+        String sql = "SELECT \"x ORDER BY y\" AS label FROM "
+                + "(SELECT id FROM items ORDER BY id) nested ORDER BY label";
+        assertEquals("SELECT \"x ORDER BY y\" AS label FROM "
+                        + "(SELECT id FROM items ORDER BY id) nested",
+                FmDataActionExecutor.stripTopLevelOrderBy(sql));
+        String withoutOuterOrder = "SELECT \"x ORDER BY y\" AS label FROM items";
+        assertEquals(withoutOuterOrder,
+                FmDataActionExecutor.stripTopLevelOrderBy(withoutOuterOrder));
+        assertEquals("SELECT 'it''s ORDER BY safe' AS label FROM items",
+                FmDataActionExecutor.stripTopLevelOrderBy(
+                        "SELECT 'it''s ORDER BY safe' AS label FROM items ORDER BY label"));
+    }
+
+    @Test
+    void paginatesAtDatabaseInsteadOfLoadingAllPrecedingRows() throws Exception {
+        String sql = "SELECT ID FROM items ORDER BY ID";
+        assertEquals(sql + " LIMIT :__fmPageSize OFFSET :__fmOffset",
+                FmDataActionExecutor.pageSql(sql, "MariaDB"));
+        assertEquals(sql + " OFFSET :__fmOffset ROWS FETCH NEXT :__fmPageSize ROWS ONLY",
+                FmDataActionExecutor.pageSql(sql, "Oracle"));
+        assertEquals(sql + " OFFSET :__fmOffset ROWS FETCH NEXT :__fmPageSize ROWS ONLY",
+                FmDataActionExecutor.pageSql(sql, "Microsoft SQL Server"));
+        assertThrows(org.qifu.base.exception.ServiceException.class,
+                () -> FmDataActionExecutor.pageSql("SELECT ID FROM items",
+                        "Microsoft SQL Server"));
+    }
 }

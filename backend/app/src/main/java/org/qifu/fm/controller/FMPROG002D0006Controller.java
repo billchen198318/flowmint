@@ -13,6 +13,7 @@ import org.qifu.fm.dto.command.FmEmployeeDutyCommand;
 import org.qifu.fm.dto.command.FmOrgDutyCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmOrgDutyView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmOrgDuty;
 import org.qifu.fm.logic.IFmOrgDutyLogicService;
 import org.qifu.fm.service.IFmOrgDutyService;
@@ -32,12 +33,14 @@ public class FMPROG002D0006Controller extends CoreApiSupport {
 
 	private final transient IFmOrgDutyService dutyService;
 	private final transient IFmOrgDutyLogicService dutyLogicService;
+	private final transient FmTenantAccessGuard tenantAccessGuard;
 
 	public FMPROG002D0006Controller(
 			IFmOrgDutyService dutyService,
-			IFmOrgDutyLogicService dutyLogicService) {
+			IFmOrgDutyLogicService dutyLogicService, FmTenantAccessGuard tenantAccessGuard) {
 		this.dutyService = dutyService;
 		this.dutyLogicService = dutyLogicService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG002D0006Q", check = true)
@@ -45,6 +48,8 @@ public class FMPROG002D0006Controller extends CoreApiSupport {
 	public ResponseEntity<QueryResult<List<FmOrgDutyView>>> findPage(@RequestBody SearchBody body) {
 		QueryResult<List<FmOrgDutyView>> result = initResult();
 		try {
+			tenantAccessGuard.requireQueryAccess(
+					body.getField() == null ? null : body.getField().get("tenantId"));
 			QueryResult<List<FmOrgDuty>> query = dutyService.findPage(
 					queryParameter(body)
 							.fullEquals("tenantId")

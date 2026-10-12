@@ -33,6 +33,36 @@
     WHERE OID = #{oid,jdbcType=CHAR}
   </select>
 
+  <select id="lockTenantForWrite" resultType="java.lang.String">
+    SELECT TENANT_ID
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_tenant
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+    FOR UPDATE
+  </select>
+
+  <select id="selectOverlappingActiveForUpdate" resultType="java.lang.String">
+    SELECT OID
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_workflow_delegation
+    WHERE TENANT_ID = #{tenantId,jdbcType=VARCHAR}
+      AND PRINCIPAL_ACCOUNT = #{principalAccount,jdbcType=VARCHAR}
+      AND SCOPE_TYPE = #{scopeType,jdbcType=VARCHAR}
+      AND STATUS = 'ACTIVE'
+      AND EFFECTIVE_FROM &lt; #{effectiveTo,jdbcType=TIMESTAMP}
+      AND EFFECTIVE_TO &gt; #{effectiveFrom,jdbcType=TIMESTAMP}
+    <choose>
+      <when test="scopeRefId == null">
+        AND SCOPE_REF_ID IS NULL
+      </when>
+      <otherwise>
+        AND SCOPE_REF_ID = #{scopeRefId,jdbcType=VARCHAR}
+      </otherwise>
+    </choose>
+    <if test="excludedOid != null">
+      AND OID != #{excludedOid,jdbcType=CHAR}
+    </if>
+    FOR UPDATE
+  </select>
+
   <sql id="baseConditions">
     <if test="tenantId != null and tenantId != ''">
       AND TENANT_ID = #{tenantId,jdbcType=VARCHAR}

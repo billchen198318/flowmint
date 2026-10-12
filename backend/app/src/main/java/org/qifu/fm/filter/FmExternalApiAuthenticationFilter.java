@@ -79,6 +79,8 @@ public class FmExternalApiAuthenticationFilter extends OncePerRequestFilter {
 		} catch (Exception exception) {
 			error(response, requestId, HttpServletResponse.SC_UNAUTHORIZED,
 					"AUTHENTICATION_FAILED", "External API authentication failed.");
+			recordAuthenticationFailure(request, response, requestId, requestDate,
+					startedAt);
 			FmExternalApiContext.clear();
 			MDC.remove(MDC_REQUEST_ID);
 			return;
@@ -156,6 +158,24 @@ public class FmExternalApiAuthenticationFilter extends OncePerRequestFilter {
 		} catch (Exception exception) {
 			LOGGER.error("Cannot append external API access log for request {}",
 					requestId, exception);
+		}
+	}
+
+	private void recordAuthenticationFailure(HttpServletRequest request,
+			HttpServletResponse response, String requestId, Date requestDate,
+			long startedAt) {
+		try {
+			String endpointCode = endpointCode(request);
+			accessLedger.recordAuthenticationFailure(request.getRemoteAddr(), requestId,
+					request.getHeader("traceparent"), endpointCode,
+					FmExternalApiEndpointCatalog.requiredScope(endpointCode),
+					request.getHeader("User-Agent"),
+					(System.nanoTime() - startedAt) / 1_000_000,
+					request.getContentLengthLong(), contentLength(response),
+					request.getHeader("Idempotency-Key"), requestDate);
+		} catch (Exception auditException) {
+			LOGGER.error("Cannot append external API authentication failure for request {}",
+					requestId, auditException);
 		}
 	}
 

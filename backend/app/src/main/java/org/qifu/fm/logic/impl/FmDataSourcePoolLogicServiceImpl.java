@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
@@ -15,6 +16,8 @@ import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.fm.domain.datasource.FmDataSourceDriverCatalog;
 import org.qifu.fm.domain.datasource.FmDataSourcePasswordCipher;
+import org.qifu.fm.domain.datasource.FmDataSourceValidationQuery;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmDataSourcePoolCommand;
 import org.qifu.fm.dto.view.FmDataSourcePoolView;
 import org.qifu.fm.dto.view.FmDataSourceTestView;
@@ -36,12 +39,15 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 	private final IFmDataSourcePoolService poolService;
 	private final IFmTenantService tenantService;
 	private final FmDataSourcePasswordCipher passwordCipher;
+	private final FmTenantAccessGuard tenantAccessGuard;
 
 	public FmDataSourcePoolLogicServiceImpl(IFmDataSourcePoolService poolService,
-			IFmTenantService tenantService, FmDataSourcePasswordCipher passwordCipher) {
+			IFmTenantService tenantService, FmDataSourcePasswordCipher passwordCipher,
+			FmTenantAccessGuard tenantAccessGuard) {
 		this.poolService = poolService;
 		this.tenantService = tenantService;
 		this.passwordCipher = passwordCipher;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@Override
@@ -49,6 +55,7 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 	public DefaultResult<FmDataSourcePoolView> create(FmDataSourcePoolCommand command)
 			throws ServiceException {
 		validate(command, true);
+		tenantAccessGuard.requireAccess(command.tenantId());
 		validateUnique(command.tenantId(), command.poolCode(), null);
 		FmDataSourcePool pool = new FmDataSourcePool();
 		pool.setTenantId(command.tenantId());
@@ -65,6 +72,7 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 			throws ServiceException {
 		FmDataSourcePool pool = poolService.selectByPrimaryKey(oid)
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(pool.getTenantId());
 		DefaultResult<FmDataSourcePoolView> result = success(view(pool));
 		result.setMessage(message);
 		return result;
@@ -76,6 +84,7 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 			throws ServiceException {
 		FmDataSourcePool pool = poolService.selectByPrimaryKey(command.oid())
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(pool.getTenantId());
 		if (Boolean.FALSE.equals(Objects.equals(pool.getTenantId(), command.tenantId()))) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
@@ -85,6 +94,7 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 		if (!Objects.equals(pool.getLockVersion(), command.lockVersion())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
+		requireNewPasswordForChangedTarget(pool, command);
 		validate(command, false);
 		apply(pool, command, false);
 		poolService.update(pool);
@@ -97,6 +107,7 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 			throws ServiceException {
 		FmDataSourcePool pool = poolService.selectByPrimaryKey(oid)
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(pool.getTenantId());
 		pool.setStatus("INACTIVE");
 		poolService.update(pool);
 		return load(oid, BaseSystemMessage.updateSuccess());
@@ -117,8 +128,11 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
 		Map<String, Object> params = new HashMap<>();
 		params.put("status", "ACTIVE");
+		Set<String> readableTenantIds = tenantAccessGuard.readableTenantIds();
 		return success(tenantService.selectListByParams(params, "TENANT_CODE", "ASC")
-				.getValue().stream().map(tenant -> new FmOptionView(tenant.getTenantId(),
+				.getValue().stream()
+				.filter(tenant -> readableTenantIds.contains(tenant.getTenantId()))
+				.map(tenant -> new FmOptionView(tenant.getTenantId(),
 						tenant.getTenantCode() + " / " + tenant.getTenantName())).toList());
 	}
 
@@ -126,6 +140,7 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 	public DefaultResult<FmDataSourceTestView> test(FmDataSourcePoolCommand command)
 			throws ServiceException {
 		validate(command, StringUtils.isBlank(command.oid()));
+		tenantAccessGuard.requireAccess(command.tenantId());
 		String password = command.password();
 		if (StringUtils.isBlank(password) && StringUtils.isNotBlank(command.oid())) {
 			FmDataSourcePool stored = poolService.selectByPrimaryKey(command.oid())
@@ -134,6 +149,8 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 					stored.getTenantId(), command.tenantId()))) {
 				throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 			}
+			tenantAccessGuard.requireAccess(stored.getTenantId());
+			requireNewPasswordForChangedTarget(stored, command);
 			password = passwordCipher.decrypt(stored.getPasswordContent());
 		}
 		long startedAt = System.nanoTime();
@@ -145,6 +162,16 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 					metadata.getDatabaseProductVersion(), metadata.getDriverName(), elapsedMs));
 		} catch (Exception exception) {
 			throw new ServiceException(safeMessage(exception));
+		}
+	}
+
+	private void requireNewPasswordForChangedTarget(FmDataSourcePool stored,
+			FmDataSourcePoolCommand command) throws ServiceException {
+		if (StringUtils.isNotBlank(command.password())) return;
+		if (!Objects.equals(stored.getDbType(), command.dbType())
+				|| !Objects.equals(stored.getJdbcUrl(), StringUtils.trim(command.jdbcUrl()))
+				|| !Objects.equals(stored.getUsername(), StringUtils.trim(command.username()))) {
+			throw new ServiceException("資料庫類型、JDBC URL 或帳號變更時請輸入新密碼");
 		}
 	}
 
@@ -168,6 +195,7 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		validatePoolLimits(command);
+		FmDataSourceValidationQuery.requireSafe(command.validationQuery());
 		Map<String, Object> tenantParams = new HashMap<>();
 		tenantParams.put("tenantId", command.tenantId());
 		tenantParams.put("status", "ACTIVE");
@@ -181,12 +209,16 @@ public class FmDataSourcePoolLogicServiceImpl implements IFmDataSourcePoolLogicS
 		int maximumPoolSize = Objects.requireNonNullElse(command.maximumPoolSize(), 10);
 		int minimumIdle = Objects.requireNonNullElse(command.minimumIdle(), 1);
 		long connectionTimeout = Objects.requireNonNullElse(command.connectionTimeoutMs(), 10000L);
+		long idleTimeout = Objects.requireNonNullElse(command.idleTimeoutMs(), 600000L);
+		long maxLifetime = Objects.requireNonNullElse(command.maxLifetimeMs(), 1800000L);
 		boolean invalid = maximumPoolSize < 1;
 		invalid = Boolean.logicalOr(invalid, maximumPoolSize > 100);
 		invalid = Boolean.logicalOr(invalid, minimumIdle < 0);
 		invalid = Boolean.logicalOr(invalid, minimumIdle > maximumPoolSize);
 		invalid = Boolean.logicalOr(invalid, connectionTimeout < 250L);
 		invalid = Boolean.logicalOr(invalid, connectionTimeout > 120000L);
+		invalid = Boolean.logicalOr(invalid, idleTimeout != 0 && idleTimeout < 10000L);
+		invalid = Boolean.logicalOr(invalid, maxLifetime != 0 && maxLifetime < 30000L);
 		if (invalid) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}

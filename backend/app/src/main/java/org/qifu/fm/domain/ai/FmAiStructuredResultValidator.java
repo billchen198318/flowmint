@@ -7,6 +7,8 @@ import org.qifu.base.exception.ServiceException;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.JsonNodeFactory;
+import tools.jackson.databind.node.ObjectNode;
 
 @Component
 public class FmAiStructuredResultValidator {
@@ -42,7 +44,22 @@ public class FmAiStructuredResultValidator {
 			requireText(risk, "title", 300);
 			requireText(risk, "detail", 2000);
 		}
-		return result;
+		ObjectNode safe = JsonNodeFactory.instance.objectNode();
+		safe.set("summary", result.get("summary"));
+		safe.set("keyFacts", result.get("keyFacts"));
+		safe.set("questions", result.get("questions"));
+		safe.set("disclaimer", result.get("disclaimer"));
+		ObjectNode safeRecommendation = safe.putObject("recommendation");
+		safeRecommendation.set("action", recommendation.get("action"));
+		safeRecommendation.set("reason", recommendation.get("reason"));
+		var safeRisks = safe.putArray("risks");
+		for (JsonNode risk : result.path("risks")) {
+			ObjectNode safeRisk = safeRisks.addObject();
+			safeRisk.set("level", risk.get("level"));
+			safeRisk.set("title", risk.get("title"));
+			safeRisk.set("detail", risk.get("detail"));
+		}
+		return safe;
 	}
 
 	private void requireArray(JsonNode parent, String field, int maxItems)

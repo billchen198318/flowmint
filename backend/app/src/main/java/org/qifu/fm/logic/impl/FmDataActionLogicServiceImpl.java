@@ -101,6 +101,7 @@ public class FmDataActionLogicServiceImpl
 		actionService.insert(action);
 
 		FmDataActionVersion version = newDraft(action, 1);
+		version.setActionConfig(serializeConfig(action));
 		versionService.insert(version);
 		replaceSteps(action, version, command.steps());
 		return load(action.getOid(), BaseSystemMessage.insertSuccess());
@@ -122,12 +123,15 @@ public class FmDataActionLogicServiceImpl
 			draft = newDraft(action, action.getCurrentVersionNo() + 1);
 			versionService.insert(draft);
 		}
-		applyAction(action, command);
+		FmDataAction draftAction = copyAction(action);
+		applyAction(draftAction, command);
+		draft.setActionConfig(serializeConfig(draftAction));
+		versionService.update(draft);
 		if (!actionService.updateOptimistic(action, command.lockVersion())) {
 			throw new ServiceException("Data Action 已被其他使用者修改，請重新載入");
 		}
 		action.setLockVersion(command.lockVersion() + 1);
-		replaceSteps(action, draft, command.steps());
+		replaceSteps(draftAction, draft, command.steps());
 		return load(action.getOid(), BaseSystemMessage.updateSuccess());
 	}
 
@@ -148,17 +152,21 @@ public class FmDataActionLogicServiceImpl
 		FmDataAction action = actionService.selectByPrimaryKey(oid)
 				.getValueEmptyThrowMessage();
 		FmDataActionVersion draft = requireDraft(action);
+		FmDataAction publishedAction = actionForVersion(action, draft);
 		List<FmDataActionStep> steps = loadSteps(action.getTenantId(),
 				action.getActionId(), draft.getVersionNo());
-		validateForPublish(action, steps);
+		validateForPublish(publishedAction, steps);
 
+		publishedAction.setStatus("ACTIVE");
+		draft.setActionConfig(serializeConfig(publishedAction));
 		draft.setVersionStatus("PUBLISHED");
-		draft.setContentSha256(contentDigest(action, steps));
+		draft.setContentSha256(contentDigest(publishedAction, steps));
 		User currentUser = UserUtils.getCurrentUser();
 		draft.setPublishedBy(currentUser == null
 				? "SYSTEM" : currentUser.getUsername());
 		draft.setPublishedDate(new Date());
 		versionService.update(draft);
+		copyConfig(publishedAction, action);
 		action.setCurrentVersionNo(draft.getVersionNo());
 		action.setStatus("ACTIVE");
 		Integer expectedLockVersion = action.getLockVersion();
@@ -182,7 +190,7 @@ public class FmDataActionLogicServiceImpl
 		}
 		List<FmDataActionStep> steps = loadSteps(action.getTenantId(),
 				actionId, versionNo);
-		return success(executor.execute(action, versionNo, steps,
+		return success(executor.execute(actionForVersion(action, version), versionNo, steps,
 				request, loginAccount, true));
 	}
 
@@ -200,7 +208,9 @@ public class FmDataActionLogicServiceImpl
 		}
 		List<FmDataActionStep> steps = loadSteps(tenantId,
 				action.getActionId(), selectedVersion);
-		return success(executor.execute(action, selectedVersion, steps,
+		FmDataAction publishedAction = actionForVersion(action, version);
+		requireActive(publishedAction);
+		return success(executor.execute(publishedAction, selectedVersion, steps,
 				request, loginAccount, false));
 	}
 
@@ -218,7 +228,9 @@ public class FmDataActionLogicServiceImpl
 		}
 		List<FmDataActionStep> steps = loadSteps(tenantId,
 				action.getActionId(), selectedVersion);
-		executor.stream(action, selectedVersion, steps, request,
+		FmDataAction publishedAction = actionForVersion(action, version);
+		requireActive(publishedAction);
+		executor.stream(publishedAction, selectedVersion, steps, request,
 				loginAccount, outputStream);
 	}
 
@@ -230,6 +242,8 @@ public class FmDataActionLogicServiceImpl
 		params.put("status", "ACTIVE");
 		List<FmOptionView> options = values(poolService.selectListByParams(
 				params, "POOL_CODE", "ASC")).stream()
+				.filter(pool -> tenantId.equals(pool.getTenantId())
+						&& "ACTIVE".equals(pool.getStatus()))
 				.map(pool -> new FmOptionView(pool.getPoolId(),
 						pool.getPoolCode() + " / " + pool.getPoolName()))
 				.toList();
@@ -257,6 +271,9 @@ public class FmDataActionLogicServiceImpl
 			String actionCode) throws ServiceException {
 		FmDataAction action = findPublishedAction(tenantId, actionCode);
 		Integer versionNo = action.getCurrentVersionNo();
+		FmDataActionVersion version = findVersion(tenantId, action.getActionId(), versionNo);
+		action = actionForVersion(action, version);
+		requireActive(action);
 		List<FmDataActionStep> steps = loadSteps(
 				tenantId, action.getActionId(), versionNo);
 		Map<String, Object> metadata = new HashMap<>();
@@ -326,6 +343,7 @@ public class FmDataActionLogicServiceImpl
 	public FmDataActionView view(FmDataAction action) throws ServiceException {
 		FmDataActionVersion draft = findDraft(action.getTenantId(),
 				action.getActionId());
+		FmDataAction displayAction = draft == null ? action : actionForVersion(action, draft);
 		Integer versionNo = draft == null
 				? action.getCurrentVersionNo() : draft.getVersionNo();
 		List<FmDataActionStepView> steps = versionNo == null || versionNo == 0
@@ -337,18 +355,18 @@ public class FmDataActionLogicServiceImpl
 				action.getTenantId(),
 				action.getActionId(),
 				action.getActionCode(),
-				action.getActionName(),
-				action.getPoolId(),
-				action.getActionType(),
-				action.getRequestSchema(),
-				action.getResponseMode(),
-				action.getStatus(),
+				displayAction.getActionName(),
+				displayAction.getPoolId(),
+				displayAction.getActionType(),
+				displayAction.getRequestSchema(),
+				displayAction.getResponseMode(),
+				displayAction.getStatus(),
 				action.getCurrentVersionNo(),
 				draft == null ? null : draft.getVersionNo(),
 				draft == null ? null : draft.getVersionStatus(),
 				action.getLockVersion(),
-				action.getRateLimitPerMinute(),
-				action.getDescription(),
+				displayAction.getRateLimitPerMinute(),
+				displayAction.getDescription(),
 				steps);
 	}
 
@@ -396,7 +414,9 @@ public class FmDataActionLogicServiceImpl
 		params.put("status", "ACTIVE");
 		List<FmDataSourcePool> pools = values(poolService.selectListByParams(
 				params, "POOL_ID", "ASC"));
-		if (pools.isEmpty()) {
+		if (pools.stream().noneMatch(pool -> tenantId.equals(pool.getTenantId())
+				&& poolId.equals(pool.getPoolId())
+				&& "ACTIVE".equals(pool.getStatus()))) {
 			throw new ServiceException("DataSource Pool 不存在或未啟用");
 		}
 	}
@@ -418,6 +438,72 @@ public class FmDataActionLogicServiceImpl
 		}
 		action.setRateLimitPerMinute(command.rateLimitPerMinute());
 		action.setDescription(StringUtils.trimToNull(command.description()));
+	}
+
+	private record ActionConfig(String actionName, String poolId, String actionType,
+			String requestSchema, String responseMode, String status,
+			Integer rateLimitPerMinute, String description) { }
+
+	private FmDataAction copyAction(FmDataAction original) {
+		FmDataAction copy = new FmDataAction();
+		copy.setOid(original.getOid());
+		copy.setTenantId(original.getTenantId());
+		copy.setActionId(original.getActionId());
+		copy.setActionCode(original.getActionCode());
+		copy.setCurrentVersionNo(original.getCurrentVersionNo());
+		copyConfig(original, copy);
+		return copy;
+	}
+
+	private void copyConfig(FmDataAction source, FmDataAction target) {
+		target.setActionName(source.getActionName());
+		target.setPoolId(source.getPoolId());
+		target.setActionType(source.getActionType());
+		target.setRequestSchema(source.getRequestSchema());
+		target.setResponseMode(source.getResponseMode());
+		target.setStatus(source.getStatus());
+		target.setRateLimitPerMinute(source.getRateLimitPerMinute());
+		target.setDescription(source.getDescription());
+	}
+
+	private String serializeConfig(FmDataAction action) throws ServiceException {
+		try {
+			return objectMapper.writeValueAsString(new ActionConfig(
+					action.getActionName(), action.getPoolId(), action.getActionType(),
+					action.getRequestSchema(), action.getResponseMode(), action.getStatus(),
+					action.getRateLimitPerMinute(), action.getDescription()));
+		} catch (Exception exception) {
+			throw new ServiceException("Data Action configuration serialization failed");
+		}
+	}
+
+	private FmDataAction actionForVersion(FmDataAction action,
+			FmDataActionVersion version) throws ServiceException {
+		if (StringUtils.isBlank(version.getActionConfig())) {
+			return action;
+		}
+		try {
+			ActionConfig config = objectMapper.readValue(
+					version.getActionConfig(), ActionConfig.class);
+			FmDataAction copy = copyAction(action);
+			copy.setActionName(config.actionName());
+			copy.setPoolId(config.poolId());
+			copy.setActionType(config.actionType());
+			copy.setRequestSchema(config.requestSchema());
+			copy.setResponseMode(config.responseMode());
+			copy.setStatus(config.status());
+			copy.setRateLimitPerMinute(config.rateLimitPerMinute());
+			copy.setDescription(config.description());
+			return copy;
+		} catch (Exception exception) {
+			throw new ServiceException("Data Action version configuration is invalid");
+		}
+	}
+
+	private void requireActive(FmDataAction action) throws ServiceException {
+		if (!"ACTIVE".equals(action.getStatus())) {
+			throw new ServiceException("Data Action version is not active");
+		}
 	}
 
 	private FmDataActionVersion newDraft(FmDataAction action, int versionNo) {
@@ -499,7 +585,17 @@ public class FmDataActionLogicServiceImpl
 			List<FmDataActionStep> steps) throws ServiceException {
 		validatePool(action.getTenantId(), action.getPoolId());
 		Set<String> parameters = new LinkedHashSet<>(RESERVED_PARAMETERS);
-		parameters.addAll(readRequestMappings(action.getRequestSchema()).keySet());
+		Map<String, String> mappings = readRequestMappings(action.getRequestSchema());
+		for (Map.Entry<String, String> mapping : mappings.entrySet()) {
+			if ((RESERVED_PARAMETERS.contains(mapping.getKey())
+					|| Set.of("page", "pageSize").contains(mapping.getKey()))
+					&& mapping.getValue() != null
+					&& mapping.getValue().startsWith("${")) {
+				throw new ServiceException("Server 參數不可使用動態 Mapping："
+						+ mapping.getKey());
+			}
+		}
+		parameters.addAll(mappings.keySet());
 		if (steps.isEmpty()) {
 			throw new ServiceException("Data Action 至少需要一個 SQL Step");
 		}
@@ -571,6 +667,8 @@ public class FmDataActionLogicServiceImpl
 		params.put("status", "ACTIVE");
 		return values(actionService.selectListByParams(
 				params, "ACTION_CODE", "ASC")).stream()
+				.filter(action -> action.getCurrentVersionNo() != null
+						&& action.getCurrentVersionNo() > 0)
 				.findFirst().orElseThrow(() ->
 						new ServiceException("找不到已發布的 Data Action"));
 	}

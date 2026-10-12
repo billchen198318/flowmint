@@ -52,6 +52,7 @@ public class FmAttachmentTemporaryCleanupJob {
         MapSqlParameterSource parameters = new MapSqlParameterSource()
                 .addValue("tenantId", tenantId).addValue("sessionId", sessionId)
                 .addValue("now", now).addValue("system", "SYSTEM");
+        if (!lockExpiredOpenSession(parameters)) return;
         List<Map<String, Object>> files = jdbcTemplate.queryForList("""
                 SELECT OID, FILE_OID
                   FROM fm_attachment_upload_file
@@ -62,19 +63,15 @@ public class FmAttachmentTemporaryCleanupJob {
                  LIMIT 100
                 """, parameters);
         for (Map<String, Object> file : files) {
-            try {
-                storageService.deleteTemporary(
-                        tenantId, sessionId, String.valueOf(file.get("FILE_OID")));
-                jdbcTemplate.update("""
+            int updated = jdbcTemplate.update("""
                         UPDATE fm_attachment_upload_file
                            SET FILE_STATUS = 'DELETED', UUSERID = :system, UDATE = :now
                          WHERE OID = :oid AND FILE_STATUS = 'TEMPORARY'
                         """, new MapSqlParameterSource(parameters.getValues())
                                 .addValue("oid", file.get("OID")));
-            } catch (ServiceException exception) {
-                LOGGER.warn("Unable to clean expired FlowMint temporary attachment: tenant={}, session={}",
-                        tenantId, sessionId, exception);
-                return;
+            if (updated == 1) {
+                storageService.deleteTemporaryAfterCommit(
+                        tenantId, sessionId, String.valueOf(file.get("FILE_OID")));
             }
         }
         Integer remaining = jdbcTemplate.queryForObject("""
@@ -90,5 +87,18 @@ public class FmAttachmentTemporaryCleanupJob {
                        AND SESSION_STATUS = 'OPEN'
                     """, parameters);
         }
+    }
+
+    boolean lockExpiredOpenSession(MapSqlParameterSource parameters) {
+        List<String> sessions = jdbcTemplate.queryForList("""
+                SELECT OID
+                  FROM fm_attachment_upload_session
+                 WHERE TENANT_ID = :tenantId
+                   AND UPLOAD_SESSION_ID = :sessionId
+                   AND SESSION_STATUS = 'OPEN'
+                   AND EXPIRES_DATE <= CURRENT_TIMESTAMP
+                 FOR UPDATE
+                """, parameters, String.class);
+        return sessions.size() == 1;
     }
 }

@@ -1,9 +1,9 @@
 package org.qifu.fm.logic.impl;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -13,14 +13,18 @@ import org.qifu.base.exception.ServiceException;
 import org.qifu.base.message.BaseSystemMessage;
 import org.qifu.base.model.DefaultResult;
 import org.qifu.base.model.YesNoKeyProvide;
+import org.qifu.core.entity.TbAccount;
+import org.qifu.core.service.IAccountService;
 import org.qifu.fm.dto.command.FmWorkflowDelegationCommand;
 import org.qifu.fm.dto.view.FmOptionView;
 import org.qifu.fm.dto.view.FmWorkflowDelegationView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmEmployee;
 import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.entity.FmWorkflowDelegation;
 import org.qifu.fm.logic.IFmWorkflowDelegationLogicService;
+import org.qifu.fm.mapper.FmWorkflowDelegationMapper;
 import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmTenantAccountService;
@@ -42,18 +46,27 @@ public class FmWorkflowDelegationLogicServiceImpl
 	private final IFmTenantAccountService tenantAccountService;
 	private final IFmEmployeeService employeeService;
 	private final IFmApprovalGroupService approvalGroupService;
+	private final FmTenantAccessGuard tenantAccessGuard;
+	private final IAccountService<TbAccount, String> accountService;
+	private final FmWorkflowDelegationMapper delegationMapper;
 
 	public FmWorkflowDelegationLogicServiceImpl(
 			IFmWorkflowDelegationService delegationService,
 			IFmTenantService tenantService,
 			IFmTenantAccountService tenantAccountService,
 			IFmEmployeeService employeeService,
-			IFmApprovalGroupService approvalGroupService) {
+			IFmApprovalGroupService approvalGroupService,
+			FmTenantAccessGuard tenantAccessGuard,
+			IAccountService<TbAccount, String> accountService,
+			FmWorkflowDelegationMapper delegationMapper) {
 		this.delegationService = delegationService;
 		this.tenantService = tenantService;
 		this.tenantAccountService = tenantAccountService;
 		this.employeeService = employeeService;
 		this.approvalGroupService = approvalGroupService;
+		this.tenantAccessGuard = tenantAccessGuard;
+		this.accountService = accountService;
+		this.delegationMapper = delegationMapper;
 	}
 
 	@Override
@@ -61,6 +74,7 @@ public class FmWorkflowDelegationLogicServiceImpl
 	public DefaultResult<FmWorkflowDelegationView> create(FmWorkflowDelegationCommand command)
 			throws ServiceException {
 		validate(command);
+		tenantAccessGuard.requireAccess(command.tenantId());
 		validateOverlap(command, null);
 		FmWorkflowDelegation delegation = new FmWorkflowDelegation();
 		delegation.setTenantId(command.tenantId());
@@ -76,6 +90,7 @@ public class FmWorkflowDelegationLogicServiceImpl
 			throws ServiceException {
 		FmWorkflowDelegation delegation = delegationService.selectByPrimaryKey(oid)
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(delegation.getTenantId());
 		DefaultResult<FmWorkflowDelegationView> result = success(view(delegation));
 		result.setMessage(message);
 		return result;
@@ -87,6 +102,7 @@ public class FmWorkflowDelegationLogicServiceImpl
 			throws ServiceException {
 		FmWorkflowDelegation delegation = delegationService.selectByPrimaryKey(command.oid())
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(delegation.getTenantId());
 		FmWorkflowDelegationCommand normalized = new FmWorkflowDelegationCommand(
 				command.oid(), delegation.getTenantId(), delegation.getPrincipalAccount(),
 				command.delegateAccount(), command.scopeType(), command.scopeRefId(),
@@ -104,6 +120,7 @@ public class FmWorkflowDelegationLogicServiceImpl
 	public DefaultResult<FmWorkflowDelegationView> deactivate(String oid) throws ServiceException {
 		FmWorkflowDelegation delegation = delegationService.selectByPrimaryKey(oid)
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(delegation.getTenantId());
 		delegation.setStatus("INACTIVE");
 		delegationService.update(delegation);
 		return load(oid, BaseSystemMessage.updateSuccess());
@@ -112,6 +129,7 @@ public class FmWorkflowDelegationLogicServiceImpl
 	@Override
 	public FmWorkflowDelegationView view(FmWorkflowDelegation delegation)
 			throws ServiceException {
+		tenantAccessGuard.requireAccess(delegation.getTenantId());
 		Map<String, String> labels = accountLabels(delegation.getTenantId());
 		String scopeLabel = delegation.getScopeRefId();
 		if ("ALL".equals(delegation.getScopeType())) {
@@ -130,16 +148,19 @@ public class FmWorkflowDelegationLogicServiceImpl
 
 	@Override
 	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
+		var readableTenantIds = tenantAccessGuard.readableTenantIds();
 		Map<String, Object> params = new HashMap<>();
 		params.put("status", "ACTIVE");
 		return success(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue()
-				.stream().map(value -> new FmOptionView(value.getTenantId(),
+				.stream().filter(value -> readableTenantIds.contains(value.getTenantId()))
+				.map(value -> new FmOptionView(value.getTenantId(),
 						value.getTenantCode() + "／" + value.getTenantName())).toList());
 	}
 
 	@Override
 	public DefaultResult<List<FmOptionView>> accountOptions(String tenantId)
 			throws ServiceException {
+		tenantAccessGuard.requireAccess(tenantId);
 		return success(accountLabels(tenantId).entrySet().stream()
 				.map(entry -> new FmOptionView(entry.getKey(), entry.getValue()))
 				.sorted((left, right) -> left.label().compareTo(right.label())).toList());
@@ -148,6 +169,7 @@ public class FmWorkflowDelegationLogicServiceImpl
 	@Override
 	public DefaultResult<List<FmOptionView>> groupOptions(String tenantId)
 			throws ServiceException {
+		tenantAccessGuard.requireAccess(tenantId);
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("status", "ACTIVE");
@@ -169,7 +191,8 @@ public class FmWorkflowDelegationLogicServiceImpl
 				|| !command.effectiveTo().after(command.effectiveFrom())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
-		Map<String, String> accounts = accountLabels(command.tenantId());
+		Map<String, String> accounts = accountLabels(command.tenantId(),
+				command.effectiveFrom(), command.effectiveTo());
 		if (!accounts.containsKey(command.principalAccount())
 				|| !accounts.containsKey(command.delegateAccount())) {
 			throw new ServiceException("被代理人或代理人未啟用，或不屬於所選 Tenant");
@@ -182,28 +205,27 @@ public class FmWorkflowDelegationLogicServiceImpl
 		}
 	}
 
-	private void validateOverlap(FmWorkflowDelegationCommand command, String excludedOid)
+	void validateOverlap(FmWorkflowDelegationCommand command, String excludedOid)
 			throws ServiceException {
 		if (!"ACTIVE".equals(StringUtils.defaultIfBlank(command.status(), "ACTIVE"))) {
 			return;
 		}
-		Map<String, Object> params = new HashMap<>();
-		params.put("tenantId", command.tenantId());
-		params.put("principalAccount", command.principalAccount());
-		params.put("scopeType", command.scopeType());
-		params.put("status", "ACTIVE");
+		if (delegationMapper.lockTenantForWrite(command.tenantId()) == null) {
+			throw new ServiceException("Tenant 不存在");
+		}
 		String scopeRefId = "ALL".equals(command.scopeType()) ? null : command.scopeRefId();
-		boolean overlaps = delegationService.selectListByParams(params, "EFFECTIVE_FROM", "ASC")
-				.getValue().stream()
-				.filter(value -> !Objects.equals(value.getOid(), excludedOid))
-				.filter(value -> Objects.equals(value.getScopeRefId(), scopeRefId))
-				.anyMatch(value -> command.effectiveFrom().before(value.getEffectiveTo())
-						&& value.getEffectiveFrom().before(command.effectiveTo()));
-		if (overlaps) {
+		if (!delegationMapper.selectOverlappingActiveForUpdate(command.tenantId(),
+				command.principalAccount(), command.scopeType(), scopeRefId,
+				command.effectiveFrom(), command.effectiveTo(), excludedOid).isEmpty()) {
 			throw new ServiceException("同一被代理人、相同代理範圍的有效期間不可重疊");
 		}
 	}
 	private Map<String, String> accountLabels(String tenantId) throws ServiceException {
+		return accountLabels(tenantId, new Date(), null);
+	}
+
+	private Map<String, String> accountLabels(String tenantId, Date from, Date to)
+			throws ServiceException {
 		Map<String, Object> linkParams = new HashMap<>();
 		linkParams.put("tenantId", tenantId);
 		linkParams.put("status", "ACTIVE");
@@ -215,12 +237,25 @@ public class FmWorkflowDelegationLogicServiceImpl
 		Map<String, FmEmployee> employees = employeeService
 				.selectListByParams(employeeParams, "EMPLOYEE_NO", "ASC").getValue().stream()
 				.collect(Collectors.toMap(FmEmployee::getAccount, Function.identity()));
-		return links.stream().collect(Collectors.toMap(FmTenantAccount::getAccount, link -> {
+		Map<String, String> labels = new HashMap<>();
+		for (FmTenantAccount link : links) {
+			if (link.getEffectiveFrom() != null && link.getEffectiveFrom().after(from)
+					|| link.getEffectiveTo() != null && (to == null
+							? !link.getEffectiveTo().after(from) : link.getEffectiveTo().before(to))) {
+				continue;
+			}
+			TbAccount key = new TbAccount();
+			key.setAccount(link.getAccount());
+			TbAccount account = accountService.selectByUniqueKey(key).getValue();
+			if (account == null || !YesNoKeyProvide.YES.equals(account.getOnJob())) {
+				continue;
+			}
 			FmEmployee employee = employees.get(link.getAccount());
-			return employee == null ? link.getAccount()
+			labels.putIfAbsent(link.getAccount(), employee == null ? link.getAccount()
 					: employee.getEmployeeNo() + "／" + employee.getDisplayName()
-						+ "（" + link.getAccount() + "）";
-		}, (left, right) -> left));
+						+ "（" + link.getAccount() + "）");
+		}
+		return labels;
 	}
 
 	private String groupLabel(String tenantId, String groupId) throws ServiceException {

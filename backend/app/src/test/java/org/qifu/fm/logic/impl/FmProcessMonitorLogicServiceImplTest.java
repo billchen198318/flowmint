@@ -1,6 +1,7 @@
 package org.qifu.fm.logic.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
@@ -14,14 +15,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import org.qifu.base.model.PageOf;
 import org.qifu.base.model.QueryResult;
+import org.qifu.base.model.DefaultResult;
+import org.qifu.base.exception.ServiceException;
+import org.qifu.core.model.User;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.dto.command.FmProcessMonitorRequest;
 import org.qifu.fm.entity.FmProcessInstance;
+import org.qifu.fm.entity.FmTenantAccount;
 import org.qifu.fm.service.IFmFormDataService;
 import org.qifu.fm.service.IFmFormSnapshotService;
 import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmTaskActionService;
+import org.qifu.fm.service.IFmTenantAccountService;
 import org.qifu.fm.logic.IFmParallelAddSignRuntimeLogicService;
 
 import tools.jackson.databind.ObjectMapper;
@@ -39,6 +45,7 @@ class FmProcessMonitorLogicServiceImplTest {
                 mock(IFmFormDataService.class), mock(IFmTaskActionService.class),
                 mock(IFmFormSnapshotService.class),
                 mock(org.qifu.fm.service.IFmTaskPolicyService.class),
+                mock(IFmTenantAccountService.class),
                 mock(IFmParallelAddSignRuntimeLogicService.class),
                 mock(ObjectMapper.class));
 
@@ -52,6 +59,29 @@ class FmProcessMonitorLogicServiceImplTest {
             assertEquals(1, result.getValue().totalPages());
             assertEquals(1, result.getValue().page());
             assertEquals(30, result.getValue().pageSize());
+        }
+    }
+
+    @Test
+    void operationsRoleCannotReadAnotherTenantsMonitorOrReport() throws Exception {
+        IFmTenantAccountService memberships = mock(IFmTenantAccountService.class);
+        DefaultResult<List<FmTenantAccount>> rows = new DefaultResult<>();
+        rows.setValue(List.of());
+        when(memberships.selectListByParams(anyMap())).thenReturn(rows);
+        FmProcessMonitorLogicServiceImpl logic = new FmProcessMonitorLogicServiceImpl(
+                mock(TaskService.class), mock(IFmProcessInstanceService.class),
+                mock(IFmProcessDefService.class), mock(IFmFormDataService.class),
+                mock(IFmTaskActionService.class), mock(IFmFormSnapshotService.class),
+                mock(org.qifu.fm.service.IFmTaskPolicyService.class), memberships,
+                mock(IFmParallelAddSignRuntimeLogicService.class), mock(ObjectMapper.class));
+        User user = mock(User.class);
+        when(user.getUsername()).thenReturn("operator");
+        try (MockedStatic<UserUtils> users = mockStatic(UserUtils.class)) {
+            users.when(UserUtils::getCurrentUser).thenReturn(user);
+            users.when(() -> UserUtils.hasRole("FLOWMINT_OPERATIONS")).thenReturn(true);
+            assertThrows(ServiceException.class, () -> logic.report("OTHER", null));
+            assertThrows(ServiceException.class, () -> logic.find("OTHER", null));
+            assertThrows(ServiceException.class, () -> logic.load("OTHER", "instance"));
         }
     }
 }

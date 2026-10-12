@@ -2,6 +2,7 @@
 defineProps<{
   cancelTo: Record<string, any>;
   submitting: boolean;
+  uploading: boolean;
 }>();
 
 defineEmits<{ submit: [] }>();
@@ -13,11 +14,11 @@ defineEmits<{ submit: [] }>();
     <button
       type="button"
       class="btn btn-primary px-4"
-      :disabled="submitting"
+      :disabled="submitting || uploading"
       @click="$emit('submit')"
     >
       <span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>
-      送出申請
+      {{ uploading ? "附件上傳中" : "送出申請" }}
     </button>
   </div>
 </template>

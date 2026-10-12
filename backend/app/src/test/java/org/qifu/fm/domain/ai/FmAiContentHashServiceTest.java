@@ -16,9 +16,9 @@ class FmAiContentHashServiceTest {
 	@Test
 	void canonicalizesObjectPropertyOrder() throws Exception {
 		String first = service.hash("T1", "P1", "TASK1", 3,
-				objectMapper.readTree("{\"b\":2,\"a\":1}"), 4, 1);
+				objectMapper.readTree("{\"b\":2,\"a\":1}"), "P1", "OPENAI", "m1", 4, 1);
 		String second = service.hash("T1", "P1", "TASK1", 3,
-				objectMapper.readTree("{\"a\":1,\"b\":2}"), 4, 1);
+				objectMapper.readTree("{\"a\":1,\"b\":2}"), "P1", "OPENAI", "m1", 4, 1);
 
 		assertEquals(first, second);
 		assertEquals(64, first.length());
@@ -27,14 +27,18 @@ class FmAiContentHashServiceTest {
 	@Test
 	void changesWhenRevisionHistoryOrProviderConfigurationChanges() throws Exception {
 		String baseline = service.hash("T1", "P1", "TASK1", 3,
-				objectMapper.readTree("{\"history\":[]}"), 4, 1);
+				objectMapper.readTree("{\"history\":[]}"), "P1", "OPENAI", "m1", 4, 1);
 
 		assertNotEquals(baseline, service.hash("T1", "P1", "TASK1", 4,
-				objectMapper.readTree("{\"history\":[]}"), 4, 1));
+				objectMapper.readTree("{\"history\":[]}"), "P1", "OPENAI", "m1", 4, 1));
 		assertNotEquals(baseline, service.hash("T1", "P1", "TASK1", 3,
 				objectMapper.readTree("{\"history\":[{\"action\":\"APPROVE\"}]}"),
-				4, 1));
+				"P1", "OPENAI", "m1", 4, 1));
 		assertNotEquals(baseline, service.hash("T1", "P1", "TASK1", 3,
-				objectMapper.readTree("{\"history\":[]}"), 5, 1));
+				objectMapper.readTree("{\"history\":[]}"), "P1", "OPENAI", "m1", 5, 1));
+		assertNotEquals(baseline, service.hash("T1", "P1", "TASK1", 3,
+				objectMapper.readTree("{\"history\":[]}"), "P2", "OPENAI", "m1", 4, 1));
+		assertNotEquals(baseline, service.hash("T1", "P1", "TASK1", 3,
+				objectMapper.readTree("{\"history\":[]}"), "P1", "OPENAI", "m2", 4, 1));
 	}
 }

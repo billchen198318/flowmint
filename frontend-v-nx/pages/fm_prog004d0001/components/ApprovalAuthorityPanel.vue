@@ -23,23 +23,30 @@ const emit = defineEmits<{ "update:modelValue": [value: string] }>();
 const authorities = ref<any[]>([]);
 const editing = ref(false);
 const saving = ref(false);
-const collectFields = (components: any[], values: any[]) => {
+const collectFields = (
+  components: any[], values: any[], parentPath: string[] = [], insideGrid = false,
+) => {
   for (const component of components || []) {
-    if (component?.key && component?.input !== false) {
+    const type = component?.type;
+    const nestedGrid = insideGrid || ["datagrid", "editgrid"].includes(type);
+    const nextPath = type === "container" && component?.key
+      ? [...parentPath, component.key] : parentPath;
+    if (component?.key && component?.input !== false && !nestedGrid
+      && !["container", "columns", "fieldset", "panel", "table", "tabs", "well"].includes(type)) {
       values.push({
-        value: `form.${component.key}`,
-        label: component.label || component.key,
+        value: `form.${[...parentPath, component.key].join(".")}`,
+        label: [...parentPath, component.label || component.key].join(" / "),
       });
     }
-    collectFields(component?.components, values);
+    collectFields(component?.components, values, nextPath, nestedGrid);
     for (const column of Array.isArray(component?.columns)
       ? component.columns
       : []) {
-      collectFields(column?.components, values);
+      collectFields(column?.components, values, nextPath, nestedGrid);
     }
     for (const row of Array.isArray(component?.rows) ? component.rows : []) {
       for (const cell of Array.isArray(row) ? row : []) {
-        collectFields(cell?.components, values);
+        collectFields(cell?.components, values, nextPath, nestedGrid);
       }
     }
   }

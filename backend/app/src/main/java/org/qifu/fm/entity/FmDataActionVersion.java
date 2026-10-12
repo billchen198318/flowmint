@@ -19,6 +19,7 @@ public class FmDataActionVersion implements Serializable {
 	private Integer versionNo;
 	private String versionStatus;
 	private String contentSha256;
+	private String actionConfig;
 	private String publishedBy;
 	private Date publishedDate;
 	private String cuserid;
@@ -74,6 +75,9 @@ public class FmDataActionVersion implements Serializable {
 	public void setContentSha256(String contentSha256) {
 		this.contentSha256 = contentSha256;
 	}
+
+	public String getActionConfig() { return actionConfig; }
+	public void setActionConfig(String actionConfig) { this.actionConfig = actionConfig; }
 
 	public String getPublishedBy() {
 		return publishedBy;

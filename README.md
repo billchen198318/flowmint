@@ -551,7 +551,7 @@ FlowMint Phase 1～5 平台能力、Runtime／Workspace 重構及 AI 簽核解�
 - 重複簽核人政策：`KEEP_EACH_LEVEL`、`MERGE_CONSECUTIVE`、`SKIP_ALREADY_APPROVED`。
 - 設定節點表單欄位為 Hidden、Read 或 Edit。
 - 設定 Task SLA 處理期限 1～8760 小時。
-- 設定提前提醒小時數；必須大於等於 0 且小於處理期限。
+- 設定提前提醒小時數；必須大於等於 1 且小於處理期限。留空則只發送逾時通知。
 - 未設定期限的節點不產生 due date，也不進入 SLA 通知掃描。
 
 #### 11.2 Assignment Rule 與 Resolver

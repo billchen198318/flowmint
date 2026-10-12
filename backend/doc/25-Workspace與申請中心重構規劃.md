@@ -310,7 +310,7 @@ Tenant 與申請人以 query string 作為頁面導覽狀態：
 - 桌面最大內容寬度建議 1200～1400px；長表單保持欄位可讀性。
 - Schema parse 失敗顯示完整頁錯誤，不建立半成品表單。
 - Custom JavaScript、Data Action Bridge 與 Form.io Runtime 採單一共用 composable 管理生命週期。
-- 表單切換只在流程確實綁定多個「起單用表單」且業務定義明確時出現；一般流程不顯示表單 Select。
+- 表單切換只在流程確實綁定多個「起單用表單」且業務定義明確時出現；一般流程不顯示表單 Select。流程版本的 Task Form Rule 可在 `fieldPolicy` JSON 設定布林欄位 `startForm: true`，明確宣告該表單可用於起單；多張不同表單時至少須指定一張，起單清單與送單 API 只接受已指定的表單。舊版若只綁定一張表單且未設定此欄位，維持可起單。
 
 ### 8.4 操作列
 

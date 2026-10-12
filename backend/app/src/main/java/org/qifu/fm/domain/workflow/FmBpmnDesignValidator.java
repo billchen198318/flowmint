@@ -3,6 +3,9 @@ package org.qifu.fm.domain.workflow;
 import java.io.StringReader;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Map;
@@ -14,11 +17,13 @@ import javax.xml.stream.XMLStreamReader;
 import org.apache.commons.lang3.StringUtils;
 import org.flowable.bpmn.converter.BpmnXMLConverter;
 import org.flowable.bpmn.model.BpmnModel;
+import org.flowable.bpmn.model.EndEvent;
 import org.flowable.bpmn.model.ExclusiveGateway;
 import org.flowable.bpmn.model.FlowNode;
 import org.flowable.bpmn.model.InclusiveGateway;
 import org.flowable.bpmn.model.ParallelGateway;
 import org.flowable.bpmn.model.SequenceFlow;
+import org.flowable.bpmn.model.StartEvent;
 import org.qifu.base.exception.ServiceException;
 
 import tools.jackson.core.type.TypeReference;
@@ -70,6 +75,8 @@ public class FmBpmnDesignValidator {
             "^\\$\\{\\s*" + TERM + "(?:\\s*(?:&&|\\|\\|)\\s*" + TERM
                     + ")*\\s*}$");
 
+    private static final Pattern QUOTED_VALUE = Pattern.compile("\"(?:\\\\.|[^\"\\\\])*\"");
+
     private static final Pattern FIELD_REFERENCE = Pattern.compile(
             "flowmintFormData\\.([A-Za-z][A-Za-z0-9_]*)");
 
@@ -97,6 +104,8 @@ public class FmBpmnDesignValidator {
                                 + expectedProcessKey);
             }
             validateGateways(model);
+            validateAllConditions(model);
+            validateConnectivity(model);
         } catch (ServiceException exception) {
             throw exception;
         } catch (Exception exception) {
@@ -109,9 +118,22 @@ public class FmBpmnDesignValidator {
             throw new ServiceException("BPMN XML 不可為空");
         }
         Set<String> fields = new HashSet<>();
-        Matcher matcher = FIELD_REFERENCE.matcher(xml);
-        while (matcher.find()) {
-            fields.add(matcher.group(1));
+        try {
+            XMLStreamReader reader = inputFactory().createXMLStreamReader(new StringReader(xml));
+            while (reader.hasNext()) {
+                if (reader.next() != XMLStreamConstants.START_ELEMENT
+                        || !BPMN_NAMESPACE.equals(reader.getNamespaceURI())
+                        || !"conditionExpression".equals(reader.getLocalName())) {
+                    continue;
+                }
+                Matcher matcher = FIELD_REFERENCE.matcher(reader.getElementText());
+                while (matcher.find()) {
+                    fields.add(matcher.group(1));
+                }
+            }
+            reader.close();
+        } catch (Exception exception) {
+            throw new ServiceException("BPMN 條件欄位解析失敗：" + exception.getMessage());
         }
         return Set.copyOf(fields);
     }
@@ -136,12 +158,42 @@ public class FmBpmnDesignValidator {
                     validateDataActionTask(reader);
                 }
             }
+            if (BPMN_NAMESPACE.equals(reader.getNamespaceURI())
+                    && "userTask".equals(reader.getLocalName())) {
+                validateUserTask(reader);
+            }
+            if (BPMN_NAMESPACE.equals(reader.getNamespaceURI())
+                    && "startEvent".equals(reader.getLocalName())) {
+                validateStartEvent(reader);
+            }
             String namespace = StringUtils.defaultString(reader.getNamespaceURI());
             if (!namespace.isEmpty()
                     && !BPMN_NAMESPACE.equals(namespace)
                     && !namespace.startsWith("http://www.omg.org/spec/BPMN/20100524/DI")
                     && !namespace.startsWith("http://www.omg.org/spec/DD/20100524/")) {
                 throw new ServiceException("流程設計不允許擴充元件命名空間：" + namespace);
+            }
+        }
+    }
+
+    private void validateUserTask(XMLStreamReader reader) throws ServiceException {
+        String nodeId = StringUtils.defaultIfBlank(reader.getAttributeValue(null, "id"), "User Task");
+        for (int index = 0; index < reader.getAttributeCount(); index++) {
+            String namespace = StringUtils.defaultString(reader.getAttributeNamespace(index));
+            String name = reader.getAttributeLocalName(index);
+            if (!namespace.isEmpty() || !Set.of("id", "name").contains(name)) {
+                throw new ServiceException("User Task " + nodeId
+                        + " contains unsupported attribute: " + name);
+            }
+        }
+    }
+
+    private void validateStartEvent(XMLStreamReader reader) throws ServiceException {
+        for (int index = 0; index < reader.getAttributeCount(); index++) {
+            String namespace = StringUtils.defaultString(reader.getAttributeNamespace(index));
+            String name = reader.getAttributeLocalName(index);
+            if (!namespace.isEmpty() || !Set.of("id", "name").contains(name)) {
+                throw new ServiceException("Start Event contains unsupported attribute: " + name);
             }
         }
     }
@@ -287,6 +339,54 @@ public class FmBpmnDesignValidator {
         }
     }
 
+    private void validateConnectivity(BpmnModel model) throws ServiceException {
+        List<StartEvent> starts = model.getMainProcess().findFlowElementsOfType(StartEvent.class);
+        List<EndEvent> ends = model.getMainProcess().findFlowElementsOfType(EndEvent.class);
+        if (starts.size() != 1 || ends.isEmpty()) {
+            throw new ServiceException("BPMN 必須有一個 Start Event 與至少一個 End Event");
+        }
+        Set<String> fromStart = reachableFrom(List.of(starts.getFirst()), false);
+        Set<String> toEnd = reachableFrom(ends, true);
+        for (FlowNode node : model.getMainProcess().findFlowElementsOfType(FlowNode.class)) {
+            if (!fromStart.contains(node.getId()) || !toEnd.contains(node.getId())) {
+                throw new ServiceException("BPMN 節點未連通 Start Event 與 End Event："
+                        + label(node));
+            }
+        }
+    }
+
+    private Set<String> reachableFrom(List<? extends FlowNode> origins, boolean reverse) {
+        Set<String> visited = new HashSet<>();
+        Deque<FlowNode> pending = new ArrayDeque<>(origins);
+        while (!pending.isEmpty()) {
+            FlowNode node = pending.removeFirst();
+            if (!visited.add(node.getId())) {
+                continue;
+            }
+            List<SequenceFlow> flows = reverse ? node.getIncomingFlows() : node.getOutgoingFlows();
+            for (SequenceFlow flow : flows) {
+                FlowNode next = reverse ? (FlowNode) flow.getSourceFlowElement()
+                        : (FlowNode) flow.getTargetFlowElement();
+                if (next != null && !visited.contains(next.getId())) {
+                    pending.addLast(next);
+                }
+            }
+        }
+        return visited;
+    }
+
+    private void validateAllConditions(BpmnModel model) throws ServiceException {
+        for (SequenceFlow flow : model.getMainProcess().findFlowElementsOfType(
+                SequenceFlow.class)) {
+            String expression = StringUtils.trimToEmpty(flow.getConditionExpression());
+            if (!expression.isEmpty() && (!CONDITION.matcher(expression).matches()
+                    || hasMixedLogicalOperators(expression))) {
+                throw new ServiceException(
+                        "Sequence Flow「" + label(flow) + "」條件不是受控表單欄位格式");
+            }
+        }
+    }
+
     private void validateGateway(FlowNode gateway, String defaultFlowId)
             throws ServiceException {
         if (gateway.getOutgoingFlows().size() <= 1) {
@@ -305,11 +405,16 @@ public class FmBpmnDesignValidator {
                 continue;
             }
             if (!CONDITION.matcher(expression).matches()
-                    || (expression.contains(" && ") && expression.contains(" || "))) {
+                    || hasMixedLogicalOperators(expression)) {
                 throw new ServiceException(
                         "Sequence Flow「" + label(flow) + "」條件不是受控表單欄位格式");
             }
         }
+    }
+
+    private boolean hasMixedLogicalOperators(String expression) {
+        String withoutQuotedValues = QUOTED_VALUE.matcher(expression).replaceAll("\"\"");
+        return withoutQuotedValues.contains("&&") && withoutQuotedValues.contains("||");
     }
 
     private String label(org.flowable.bpmn.model.FlowElement element) {

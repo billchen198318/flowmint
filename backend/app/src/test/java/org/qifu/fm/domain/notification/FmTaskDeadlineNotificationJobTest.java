@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Date;
 import java.util.List;
+import java.util.ArrayList;
 
 import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
@@ -22,6 +23,47 @@ import org.qifu.fm.service.IFmTaskParallelAddSignService;
 import org.qifu.fm.service.IFmTaskPolicyService;
 
 class FmTaskDeadlineNotificationJobTest {
+
+    @Test
+    void scansLaterDueDatesWithoutOffsetWhenEarlierTasksDisappear() {
+        TaskService taskService = mock(TaskService.class);
+        TaskQuery first = mock(TaskQuery.class);
+        TaskQuery boundaryQuery = mock(TaskQuery.class);
+        TaskQuery later = mock(TaskQuery.class);
+        Date firstDue = new Date(System.currentTimeMillis() - 3000);
+        Date boundary = new Date(System.currentTimeMillis() - 2000);
+        Task earlier = mock(Task.class);
+        Task atBoundary = mock(Task.class);
+        Task laterTask = mock(Task.class);
+        when(earlier.getDueDate()).thenReturn(firstDue);
+        when(atBoundary.getDueDate()).thenReturn(boundary);
+        when(laterTask.getDueDate()).thenReturn(new Date(System.currentTimeMillis() - 1000));
+        List<Task> page = new ArrayList<>(java.util.Collections.nCopies(499, earlier));
+        page.add(atBoundary);
+        when(taskService.createTaskQuery()).thenReturn(first, boundaryQuery, later);
+        when(first.taskDueBefore(any())).thenReturn(first);
+        when(first.orderByTaskDueDate()).thenReturn(first);
+        when(first.asc()).thenReturn(first);
+        when(first.listPage(0, 500)).thenReturn(page);
+        when(boundaryQuery.taskDueDate(boundary)).thenReturn(boundaryQuery);
+        when(boundaryQuery.orderByTaskId()).thenReturn(boundaryQuery);
+        when(boundaryQuery.asc()).thenReturn(boundaryQuery);
+        when(boundaryQuery.list()).thenReturn(List.of(atBoundary));
+        when(later.taskDueBefore(any())).thenReturn(later);
+        when(later.taskDueAfter(boundary)).thenReturn(later);
+        when(later.orderByTaskDueDate()).thenReturn(later);
+        when(later.asc()).thenReturn(later);
+        when(later.listPage(0, 500)).thenReturn(List.of(laterTask));
+        var job = new FmTaskDeadlineNotificationJob(taskService,
+                mock(IFmTaskPolicyService.class), mock(FmNotificationPublisher.class),
+                mock(IFmTaskParallelAddSignService.class),
+                mock(IFmTaskParallelAddSignMemberService.class));
+
+        job.notifyDeadlines();
+
+        verify(later).taskDueAfter(boundary);
+        verify(later).listPage(0, 500);
+    }
 
     @Test
     void resolvesStandaloneParallelTaskPolicyFromParentAndBatch() throws Exception {

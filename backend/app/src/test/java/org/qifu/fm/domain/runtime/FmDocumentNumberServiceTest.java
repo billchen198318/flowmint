@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -56,6 +57,26 @@ class FmDocumentNumberServiceTest {
                 new FmDocumentNumberService(rules, sequences).nextNumber(
                         "A01", "A01", "Asia/Taipei", "PURCHASE_REQUEST",
                         "tester", new Date()));
+    }
+
+    @Test
+    void rejectsResetPeriodWithoutDateTokensBeforeAllocatingSequence() {
+        IFmDocumentNumberRuleService rules = mock(IFmDocumentNumberRuleService.class);
+        IFmDocumentSequenceService sequences = mock(IFmDocumentSequenceService.class);
+        FmDocumentNumberRule rule = rule();
+        when(rules.selectActive("A01", "PURCHASE_REQUEST")).thenReturn(rule);
+        FmDocumentNumberService service = new FmDocumentNumberService(rules, sequences);
+
+        rule.setFormatPattern("{PREFIX}-{TENANT}-{YYYY}-{SEQ}");
+        assertThrows(ServiceException.class, () -> service.nextNumber(
+                "A01", "A01", "Asia/Taipei", "PURCHASE_REQUEST", "tester", new Date()));
+        rule.setFormatPattern("{PREFIX}-{TENANT}-{MM}-{SEQ}");
+        assertThrows(ServiceException.class, () -> service.nextNumber(
+                "A01", "A01", "Asia/Taipei", "PURCHASE_REQUEST", "tester", new Date()));
+        rule.setPeriodType("YEAR");
+        assertThrows(ServiceException.class, () -> service.nextNumber(
+                "A01", "A01", "Asia/Taipei", "PURCHASE_REQUEST", "tester", new Date()));
+        verifyNoInteractions(sequences);
     }
 
     private FmDocumentNumberRule rule() {

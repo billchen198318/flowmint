@@ -355,6 +355,11 @@ formName、versionNo、schemaType=`FORM_IO`、schemaHash、`templateJson`、subm
 資料庫設定或未發布版本。`submissionContract` 列出可提交 field key、型別、required、enum、array／
 object 結構及 server-managed 欄位，供外部系統產生合法 JSON。Schema Hash 可用於防止以舊模板發單。
 
+`submissionContract` 每筆包含 `key`（局部欄位名）、`path`（完整資料路徑）、Form.io `type`、
+`valueType`、陣列的 `itemType`、`required`、`multiple` 與固定選項的 `enumValues`。
+容器子欄位路徑如 `details.quantity`，Data Grid／Edit Grid 子欄位如 `items[].name`；
+動態選項不宣稱為固定 enum。`systemFields` 另列由伺服器管理的頂層欄位。
+
 ## 8. 發單 API
 
 ### 8.1 Endpoint

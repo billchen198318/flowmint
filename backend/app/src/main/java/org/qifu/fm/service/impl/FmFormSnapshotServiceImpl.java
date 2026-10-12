@@ -4,6 +4,7 @@ import java.util.UUID;
 
 import org.qifu.base.exception.ServiceException;
 import org.qifu.base.mapper.IBaseMapper;
+import org.qifu.base.model.DefaultResult;
 import org.qifu.base.service.BaseService;
 import org.qifu.fm.entity.FmFormSnapshot;
 import org.qifu.fm.mapper.FmFormSnapshotMapper;
@@ -26,6 +27,16 @@ public class FmFormSnapshotServiceImpl extends BaseService<FmFormSnapshot, Strin
 	@Override
 	protected IBaseMapper<FmFormSnapshot, String> getBaseMapper() {
 		return mapper;
+	}
+
+	@Override
+	public DefaultResult<FmFormSnapshot> update(FmFormSnapshot snapshot) throws ServiceException {
+		throw new ServiceException("表單快照不可修改");
+	}
+
+	@Override
+	public DefaultResult<Boolean> delete(FmFormSnapshot snapshot) throws ServiceException {
+		throw new ServiceException("表單快照不可刪除");
 	}
 
 	@Override

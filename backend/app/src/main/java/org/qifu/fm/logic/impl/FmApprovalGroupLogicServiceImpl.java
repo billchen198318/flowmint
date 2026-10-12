@@ -18,16 +18,22 @@ import org.qifu.fm.dto.command.FmApprovalGroupMemberCommand;
 import org.qifu.fm.dto.view.FmApprovalGroupMemberView;
 import org.qifu.fm.dto.view.FmApprovalGroupView;
 import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.entity.FmApprovalGroupMember;
 import org.qifu.fm.entity.FmEmployee;
+import org.qifu.fm.entity.FmTaskAssignmentRule;
+import org.qifu.fm.entity.FmProcessVersion;
 import org.qifu.fm.logic.IFmApprovalGroupLogicService;
 import org.qifu.fm.service.IFmApprovalGroupMemberService;
 import org.qifu.fm.service.IFmApprovalGroupService;
 import org.qifu.fm.service.IFmEmployeeService;
 import org.qifu.fm.service.IFmTenantService;
+import org.qifu.fm.service.IFmTaskAssignmentRuleService;
+import org.qifu.fm.service.IFmProcessVersionService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 @Service
 @Transactional(readOnly = true)
@@ -40,16 +46,26 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 	private final IFmApprovalGroupMemberService memberService;
 	private final IFmEmployeeService employeeService;
 	private final IFmTenantService tenantService;
+	private final FmTenantAccessGuard tenantAccessGuard;
+	private final IFmTaskAssignmentRuleService assignmentRuleService;
+	private final IFmProcessVersionService processVersionService;
+	private final ObjectMapper objectMapper;
 
 	public FmApprovalGroupLogicServiceImpl(
 			IFmApprovalGroupService groupService,
 			IFmApprovalGroupMemberService memberService,
 			IFmEmployeeService employeeService,
-			IFmTenantService tenantService) {
+			IFmTenantService tenantService, FmTenantAccessGuard tenantAccessGuard,
+			IFmTaskAssignmentRuleService assignmentRuleService,
+			IFmProcessVersionService processVersionService, ObjectMapper objectMapper) {
 		this.groupService = groupService;
 		this.memberService = memberService;
 		this.employeeService = employeeService;
 		this.tenantService = tenantService;
+		this.tenantAccessGuard = tenantAccessGuard;
+		this.assignmentRuleService = assignmentRuleService;
+		this.processVersionService = processVersionService;
+		this.objectMapper = objectMapper;
 	}
 
 	@Override
@@ -57,6 +73,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 	public DefaultResult<FmApprovalGroupView> create(FmApprovalGroupCommand command)
 			throws ServiceException {
 		validateGroup(command);
+		tenantAccessGuard.requireAccess(command.tenantId());
 		FmApprovalGroup group = new FmApprovalGroup();
 		group.setTenantId(command.tenantId());
 		group.setApprovalGroupId(UUID.randomUUID().toString());
@@ -70,6 +87,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 	public DefaultResult<FmApprovalGroupView> load(String oid, String message)
 			throws ServiceException {
 		FmApprovalGroup group = groupService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(group.getTenantId());
 		DefaultResult<FmApprovalGroupView> result = success(view(group));
 		result.setMessage(message);
 		return result;
@@ -81,10 +99,14 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 			throws ServiceException {
 		FmApprovalGroup group = groupService.selectByPrimaryKey(command.oid())
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(group.getTenantId());
 		if (!group.getTenantId().equals(command.tenantId())) {
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		validateGroup(command);
+		if (!group.getAssignmentMode().equals(command.assignmentMode())) {
+			requireNoPublishedReference(group);
+		}
 		applyGroup(group, command);
 		groupService.update(group);
 		return load(group.getOid(), BaseSystemMessage.updateSuccess());
@@ -94,6 +116,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 	@Transactional(readOnly = false, rollbackFor = Exception.class)
 	public DefaultResult<FmApprovalGroupView> deactivate(String oid) throws ServiceException {
 		FmApprovalGroup group = groupService.selectByPrimaryKey(oid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(group.getTenantId());
 		group.setStatus("INACTIVE");
 		groupService.update(group);
 		return load(oid, BaseSystemMessage.updateSuccess());
@@ -105,6 +128,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 			throws ServiceException {
 		FmApprovalGroup group = groupService.selectByPrimaryKey(command.groupOid())
 				.getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(group.getTenantId());
 		FmEmployee employee = requiredEmployee(group.getTenantId(), command.employeeId());
 		validatePeriod(command.effectiveFrom(), command.effectiveTo());
 		validateDuplicateMember(group, command);
@@ -140,6 +164,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 	public DefaultResult<FmApprovalGroupView> deactivateMember(String groupOid, String oid)
 			throws ServiceException {
 		FmApprovalGroup group = groupService.selectByPrimaryKey(groupOid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(group.getTenantId());
 		FmApprovalGroupMember member = memberService.selectByPrimaryKey(oid)
 				.getValueEmptyThrowMessage();
 		if (!group.getTenantId().equals(member.getTenantId())
@@ -147,8 +172,10 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 			throw new ServiceException(BaseSystemMessage.parameterIncorrect());
 		}
 		member.setStatus("INACTIVE");
-		if (member.getEffectiveTo() == null || member.getEffectiveTo().after(new Date())) {
-			member.setEffectiveTo(new Date());
+		Date now = new Date();
+		if (!member.getEffectiveFrom().after(now)
+				&& (member.getEffectiveTo() == null || member.getEffectiveTo().after(now))) {
+			member.setEffectiveTo(now);
 		}
 		memberService.update(member);
 		return load(groupOid, BaseSystemMessage.updateSuccess());
@@ -156,6 +183,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 
 	@Override
 	public FmApprovalGroupView view(FmApprovalGroup group) throws ServiceException {
+		tenantAccessGuard.requireAccess(group.getTenantId());
 		Map<String, FmEmployee> employees = employeeMap(group.getTenantId());
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", group.getTenantId());
@@ -180,10 +208,12 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 
 	@Override
 	public DefaultResult<List<FmOptionView>> tenantOptions() throws ServiceException {
+		var readableTenantIds = tenantAccessGuard.readableTenantIds();
 		Map<String, Object> params = new HashMap<>();
 		params.put("status", "ACTIVE");
 		return success(tenantService.selectListByParams(params, "TENANT_CODE", "ASC").getValue()
 				.stream()
+				.filter(value -> readableTenantIds.contains(value.getTenantId()))
 				.map(value -> new FmOptionView(value.getTenantId(),
 						value.getTenantCode() + "／" + value.getTenantName()))
 				.toList());
@@ -193,6 +223,7 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 	public DefaultResult<List<FmOptionView>> employeeOptions(String groupOid)
 			throws ServiceException {
 		FmApprovalGroup group = groupService.selectByPrimaryKey(groupOid).getValueEmptyThrowMessage();
+		tenantAccessGuard.requireAccess(group.getTenantId());
 		return success(employeeMap(group.getTenantId()).values().stream()
 				.map(value -> new FmOptionView(value.getEmployeeId(),
 						value.getEmployeeNo() + "／" + value.getDisplayName()))
@@ -229,7 +260,11 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 		params.put("status", "ACTIVE");
 		boolean duplicate = memberService.selectListByParams(params, "EFFECTIVE_FROM", "ASC")
 				.getValue().stream()
-				.anyMatch(value -> !value.getOid().equals(command.oid()));
+				.anyMatch(value -> !value.getOid().equals(command.oid())
+						&& (value.getEffectiveTo() == null
+								|| command.effectiveFrom().before(value.getEffectiveTo()))
+						&& (command.effectiveTo() == null
+								|| value.getEffectiveFrom().before(command.effectiveTo())));
 		if (duplicate) {
 			throw new ServiceException("此員工已是群組的有效成員");
 		}
@@ -241,11 +276,34 @@ public class FmApprovalGroupLogicServiceImpl implements IFmApprovalGroupLogicSer
 		}
 	}
 
+	private void requireNoPublishedReference(FmApprovalGroup group) throws ServiceException {
+		Map<String, Object> versionParams = new HashMap<>();
+		versionParams.put("tenantId", group.getTenantId());
+		versionParams.put("versionStatus", "PUBLISHED");
+		List<FmProcessVersion> published = processVersionService.selectListByParams(versionParams).getValue();
+		Map<String, Object> ruleParams = new HashMap<>();
+		ruleParams.put("tenantId", group.getTenantId());
+		ruleParams.put("resolverType", "APPROVAL_GROUP");
+		ruleParams.put("status", "ACTIVE");
+		for (FmTaskAssignmentRule rule : assignmentRuleService.selectListByParams(ruleParams).getValue()) {
+			boolean currentVersion = published.stream().anyMatch(version ->
+					version.getProcessDefId().equals(rule.getProcessDefId())
+							&& version.getVersionNo().equals(rule.getProcessVersionNo()));
+			if (currentVersion && group.getApprovalGroupId().equals(objectMapper.readTree(
+					StringUtils.defaultIfBlank(rule.getResolverConfig(), "{}"))
+					.path("approvalGroupId").asString())) {
+				throw new ServiceException("已發布流程引用此群組，請建立新群組並重新發布流程以變更派送方式");
+			}
+		}
+	}
+
 	private Map<String, FmEmployee> employeeMap(String tenantId) throws ServiceException {
 		Map<String, Object> params = new HashMap<>();
 		params.put("tenantId", tenantId);
 		params.put("status", "ACTIVE");
 		return employeeService.selectListByParams(params, "EMPLOYEE_NO", "ASC").getValue().stream()
+				.filter(value -> !value.getEffectiveFrom().after(new Date())
+						&& (value.getEffectiveTo() == null || value.getEffectiveTo().after(new Date())))
 				.collect(Collectors.toMap(FmEmployee::getEmployeeId, Function.identity()));
 	}
 

@@ -17,6 +17,7 @@ import org.qifu.base.model.YesNoKeyProvide;
 import org.qifu.core.util.UserUtils;
 import org.qifu.fm.domain.externalapi.FmExternalApiKeyService;
 import org.qifu.fm.domain.externalapi.FmExternalApiPolicy;
+import org.qifu.fm.domain.externalapi.FmIpAllowlistMatcher;
 import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.command.FmApiClientCommand;
 import org.qifu.fm.dto.command.FmApiKeyIssueCommand;
@@ -231,7 +232,14 @@ public class FmExternalApiManagementLogicServiceImpl
 		}
 		tenantAccessGuard.requireAccess(command.tenantId());
 		FmExternalApiPolicy.requireSystemType(command.systemType());
-		FmExternalApiPolicy.requireScopes(command.allowedScopes());
+		List<String> scopes = FmExternalApiPolicy.requireScopes(command.allowedScopes());
+		if (scopes.stream()
+				.anyMatch(scope -> scope.startsWith("design.")
+						|| scope.startsWith("runtime.request."))
+				&& clean(command.allowedProcessIds()).isEmpty()) {
+			throw new ServiceException("Process access requires at least one allowed process ID.");
+		}
+		normalizeIpAllowlist(command.ipAllowlist());
 		int minuteLimit = Objects.requireNonNullElse(command.rateLimitPerMinute(), 60);
 		int dailyQuota = Objects.requireNonNullElse(command.dailyQuota(), 10000);
 		if (command.clientName().trim().length() > 100 || minuteLimit < 1
@@ -250,7 +258,7 @@ public class FmExternalApiManagementLogicServiceImpl
 		client.setAllowedProcessIds(writeList(clean(command.allowedProcessIds())));
 		client.setAllowedInitiatorAccounts(
 				writeList(clean(command.allowedInitiatorAccounts())));
-		client.setIpAllowlist(writeList(clean(command.ipAllowlist())));
+		client.setIpAllowlist(writeList(normalizeIpAllowlist(command.ipAllowlist())));
 		client.setRateLimitPerMinute(
 				Objects.requireNonNullElse(command.rateLimitPerMinute(), 60));
 		client.setDailyQuota(Objects.requireNonNullElse(command.dailyQuota(), 10000));
@@ -306,6 +314,19 @@ public class FmExternalApiManagementLogicServiceImpl
 		LinkedHashSet<String> result = new LinkedHashSet<>();
 		values.stream().map(StringUtils::trimToEmpty).filter(StringUtils::isNotBlank)
 				.forEach(result::add);
+		return List.copyOf(result);
+	}
+
+	private List<String> normalizeIpAllowlist(List<String> values)
+			throws ServiceException {
+		LinkedHashSet<String> result = new LinkedHashSet<>();
+		for (String value : clean(values)) {
+			try {
+				result.add(FmIpAllowlistMatcher.normalizeRule(value));
+			} catch (IllegalArgumentException exception) {
+				throw new ServiceException("IP Allowlist must contain only IPv4/IPv6 addresses or CIDR rules.");
+			}
+		}
 		return List.copyOf(result);
 	}
 

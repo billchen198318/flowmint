@@ -126,7 +126,7 @@ public class FmExternalDesignQueryService {
 		JsonNode schema = parseSchema(version.getSchemaContent());
 		List<FmExternalFormTemplateView.FieldContract> fields = new ArrayList<>();
 		List<FmExternalFormTemplateView.AttachmentField> attachments = new ArrayList<>();
-		collectFields(schema.path("components"), fields, attachments);
+		collectFields(schema.path("components"), fields, attachments, "");
 		return new FmExternalFormTemplateView(form.getFormId(), form.getFormName(),
 				versionNo, "FORM_IO", version.getContentSha256(), schema,
 				List.copyOf(fields), SYSTEM_FIELDS, List.copyOf(attachments),
@@ -172,35 +172,92 @@ public class FmExternalDesignQueryService {
 		}
 	}
 
-	private void collectFields(JsonNode components,
+	void collectFields(JsonNode components,
 			List<FmExternalFormTemplateView.FieldContract> fields,
-			List<FmExternalFormTemplateView.AttachmentField> attachments) {
+			List<FmExternalFormTemplateView.AttachmentField> attachments,
+			String parentPath) {
 		if (!components.isArray()) {
 			return;
 		}
 		for (JsonNode component : components) {
 			String key = component.path("key").asText();
 			String type = component.path("type").asText();
-			boolean input = component.path("input").asBoolean(false);
+			String path = parentPath.isEmpty() ? key : parentPath + key;
+			boolean input = component.path("input").asBoolean(true);
 			boolean multiple = component.path("multiple").asBoolean(false);
-			if (input && StringUtils.isNotBlank(key) && !SYSTEM_FIELDS.contains(key)) {
-				fields.add(new FmExternalFormTemplateView.FieldContract(key, type,
-						component.path("validate").path("required").asBoolean(false), multiple));
+			boolean dataField = input && StringUtils.isNotBlank(key)
+					&& !(parentPath.isEmpty() && SYSTEM_FIELDS.contains(key))
+					&& !List.of("columns", "fieldset", "panel", "table", "tabs", "well", "button")
+							.contains(type);
+			if (dataField) {
+				List<JsonNode> enumValues = fixedValues(component, type);
+				String scalarType = switch (type) {
+					case "number", "currency" -> "number";
+					case "checkbox" -> "boolean";
+					case "container", "selectboxes" -> "object";
+					case "datagrid", "editgrid" -> "array";
+					case "file" -> "array";
+					case "select", "radio" -> choiceType(component, enumValues);
+					case "day", "datetime", "email", "input", "password",
+						"phoneNumber", "textfield", "textarea", "time", "url" -> "string";
+					default -> "any";
+				};
+				String valueType = multiple && !"array".equals(scalarType)
+						? "array" : scalarType;
+				String itemType = "datagrid".equals(type) || "editgrid".equals(type)
+						|| "file".equals(type) ? "object"
+						: multiple ? scalarType : null;
+				fields.add(new FmExternalFormTemplateView.FieldContract(key, path, type,
+						valueType, itemType,
+						component.path("validate").path("required").asBoolean(false),
+						multiple, enumValues));
 				if ("file".equals(type)) {
-					attachments.add(new FmExternalFormTemplateView.AttachmentField(key,
+					attachments.add(new FmExternalFormTemplateView.AttachmentField(path,
 							multiple));
 				}
 			}
-			collectFields(component.path("components"), fields, attachments);
+			String childParent = ("container".equals(type) && StringUtils.isNotBlank(key))
+					? path + "." : (List.of("datagrid", "editgrid").contains(type)
+							&& StringUtils.isNotBlank(key) ? path + "[]." : parentPath);
+			collectFields(component.path("components"), fields, attachments, childParent);
 			for (JsonNode column : component.path("columns")) {
-				collectFields(column.path("components"), fields, attachments);
+				collectFields(column.path("components"), fields, attachments, childParent);
 			}
 			for (JsonNode row : component.path("rows")) {
 				for (JsonNode cell : row) {
-					collectFields(cell.path("components"), fields, attachments);
+					collectFields(cell.path("components"), fields, attachments, childParent);
 				}
 			}
 		}
+	}
+
+	private List<JsonNode> fixedValues(JsonNode component, String type) {
+		if (!List.of("select", "radio", "selectboxes").contains(type)
+				|| !"values".equals(component.path("dataSrc").asText("values"))) {
+			return List.of();
+		}
+		JsonNode choices = "select".equals(type)
+				? component.path("data").path("values") : component.path("values");
+		if (!choices.isArray()) return List.of();
+		List<JsonNode> values = new ArrayList<>();
+		for (JsonNode choice : choices) {
+			if (choice.has("value")) values.add(choice.path("value"));
+		}
+		return List.copyOf(values);
+	}
+
+	private String choiceType(JsonNode component, List<JsonNode> enumValues) {
+		String declared = component.path("dataType").asText("auto");
+		if (List.of("string", "number", "boolean").contains(declared)) return declared;
+		if (enumValues.isEmpty()) return "any";
+		String type = null;
+		for (JsonNode value : enumValues) {
+			String current = value.isNumber() ? "number"
+					: value.isBoolean() ? "boolean" : value.isString() ? "string" : "any";
+			if (type != null && !type.equals(current)) return "any";
+			type = current;
+		}
+		return type;
 	}
 
 	private FmProcessDef publishedProcess(String tenantId, String processDefId)

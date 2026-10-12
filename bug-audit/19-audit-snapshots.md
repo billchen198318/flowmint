@@ -1,5 +1,7 @@
 ## 19 流程進度、表單快照與不可變稽核 — 靜態／唯讀盤查完成
 
+2026-10-08 修復複核：BUG-025 確認為真。規格要求快照只 Insert，但兩個稽核 Service 繼承通用 update/delete，Mapper 也有對應 SQL，資料庫無防改 trigger。已在 `FmFormSnapshotServiceImpl`、`FmTaskActionServiceImpl` 拒絕 update/delete，並新增 `backend/doc/migrations/2026-10-08-immutable-workflow-audit.sql`，以四個 MariaDB trigger 阻止兩表 UPDATE／DELETE。BUG-025 已修正；部署前必須執行移轉。既有資料表空白，尚未在真實 MariaDB 執行 trigger 竄改驗證。
+
 2026-10-05 收尾：已核對流程圖／Action／快照的查詢與 Vue 顯示、`FmRuntimeAuditLogicServiceImpl` 寫入、兩張稽核表 Mapper 與既有 MariaDB 約束／trigger 唯讀證據；XML 測試僅證明 Mapper 可解析。明細存取範圍歸 BUG-024，不可變持久層缺口歸 BUG-025。兩表目前無資料，未執行竄改或端到端快照測試。
 
 已檢查 `FmRequestTrackingLogicServiceImpl.diagram()`、`actions()`、`snapshots()`、`ProcessProgressModal.vue` 的載入與顯示，以及 `FmRuntimeAuditLogicServiceImpl` 的寫入。明細授權共用流程圖權限所造成的資料暴露已記於 BUG-024。

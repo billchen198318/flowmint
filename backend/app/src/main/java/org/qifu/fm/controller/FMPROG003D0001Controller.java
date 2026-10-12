@@ -14,6 +14,7 @@ import org.qifu.fm.dto.command.FmApprovalGroupCommand;
 import org.qifu.fm.dto.command.FmApprovalGroupMemberCommand;
 import org.qifu.fm.dto.view.FmApprovalGroupView;
 import org.qifu.fm.dto.view.FmOptionView;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.entity.FmApprovalGroup;
 import org.qifu.fm.logic.IFmApprovalGroupLogicService;
 import org.qifu.fm.service.IFmApprovalGroupService;
@@ -33,12 +34,14 @@ public class FMPROG003D0001Controller extends CoreApiSupport {
 
 	private final transient IFmApprovalGroupService groupService;
 	private final transient IFmApprovalGroupLogicService groupLogicService;
+	private final transient FmTenantAccessGuard tenantAccessGuard;
 
 	public FMPROG003D0001Controller(
 			IFmApprovalGroupService groupService,
-			IFmApprovalGroupLogicService groupLogicService) {
+			IFmApprovalGroupLogicService groupLogicService, FmTenantAccessGuard tenantAccessGuard) {
 		this.groupService = groupService;
 		this.groupLogicService = groupLogicService;
+		this.tenantAccessGuard = tenantAccessGuard;
 	}
 
 	@ControllerMethodAuthority(programId = "FM_PROG003D0001Q", check = true)
@@ -47,6 +50,8 @@ public class FMPROG003D0001Controller extends CoreApiSupport {
 			@RequestBody SearchBody body) {
 		QueryResult<List<FmApprovalGroupView>> result = initResult();
 		try {
+			tenantAccessGuard.requireQueryAccess(
+					body.getField() == null ? null : body.getField().get("tenantId"));
 			QueryResult<List<FmApprovalGroup>> query = groupService.findPage(
 					queryParameter(body)
 							.fullEquals("tenantId")

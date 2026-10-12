@@ -121,6 +121,25 @@ const changeStartPolicyType = (policy: any) => {
   policy.subjectRefId = "";
 };
 let modeler: any = null;
+const draftFields = [
+  "bpmnXml",
+  "taskForms",
+  "taskPolicies",
+  "assignmentRules",
+  "startPolicies",
+  "groovyBindings",
+] as const;
+let draftOpenBaseline: {
+  oid: string;
+  xml: string;
+  settings: Record<string, any>;
+} | null = null;
+const draftSettings = (version: any) =>
+  Object.fromEntries(
+    draftFields.map((field) => [field, version?.[field] || []]),
+  );
+const cloneSettings = (settings: Record<string, any>) =>
+  JSON.parse(JSON.stringify(settings));
 const newForm = () => ({
   oid: "",
   tenantId: "",
@@ -153,11 +172,45 @@ const selectedTaskRule = computed(() =>
     (item: any) => item.taskDefKey === selectedTask.value?.id,
   ),
 );
+const selectedTaskStartForm = computed({
+  get: () => {
+    try {
+      return JSON.parse(selectedTaskRule.value?.fieldPolicy || "{}").startForm === true;
+    } catch {
+      return false;
+    }
+  },
+  set: (enabled: boolean) => {
+    const rule = selectedTaskRule.value;
+    if (!rule) return;
+    try {
+      const policy = JSON.parse(rule.fieldPolicy || "{}");
+      if (!policy || typeof policy !== "object" || Array.isArray(policy)) {
+        throw new Error("invalid policy");
+      }
+      policy.startForm = enabled;
+      rule.fieldPolicy = JSON.stringify(policy);
+    } catch {
+      toast.warning("請先修正欄位權限 JSON，再設定起單用表單");
+    }
+  },
+});
 const selectedTaskPolicy = computed(() =>
   selectedVersion.value?.taskPolicies?.find(
     (item: any) => item.taskDefKey === selectedTask.value?.id,
   ),
 );
+const adjustTaskReminder = () => {
+  const policy = selectedTaskPolicy.value;
+  if (!policy) return;
+  const due = Number(policy.dueHours);
+  const reminder = Number(policy.reminderBeforeHours);
+  if (!Number.isInteger(due) || due <= 1 ||
+      (policy.reminderBeforeHours != null &&
+       (!Number.isInteger(reminder) || reminder < 1 || reminder >= due))) {
+    policy.reminderBeforeHours = null;
+  }
+};
 const selectedAssignmentRule = computed(() =>
   selectedVersion.value?.assignmentRules?.find(
     (item: any) =>
@@ -653,6 +706,7 @@ const ensureSequenceFlowLabels = () => {
   }
 };
 const openVersion = async (version: any) => {
+  draftOpenBaseline = null;
   importedBundlePending.value = false;
   selectedVersion.value = version;
   selectedElement.value = null;
@@ -689,6 +743,41 @@ const openVersion = async (version: any) => {
     modeler.get("palette")._update();
     ensureSequenceFlowLabels();
     modeler.get("canvas").zoom("fit-viewport");
+  }
+  if (version?.versionStatus === "DRAFT" && modeler) {
+    draftOpenBaseline = {
+      oid: version.oid,
+      xml: (await modeler.saveXML({ format: true })).xml,
+      settings: cloneSettings(draftSettings(version)),
+    };
+  }
+};
+const requestOpenVersion = async (version: any) => {
+  const current = selectedVersion.value;
+  if (!current || current.oid === version.oid) return;
+  const baseline = draftOpenBaseline;
+  if (current.versionStatus !== "DRAFT" || !baseline || !modeler) {
+    await openVersion(version);
+    return;
+  }
+  try {
+    const xml = (await modeler.saveXML({ format: true })).xml;
+    const settingsChanged =
+      JSON.stringify(draftSettings(current)) !== JSON.stringify(baseline.settings);
+    if (xml === baseline.xml && !settingsChanged) {
+      await openVersion(version);
+      return;
+    }
+    await confirmFire(
+      "目前草稿有未儲存變更。請先儲存草稿；若要放棄圖形與節點設定的變更，按確定切換版本。",
+      async () => {
+        Object.assign(current, cloneSettings(baseline.settings));
+        await openVersion(version);
+      },
+      null,
+    );
+  } catch (error: any) {
+    toast.warning(error?.message || "無法切換流程版本");
   }
 };
 const apply = async (value: any) => {
@@ -935,6 +1024,7 @@ const applyVersionBundle = async (
 const save = async () => {
   if (!validate() || !validateSequenceFlows()) return;
   showLoading();
+  let metadataSaved = false;
   try {
     const draftOid =
       selectedVersion.value?.versionStatus === "DRAFT"
@@ -952,8 +1042,13 @@ const save = async () => {
       : [];
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
-    if (!showResponse(response)) return;
+    if (!responseOk(response)) {
+      showResponse(response);
+      return;
+    }
+    metadataSaved = true;
     if (!props.edit) {
+      showResponse(response);
       router.push(
         PageConstants.frontendNamespace + "/edit/" + response.data.value.oid,
       );
@@ -971,12 +1066,24 @@ const save = async () => {
         expectedLockVersion,
       });
       checkFields.value = response.data?.checkFields || {};
-      if (showResponse(response)) await apply(response.data.value);
+      if (!responseOk(response)) {
+        toast.warning(
+          `流程主檔已保存，但草稿未保存：${escapeQifuHtmlMsg(response.data?.message || "操作失敗")}`,
+        );
+        return;
+      }
+      showResponse(response);
+      await apply(response.data.value);
     } else {
+      showResponse(response);
       await apply(response.data.value);
     }
   } catch (error: any) {
-    toast.error(error?.message || "儲存流程失敗");
+    toast.error(
+      metadataSaved && props.edit
+        ? `流程主檔已保存，但草稿未確認保存：${error?.message || "請重新載入後檢查"}`
+        : error?.message || "儲存流程失敗",
+    );
   } finally {
     hideLoading();
   }
@@ -1344,6 +1451,7 @@ onBeforeUnmount(() => modeler?.destroy());
       <span>BPMN 流程版本</span
       ><button
         v-if="
+          form.status !== 'INACTIVE' &&
           !form.versions?.some((item: any) => item.versionStatus === 'DRAFT')
         "
         type="button"
@@ -1365,7 +1473,7 @@ onBeforeUnmount(() => modeler?.destroy());
               ? 'btn-primary'
               : 'btn-outline-secondary',
           ]"
-          @click="openVersion(version)"
+          @click="requestOpenVersion(version)"
         >
           v{{ version.versionNo }}・{{ version.versionStatus }}
         </button>
@@ -1519,6 +1627,18 @@ onBeforeUnmount(() => modeler?.destroy());
                   此表單會在使用者處理本節點時顯示。改選會取代原表單，不會新增第二張表單。
                 </div>
                 <div v-if="selectedTaskRule" class="mt-3">
+                  <label class="form-check mb-2">
+                    <input
+                      v-model="selectedTaskStartForm"
+                      type="checkbox"
+                      class="form-check-input"
+                      :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
+                    />
+                    <span class="form-check-label">此表單可用於起單</span>
+                  </label>
+                  <div class="form-text mb-2">
+                    流程綁定多張不同表單時，請勾選一張或多張起單用表單。
+                  </div>
                   <label class="form-label">欄位權限 JSON</label>
                   <textarea
                     v-model="selectedTaskRule.fieldPolicy"
@@ -1592,6 +1712,7 @@ onBeforeUnmount(() => modeler?.destroy());
                       <label class="form-label">處理期限（小時）</label>
                       <input
                         v-model.number="selectedTaskPolicy.dueHours"
+                        @change="adjustTaskReminder"
                         :disabled="selectedVersion?.versionStatus !== 'DRAFT'"
                         type="number"
                         min="1"
@@ -1601,18 +1722,18 @@ onBeforeUnmount(() => modeler?.destroy());
                       />
                     </div>
                     <div class="col-6">
-                      <label class="form-label">提前提醒（小時）</label>
+                      <label class="form-label">提前提醒（至少 1 小時）</label>
                       <input
                         v-model.number="selectedTaskPolicy.reminderBeforeHours"
                         :disabled="
                           selectedVersion?.versionStatus !== 'DRAFT' ||
-                          !selectedTaskPolicy.dueHours
+                          Number(selectedTaskPolicy.dueHours || 0) <= 1
                         "
                         type="number"
-                        min="0"
+                        min="1"
                         :max="
                           Math.max(
-                            0,
+                            1,
                             Number(selectedTaskPolicy.dueHours || 1) - 1,
                           )
                         "
@@ -2055,7 +2176,7 @@ onBeforeUnmount(() => modeler?.destroy());
         >
           <i class="bi bi-save"></i> 儲存草稿</button
         ><button
-          v-if="selectedVersion.versionStatus === 'DRAFT'"
+          v-if="selectedVersion.versionStatus === 'DRAFT' && form.status !== 'INACTIVE'"
           type="button"
           class="btn btn-success"
           @click="
@@ -2072,7 +2193,7 @@ onBeforeUnmount(() => modeler?.destroy());
         >
       </div>
       <div v-if="selectedVersion" class="card mt-3">
-        <div class="card-header">簽核人解析預覽</div>
+        <div class="card-header">Resolver 原始候選人預覽</div>
         <div class="card-body">
           <div class="input-group mb-3">
             <span class="input-group-text">測試申請人帳號</span>
@@ -2099,8 +2220,9 @@ onBeforeUnmount(() => modeler?.destroy());
               placeholder='例如 {"totalAmount": 100000, "category": "資訊設備"}'
             ></textarea>
           </div>
-          <div class="form-text mb-3">
-            預覽使用已儲存的簽核人規則；修改規則後請先儲存草稿。
+          <div class="alert alert-warning py-2 mb-3" role="note">
+            預覽使用已儲存的簽核人規則，只顯示 Resolver 原始候選人；尚未套用自簽與重複簽核政策。
+            正式派送可能略過候選人或建立指派異常，修改規則後請先儲存草稿再預覽。
           </div>
           <div v-if="resolverPreview.length" class="table-responsive">
             <table class="table table-sm align-middle mb-0">
@@ -2109,7 +2231,7 @@ onBeforeUnmount(() => modeler?.destroy());
                   <th>節點</th>
                   <th>Resolver</th>
                   <th>結果</th>
-                  <th>簽核人</th>
+                  <th>原始候選人</th>
                   <th>說明</th>
                 </tr>
               </thead>

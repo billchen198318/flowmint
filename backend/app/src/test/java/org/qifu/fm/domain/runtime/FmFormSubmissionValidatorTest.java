@@ -32,6 +32,54 @@ class FmFormSubmissionValidatorTest {
             new FmFormSubmissionValidator(new ObjectMapper());
 
     @Test
+    void rejectsSubmittedDocumentNumberEvenWhenPublishedSchemaDeclaresIt() {
+        String schema = """
+                {"components":[{"type":"textfield","key":"documentNumber",
+                  "input":true,"persistent":false},
+                  {"type":"textfield","key":"subject"}]}
+                """;
+        assertDoesNotThrow(() -> validator.validate(schema, Map.of("subject", "request")));
+        assertThrows(ServiceException.class, () -> validator.validate(schema,
+                Map.of("subject", "request", "documentNumber", "FAKE-001")));
+    }
+
+    @Test
+    void rejectsSubmittedDocumentNumberInsideNestedScope() {
+        String schema = """
+                {"components":[{"type":"container","key":"details","components":[
+                  {"type":"textfield","key":"documentNumber","input":true,
+                   "persistent":false}]}]}
+                """;
+        assertThrows(ServiceException.class, () -> validator.validate(schema,
+                Map.of("details", Map.of("documentNumber", "FAKE-001"))));
+    }
+
+    @Test
+    void enforcesPublishedLegacyAcceptanceDateRule() {
+        String schema = """
+                {"components":[
+                  {"type":"textfield","key":"deliveryDate","validate":{
+                    "custom":"valid = !input || !data.acceptanceDate || input <= data.acceptanceDate ? true : \\"到貨日期不得晚於驗收日期\\";"}},
+                  {"type":"textfield","key":"acceptanceDate"}
+                ]}
+                """;
+        assertDoesNotThrow(() -> validator.validate(schema, Map.of(
+                "deliveryDate", "2026-10-01", "acceptanceDate", "2026-10-02")));
+        assertThrows(ServiceException.class, () -> validator.validate(schema, Map.of(
+                "deliveryDate", "2026-10-03", "acceptanceDate", "2026-10-02")));
+    }
+
+    @Test
+    void rejectsUnknownPublishedCustomRule() {
+        String schema = """
+                {"components":[{"type":"textfield","key":"name",
+                  "validate":{"custom":"valid = true;"}}]}
+                """;
+        assertThrows(ServiceException.class,
+                () -> validator.validate(schema, Map.of("name", "example")));
+    }
+
+    @Test
     void acceptsValidSubmission() {
         Map<String, Object> data = Map.of(
                 "subject", "CNC 刀具", "amount", 2500,
@@ -39,6 +87,17 @@ class FmFormSubmissionValidatorTest {
                 "items", List.of(Map.of("name", "鎗刀")));
 
         assertDoesNotThrow(() -> validator.validate(SCHEMA, data));
+    }
+
+    @Test
+    void rejectsMultipleAttachmentsInSingleFileField() {
+        String schema = """
+                {"components":[{"type":"file","key":"receipt","multiple":false}]}
+                """;
+        assertDoesNotThrow(() -> validator.validate(
+                schema, Map.of("receipt", List.of("attachment-1"))));
+        assertThrows(ServiceException.class, () -> validator.validate(
+                schema, Map.of("receipt", List.of("attachment-1", "attachment-2"))));
     }
 
     @Test
@@ -154,5 +213,58 @@ class FmFormSubmissionValidatorTest {
 
         assertThrows(ServiceException.class, () -> validator.validate(
                 schema, Map.of("subject", "名片申請")));
+    }
+
+    @Test
+    void rejectsValuesOutsideFixedChoicesButLeavesDynamicSelectToItsSource() {
+        String schema = """
+                {"components":[
+                  {"type":"select","key":"category","dataSrc":"values",
+                   "data":{"values":[{"label":"設備","value":"EQUIPMENT"}]}},
+                  {"type":"radio","key":"decision","values":[
+                    {"label":"同意","value":"YES"}]},
+                  {"type":"selectboxes","key":"tags","values":[
+                    {"label":"急件","value":"URGENT"}]},
+                  {"type":"select","key":"vendor","dataSrc":"url",
+                   "data":{"url":"https://example.invalid/vendors"}}
+                ]}
+                """;
+        assertDoesNotThrow(() -> validator.validate(schema, Map.of(
+                "category", "EQUIPMENT", "decision", "YES",
+                "tags", Map.of("URGENT", true), "vendor", "VENDOR-42")));
+        assertThrows(ServiceException.class, () -> validator.validate(schema,
+                Map.of("category", "UNKNOWN")));
+        assertThrows(ServiceException.class, () -> validator.validate(schema,
+                Map.of("decision", "NO")));
+        assertThrows(ServiceException.class, () -> validator.validate(schema,
+                Map.of("tags", Map.of("UNLISTED", true))));
+    }
+
+    @Test
+    void checksEveryValueOfMultipleFixedSelect() {
+        String schema = """
+                {"components":[{"type":"select","key":"regions","multiple":true,
+                  "dataSrc":"values","data":{"values":[
+                    {"label":"北部","value":"NORTH"},
+                    {"label":"南部","value":"SOUTH"}]}}]}
+                """;
+        assertDoesNotThrow(() -> validator.validate(schema,
+                Map.of("regions", List.of("NORTH", "SOUTH"))));
+        assertThrows(ServiceException.class, () -> validator.validate(schema,
+                Map.of("regions", List.of("NORTH", "UNKNOWN"))));
+    }
+
+    @Test
+    void acceptsFormioNormalizedNumericAndBooleanFixedChoices() {
+        String schema = """
+                {"components":[
+                  {"type":"select","key":"amount","dataSrc":"values",
+                   "data":{"values":[{"label":"一百","value":"100"}]}},
+                  {"type":"radio","key":"confirmed","values":[
+                    {"label":"是","value":"true"}]}
+                ]}
+                """;
+        assertDoesNotThrow(() -> validator.validate(schema,
+                Map.of("amount", 100, "confirmed", true)));
     }
 }

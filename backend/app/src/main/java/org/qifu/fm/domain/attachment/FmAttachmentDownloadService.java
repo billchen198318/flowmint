@@ -9,7 +9,7 @@ import org.flowable.engine.TaskService;
 import org.flowable.task.api.Task;
 import org.qifu.base.exception.ServiceException;
 import org.qifu.core.util.UserUtils;
-import org.qifu.fm.domain.tenant.FmTenantStatusGuard;
+import org.qifu.fm.domain.tenant.FmTenantAccessGuard;
 import org.qifu.fm.dto.view.FmAttachmentView;
 import org.qifu.fm.entity.FmTaskParallelAddSign;
 import org.qifu.fm.entity.FmTaskParallelAddSignMember;
@@ -43,7 +43,7 @@ public class FmAttachmentDownloadService {
             """;
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
-    private final FmTenantStatusGuard tenantStatusGuard;
+    private final FmTenantAccessGuard tenantAccessGuard;
     private final FmAttachmentStorageService storageService;
     private final TaskService taskService;
     private final ObjectMapper objectMapper;
@@ -52,14 +52,14 @@ public class FmAttachmentDownloadService {
 
     public FmAttachmentDownloadService(
             NamedParameterJdbcTemplate jdbcTemplate,
-            FmTenantStatusGuard tenantStatusGuard,
+            FmTenantAccessGuard tenantAccessGuard,
             FmAttachmentStorageService storageService,
             TaskService taskService,
             ObjectMapper objectMapper,
             IFmTaskParallelAddSignService parallelBatchService,
             IFmTaskParallelAddSignMemberService parallelMemberService) {
         this.jdbcTemplate = jdbcTemplate;
-        this.tenantStatusGuard = tenantStatusGuard;
+        this.tenantAccessGuard = tenantAccessGuard;
         this.storageService = storageService;
         this.taskService = taskService;
         this.objectMapper = objectMapper;
@@ -86,7 +86,9 @@ public class FmAttachmentDownloadService {
                 ATTACHMENT_SELECT + " AND pi.PROCESS_INSTANCE_ID = :processInstanceId"
                         + " ORDER BY a.FIELD_KEY, a.CDATE, a.OID",
                 parameters);
-        return rows.stream().map(this::view).toList();
+        return rows.stream().map(row -> view(row,
+                mayDeleteForCurrentTask(tenantId, processInstanceId, account,
+                        String.valueOf(row.get("FIELD_KEY"))))).toList();
     }
 
     public List<FmAttachmentView> listByTask(String tenantId, String taskId)
@@ -157,6 +159,11 @@ public class FmAttachmentDownloadService {
         if (running == null || running != 1) {
             throw new ServiceException("流程已結束，附件不可刪除");
         }
+        if (!mayDeleteForCurrentTask(tenantId,
+                String.valueOf(row.get("PROCESS_INSTANCE_ID")), account,
+                String.valueOf(row.get("FIELD_KEY")))) {
+            throw new ServiceException("目前待辦未允許修改此附件欄位");
+        }
         return jdbcTemplate.update("""
                 UPDATE fm_attachment
                    SET STATUS = 'DELETED', UUSERID = :account, UDATE = :now
@@ -209,8 +216,7 @@ public class FmAttachmentDownloadService {
     }
 
     private String currentAccount(String tenantId) throws ServiceException {
-        tenantStatusGuard.requireActive(tenantId);
-        if (StringUtils.isBlank(tenantId)) throw new ServiceException("Tenant 不可為空");
+        tenantAccessGuard.requireAccess(tenantId);
         return UserUtils.getCurrentUser().getUsername();
     }
 
@@ -219,10 +225,32 @@ public class FmAttachmentDownloadService {
     }
 
     private FmAttachmentView view(Map<String, Object> row) {
+        return view(row, false);
+    }
+
+    private FmAttachmentView view(Map<String, Object> row, boolean deletable) {
         return new FmAttachmentView(String.valueOf(row.get("ATTACHMENT_ID")),
                 String.valueOf(row.get("FIELD_KEY")), String.valueOf(row.get("FILE_NAME")),
                 String.valueOf(row.get("CONTENT_TYPE")),
-                ((Number) row.get("FILE_SIZE")).longValue());
+                ((Number) row.get("FILE_SIZE")).longValue(), deletable);
+    }
+
+    private boolean mayDeleteForCurrentTask(String tenantId, String processInstanceId,
+            String account, String fieldKey) {
+        if (StringUtils.isBlank(processInstanceId)) return false;
+        for (Task task : taskService.createTaskQuery()
+                .processInstanceId(processInstanceId)
+                .taskCandidateOrAssigned(account).active().list()) {
+            try {
+                if (fieldWritable(taskFieldPolicy(
+                        tenantId, processInstanceId, task.getTaskDefinitionKey()), fieldKey)) {
+                    return true;
+                }
+            } catch (ServiceException exception) {
+                // Missing or invalid policy does not grant delete permission.
+            }
+        }
+        return false;
     }
 
     private String taskFieldPolicy(
@@ -252,6 +280,17 @@ public class FmAttachmentDownloadService {
             String defaultPolicy = policy.path("default").asString("READ");
             String value = policy.path("fields").path(fieldKey).asString(defaultPolicy);
             return !"HIDDEN".equalsIgnoreCase(value) && !"NONE".equalsIgnoreCase(value);
+        } catch (RuntimeException exception) {
+            throw new ServiceException("待辦欄位權限設定格式錯誤");
+        }
+    }
+
+    boolean fieldWritable(String fieldPolicy, String fieldKey) throws ServiceException {
+        try {
+            JsonNode policy = objectMapper.readTree(fieldPolicy);
+            String defaultPolicy = policy.path("default").asString("READ");
+            String value = policy.path("fields").path(fieldKey).asString(defaultPolicy);
+            return "WRITE".equalsIgnoreCase(value);
         } catch (RuntimeException exception) {
             throw new ServiceException("待辦欄位權限設定格式錯誤");
         }

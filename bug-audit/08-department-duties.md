@@ -51,3 +51,12 @@
 - 證據：`FmOrgDutyLogicServiceImpl.saveAssignee()`；`FmAssignmentResolverService.orgDuty()`；README「部門與組織樹」操作步驟說明可指定主要擔任人。
 - 驗證：現有擔任人 0 筆，未做 Resolver Preview 重現。
 
+### 2026-10-07 修復複核
+
+- **BUG-009 — 已修正（程式確認）：**儲存擔任人時只接受目前有效的部門任職；候選清單也排除未生效及已到期任職。原始問題由缺少日期過濾的程式路徑確認，尚未以資料庫異動重現。
+- **BUG-071 — 已修正（程式確認）：**職務已有任何擔任人紀錄時禁止更換部門，避免停用紀錄日後再啟用而指向錯誤部門；需另建職務。原始問題由更新路徑未核對既有擔任人確認。
+- **BUG-072 — 已修正（程式確認）：**停用未來生效的職務或擔任人只更新狀態，保留合法日期區間；已生效資料才把截止時間設為現在。原始問題由停用程式與日期約束確認。
+- **BUG-073 — 已修正（程式確認）：**兩張 Mapper 的更新 SQL 固定寫入 `EFFECTIVE_TO`，可將編輯頁送出的 `null` 清除舊截止時間。原始問題由動態 SQL 條件確認。
+- **BUG-074 — 已修正（程式確認）：**清單查詢要求指定且可讀的 Tenant；Logic 的單筆讀寫及候選查詢加入 Tenant 存取檢查，Tenant 選項只回傳可讀範圍。原始問題由 Controller 與 Logic 缺少 membership 檢查確認。
+- **BUG-075 — 已修正（程式確認）：**ORG_DUTY 候選依 `IS_PRIMARY DESC,EFFECTIVE_FROM,EMPLOYEE_DUTY_ID` 排序，再套用 `maxResults`。原始問題由無排序查詢確認。
+- 後端 `mvn -q -pl app -am -DskipTests compile` 通過。現有資料缺少職務與擔任人，並發與實際 Resolver Preview 仍待隔離資料驗證。

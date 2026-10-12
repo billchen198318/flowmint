@@ -44,6 +44,21 @@ class FmAttachmentStorageServiceTest {
     }
 
     @Test
+    void rejectsTemporaryFileChangedAfterUpload() throws Exception {
+        byte[] content = "%PDF-original".getBytes(StandardCharsets.UTF_8);
+        FmAttachmentStorageService service =
+                new FmAttachmentStorageService(temporaryDirectory, 1024);
+        var stored = service.storeTemporary(
+                "A01", "batch-1", new ByteArrayInputStream(content), content.length);
+        service.verifyTemporary("A01", "batch-1", stored.fileOid(),
+                stored.size(), stored.sha256());
+
+        Files.writeString(stored.path(), "%PDF-corrupt!");
+        assertThrows(ServiceException.class, () -> service.verifyTemporary(
+                "A01", "batch-1", stored.fileOid(), stored.size(), stored.sha256()));
+    }
+
+    @Test
     void rejectsTraversalEmptyAndOversizedFiles() {
         FmAttachmentStorageService service =
                 new FmAttachmentStorageService(temporaryDirectory, 4);
@@ -101,7 +116,7 @@ class FmAttachmentStorageServiceTest {
         FmAttachmentStorageService.StoredFile stored = service.storeTemporary(
                 "A01", "batch-1", new ByteArrayInputStream(content), content.length);
 
-        Path formal = service.promote("A01", "batch-1", stored.fileOid());
+        Path formal = service.promote("A01", "batch-1", stored.fileOid(), new java.util.Date());
         assertTrue(Files.exists(formal));
         Path restored = service.restoreTemporary(
                 "A01", "batch-1", stored.fileOid(), formal);
@@ -118,7 +133,7 @@ class FmAttachmentStorageServiceTest {
                 new FmAttachmentStorageService(temporaryDirectory, 1024);
         FmAttachmentStorageService.StoredFile stored = service.storeTemporary(
                 "A01", "batch-1", new ByteArrayInputStream(content), content.length);
-        Path formal = service.promote("A01", "batch-1", stored.fileOid());
+        Path formal = service.promote("A01", "batch-1", stored.fileOid(), new java.util.Date());
         Files.setLastModifiedTime(formal,
                 FileTime.from(Instant.now().minus(2, ChronoUnit.DAYS)));
 

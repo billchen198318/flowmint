@@ -243,9 +243,9 @@ onMounted(async () => {
       <div class="card-body">
         <div
           v-if="!filteredIssues(section.key).length"
-          class="alert alert-success mb-0"
+          :class="['alert mb-0', (result?.[section.key] || []).length ? 'alert-info' : 'alert-success']"
         >
-          檢查正常
+          {{ (result?.[section.key] || []).length ? '沒有符合篩選條件的問題' : '檢查正常' }}
         </div>
         <article
           v-for="issue in filteredIssues(section.key)"

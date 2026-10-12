@@ -80,6 +80,17 @@ class FmProcessGroovyDraftLogicTest {
     }
 
     @Test
+    void inactiveProcessCannotCreateAnotherVersion() throws Exception {
+        var definition = new FmProcessDef();
+        definition.setTenantId("T1");
+        definition.setStatus("INACTIVE");
+        when(definitions.selectByPrimaryKey("D1")).thenReturn(result(definition));
+        assertThrows(ServiceException.class, () -> logic().createVersion("D1"));
+        verify(versions, never()).insert(any());
+        verify(definitions, never()).update(any());
+    }
+
+    @Test
     void staleSaveCannotReplaceBindingsOrUpdateXml() throws Exception {
         FmProcessVersion version = new FmProcessVersion();
         version.setOid("V1");
@@ -116,8 +127,8 @@ class FmProcessGroovyDraftLogicTest {
     }
 
     private FmProcessDefLogicServiceImpl logic() {
-        return new FmProcessDefLogicServiceImpl(definitions, null, versions, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null,
+        return new FmProcessDefLogicServiceImpl(definitions, null, versions, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, access, null, bindings, groovyAccess, true, null);
     }
 

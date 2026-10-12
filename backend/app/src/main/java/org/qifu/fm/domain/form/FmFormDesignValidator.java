@@ -3,6 +3,7 @@ package org.qifu.fm.domain.form;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -10,6 +11,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.qifu.base.exception.ServiceException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import tools.jackson.databind.JsonNode;
@@ -24,9 +26,15 @@ public class FmFormDesignValidator {
             "[A-Za-z][A-Za-z0-9_]*(?:\\.[A-Za-z][A-Za-z0-9_]*)*");
     private static final Set<String> FORBIDDEN_KEYS = Set.of(
             "__proto__", "prototype", "constructor");
+    private static final Set<String> ALLOWED_ATTACHMENT_EXTENSIONS = Set.of(
+            "pdf", "jpg", "jpeg", "png", "bmp", "doc", "docx", "xls",
+            "xlsx", "ppt", "pptx", "zip", "7z", "rar");
     private static final List<String> EXECUTABLE_PROPERTIES = List.of(
             "customDefaultValue", "calculateValue", "calculateServer",
             "customConditional");
+
+    @Value("${page.maxUploadSize:8388608}")
+    private long maxUploadSize = 8L * 1024L * 1024L;
 
     public void validate(JsonNode schema, JsonNode uiSchema) throws ServiceException {
         if (!schema.isObject() || !schema.path("components").isArray()) {
@@ -35,7 +43,35 @@ public class FmFormDesignValidator {
         Set<String> keys = new HashSet<>();
         Set<String> buttonEvents = new HashSet<>();
         validateComponents(schema.path("components"), keys, buttonEvents, "components");
-        validateBindings(uiSchema.path("dataActions"), keys, buttonEvents);
+        Set<String> fieldPaths = new HashSet<>();
+        collectBindingPaths(schema.path("components"), fieldPaths, "");
+        validateBindings(uiSchema.path("dataActions"), fieldPaths, buttonEvents);
+    }
+
+    private void collectBindingPaths(JsonNode components, Set<String> fields, String parent) {
+        for (JsonNode component : components) {
+            String type = component.path("type").asString("");
+            if (Set.of("datagrid", "editgrid").contains(type)) {
+                continue;
+            }
+            String key = component.path("key").asString("");
+            String path = parent.isEmpty() ? key : parent + "." + key;
+            if (!key.isBlank() && component.path("input").asBoolean(true)
+                    && !isLayout(type) && !"button".equals(type)
+                    && !"container".equals(type)) {
+                fields.add(path);
+            }
+            String childParent = "container".equals(type) ? path : parent;
+            collectBindingPaths(component.path("components"), fields, childParent);
+            for (JsonNode column : component.path("columns")) {
+                collectBindingPaths(column.path("components"), fields, childParent);
+            }
+            for (JsonNode row : component.path("rows")) {
+                for (JsonNode cell : row) {
+                    collectBindingPaths(cell.path("components"), fields, childParent);
+                }
+            }
+        }
     }
 
     public void validateRuntimeSchema(JsonNode schema) throws ServiceException {
@@ -43,6 +79,125 @@ public class FmFormDesignValidator {
                 || !"form".equals(schema.path("display").asString())
                 || !schema.path("components").isArray()) {
             throw invalid("發布只允許 Form.io Schema；請先以表單設計器轉換舊 JSON Schema");
+        }
+        rejectUnsupportedValidation(schema.path("components"), "components");
+    }
+
+    public void validateTaskActionHookSources(JsonNode schema, JsonNode hooks)
+            throws ServiceException {
+        if (!hooks.isArray()) {
+            return;
+        }
+        Set<String> fields = new HashSet<>();
+        collectBindingPaths(schema.path("components"), fields, "");
+        for (JsonNode hook : hooks) {
+            String hookId = hook.path("hookId").asString("");
+            JsonNode mapping = hook.path("requestMapping");
+            if (!mapping.isObject()) {
+                continue;
+            }
+            for (Map.Entry<String, JsonNode> entry : mapping.properties()) {
+                JsonNode value = entry.getValue();
+                String source = value.isString() ? value.asString() : "";
+                String formPath = source.startsWith("json:form.")
+                        ? source.substring(10)
+                        : source.startsWith("form.") ? source.substring(5) : null;
+                boolean valid = formPath != null
+                        ? fields.contains(formPath)
+                        : Set.of("context.taskId", "context.processInstanceId",
+                                "context.businessKey").contains(source);
+                if (!valid) {
+                    throw invalid("Task Action Hook " + hookId
+                            + " requestMapping 來源欄位不存在或格式不正確：" + source);
+                }
+            }
+        }
+    }
+
+    private void rejectUnsupportedValidation(JsonNode components, String path)
+            throws ServiceException {
+        int index = 0;
+        for (JsonNode component : components) {
+            String componentPath = path + "[" + index++ + "]";
+            if ("file".equals(component.path("type").asString())) {
+                validateAttachmentFileTypes(component.path("fileTypes"), componentPath);
+                validateAttachmentFileSize(component.path("fileMaxSize"), componentPath);
+                if (!component.path("multiple").asBoolean(false)
+                        && component.path("maxNumberOfFiles").asInt(1) > 1) {
+                    throw invalid(componentPath
+                            + ".maxNumberOfFiles 單檔附件欄位最多只能設定 1 件");
+                }
+            }
+            JsonNode validation = component.path("validate");
+            for (String rule : List.of("custom", "json")) {
+                JsonNode value = validation.path(rule);
+                if (!value.isMissingNode() && !value.isNull()
+                        && !(value.isString() && StringUtils.isBlank(value.asString()))
+                        && !((value.isObject() || value.isArray()) && value.isEmpty())) {
+                    throw invalid(componentPath + ".validate." + rule
+                            + " is unsupported by server validation");
+                }
+            }
+            rejectUnsupportedValidation(component.path("components"),
+                    componentPath + ".components");
+            for (JsonNode column : component.path("columns")) {
+                rejectUnsupportedValidation(column.path("components"),
+                        componentPath + ".columns.components");
+            }
+            for (JsonNode row : component.path("rows")) {
+                for (JsonNode cell : row) {
+                    rejectUnsupportedValidation(cell.path("components"),
+                            componentPath + ".rows.components");
+                }
+            }
+        }
+    }
+
+    private void validateAttachmentFileTypes(JsonNode fileTypes, String path)
+            throws ServiceException {
+        if (fileTypes.isMissingNode() || fileTypes.isNull()) return;
+        if (!fileTypes.isArray()) {
+            throw invalid(path + ".fileTypes 必須是陣列");
+        }
+        for (JsonNode fileType : fileTypes) {
+            String value = fileType.isString()
+                    ? fileType.asString() : fileType.path("value").asString("");
+            if (StringUtils.isBlank(value)) {
+                throw invalid(path + ".fileTypes 不可包含空白類型");
+            }
+            for (String token : value.trim().toLowerCase(java.util.Locale.ROOT)
+                    .split("[, ]+")) {
+                String extension = Strings.CS.removeStart(token.trim(), ".");
+                if (!ALLOWED_ATTACHMENT_EXTENSIONS.contains(extension)) {
+                    throw invalid(path + ".fileTypes 不支援副檔名：" + token);
+                }
+            }
+        }
+    }
+
+    private void validateAttachmentFileSize(JsonNode fileMaxSize, String path)
+            throws ServiceException {
+        String configured = fileMaxSize.asString("");
+        long size = 8L * 1024L * 1024L;
+        if (StringUtils.isNotBlank(configured)) {
+            String normalized = configured.trim().toUpperCase(Locale.ROOT).replace(" ", "");
+            try {
+                if (normalized.endsWith("MB")) {
+                    size = Math.multiplyExact(Long.parseLong(
+                            Strings.CS.removeEnd(normalized, "MB")), 1024L * 1024L);
+                } else if (normalized.endsWith("KB")) {
+                    size = Math.multiplyExact(Long.parseLong(
+                            Strings.CS.removeEnd(normalized, "KB")), 1024L);
+                } else {
+                    size = Long.parseLong(normalized);
+                }
+            } catch (NumberFormatException | ArithmeticException exception) {
+                throw invalid(path + ".fileMaxSize 格式錯誤，請使用 KB 或 MB");
+            }
+        }
+        if (size <= 0 || size > maxUploadSize) {
+            throw invalid(path + ".fileMaxSize 必須大於零且不得超過系統上傳上限（"
+                    + maxUploadSize + " bytes）");
         }
     }
 
@@ -128,7 +283,7 @@ public class FmFormDesignValidator {
         }
     }
 
-    private void validateBindings(JsonNode bindings, Set<String> keys,
+    private void validateBindings(JsonNode bindings, Set<String> fieldPaths,
             Set<String> buttonEvents) throws ServiceException {
         if (bindings.isMissingNode() || bindings.isNull()) {
             return;
@@ -147,11 +302,11 @@ public class FmFormDesignValidator {
             if (!buttonEvents.contains(event)) {
                 throw invalid("Data Action Binding 找不到按鈕事件：" + event);
             }
-            validateRequestMapping(binding.path("requestMapping"), keys);
-            validateMappingTargets(binding.path("responseMapping"), keys,
+            validateRequestMapping(binding.path("requestMapping"), fieldPaths);
+            validateMappingTargets(binding.path("responseMapping"), fieldPaths,
                     "responseMapping");
-            validateOptionalTarget(binding.path("statusTarget"), keys, "statusTarget");
-            validateOptionalTarget(binding.path("errorTarget"), keys, "errorTarget");
+            validateOptionalTarget(binding.path("statusTarget"), fieldPaths, "statusTarget");
+            validateOptionalTarget(binding.path("errorTarget"), fieldPaths, "errorTarget");
             validateBindingTargetCollisions(binding);
         }
     }
@@ -200,8 +355,7 @@ public class FmFormDesignValidator {
                 throw invalid("requestMapping 路徑格式不合法：" + path);
             }
             String normalizedPath = Strings.CS.removeStart(path, "submission.");
-            String rootField = StringUtils.substringBefore(normalizedPath, ".");
-            if (!keys.contains(rootField)) {
+            if (!keys.contains(normalizedPath)) {
                 throw invalid("requestMapping 指向不存在的欄位：" + path);
             }
         }

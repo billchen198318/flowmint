@@ -39,6 +39,15 @@ public class FmAttachmentOrphanCleanupJob {
                 LOGGER.warn("Quarantined FlowMint orphan attachment: tenant={}, fileOid={}",
                         file.tenantId(), file.fileOid());
             }
+            for (FmAttachmentStorageService.TemporaryFile file
+                    : storageService.findTemporaryFilesOlderThan(
+                            Instant.now().minus(24, ChronoUnit.HOURS), BATCH_SIZE)) {
+                if (hasTemporaryDatabaseRecord(file)) continue;
+                storageService.quarantineTemporary(file);
+                LOGGER.warn("Quarantined FlowMint orphan temporary attachment: "
+                                + "tenant={}, session={}, fileOid={}",
+                        file.tenantId(), file.sessionId(), file.fileOid());
+            }
         } catch (ServiceException exception) {
             LOGGER.error("Unable to scan or quarantine FlowMint orphan attachments", exception);
         }
@@ -52,6 +61,22 @@ public class FmAttachmentOrphanCleanupJob {
                    AND FILE_OID = :fileOid
                 """, new MapSqlParameterSource()
                         .addValue("tenantId", file.tenantId())
+                        .addValue("fileOid", file.fileOid()), Integer.class);
+        return count != null && count > 0;
+    }
+
+    private boolean hasTemporaryDatabaseRecord(
+            FmAttachmentStorageService.TemporaryFile file) {
+        Integer count = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                  FROM fm_attachment_upload_file
+                 WHERE TENANT_ID = :tenantId
+                   AND UPLOAD_SESSION_ID = :sessionId
+                   AND FILE_OID = :fileOid
+                   AND FILE_STATUS = 'TEMPORARY'
+                """, new MapSqlParameterSource()
+                        .addValue("tenantId", file.tenantId())
+                        .addValue("sessionId", file.sessionId())
                         .addValue("fileOid", file.fileOid()), Integer.class);
         return count != null && count > 0;
     }

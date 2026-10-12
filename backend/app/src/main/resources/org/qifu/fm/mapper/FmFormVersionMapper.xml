@@ -59,6 +59,13 @@
     WHERE OID = #{oid,jdbcType=CHAR}
   </select>
 
+  <select id="selectForUpdate" resultMap="BaseResultMap">
+    SELECT <include refid="BaseColumnList" />
+    FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_version
+    WHERE OID = #{oid,jdbcType=CHAR}
+    FOR UPDATE
+  </select>
+
   <select id="selectListByParams" parameterType="java.util.HashMap" resultMap="BaseResultMap">
     SELECT <include refid="BaseColumnList" />
     FROM <include refid="org.qifu.core.mapper.DB1Config.schema"/>fm_form_version

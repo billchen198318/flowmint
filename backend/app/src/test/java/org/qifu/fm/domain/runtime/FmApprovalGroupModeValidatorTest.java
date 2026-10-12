@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.qifu.base.exception.ServiceException;
@@ -44,6 +45,28 @@ class FmApprovalGroupModeValidatorTest {
         assertThrows(ServiceException.class, () -> validator.validate(
                 List.of(policy("approval", "ALL")), List.of(malformed),
                 Map.of("G1", "ALL")));
+    }
+
+    @Test
+    void rejectsFallbackAndAuthorityGroupModeMismatch() {
+        FmTaskAssignmentRule fallback = rule("approval", "G1");
+        fallback.setResolverType("FIXED_ACCOUNT");
+        fallback.setResolverConfig("{\"accounts\":[\"person\"]}");
+        fallback.setFallbackConfig("{\"resolverType\":\"APPROVAL_GROUP\","
+                + "\"resolverConfig\":{\"approvalGroupId\":\"G2\"}}");
+        assertThrows(ServiceException.class, () -> validator.validate(
+                List.of(policy("approval", "ALL")), List.of(fallback),
+                Map.of("G2", "SEQUENTIAL")));
+
+        FmTaskAssignmentRule authority = rule("approval", "G1");
+        authority.setResolverType("APPROVAL_AUTHORITY");
+        authority.setResolverConfig("{\"approvalAuthorityId\":\"A1\"}");
+        assertThrows(ServiceException.class, () -> validator.validate(
+                List.of(policy("approval", "ALL")), List.of(authority),
+                Map.of("G3", "CANDIDATE"), Map.of("A1", Set.of("G3"))));
+        assertDoesNotThrow(() -> validator.validate(
+                List.of(policy("approval", "ALL")), List.of(authority),
+                Map.of("G3", "ALL"), Map.of("A1", Set.of("G3"))));
     }
 
     private FmTaskPolicy policy(String taskKey, String mode) {

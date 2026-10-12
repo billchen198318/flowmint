@@ -187,8 +187,8 @@ class FmGroovyPublicationLogicTest {
         when(policies.findByVersion("T", "P", 1)).thenReturn(List.of());
         var validator = mock(org.qifu.fm.domain.workflow.FmDataActionTaskPublishValidator.class);
         var publisher = new org.qifu.fm.logic.impl.FmProcessDefLogicServiceImpl(
-                null, null, null, null, null, policies, null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, policies, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
                 validator, null, null, false, null);
         var method = publisher.getClass().getDeclaredMethod("runtimeBpmnXml", FmProcessVersion.class,
                 FmGroovyPublicationCompiler.VerifiedPublication.class);

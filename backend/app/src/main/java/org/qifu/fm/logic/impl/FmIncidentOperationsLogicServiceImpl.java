@@ -42,6 +42,7 @@ import org.qifu.fm.entity.FmTaskParallelAddSignMember;
 import org.qifu.fm.domain.notification.FmNotificationPublisher;
 import org.qifu.fm.domain.resolver.IFmAssignmentResolverService;
 import org.qifu.fm.flowable.FmTaskAssignmentListener;
+import org.qifu.fm.flowable.FmMultiInstanceIncidentBpmn;
 import org.qifu.fm.logic.IFmIncidentOperationsLogicService;
 import org.qifu.fm.logic.IFmGroovyCancellationLogicService;
 import org.qifu.fm.logic.IFmRuntimeAuditLogicService;
@@ -119,7 +120,7 @@ public class FmIncidentOperationsLogicServiceImpl
     @Override
     public DefaultResult<List<FmAssignmentIncidentView>> incidents(
             String tenantId, String status) throws ServiceException {
-        requireOperator();
+        requireOperator(tenantId);
         if (StringUtils.isBlank(tenantId)
                 || (StringUtils.isNotBlank(status)
                         && !List.of("OPEN", "RESOLVED", "IGNORED").contains(status))) {
@@ -132,7 +133,7 @@ public class FmIncidentOperationsLogicServiceImpl
     @Override
     public DefaultResult<List<FmOptionView>> reassignOptions(String tenantId)
             throws ServiceException {
-        requireOperator();
+        requireOperator(tenantId);
         if (StringUtils.isBlank(tenantId)) {
             throw new ServiceException("Tenant 不可為空");
         }
@@ -156,7 +157,7 @@ public class FmIncidentOperationsLogicServiceImpl
     @Override
     public DefaultResult<List<FmOptionView>> taskReassignOptions(String tenantId)
             throws ServiceException {
-        requireReassignOperator();
+        requireReassignOperator(tenantId);
         if (StringUtils.isBlank(tenantId)) {
             throw new ServiceException("Tenant 不可空白");
         }
@@ -180,7 +181,7 @@ public class FmIncidentOperationsLogicServiceImpl
     @Transactional(readOnly = false, rollbackFor = Exception.class)
     public DefaultResult<FmTaskActionResultView> reassign(
             String tenantId, FmIncidentReassignRequest request) throws ServiceException {
-        requireOperator();
+        requireOperator(tenantId);
         if (request == null || StringUtils.isAnyBlank(
                 tenantId, request.incidentId(), request.targetAccount(), request.reason())) {
             throw new ServiceException("Incident、改派帳號與理由不可為空");
@@ -197,6 +198,9 @@ public class FmIncidentOperationsLogicServiceImpl
         if (task == null || !tenantId.equals(task.getTenantId())
                 || !("FLOWMINT_INCIDENT:" + incident.incidentId()).equals(task.getCategory())) {
             throw new ServiceException("Incident 對應的 Task 不存在或狀態已改變");
+        }
+        if (FmMultiInstanceIncidentBpmn.isIncidentTask(task.getTaskDefinitionKey())) {
+            throw new ServiceException("多人簽核解析異常請修復規則後使用 Retry，不可改派單一人");
         }
         if (DelegationState.PENDING.equals(task.getDelegationState())) {
             throw new ServiceException("代理中的 Task 不可由 Incident 直接改派");
@@ -247,7 +251,7 @@ public class FmIncidentOperationsLogicServiceImpl
     @Transactional(readOnly = false, rollbackFor = Exception.class)
     public DefaultResult<FmTaskActionResultView> retry(
             String tenantId, FmIncidentRetryRequest request) throws ServiceException {
-        requireOperator();
+        requireOperator(tenantId);
         if (request == null || StringUtils.isAnyBlank(
                 tenantId, request.incidentId(), request.reason())) {
             throw new ServiceException("Incident 與 Retry 理由不可為空");
@@ -261,6 +265,9 @@ public class FmIncidentOperationsLogicServiceImpl
             throw new ServiceException("找不到可 Retry 的 OPEN Incident");
         }
         Task task = incidentTask(tenantId, incident);
+        if (FmMultiInstanceIncidentBpmn.isIncidentTask(task.getTaskDefinitionKey())) {
+            return retryMultiInstancePreflight(tenantId, request, incident, task);
+        }
         FmProcessInstance process = requiredProcess(tenantId, incident.processInstanceId());
         Map<String, Object> variables = runtimeService.getVariables(
                 process.getProcessInstanceId());
@@ -318,11 +325,35 @@ public class FmIncidentOperationsLogicServiceImpl
                 process.getProcessInstanceId(), "RUNNING"));
     }
 
+    private DefaultResult<FmTaskActionResultView> retryMultiInstancePreflight(
+            String tenantId, FmIncidentRetryRequest request,
+            FmAssignmentIncidentView incident, Task task) throws ServiceException {
+        if (!FmMultiInstanceIncidentBpmn.taskKeyFromIncident(task.getTaskDefinitionKey())
+                .equals(incident.taskDefKey())) {
+            throw new ServiceException("Incident 與多人簽核節點不一致");
+        }
+        FmProcessInstance process = requiredProcess(tenantId, incident.processInstanceId());
+        FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
+        Date now = new Date();
+        String actor = UserUtils.getCurrentUser().getUserId();
+        auditLogicService.recordTaskAction(tenantId, process.getProcessInstanceId(),
+                task.getId(), incident.taskDefKey(), "ADMIN_REASSIGN",
+                "INCIDENT_RETRY_REQUESTED", actor, formData.getOwnerAccount(), null,
+                request.reason().trim(), formData, null, now);
+        if (!incidentRecorder.resolve(tenantId, incident.incidentId(), actor,
+                "RETRY: " + request.reason().trim(), now)) {
+            throw new ServiceException("Incident 已被其他管理員處理");
+        }
+        taskService.complete(task.getId());
+        return success(new FmTaskActionResultView(task.getId(), "ADMIN_REASSIGN",
+                process.getProcessInstanceId(), "RUNNING"));
+    }
+
     @Override
     @Transactional(readOnly = false, rollbackFor = Exception.class)
     public DefaultResult<FmTaskActionResultView> terminate(
             String tenantId, FmProcessTerminateRequest request) throws ServiceException {
-        requireOperator();
+        requireOperator(tenantId);
         if (request == null || StringUtils.isAnyBlank(
                 tenantId, request.processInstanceId(), request.reason())) {
             throw new ServiceException("流程與終止理由不可為空");
@@ -368,7 +399,7 @@ public class FmIncidentOperationsLogicServiceImpl
     public DefaultResult<FmTaskActionResultView> reassignParallelAddSign(
             String tenantId, FmParallelAddSignReassignRequest request)
             throws ServiceException {
-        requireOperator();
+        requireOperator(tenantId);
         if (request == null || StringUtils.isAnyBlank(
                 tenantId, request.taskId(), request.targetAccount(), request.reason())) {
             throw new ServiceException("平行加簽 Task、改派帳號與理由不可為空");
@@ -427,7 +458,7 @@ public class FmIncidentOperationsLogicServiceImpl
     public DefaultResult<FmTaskActionResultView> reassignTask(
             String tenantId, FmTaskAdminReassignRequest request)
             throws ServiceException {
-        requireReassignOperator();
+        requireReassignOperator(tenantId);
         if (request == null || StringUtils.isAnyBlank(tenantId, request.taskId(),
                 request.targetAccount(), request.reason(), request.requestKey())) {
             throw new ServiceException("Task、改派對象、原因與 request key 不可空白");
@@ -530,7 +561,7 @@ public class FmIncidentOperationsLogicServiceImpl
     public DefaultResult<FmTaskReassignPreviewView> previewTaskReassign(
             String tenantId, FmTaskReassignPreviewRequest request)
             throws ServiceException {
-        requireReassignOperator();
+        requireReassignOperator(tenantId);
         if (request == null || StringUtils.isAnyBlank(
                 tenantId, request.taskId(), request.targetAccount())) {
             throw new ServiceException("Task 與改派對象不可空白");
@@ -610,16 +641,26 @@ public class FmIncidentOperationsLogicServiceImpl
         }
     }
 
-    private void requireOperator() throws ServiceException {
+    private void requireOperator(String tenantId) throws ServiceException {
         if (!UserUtils.isAdmin() && !UserUtils.hasRole("FLOWMINT_OPERATIONS")) {
             throw new ServiceException("需要流程營運管理權限");
         }
+        requireOperatorTenant(tenantId);
     }
 
-    private void requireReassignOperator() throws ServiceException {
+    private void requireReassignOperator(String tenantId) throws ServiceException {
         if (!UserUtils.isAdmin() && !UserUtils.hasRole("FLOWMINT_REASSIGN")
                 && !UserUtils.hasRole("FLOWMINT_OPERATIONS")) {
             throw new ServiceException("需要 FLOWMINT_REASSIGN 管理員改派權限");
+        }
+        requireOperatorTenant(tenantId);
+    }
+
+    private void requireOperatorTenant(String tenantId) throws ServiceException {
+        if (!UserUtils.isAdmin() && (StringUtils.isBlank(tenantId)
+                || !activeMembership(tenantId,
+                        UserUtils.getCurrentUser().getUsername(), new Date()))) {
+            throw new ServiceException("目前帳號無權操作此 Tenant");
         }
     }
 

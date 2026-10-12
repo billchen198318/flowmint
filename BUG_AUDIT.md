@@ -1,14 +1,76 @@
 # FlowMint 功能單元 Bug 盤查
 
+## 2026-10-10 接手紀錄
+
+- **已完成**：複核 BUG-090／135 的現行修正並在第 12 單元補標狀態；修正 BUG-139 的循序多人簽核二次解析，保存預檢候選人快照，並讓缺少新快照變數的舊部署流程沿用原路徑；複核 BUG-170 已修正並在第 25 單元補標狀態。
+- **驗證**：`FmBpmnDesignValidatorTest` 18 項、`FmMultiInstanceIncidentEngineTest`、`FmMultiInstanceAssignmentFailureTest`、`FmMultiInstanceSavedAssignmentTest` 各 1 項通過；後端 `mvn -q -pl app -am '-DskipTests' compile` 及本輪 `git -c core.safecrlf=false diff --check` 通過。BUG-139 尚未以簽核期間組織異動做完整 Flowable／MariaDB 驗證。
+- **待決**：BUG-133 的發布驗證報告需要定義 Resolver Preview 測試輸入；BUG-181 需要定義欄位不存在或為 null 時的核決條件語意。已送出兩項選擇題，未收到答案前不修改這兩項。BUG-138 的舊「規格待決」敘述是歷史紀錄，已有後續修正與 Flowable H2 驗證。
+- **工作樹**：目前 `git status --short` 有 192 筆已追蹤修改或新增檔，包含前輪大量未提交修正；接手時保留全部既有變更，不重設。第 23 單元 BUG-036 及下方「部署待辦」列出的資料庫移轉尚未在現場套用。
+
+## 2026-10-09 修正進度
+
+- 2026-10-10 全部 185 個條目狀態複核：依各單元最新紀錄，BUG-133（發布驗證報告輸入契約）及 BUG-181（缺值核決條件語意）仍待產品決定，已請使用者指定契約；BUG-138 的「規格待決」是早於 2026-10-09 Flowable H2 修正驗證的歷史紀錄。BUG-139 新增循序 Task 使用預檢快照的定向測試，通過且未再次呼叫 Resolver。清單狀態不代表所有項目均經正式 MariaDB／HTTP 端到端驗證。
+- 2026-10-10 複核並修正 BUG-139：ALL／SEQUENTIAL Task 使用節點預檢時保存的帳號與候選人快照，避免循序簽核期間重新解析造成原定簽核人無法指派。後端編譯與既有 Multi-instance Incident 定向測試通過；尚未以組織異動執行端到端重現。詳見[第 12 單元](bug-audit/12-workflow-design-resolver.md)。
+
+- BUG-138 最新驗證：`FmMultiInstanceIncidentEngineTest` 以 H2 實際啟動 Flowable，確認 ALL 與 SEQUENTIAL 都能由解析失敗進入 Incident、修復規則後重試並建立正確數量／順序的簽核 Task；連同相關 4 個定向測試通過。`git -c core.safecrlf=false diff --check` 通過。
+- 已確認並修正高嚴重度 BUG-021：營運報表、流程監控列表與明細對非系統管理員檢查指定 Tenant 的有效 membership；定向測試通過。詳見[第 22 單元](bug-audit/22-reports.md)。
+- 高嚴重度 BUG-143 已確認非誤判並修正：流程版本的 Task Form Rule 以 `fieldPolicy.startForm: true` 明確指定起單用表單，設計器提供勾選；清單與直接送單只接受指定表單，單表單舊版相容。定向測試與前端建置通過；詳見[第 16 單元](bug-audit/16-workspace-requests.md)。
+- 已確認並修正高嚴重度 BUG-138：ALL／SEQUENTIAL 節點前加入指派預檢與可重試的 Incident 等待任務，保留多人簽核集合與順序；Flowable H2 實測兩種模式的失敗、重試與任務建立均通過。新 BPMN 須重新發布才會生效；詳見[第 12 單元](bug-audit/12-workflow-design-resolver.md)。
+- 已確認並修正高嚴重度 BUG-151：Data Action Task 寫回表單後建立相同 revision 與內容的不可變快照；定向測試通過。詳見[第 25 單元](bug-audit/25-system-tasks.md)。
+- 高嚴重度 BUG-152 已確認非誤判並修正：發布時驗證 Response Mapping 目標屬於每個綁定表單 Schema，Runtime 寫回前再驗證完整資料與型別；定向測試通過。詳見[第 25 單元](bug-audit/25-system-tasks.md)。
+- 已修正低嚴重度 BUG-034：切換 AI Provider 後清除舊結果，並顯示結果來源。BUG-036 已補新建庫外鍵及既有庫遷移腳本，現場資料庫仍須套用；詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+
+- 已修正中嚴重度 BUG-147、BUG-026：新政策拒絕無法觸發的 0 小時提前提醒；跨月仍待寄的 FlowMint Email 可繼續重試。詳見[第 21 單元](bug-audit/21-notifications-email-sla.md)。
+- 已修正中嚴重度 BUG-153：SLA 掃描改用到期時間游標，避免任務完成造成 offset 分頁跳項；詳見[第 21 單元](bug-audit/21-notifications-email-sla.md)。
+
+- 已修正中嚴重度 BUG-154：AI 分析於 Tenant 資料列鎖內檢查並保留每分鐘與每日額度，強制重新分析另有限制及冷卻時間；詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+
+- 已修正中嚴重度 BUG-027：AI 存取稽核寫入失敗時拒絕回傳快取或繼續分析；詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+
+- 已修正高嚴重度 BUG-023：移除固定 JWT 密鑰預設值，缺少或不足 32 UTF-8 bytes 時拒絕啟動；詳見[第 27 單元](bug-audit/27-security-deployment.md)。
+- 已修正高嚴重度 BUG-029：統一 OpenAI `/v1` Base URL 的分析及連線測試端點，並相容既有 `/v1/responses` 設定；詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+- 已修正高嚴重度 BUG-030：AI Content Hash 納入 Provider 與 Model 身分，隔離分析快取；詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+- 已修正高嚴重度 BUG-031：DataGrid／EditGrid 依 Schema 提取可見欄位，避免原始列資料外送；同步修正中嚴重度 BUG-028 的 Container 巢狀欄位讀取。詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+- 已修正中嚴重度 BUG-032、BUG-035：AI Context 保留最近 50 筆簽核歷程；AI 回應僅保存契約允許欄位。詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+- 已修正中嚴重度 BUG-033：OpenAI 與 Gemini 回應在讀取期間限制為 1 MiB；詳見[第 23 單元](bug-audit/23-ai-provider.md)。
+
+## 最新修復接手點（2026-10-09）
+
+- **下次從這裡開始（2026-10-10 複核）**：BUG-090、BUG-135 的修正已存在於現行驗證器，並已在第 12 單元條目標示；原先列為待修候選是接手資訊過期。BUG-138、BUG-143 也已修正。接續從各 `bug-audit/*.md` 的「修正狀態」或最新複核記錄盤點尚未完成的「嚴重」，再處理「高」；修改前須確認不是誤判。中、低嚴重度暫緩，勿依下方歷史快照跳過較高嚴重度。
+- **目前狀態與設計邊界**：BUG-138 在新發布 BPMN 的 ALL／SEQUENTIAL 節點前設置預檢與 Incident 等待任務，管理員修復規則後用 Retry 重跑預檢；Reassign 禁止將多人簽核縮成單人。Flowable 8.0.0 H2 引擎測試已驗證兩種模式的恢復路徑。既有已部署流程不會被回寫 BPMN，須重新發布新版本。BUG-143 採流程版本內 `fieldPolicy.startForm` 明確標記。細節見[第 12 單元](bug-audit/12-workflow-design-resolver.md)與[第 16 單元](bug-audit/16-workspace-requests.md)。
+- **2026-10-09 最新驗證**：BUG-138 的 `FmMultiInstanceIncidentEngineTest` 使用 H2 真正啟動 Flowable，覆蓋 ALL／SEQUENTIAL 的解析失敗、Incident 等待、修復規則後重試及原多人簽核任務建立；`FmMultiInstanceAssignmentFailureTest`、`FmMultiInstanceIncidentListenerTest`、`FmMultiInstanceIncidentRetryTest`、`FmProcessMultiInstanceBpmnTest` 一併通過。BUG-021、BUG-151／152、BUG-143 的目標測試及 BUG-143 前端 `npm run build` 先前通過。`git -c core.safecrlf=false diff --check` 通過。尚未執行整套測試、正式 Flowable／MariaDB 流程或雙 Tenant HTTP 驗收；引擎測試中的一般 Task 指派通知 Listener 使用測試替身，未涵蓋完整通知／稽核持久化。
+- **部署與工作樹**：本輪大量程式、測試與清單變更仍未提交，2026-10-09 `git status --short` 為 191 行；不可重設或覆蓋。BUG-138 的新預檢節點只會寫入重新發布的 BPMN，既有部署不會自動更新。第 23 單元 BUG-036 的既有庫外鍵遷移腳本 `backend/doc/migrations/2026-10-09-ai-analysis-access-fk.sql` 尚未在現場資料庫套用；第 27 單元 BUG-023 上線須提供至少 32 UTF-8 bytes 的 `QIFU_JWT_SECRET`。其他既有遷移仍見下方「部署待辦」，勿把程式修正等同現場已部署。
+- **接手操作**：先執行 `git status --short`，保留工作樹既有大量未提交修改；閱讀本節、[README.md](README.md)、`backend/doc/*.md` 中對應規格及目標單元檔。每項先查程式、資料模型與測試，再修正、跑目標測試、更新清單；不要從下方歷史接手快照重新開始。
+- **最近驗證**：BUG-024 後端 `mvn -q -pl app -am -DskipTests compile` 通過；BUG-025 的 `FmImmutableAuditServiceTest`、BUG-020 的 `FmIncidentOperationsTenantAccessTest`、BUG-146 的 `FmTaskAssignmentNotificationRecipientsTest` 各 2 項測試通過。BUG-160 的 `FmExternalApiProcessAllowlistTest` 與前端 `npm run build`、BUG-159 的 `FmExternalSubmitTransactionTest`、BUG-022 的 `FmExternalApiTenantStatusTest`、BUG-162／174／175 的 `FmExternalOrganizationPaginationTest`、`FmIpAllowlistMatcherTest`／`FmExternalApiManagementIpPolicyTest`、`FmExternalFormContractTest`、BUG-169～170 的 `FmDataActionTaskPublishValidatorTest`、BUG-017 的 `FmDataActionVersionIsolationTest` 先前也通過。`git -c core.safecrlf=false diff --check` 通過。尚未跑整套測試或真實多帳號／Flowable／Email 驗收。
+- **最近修復摘要**：第 18 單元 BUG-024 收緊「我的申請」明細為 Owner／實際發起人；第 19 單元 BUG-025 阻止快照與 Action 的 Service 更新／刪除，新增資料庫 trigger 移轉；第 20 單元 BUG-020 要求非系統管理員的營運角色具目標 Tenant 有效 membership；第 21 單元 BUG-146 使多人簽核的單一 Task 只通知目前 assignee。各項已在對應模組清單標示修正，實際資料端到端驗證限制見各單元檔。
+- **部署待辦**：既有 MariaDB 尚未執行 BUG-017 的 [`backend/doc/migrations/2026-10-08-data-action-version-config.sql`](backend/doc/migrations/2026-10-08-data-action-version-config.sql)、BUG-161 的 [`backend/doc/migrations/2026-10-08-external-api-auth-audit.sql`](backend/doc/migrations/2026-10-08-external-api-auth-audit.sql) 與 BUG-025 的 [`backend/doc/migrations/2026-10-08-immutable-workflow-audit.sql`](backend/doc/migrations/2026-10-08-immutable-workflow-audit.sql)。部署新程式前必須先執行移轉；BUG-017 舊版本已遺失的歷史設定無法回推，回填僅以目前主檔值建立基準。
+- **第 24 單元 BUG-022、BUG-159～162、BUG-174～175 已複核並修正**：停用 Tenant 拒絕外部 API 認證；外部拋單與結果紀錄改為同一交易；流程白名單空值不再放行全部；認證拒絕補寫匿名安全稽核；外部組織清單修正極大頁碼；IP Allowlist 驗證位址與 CIDR；表單提交契約補上巢狀路徑、值型別及固定選項。BUG-175 所稱缺少系統欄位屬部分誤判，原本已有獨立 `systemFields`。目標測試通過，尚未執行外部 HTTP／MariaDB 故障注入驗證。詳見[第 24 單元修復複核](bug-audit/24-external-api.md)。
+- **第 26 單元 BUG-157／158 已複核並修正**：跨期重設的編號規則必須包含對應日期 token；直接與外部送單均經共用驗證器拒絕自填 `documentNumber`。`FmDocumentNumberServiceTest`、`FmFormSubmissionValidatorTest` 與 `FmExternalSubmitTransactionTest` 通過；尚未執行跨期或外部 HTTP 真實送單，詳見[第 26 單元修復複核](bug-audit/26-document-numbers.md)。
+- **第 16 單元 BUG-141 已複核並修正**：冪等重送須比對原流程 ID，避免共用表單的另一流程取得錯誤結果。`FmProcessRuntimeIdempotencyTest` 通過；未執行 HTTP／MariaDB 整合重送，詳見[第 16 單元修復複核](bug-audit/16-workspace-requests.md)。
+- **第 16 單元 BUG-140 已複核並修正**：既有結果回放現在先於目前發布版本與新送單授權檢查，且比對原流程版本及完整請求內容。目標測試通過；未執行 MariaDB／HTTP 狀態變更後重送。
+- **第 16 單元 BUG-018／050 複核**：BUG-018 先前的 Tenant 停用檢查仍成立；BUG-140 提前回放後另補 ACTIVE Tenant 前置檢查，測試同時涵蓋啟用與停用狀態。BUG-050 的舊 Tenant 非同步回應覆蓋問題已修正，前端建置通過；未執行雙 Tenant 瀏覽器驗收。
+- **第 17 單元 BUG-019／150 已複核並修正**：待辦操作人須是有效員工；駁回與退回不能夾帶表單資料改寫。`FmTaskRuntimeCompletionTest` 通過，未執行真實待辦 HTTP／Flowable 情境；詳見[第 17 單元修復複核](bug-audit/17-task-approval.md)。
+- **第 16 單元 BUG-142 已複核為過時誤判**：BUG-115 的附件集合一致性檢查已排除原清單所述的額外附件綁定；不同附件 ID 也會讓冪等 JSON 比對拒絕。補充目標測試通過，未修改 Runtime。
+- **第 16 單元 BUG-143／144 複核**：BUG-143 的所有 Task 表單進入起單清單路徑確實存在，但缺少起單用途設定契約，已提出問題；BUG-144 已加入載入版本與送單版本的比對，拒絕無提示改用新版。後端目標測試、前端建置與 `git diff --check` 通過；未執行 HTTP／瀏覽器版本切換驗收。
+- **第 25 單元 BUG-169～170 已複核並修正**：Data Action Task 發布驗證改用既有 `EXECUTION_ORDER` 排序，且不接受停用 Step 作為 Response Mapping 來源。目標測試通過，尚未在 MariaDB 實際發布流程；詳見[第 25 單元修復複核](bug-audit/25-system-tasks.md)。
+- **第 15 單元 BUG-171～173、BUG-155、BUG-166～167、BUG-017 已複核並修正**：SELECT_LIST 改由資料庫分頁；COUNT SQL 正確略過引號內容；編輯表單 Binding 保留原 Action 版本；Step Mapping 不再覆蓋 Server 參數；前置失敗會記錄執行稽核；FOR_EACH 套用各 Step Timeout；Data Action 草稿設定與已發布版本隔離。目標測試與前端建置通過。BUG-017 部署前須執行版本設定資料庫移轉，舊版本歷史設定無法還原；詳見[第 15 單元修復複核](bug-audit/15-data-action.md)。
+- **第 14 單元 BUG-016、BUG-163～165、BUG-168 已複核並修正**：連線池管理補上 Tenant 授權、限制既存密碼沿用目標、驗證 SQL、Pool ID／狀態選取及兩個連線生命週期欄位。目標測試、前端建置與後端編譯通過。下一項依序複核第 15 單元，詳見[第 14 單元修復複核](bug-audit/14-datasource-pool.md)。
+- **BUG-132、BUG-015、BUG-156 已複核並修正**：分別修正附件 Session 初始化、正式附件 Tenant membership 與既有驗收單自訂日期驗證。詳見[第 13 單元修復複核](bug-audit/13-form-design-attachments.md)。
+
+- **BUG-156 已完成修正**：唯讀查核已發布表單，僅驗收單 v1 有一條非空自訂驗證；後端現在執行該日期規則，其他未知自訂規則會拒絕送出。第 13 單元原清單條目均有處理結論。不要把「靜態盤查完成」當成「修復完成」。
+- **本輪已處理到 BUG-131**：第 13 單元 BUG-108～126、BUG-128～131 的修正或限制詳見[單元檔底部的 2026-10-07 修復複核](bug-audit/13-form-design-attachments.md)；BUG-127 經複核已由 BUG-118 的 Session 資料庫鎖修正，原清單描述對現行程式屬過時誤判。BUG-125 僅防護新版本發布，既有超限版本尚可能顯示舊上限。不要重做已有結論，除非有新反證。
+- **較早驗證與限制**：BUG-131 的前端 `npm run build` 與 `git -c core.safecrlf=false diff --check` 通過；其他先前項目目標測試見單元檔。尚未執行整套測試或瀏覽器斷網、到期、慢速網路與 MariaDB 雙連線並發驗收。
+- 下方舊的「從第 08 單元開始」及 2026-10-03～06 接手快照是歷史紀錄；**本節是目前接續依據**。
+
 > **備註：2026/10/05 進行收斂發散盤整。**
 
 > **目前結論（2026-10-05）：01～27 全部完成靜態／既有唯讀資料盤查，本次探索式盤查結束。** `BUG-001`～`BUG-185` 是 185 條唯一原始觀察，**不是 185 個已重現缺陷**。修復時依 01→27 功能單元順序處理各單元全部條目；[11 個跨單元工作包與降級／合併決定](bug-audit/00-convergence.md)供判斷重複根因及風險，不決定修復順序。各單元收尾段記錄未實測限制；完成盤查不代表問題已修正。
 
 > **接手規則：**從 01 單元開始，按 [功能單元清單與進度](#功能單元清單與進度)逐一處理到 27；每條觀察須留下「已修正並驗證／驗證後不成立／規格待決／受環境阻擋」之一的結果。工作包僅用來合併同根因，不得跳過不在工作包中的條目。
 
-## 修復接續：依單元順序
+## 修復接續：依單元順序（2026-10-06 歷史快照；目前接續點見上方）
 
-1. 先讀本節與目前處理單元；01～07 單元已完成程式路徑複核與修正，接續由 [08 部門職務](bug-audit/08-department-duties.md) 第一條觀察開始。依單元檔的條目順序逐條核對規格、程式、測試及可用的隔離情境。下方日期快照只供追溯。
+1. 此處記錄當時的接續點：01～07 單元已完成程式路徑複核與修正，當時由 [08 部門職務](bug-audit/08-department-duties.md) 第一條觀察開始。依單元檔的條目順序逐條核對規格、程式、測試及可用的隔離情境。下方日期快照只供追溯。
 2. 對每條觀察先確認是否仍成立；成立者修正並加入有意義的回歸測試，不成立者寫明反證。規格待決或環境不足者記錄具體阻礙，不將其誤標已修正。
 3. 當前單元的全部條目都有處理結果，且相關測試通過後，記錄修改檔案與驗證結果，再進下一單元。跨單元同根因依[收斂決策](bug-audit/00-convergence.md)合併實作，並在每個原條目交叉記錄結果；不因風險等級跳到較後單元。
 4. 保留 `BUG-001`～`BUG-185` 編號作證據索引，不重新展開探索式盤查。01～07 單元已完成程式路徑複核、修正與定向測試；尚未取得停用帳號、雙 Tenant、LDAP、預排任職及組織異動／併發的隔離環境實際重現結果。單元的「盤查完成」與「修復完成」是不同狀態。
@@ -131,11 +193,11 @@
 - [x] 05 組織簽核層級（`FM_PROG002D0003`）— 6 項已逐項確認並修正；異動情境仍待隔離資料實測
 - [x] 06 組織職稱（`FM_PROG002D0004`）— 3 項已逐項確認並修正；異動情境仍待隔離資料實測
 - [x] 07 部門主管（`FM_PROG002D0005`）— 5 項已逐項確認並修正；異動情境仍待隔離資料實測
-- [x] 08 部門職務（`FM_PROG002D0006`）— 靜態／唯讀盤查完成；已記錄 6 項條目，現有資料為空且異動情境待重現
-- [x] 09 組織人員資料檢查（`FM_PROG002D0007Q`）— 靜態／唯讀盤查完成；已記錄 3 項問題，代理及失效員工情境待隔離資料重現
-- [x] 10 簽核群組（`FM_PROG003D0001`）— 靜態／唯讀盤查完成；已記錄 6 項條目，異動情境待隔離資料重現
-- [x] 11 工作代理（`FM_PROG003D0002`）— 靜態／唯讀盤查完成；已記錄 3 項問題，跨 Tenant 與併發情境待隔離資料重現
-- [x] 12 流程設計、版本、發布與 Resolver（`FM_PROG004D0001`）— 靜態／唯讀盤查完成；42 項既有觀察，逐型 Runtime 待重現
+- [x] 08 部門職務（`FM_PROG002D0006`）— 6 項條目已逐項核對並完成程式修正；後端編譯通過，異動與 Resolver 情境待隔離資料驗證
+- [x] 09 組織人員資料檢查（`FM_PROG002D0007Q`）— 3 項條目已逐項核對並完成程式修正；定向測試與前端建置通過，隔離資料情境待驗證
+- [x] 10 簽核群組（`FM_PROG003D0001`）— 6 項條目已逐項核對並完成程式修正；後端編譯通過，異動與跨 Tenant 情境待隔離資料驗證
+- [x] 11 工作代理（`FM_PROG003D0002`）— 3 項條目已逐項核對並完成程式修正；定向測試通過，跨 Tenant 與雙連線併發情境待隔離資料驗證
+- [x] 12 流程設計、版本、發布與 Resolver（`FM_PROG004D0001`）— 靜態／唯讀盤查完成；42 項既有觀察中部分已逐項核對並修正，詳細狀態見模組檔；其餘條目與 Runtime 情境待處理
 - [x] 13 表單設計、版本、Custom JavaScript 與附件（`FM_PROG005D0001`）— 靜態／唯讀盤查完成；30 項既有觀察，附件與併發情境待重現
 - [x] 14 DataSource Pool（`FM_PROG006D0001`）— 靜態／唯讀盤查完成；5 項既有觀察，隔離情境仍待重現
 - [x] 15 Data Action（`FM_PROG006D0002`）— 靜態／唯讀盤查完成；7 項既有觀察，執行情境待重現

@@ -121,7 +121,14 @@ public class Constants {
 	public static final int TOKEN_REFRESH_EXPIRED_INTERVAL = 40; // 40 minute
 	public static final String TOKEN_USER_PARAM_NAME = "USER_ID";
 	public static final String TOKEN_ISSUER = "QIFU4Application";
-	public static final String TOKEN_SECRET = StringUtils.defaultIfBlank(System.getenv("QIFU_JWT_SECRET"), "qifu4_default_secret_key_1234567890");
+	public static final String TOKEN_SECRET = requireJwtSecret(System.getenv("QIFU_JWT_SECRET"));
+
+	public static String requireJwtSecret(String value) {
+		if (StringUtils.isBlank(value) || value.getBytes(StandardCharsets.UTF_8).length < 32) {
+			throw new IllegalStateException("QIFU_JWT_SECRET must be set to at least 32 UTF-8 bytes");
+		}
+		return value;
+	}
 	public static final String TOKEN_CHECK_URL_PATH = FORWARD_SLASH + "api" + FORWARD_SLASH;
 	public static final String TOKEN_AUTH = "Authorization";
 	public static final String TOKEN_PREFIX = "Bearer";

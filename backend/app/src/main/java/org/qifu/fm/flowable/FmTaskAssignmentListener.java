@@ -41,6 +41,11 @@ public class FmTaskAssignmentListener implements TaskListener {
             "flowmintInitiatorOrgUnitId";
     public static final String VARIABLE_FORM_DATA = "flowmintFormData";
     public static final String VARIABLE_FORM_DATA_ID = "flowmintFormDataId";
+    public static final String VARIABLE_MI_READY = "flowmintMiReady";
+    public static final String VARIABLE_MI_ACCOUNTS = "flowmintMiAccounts";
+    public static final String VARIABLE_MI_CANDIDATES = "flowmintMiCandidates";
+    public static final String VARIABLE_MI_TASK_KEY = "flowmintMiTaskKey";
+    public static final String VARIABLE_MI_ERROR = "flowmintMiError";
 
     private final IFmTaskAssignmentRuleService assignmentRuleService;
     private final IFmTaskPolicyService taskPolicyService;
@@ -93,10 +98,13 @@ public class FmTaskAssignmentListener implements TaskListener {
                         context.initiatorAccount(), now);
                 return;
             }
-            ResolvedAssignment resolved = resolveAssignment(
-                    context,
-                    task.getTaskDefinitionKey(), policy,
-                    task.getProcessInstanceId());
+            boolean multiInstance = "ALL".equals(policy.getAssignmentMode())
+                    || "SEQUENTIAL".equals(policy.getAssignmentMode());
+            ResolvedAssignment resolved = multiInstance
+                    && task.getVariable(VARIABLE_MI_CANDIDATES) != null
+                    ? savedMultiInstanceAssignment(task)
+                    : resolveAssignment(context, task.getTaskDefinitionKey(), policy,
+                            task.getProcessInstanceId());
             applyAssignment(task, policy, resolved.accounts());
             Date now = new Date();
             runtimeAuditService.recordAssignmentSnapshot(
@@ -116,7 +124,8 @@ public class FmTaskAssignmentListener implements TaskListener {
                     now);
             notificationPublisher.taskAssigned(
                     context.tenantId(), task.getId(), task.getName(),
-                    resolved.accounts(), context.initiatorAccount(), now);
+                    assignmentNotificationRecipients(task, policy, resolved.accounts()),
+                    context.initiatorAccount(), now);
         } catch (ServiceException exception) {
             RuntimeContext context = context(task);
             String incidentId = incidentRecorder.record(
@@ -135,6 +144,10 @@ public class FmTaskAssignmentListener implements TaskListener {
 
     public List<String> multiInstanceAccounts(
             DelegateExecution execution, String taskDefKey) {
+        if (taskDefKey.equals(execution.getVariable(VARIABLE_MI_TASK_KEY))
+                && execution.getVariable(VARIABLE_MI_ACCOUNTS) instanceof List<?> saved) {
+            return saved.stream().map(String::valueOf).toList();
+        }
         try {
             RuntimeContext context = context(execution);
             FmTaskPolicy policy = policy(context, taskDefKey);
@@ -143,6 +156,67 @@ public class FmTaskAssignmentListener implements TaskListener {
         } catch (ServiceException exception) {
             throw new FlowableException("FlowMint Multi-instance 指派失敗："
                     + exception.getMessage(), exception);
+        }
+    }
+
+    private ResolvedAssignment savedMultiInstanceAssignment(DelegateTask task)
+            throws ServiceException {
+        if (!task.getTaskDefinitionKey().equals(task.getVariable(VARIABLE_MI_TASK_KEY))
+                || !(task.getVariable(VARIABLE_MI_ACCOUNTS) instanceof List<?> saved)
+                || saved.isEmpty()) {
+            throw new ServiceException("Multi-instance 簽核人清單不存在");
+        }
+        Set<String> accounts = new LinkedHashSet<>();
+        for (Object value : saved) {
+            if (!(value instanceof String account) || StringUtils.isBlank(account)) {
+                throw new ServiceException("Multi-instance 簽核人清單格式不正確");
+            }
+            accounts.add(account);
+        }
+        Object savedCandidates = task.getVariable(VARIABLE_MI_CANDIDATES);
+        if (!(savedCandidates instanceof List<?> values)) {
+            throw new ServiceException("Multi-instance 簽核人快照不存在");
+        }
+        List<FmResolverCandidateView> candidates = new ArrayList<>();
+        for (Object value : values) {
+            if (!(value instanceof Map<?, ?> candidate)
+                    || !(candidate.get("account") instanceof String account)
+                    || !accounts.contains(account)) {
+                throw new ServiceException("Multi-instance 簽核人快照格式不正確");
+            }
+            candidates.add(new FmResolverCandidateView(
+                    (String) candidate.get("employeeId"), account,
+                    (String) candidate.get("displayName")));
+        }
+        return new ResolvedAssignment(accounts, candidates, "MULTI_INSTANCE_SNAPSHOT",
+                objectMapper.writeValueAsString(Map.of("source", "preflight",
+                        "accounts", accounts)));
+    }
+
+    public void prepareMultiInstance(DelegateExecution execution, String taskDefKey) {
+        execution.setVariable(VARIABLE_MI_TASK_KEY, taskDefKey);
+        execution.setVariable(VARIABLE_MI_ACCOUNTS, null);
+        execution.setVariable(VARIABLE_MI_CANDIDATES, null);
+        try {
+            RuntimeContext context = context(execution);
+            FmTaskPolicy policy = policy(context, taskDefKey);
+            ResolvedAssignment resolved = resolveAssignment(context, taskDefKey,
+                    policy, execution.getProcessInstanceId());
+            List<String> accounts = List.copyOf(resolved.accounts());
+            execution.setVariable(VARIABLE_MI_ACCOUNTS, accounts);
+            execution.setVariable(VARIABLE_MI_CANDIDATES, resolved.candidates().stream()
+                    .map(candidate -> {
+                        Map<String, String> item = new java.util.LinkedHashMap<>();
+                        item.put("employeeId", candidate.employeeId());
+                        item.put("account", candidate.account());
+                        item.put("displayName", candidate.displayName());
+                        return item;
+                    }).toList());
+            execution.setVariable(VARIABLE_MI_ERROR, "");
+            execution.setVariable(VARIABLE_MI_READY, true);
+        } catch (ServiceException exception) {
+            execution.setVariable(VARIABLE_MI_ERROR, exception.getMessage());
+            execution.setVariable(VARIABLE_MI_READY, false);
         }
     }
 
@@ -340,6 +414,14 @@ public class FmTaskAssignmentListener implements TaskListener {
             }
             default -> throw new ServiceException("不支援的 User Task 派送方式");
         }
+    }
+
+    static List<String> assignmentNotificationRecipients(
+            DelegateTask task, FmTaskPolicy policy, Set<String> accounts) {
+        if ("CANDIDATE".equals(policy.getAssignmentMode())) {
+            return List.copyOf(accounts);
+        }
+        return List.of(task.getAssignee());
     }
 
     private void applyDueDate(DelegateTask task, FmTaskPolicy policy) {

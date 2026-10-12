@@ -56,7 +56,12 @@ public class SendMailHelperJob extends BaseScheduledTasksProvide {
 			       m.MAIL_CC, m.MAIL_BCC, m.SUCCESS_FLAG, m.SUCCESS_TIME,
 			       m.RETAIN_FLAG, m.CUSERID, m.CDATE, m.UUSERID, m.UDATE
 			  FROM tb_sys_mail_helper m
-			 WHERE m.MAIL_ID LIKE :mailIdPrefix
+			 WHERE (m.MAIL_ID LIKE :mailIdPrefix
+			        OR EXISTS (
+			            SELECT 1 FROM fm_notification pending
+			             WHERE pending.CHANNEL_TYPE = 'EMAIL'
+			               AND pending.PROVIDER_MESSAGE_ID = m.MAIL_ID
+			               AND pending.DELIVERY_STATUS = 'PENDING'))
 			   AND m.SUCCESS_FLAG = 'N'
 			   AND NOT EXISTS (
 			       SELECT 1

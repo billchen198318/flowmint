@@ -10,5 +10,6 @@ public record FmProcessSubmitCommand(
         String idempotencyKey,
         String applicantAccount,
         Map<String, Object> formData,
-        String uploadSessionId) {
+        String uploadSessionId,
+        Integer processVersionNo) {
 }

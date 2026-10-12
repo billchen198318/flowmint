@@ -41,6 +41,7 @@ import org.qifu.fm.service.IFmProcessDefService;
 import org.qifu.fm.service.IFmProcessInstanceService;
 import org.qifu.fm.service.IFmTaskActionService;
 import org.qifu.fm.service.IFmTaskPolicyService;
+import org.qifu.fm.service.IFmTenantAccountService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +62,7 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 	private final IFmTaskActionService taskActionService;
 	private final IFmFormSnapshotService formSnapshotService;
 	private final IFmTaskPolicyService taskPolicyService;
+	private final IFmTenantAccountService tenantAccountService;
 	private final ObjectMapper objectMapper;
 	private final IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService;
 
@@ -72,6 +74,7 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 			IFmTaskActionService taskActionService,
 			IFmFormSnapshotService formSnapshotService,
 			IFmTaskPolicyService taskPolicyService,
+			IFmTenantAccountService tenantAccountService,
 			IFmParallelAddSignRuntimeLogicService parallelAddSignRuntimeLogicService,
 			ObjectMapper objectMapper) {
 		this.taskService = taskService;
@@ -81,6 +84,7 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 		this.taskActionService = taskActionService;
 		this.formSnapshotService = formSnapshotService;
 		this.taskPolicyService = taskPolicyService;
+		this.tenantAccountService = tenantAccountService;
 		this.parallelAddSignRuntimeLogicService = parallelAddSignRuntimeLogicService;
 		this.objectMapper = objectMapper;
 	}
@@ -88,7 +92,7 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 	@Override
 	public DefaultResult<FmOperationsReportView> report(
 			String tenantId, FmOperationsReportRequest request) throws ServiceException {
-		requireOperator();
+		requireOperator(tenantId);
 		if (StringUtils.isBlank(tenantId)) {
 			throw new ServiceException("Tenant is required");
 		}
@@ -178,7 +182,7 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 	@Override
 	public DefaultResult<FmProcessMonitorDetailView> load(
 			String tenantId, String processInstanceId) throws ServiceException {
-		requireOperator();
+		requireOperator(tenantId);
 		if (StringUtils.isAnyBlank(tenantId, processInstanceId)) {
 			throw new ServiceException("Tenant and process instance are required");
 		}
@@ -277,7 +281,7 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 	@Override
 	public DefaultResult<FmProcessMonitorPageView> find(
 			String tenantId, FmProcessMonitorRequest request) throws ServiceException {
-		requireOperator();
+		requireOperator(tenantId);
 		String status = request == null ? null : StringUtils.trimToNull(request.status());
 		String keyword = request == null ? null : StringUtils.trimToNull(request.keyword());
 		int page = request == null || request.page() == null ? 1 : request.page();
@@ -358,9 +362,27 @@ public class FmProcessMonitorLogicServiceImpl implements IFmProcessMonitorLogicS
 				.findFirst().orElseThrow(() -> new ServiceException("流程定義不存在"));
 	}
 
-	private void requireOperator() throws ServiceException {
+	private void requireOperator(String tenantId) throws ServiceException {
 		if (!UserUtils.isAdmin() && !UserUtils.hasRole("FLOWMINT_OPERATIONS")) {
 			throw new ServiceException("需要流程營運管理權限");
+		}
+		if (!UserUtils.isAdmin()) {
+			if (StringUtils.isBlank(tenantId)) {
+				throw new ServiceException("目前帳號無權操作此 Tenant");
+			}
+			Map<String, Object> parameters = new HashMap<>();
+			parameters.put("tenantId", tenantId);
+			parameters.put("account", UserUtils.getCurrentUser().getUsername());
+			parameters.put("status", "ACTIVE");
+			Date now = new Date();
+			boolean active = tenantAccountService.selectListByParams(parameters).getValue()
+					.stream().anyMatch(value -> (value.getEffectiveFrom() == null
+							|| !value.getEffectiveFrom().after(now))
+							&& (value.getEffectiveTo() == null
+									|| value.getEffectiveTo().after(now)));
+			if (!active) {
+				throw new ServiceException("目前帳號無權操作此 Tenant");
+			}
 		}
 	}
 

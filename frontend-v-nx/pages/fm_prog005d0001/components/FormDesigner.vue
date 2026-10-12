@@ -97,8 +97,8 @@ const normalizeAttachmentComponents = (components: any[] = [], preview = false) 
             { label: "壓縮檔", value: ".zip,.7z,.rar" },
           ];
       component.fileMaxSize = component.fileMaxSize || "8MB";
-      component.maxNumberOfFiles = Number(component.maxNumberOfFiles
-        || (component.multiple ? 10 : 1));
+      component.maxNumberOfFiles = component.multiple
+        ? Number(component.maxNumberOfFiles || 10) : 1;
       component.flowmintMaxTotalSize = component.flowmintMaxTotalSize || "20MB";
       if (preview) {
         component.disabled = true;
@@ -353,6 +353,10 @@ const validatePreview = async () => {
       toast.warning(result?.message || "表單送出前檢核未通過");
       return;
     }
+    if (!designerInstance.checkValidity(null, true)) {
+      toast.warning("送出前處理後表單檢核未通過，請確認欄位內容");
+      return;
+    }
     previewSubmission.value = cloneSubmissionData(
       designerInstance.submission?.data || {},
     );
@@ -438,6 +442,7 @@ const save = async () => {
   if (!validateMaster()) return;
   if (!syncSchemaFromDesigner()) return;
   showLoading();
+  let masterSaved = false;
   try {
     const draft =
       selectedVersion.value?.versionStatus === "DRAFT"
@@ -451,20 +456,35 @@ const save = async () => {
         : null;
     let response = await post(props.edit ? "/update" : "/save", form.value);
     checkFields.value = response.data?.checkFields || {};
-    if (!showResponse(response)) return;
+    if (!responseOk(response)) {
+      showResponse(response);
+      return;
+    }
+    masterSaved = true;
     if (!props.edit) {
+      showResponse(response);
       router.push(
         PageConstants.frontendNamespace + "/edit/" + response.data.value.oid,
       );
       return;
     }
-    apply(response.data.value);
     if (draft) {
       response = await post("/version/save-draft", draft);
-      if (showResponse(response)) apply(response.data.value);
+      if (!responseOk(response)) {
+        toast.warning(
+          `表單主檔已儲存，但草稿未儲存：${escapeQifuHtmlMsg(response.data?.message || "操作失敗")}。編輯內容仍保留在畫面上。`,
+        );
+        return;
+      }
     }
+    showResponse(response);
+    apply(response.data.value);
   } catch (error: any) {
-    toast.error(error?.message || "儲存表單失敗");
+    toast.error(
+      masterSaved && props.edit
+        ? `表單主檔已儲存，但草稿未儲存：${error?.message || "請求失敗"}。編輯內容仍保留在畫面上。`
+        : error?.message || "儲存表單失敗",
+    );
   } finally {
     hideLoading();
   }

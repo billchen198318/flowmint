@@ -21,6 +21,7 @@ import org.qifu.fm.entity.FmDataActionStep;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.dao.RecoverableDataAccessException;
@@ -62,14 +63,15 @@ public class FmDataActionExecutor {
 	public void stream(FmDataAction action, Integer versionNo,
 			List<FmDataActionStep> steps, Map<String, Object> request,
 			String loginAccount, OutputStream outputStream) throws ServiceException {
-		Map<String, Object> parameters = parameterResolver.resolve(
-				action.getRequestSchema(), request, action.getTenantId(), loginAccount);
-		validateSteps(action, steps, parameters.keySet());
-		FmDataActionStep step = requireStreamingStep(action, steps);
 		String executionId = UUID.randomUUID().toString();
 		Instant startedAt = Instant.now();
 		Throwable failure = null;
+		Map<String, Object> parameters = Map.of();
 		try {
+			parameters = parameterResolver.resolve(
+					action.getRequestSchema(), request, action.getTenantId(), loginAccount);
+			validateSteps(action, steps, parameters.keySet());
+			FmDataActionStep step = requireStreamingStep(action, steps);
 			rateLimiter.check(action, loginAccount);
 			DataSource dataSource = poolRegistry.get(
 					action.getTenantId(), action.getPoolId());
@@ -111,12 +113,16 @@ public class FmDataActionExecutor {
 				throw serviceException;
 			}
 			throw new ServiceException("Data Action streaming output failed");
+		} catch (ServiceException exception) {
+			failure = exception;
+			throw exception;
 		} catch (RuntimeException exception) {
 			failure = exception;
 			throw exception;
 		} finally {
 			auditRecorder.record(executionId, action, versionNo, loginAccount,
-					false, 1, parameters.size(), startedAt, failure);
+					false, steps == null ? 0 : steps.size(), parameters.size(),
+					startedAt, failure);
 		}
 	}
 
@@ -142,17 +148,18 @@ public class FmDataActionExecutor {
 			Integer versionNo, List<FmDataActionStep> steps,
 			Map<String, Object> request, String loginAccount,
 			boolean rollback) throws ServiceException {
-		Map<String, Object> parameters = parameterResolver.resolve(
-				action.getRequestSchema(), request, action.getTenantId(), loginAccount);
-		validateSteps(action, steps, parameters.keySet());
-		DataSource dataSource = poolRegistry.get(
-				action.getTenantId(), action.getPoolId());
-		NamedParameterJdbcTemplate jdbcTemplate =
-				new NamedParameterJdbcTemplate(dataSource);
 		String executionId = UUID.randomUUID().toString();
 		Instant startedAt = Instant.now();
 		Throwable failure = null;
+		Map<String, Object> parameters = Map.of();
 		try {
+			parameters = parameterResolver.resolve(
+					action.getRequestSchema(), request, action.getTenantId(), loginAccount);
+			validateSteps(action, steps, parameters.keySet());
+			DataSource dataSource = poolRegistry.get(
+					action.getTenantId(), action.getPoolId());
+			NamedParameterJdbcTemplate jdbcTemplate =
+					new NamedParameterJdbcTemplate(dataSource);
 			rateLimiter.check(action, loginAccount);
 			Map<String, Object> data;
 			if ("TRANSACTION".equals(action.getActionType()) || rollback) {
@@ -164,12 +171,16 @@ public class FmDataActionExecutor {
 			}
 			return new FmDataActionExecutionView(executionId,
 					action.getActionCode(), versionNo, rollback, data);
+		} catch (ServiceException exception) {
+			failure = exception;
+			throw exception;
 		} catch (RuntimeException exception) {
 			failure = exception;
 			throw exception;
 		} finally {
 			auditRecorder.record(executionId, action, versionNo, loginAccount,
-					rollback, steps.size(), parameters.size(), startedAt, failure);
+					rollback, steps == null ? 0 : steps.size(), parameters.size(),
+					startedAt, failure);
 		}
 	}
 
@@ -217,6 +228,9 @@ public class FmDataActionExecutor {
 				if (!conditionEvaluator.evaluate(step.getContinueCondition(), request, data)) {
 					continue;
 				}
+				jdbcTemplate.getJdbcTemplate().setQueryTimeout(
+						step.getQueryTimeoutSeconds() == null
+								? 30 : step.getQueryTimeoutSeconds());
 				Object result;
 				if ("FOR_EACH".equals(step.getExecutionMode())) {
 					result = executeForEach(jdbcTemplate, step, parameters,
@@ -326,9 +340,6 @@ public class FmDataActionExecutor {
 	private Object executeStep(NamedParameterJdbcTemplate jdbcTemplate,
 			FmDataActionStep step, Map<String, Object> parameters)
 			throws ServiceException {
-		jdbcTemplate.getJdbcTemplate().setQueryTimeout(
-				step.getQueryTimeoutSeconds() == null
-						? 30 : step.getQueryTimeoutSeconds());
 		jdbcTemplate.getJdbcTemplate().setMaxRows(
 				step.getMaxRows() == null ? 1000 : step.getMaxRows() + 1);
 		String statementType = step.getStatementType();
@@ -358,25 +369,28 @@ public class FmDataActionExecutor {
 				|| !(parameters.get("pageSize") instanceof Integer pageSize)) {
 			throw new ServiceException("分頁查詢必須同時提供 page 與 pageSize");
 		}
-		int maxPageSize = step.getMaxRows() == null ? 1000 : step.getMaxRows();
-		if (pageSize > maxPageSize) {
+		int maxPageSize = Math.min(10000,
+				step.getMaxRows() == null ? 1000 : step.getMaxRows());
+		if (page < 1 || pageSize < 1 || pageSize > maxPageSize) {
 			throw new ServiceException("pageSize 超過 Step 最大回傳筆數");
 		}
 		long offsetValue = (long) (page - 1) * pageSize;
-		if (offsetValue > Integer.MAX_VALUE - pageSize) {
-			throw new ServiceException("分頁範圍過大");
+		if (parameters.containsKey("__fmPageSize") || parameters.containsKey("__fmOffset")) {
+			throw new ServiceException("分頁參數名稱衝突");
 		}
 		String countSql = "SELECT COUNT(*) FROM ("
 				+ stripTopLevelOrderBy(step.getSqlContent())
 				+ ") FM_DATA_ACTION_COUNT";
 		Long total = jdbcTemplate.queryForObject(countSql, parameters, Long.class);
-		jdbcTemplate.getJdbcTemplate().setMaxRows((int) offsetValue + pageSize);
-		List<Map<String, Object>> source = jdbcTemplate.queryForList(
-				step.getSqlContent(), parameters);
-		int from = Math.min((int) offsetValue, source.size());
-		int to = Math.min(from + pageSize, source.size());
-		List<Map<String, Object>> items = normalizeRows(
-				new ArrayList<>(source.subList(from, to)), pageSize);
+		String databaseProduct = jdbcTemplate.getJdbcTemplate().execute(
+				(ConnectionCallback<String>) connection ->
+						connection.getMetaData().getDatabaseProductName());
+		Map<String, Object> pageParameters = new LinkedHashMap<>(parameters);
+		pageParameters.put("__fmPageSize", pageSize);
+		pageParameters.put("__fmOffset", offsetValue);
+		jdbcTemplate.getJdbcTemplate().setMaxRows(pageSize + 1);
+		List<Map<String, Object>> items = normalizeRows(jdbcTemplate.queryForList(
+				pageSql(step.getSqlContent(), databaseProduct), pageParameters), pageSize);
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("items", items);
 		result.put("page", page);
@@ -387,22 +401,58 @@ public class FmDataActionExecutor {
 		return result;
 	}
 
+	static String pageSql(String sql, String databaseProduct) throws ServiceException {
+		String product = databaseProduct == null ? "" : databaseProduct.toUpperCase(Locale.ROOT);
+		if (product.contains("MARIADB") || product.contains("MYSQL")) {
+			return sql + " LIMIT :__fmPageSize OFFSET :__fmOffset";
+		}
+		if (product.contains("ORACLE")) {
+			return sql + " OFFSET :__fmOffset ROWS FETCH NEXT :__fmPageSize ROWS ONLY";
+		}
+		if (product.contains("SQL SERVER")) {
+			if (stripTopLevelOrderBy(sql).equals(sql)) {
+				throw new ServiceException("SQL Server 分頁查詢需要最外層 ORDER BY");
+			}
+			return sql + " OFFSET :__fmOffset ROWS FETCH NEXT :__fmPageSize ROWS ONLY";
+		}
+		throw new ServiceException("不支援的分頁資料庫類型");
+	}
+
 	static String stripTopLevelOrderBy(String sql) {
-		String upper = sql.toUpperCase(Locale.ROOT);
 		int depth = 0;
-		boolean quoted = false;
-		for (int index = 0; index < upper.length() - 8; index++) {
-			char current = upper.charAt(index);
-			if (current == '\'') {
-				quoted = !quoted;
-			} else if (!quoted && current == '(') {
+		char quote = 0;
+		for (int index = 0; index < sql.length(); index++) {
+			char current = sql.charAt(index);
+			if (quote != 0) {
+				char closing = quote == '[' ? ']' : quote;
+				if (current == '\\' && quote != '[' && index + 1 < sql.length()) {
+					index++;
+				} else if (current == closing) {
+					if (index + 1 < sql.length() && sql.charAt(index + 1) == closing) {
+						index++;
+					} else {
+						quote = 0;
+					}
+				}
+				continue;
+			}
+			if (current == '\'' || current == '"' || current == '[') {
+				quote = current;
+			} else if (current == '(') {
 				depth++;
-			} else if (!quoted && current == ')') {
+			} else if (current == ')') {
 				depth--;
-			} else if (!quoted && depth == 0
-					&& upper.startsWith("ORDER BY", index)
-					&& (index == 0 || Character.isWhitespace(upper.charAt(index - 1)))) {
-				return sql.substring(0, index).trim();
+			} else if (depth == 0 && sql.regionMatches(true, index, "ORDER", 0, 5)
+					&& (index == 0 || !Character.isLetterOrDigit(sql.charAt(index - 1)))) {
+				int by = index + 5;
+				if (by >= sql.length() || !Character.isWhitespace(sql.charAt(by))) continue;
+				while (by < sql.length() && Character.isWhitespace(sql.charAt(by))) by++;
+				if (by + 2 <= sql.length()
+						&& sql.regionMatches(true, by, "BY", 0, 2)
+						&& (by + 2 == sql.length()
+								|| !Character.isLetterOrDigit(sql.charAt(by + 2)))) {
+					return sql.substring(0, index).trim();
+				}
 			}
 		}
 		return sql;

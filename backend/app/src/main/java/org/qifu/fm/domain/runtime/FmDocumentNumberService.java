@@ -48,6 +48,7 @@ public class FmDocumentNumberService {
             throw new ServiceException("找不到啟用的單據編號規則：" + documentType);
         }
         validateRule(rule);
+        validatePeriodFormat(rule);
         ZonedDateTime localTime = Instant.ofEpochMilli(now.getTime())
                 .atZone(zoneId(tenantTimezone));
         String periodKey = periodKey(rule.getPeriodType(), localTime);
@@ -103,6 +104,19 @@ public class FmDocumentNumberService {
         }
         if (!rule.getFormatPattern().contains("{SEQ}")) {
             throw new ServiceException("單據編號格式缺少 {SEQ}：" + rule.getDocumentType());
+        }
+    }
+
+    private void validatePeriodFormat(FmDocumentNumberRule rule) throws ServiceException {
+        String pattern = rule.getFormatPattern();
+        if ("YEAR".equals(rule.getPeriodType()) && !pattern.contains("{YYYY}")) {
+            throw new ServiceException("YEAR document number format requires {YYYY}: "
+                    + rule.getDocumentType());
+        }
+        if ("MONTH".equals(rule.getPeriodType())
+                && (!pattern.contains("{YYYY}") || !pattern.contains("{MM}"))) {
+            throw new ServiceException("MONTH document number format requires {YYYY} and {MM}: "
+                    + rule.getDocumentType());
         }
     }
 

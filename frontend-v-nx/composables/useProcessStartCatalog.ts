@@ -16,12 +16,13 @@ export const useProcessStartCatalog = (defaultAccount: string) => {
   const errorMessage = ref("");
   let preferredApplicant = defaultAccount;
   let catalogGeneration = 0;
+  let applicantGeneration = 0;
 
   const ok = (response: any) =>
     response?.success === import.meta.env.VITE_SUCCESS_FLAG;
   const runtimePost = (path: string, body: any = {}, headers: any = {}) =>
     useApi(`/fm/requests${path}`, { method: "POST", body, headers });
-  const tenantHeaders = () => ({ "X-FlowMint-Tenant": tenantId.value });
+  const tenantHeaders = (id = tenantId.value) => ({ "X-FlowMint-Tenant": id });
   const fail = (response: any, fallback: string) => {
     errorMessage.value = response?.message || fallback;
     toast.warning(errorMessage.value);
@@ -29,36 +30,46 @@ export const useProcessStartCatalog = (defaultAccount: string) => {
 
   const loadCatalog = async () => {
     const generation = ++catalogGeneration;
+    const requestedTenant = tenantId.value;
+    const requestedApplicant = applicantAccount.value.trim();
     processes.value = [];
     errorMessage.value = "";
-    if (!tenantId.value || !applicantAccount.value.trim()) return;
+    if (!requestedTenant || !requestedApplicant) return;
     loading.value = true;
     try {
       const response: any = await runtimePost("/start/catalog", {
-        applicantAccount: applicantAccount.value.trim(),
-      }, tenantHeaders());
-      if (generation !== catalogGeneration) return;
+        applicantAccount: requestedApplicant,
+      }, tenantHeaders(requestedTenant));
+      if (generation !== catalogGeneration || requestedTenant !== tenantId.value) return;
       if (!ok(response)) return fail(response, "無法載入可發起流程");
       processes.value = response.value || [];
     } catch (error) {
-      if (generation === catalogGeneration) {
+      if (generation === catalogGeneration && requestedTenant === tenantId.value) {
         errorMessage.value = error instanceof Error ? error.message : "無法載入可發起流程";
       }
     } finally {
-      if (generation === catalogGeneration) loading.value = false;
+      if (generation === catalogGeneration && requestedTenant === tenantId.value) loading.value = false;
     }
   };
 
   const loadApplicants = async () => {
+    const generation = ++applicantGeneration;
+    ++catalogGeneration;
+    const requestedTenant = tenantId.value;
     applicants.value = [];
+    applicantAccount.value = "";
     processes.value = [];
     errorMessage.value = "";
-    if (!tenantId.value) return;
+    if (!requestedTenant) {
+      loading.value = false;
+      return;
+    }
     loading.value = true;
     try {
       const response: any = await runtimePost(
-        "/start/applicants", {}, tenantHeaders(),
+        "/start/applicants", {}, tenantHeaders(requestedTenant),
       );
+      if (generation !== applicantGeneration || requestedTenant !== tenantId.value) return;
       if (!ok(response)) return fail(response, "無法載入申請人清單");
       applicants.value = response.value || [];
       const selected = applicants.value.find(
@@ -68,9 +79,11 @@ export const useProcessStartCatalog = (defaultAccount: string) => {
       preferredApplicant = applicantAccount.value;
       await loadCatalog();
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : "無法載入申請人清單";
+      if (generation === applicantGeneration && requestedTenant === tenantId.value) {
+        errorMessage.value = error instanceof Error ? error.message : "無法載入申請人清單";
+      }
     } finally {
-      loading.value = false;
+      if (generation === applicantGeneration && requestedTenant === tenantId.value) loading.value = false;
     }
   };
 

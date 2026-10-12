@@ -27,9 +27,12 @@ const {
   attachmentFields,
   attachmentFiles,
   uploadSessionId,
+  uploadBatchExpiresDate,
   uploadingField,
   resetAttachments,
   prepareAttachmentFields,
+  refreshAttachmentFields,
+  hasAttachmentFields,
   createUploadBatch,
   acceptedFileTypes,
   uploadAttachment,
@@ -44,13 +47,16 @@ runtimeFormApi = useRuntimeForm({
   applicantAccount,
   selectedForm,
   prepareAttachments: prepareAttachmentFields,
+  refreshAttachmentFields,
   createUploadBatch,
   resetAttachments,
-  hasAttachmentFields: () => attachmentFields.value.length > 0,
+  hasAttachmentFields,
 });
 const {
   formHost,
   formDirty,
+  formReady,
+  formError,
   renderForm,
   destroyForm,
 } = runtimeFormApi;
@@ -62,10 +68,13 @@ const hasUnsavedChanges = computed(() => !result.value && (
 const { submitting, submit } = useRuntimeSubmit({
   tenantId,
   processDefId,
+  processVersionNo: computed(() => startData.value?.processVersionNo ?? null),
   applicantAccount,
   selectedForm,
   idempotencyKey,
   uploadSessionId,
+  uploadBatchExpiresDate,
+  createUploadBatch,
   attachmentFields,
   attachmentFiles,
   result,
@@ -170,6 +179,10 @@ onBeforeRouteLeave(() => {
         <select v-if="startData.forms?.length > 1" v-model="selectedForm" class="form-select form-select-sm form-selector"><option v-for="item in startData.forms" :key="`${item.formId}:${item.formVersionNo}`" :value="item">{{ item.formName }}（v{{ item.formVersionNo }}）</option></select>
       </div>
       <div class="card-body request-body">
+        <div v-if="formError" class="alert alert-warning" role="alert">
+          {{ formError }}
+          <button type="button" class="btn btn-sm btn-outline-primary ms-2" @click="renderForm">重試載入表單</button>
+        </div>
         <div ref="formHost" class="runtime-form"></div>
         <RuntimeAttachmentFields
           :fields="attachmentFields"
@@ -183,7 +196,7 @@ onBeforeRouteLeave(() => {
         />
         <div v-if="result" class="alert alert-success mt-4 mb-0"><strong>申請已送出</strong><div class="mt-2">{{ result.documentNumber || result.processInstanceId }}</div><NuxtLink :to="{ path: `/requests/${result.processInstanceId}`, query: { tenant: tenantId } }" class="btn btn-sm btn-success mt-3">查看申請內容</NuxtLink></div>
       </div>
-      <StartActionBar v-if="!result" :cancel-to="{ path: '/requests/start', query: { tenant: tenantId } }" :submitting="submitting" @submit="submit" />
+      <StartActionBar v-if="!result && formReady" :cancel-to="{ path: '/requests/start', query: { tenant: tenantId } }" :submitting="submitting" :uploading="Boolean(uploadingField)" @submit="submit" />
     </div>
     <div v-else class="error-state">
       <i class="bi bi-exclamation-triangle"></i>

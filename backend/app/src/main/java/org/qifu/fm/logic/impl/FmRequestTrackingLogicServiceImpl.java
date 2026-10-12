@@ -170,7 +170,8 @@ public class FmRequestTrackingLogicServiceImpl
         String account = currentAccount(tenantId);
         FmProcessInstance process = requiredProcess(tenantId, processInstanceId);
         FmFormData formData = requiredFormData(tenantId, process.getFormDataId());
-        if (!canViewDiagram(tenantId, process, formData, account)) {
+        if (!account.equals(process.getInitiatorAccount())
+                && !account.equals(formData.getOwnerAccount())) {
             throw new ServiceException("目前帳號無權查看此申請");
         }
         FmFormVersion formVersion = formVersion(

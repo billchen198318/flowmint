@@ -690,6 +690,9 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
             String currentTaskDefKey) throws ServiceException {
         boolean reject = "REJECT".equals(request.actionType());
         boolean returning = "RETURN".equals(request.actionType());
+        if ((reject || returning) && request.formData() != null) {
+            throw new ServiceException("駁回或退回時不可修改表單內容");
+        }
         boolean resubmit = "RESUBMIT".equals(request.actionType());
         boolean correctionTask = "APPLICANT_CORRECTION".equals(policy.getAssignmentMode());
         if (resubmit != correctionTask) {
@@ -772,20 +775,7 @@ public class FmTaskRuntimeLogicServiceImpl implements IFmTaskRuntimeLogicService
     private String currentAccount(String tenantId) throws ServiceException {
         tenantStatusGuard.requireActive(tenantId);
         String account = UserUtils.getCurrentUser().getUsername();
-        Map<String, Object> parameters = new HashMap<>();
-        parameters.put("tenantId", tenantId);
-        parameters.put("account", account);
-        parameters.put("status", "ACTIVE");
-        List<FmTenantAccount> values = tenantAccountService
-                .selectListByParams(parameters).getValue();
-        Date now = new Date();
-        boolean active = values.stream().anyMatch(value ->
-                (value.getEffectiveFrom() == null || !value.getEffectiveFrom().after(now))
-                        && (value.getEffectiveTo() == null
-                                || value.getEffectiveTo().after(now)));
-        if (!active) {
-            throw new ServiceException("目前帳號不屬於指定 Tenant");
-        }
+        activeEmployee(tenantId, account, new Date());
         return account;
     }
 
